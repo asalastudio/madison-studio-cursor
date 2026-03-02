@@ -1,14 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
   generateGeminiContent,
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 // Helper to clean HTML
 const cleanHtml = (html: string) => {
@@ -61,8 +58,9 @@ const scoreLink = (url: string) => {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
   }
 
   try {

@@ -1,25 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import juice from "https://esm.sh/juice@10.0.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function decryptApiKey(encryptedApiKey: string, encryptionKey: string): string {
-  const decoded = atob(encryptedApiKey);
-  return Array.from(decoded).map((char, i) =>
-    String.fromCharCode(char.charCodeAt(0) ^ encryptionKey.charCodeAt(i % encryptionKey.length))
-  ).join('');
-}
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { decryptToken } from "../_shared/encryption.ts";
 
 serve(async (req) => {
   console.log("[publish-to-klaviyo] Function invoked");
   
-  if (req.method === "OPTIONS") {
-    console.log("[publish-to-klaviyo] CORS preflight request");
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
   }
 
   try {
@@ -101,7 +91,7 @@ serve(async (req) => {
     // Get the encrypted API key
     const { data: connection, error: connectionError } = await supabase
       .from("klaviyo_connections")
-      .select("api_key_encrypted")
+      .select("api_key_encrypted, api_key_iv")
       .eq("organization_id", organization_id)
       .maybeSingle();
 
@@ -110,12 +100,12 @@ serve(async (req) => {
     }
 
     // Decrypt the API key
-    const encryptionKey = Deno.env.get("KLAVIYO_ENCRYPTION_KEY");
+    const encryptionKey = Deno.env.get("KLAVIYO_TOKEN_ENCRYPTION_KEY");
     if (!encryptionKey) {
       throw new Error("Encryption key not configured");
     }
 
-    const apiKeyRaw = decryptApiKey(connection.api_key_encrypted, encryptionKey);
+    const apiKeyRaw = await decryptToken(connection.api_key_encrypted, connection.api_key_iv, encryptionKey);
     const apiKey = apiKeyRaw.trim();
     const masked = apiKey.length > 6 ? `${apiKey.slice(0,3)}***${apiKey.slice(-3)}` : "***";
     console.log(`[publish-to-klaviyo] Decrypted key looks valid? startsWith pk_:`, apiKey.startsWith("pk_"), `len=`, apiKey.length, `mask=`, masked);

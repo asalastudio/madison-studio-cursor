@@ -6,11 +6,8 @@ import {
 } from "../_shared/geminiClient.ts";
 import { extractBrandAssets } from "../_shared/brandAssetsExtractor.ts";
 import { extractColorPalette } from "../_shared/colorPaletteExtractor.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 /**
  * Infer a color name from hex value (basic helper)
@@ -35,8 +32,9 @@ function inferColorName(hex: string): string {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
   }
 
   try {

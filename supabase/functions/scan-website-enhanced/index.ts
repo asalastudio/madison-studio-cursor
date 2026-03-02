@@ -25,6 +25,7 @@ import {
   type SquadAssignment
 } from "../_shared/squadAssignment.ts";
 import { storeDesignTokens } from "../_shared/designTokenGenerator.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -60,28 +61,13 @@ interface BrandDNA {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CORS HEADERS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════════════════════
 
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders
-    });
-  }
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const body: RequestBody = await req.json();

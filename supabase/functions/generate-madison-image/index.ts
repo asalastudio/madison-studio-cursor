@@ -7,12 +7,8 @@ import { callGeminiImage } from "../_shared/aiProviders.ts";
 import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { getVisualMasterContext, getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 /**
  * ------------------------------
@@ -625,8 +621,9 @@ async function insertGeneratedImageRecord(
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
   }
 
   try {

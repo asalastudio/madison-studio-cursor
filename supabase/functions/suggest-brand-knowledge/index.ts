@@ -6,23 +6,14 @@ import {
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 serve(async (req) => {
   console.log('[suggest-brand-knowledge] Function invoked, method:', req.method);
-  
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      status: 200,
-      headers: corsHeaders 
-    });
-  }
+
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     console.log('[suggest-brand-knowledge] Starting request...');

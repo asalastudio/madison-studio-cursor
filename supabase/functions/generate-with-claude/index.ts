@@ -5,18 +5,13 @@ import { getSemanticFields, formatSemanticContext } from '../_shared/productFiel
 import { buildAuthorProfilesSection } from '../_shared/authorProfiles.ts';
 import { buildBrandAuthoritiesSection } from '../_shared/brandAuthorities.ts';
 import { getMadisonMasterContext, getSchwartzTemplate, SQUAD_DEFINITIONS } from '../_shared/madisonMasters.ts';
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRODUCT TYPE WRITING RULES
@@ -1054,14 +1049,9 @@ function buildSequencingPrompt(sequenceData: any, contentType: string) {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    console.log('CORS preflight request received');
-    return new Response(null, { 
-      status: 200,
-      headers: corsHeaders 
-    });
-  }
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     // Authentication check - verify JWT token is present and valid
@@ -1089,7 +1079,16 @@ serve(async (req) => {
     }
 
     console.log(`Authenticated request from user: ${user.id}`);
-    
+
+    // Rate limit check
+    const { allowed, retryAfter } = checkRateLimit(`generate:${user.id}`, 10, 60);
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: "Too many requests. Please try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) } }
+      );
+    }
+
     // Determine model availability - Priority: Gemini Direct > Claude
     // Gemini Direct is most cost-effective (subscription-based), Claude is high quality but pay-per-use
     const hasGeminiDirect = !!GEMINI_API_KEY;

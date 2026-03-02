@@ -8,19 +8,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// Decrypt token (simple base64 for now)
-function decryptToken(encrypted: string): string {
-  if (encrypted.startsWith("enc:")) {
-    return atob(encrypted.slice(4));
-  }
-  return encrypted;
-}
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { encryptToken, decryptToken } from "../_shared/encryption.ts";
 
 // Refresh Etsy access token if expired
 async function refreshAccessToken(
@@ -28,17 +17,22 @@ async function refreshAccessToken(
   connection: any,
   clientId: string
 ): Promise<{ accessToken: string; error?: string }> {
+  const encryptionKey = Deno.env.get("ETSY_TOKEN_ENCRYPTION_KEY");
+  if (!encryptionKey) {
+    return { accessToken: "", error: "ETSY_TOKEN_ENCRYPTION_KEY not configured" };
+  }
+
   // Check if token is still valid (with 5 min buffer)
   const tokenExpiry = new Date(connection.token_expiry);
   const now = new Date(Date.now() + 5 * 60 * 1000);
 
   if (tokenExpiry > now) {
-    return { accessToken: decryptToken(connection.encrypted_access_token) };
+    return { accessToken: await decryptToken(connection.encrypted_access_token, connection.access_token_iv, encryptionKey) };
   }
 
   console.log("[sync-etsy-products] Token expired, refreshing...");
 
-  const refreshToken = decryptToken(connection.encrypted_refresh_token);
+  const refreshToken = await decryptToken(connection.encrypted_refresh_token, connection.refresh_token_iv, encryptionKey);
 
   const tokenResponse = await fetch("https://api.etsy.com/v3/public/oauth/token", {
     method: "POST",
@@ -62,15 +56,17 @@ async function refreshAccessToken(
   const { access_token, refresh_token, expires_in } = tokenData;
   const newExpiry = new Date(Date.now() + expires_in * 1000);
 
-  // Update tokens in database
-  const encryptedAccessToken = `enc:${btoa(access_token)}`;
-  const encryptedRefreshToken = `enc:${btoa(refresh_token)}`;
+  // Update tokens in database with AES-GCM encryption
+  const { ciphertextB64: encryptedAccessToken, ivB64: accessTokenIv } = await encryptToken(access_token, encryptionKey);
+  const { ciphertextB64: encryptedRefreshToken, ivB64: refreshTokenIv } = await encryptToken(refresh_token, encryptionKey);
 
   await supabase
     .from("etsy_connections")
     .update({
       encrypted_access_token: encryptedAccessToken,
+      access_token_iv: accessTokenIv,
       encrypted_refresh_token: encryptedRefreshToken,
+      refresh_token_iv: refreshTokenIv,
       token_expiry: newExpiry.toISOString(),
     })
     .eq("id", connection.id);
@@ -80,8 +76,9 @@ async function refreshAccessToken(
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
   }
 
   try {

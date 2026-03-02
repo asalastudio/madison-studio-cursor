@@ -5,13 +5,7 @@ import { generateGeminiContent, extractTextFromGeminiResponse } from "../_shared
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
 import { buildBrandAuthoritiesSection } from "../_shared/brandAuthorities.ts";
 import { getMadisonMasterContext, SQUAD_DEFINITIONS, CONTENT_TYPE_TO_SQUAD } from "../_shared/madisonMasters.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 // Helper function to fetch Madison's system training (STANDARDIZED)
 async function getMadisonSystemConfig(supabaseClient: any) {
@@ -759,12 +753,9 @@ const stripMarkdown = (text: string): string => {
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      status: 200,
-      headers: corsHeaders 
-    });
-  }
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const { masterContentId, derivativeTypes, masterContent } = await req.json();

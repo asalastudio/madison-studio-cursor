@@ -7,17 +7,14 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { encryptToken } from "../_shared/encryption.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const url = new URL(req.url);
@@ -127,10 +124,15 @@ serve(async (req) => {
     const shopName = shop.shop_name;
     const shopUrl = shop.url;
 
-    // Simple encryption for tokens (in production, use proper encryption)
-    // For now, we'll base64 encode with a prefix - in production, use pgcrypto or similar
-    const encryptedAccessToken = `enc:${btoa(access_token)}`;
-    const encryptedRefreshToken = `enc:${btoa(refresh_token)}`;
+    // Encrypt tokens with AES-GCM
+    const ETSY_ENC_KEY = Deno.env.get("ETSY_TOKEN_ENCRYPTION_KEY");
+    if (!ETSY_ENC_KEY) {
+      console.error("[etsy-oauth-callback] ETSY_TOKEN_ENCRYPTION_KEY not configured");
+      return createRedirect(oauthState.redirect_url, "etsy_error=encryption_not_configured");
+    }
+
+    const { ciphertextB64: encAccess, ivB64: ivAccess } = await encryptToken(access_token, ETSY_ENC_KEY);
+    const { ciphertextB64: encRefresh, ivB64: ivRefresh } = await encryptToken(refresh_token, ETSY_ENC_KEY);
 
     // Check if connection already exists for this organization
     const { data: existingConnection } = await supabase
@@ -148,8 +150,10 @@ serve(async (req) => {
           shop_id: shopId,
           shop_name: shopName,
           shop_url: shopUrl,
-          encrypted_access_token: encryptedAccessToken,
-          encrypted_refresh_token: encryptedRefreshToken,
+          encrypted_access_token: encAccess,
+          access_token_iv: ivAccess,
+          encrypted_refresh_token: encRefresh,
+          refresh_token_iv: ivRefresh,
           token_expiry: tokenExpiry.toISOString(),
           connected_at: new Date().toISOString(),
           is_active: true,
@@ -170,8 +174,10 @@ serve(async (req) => {
           shop_id: shopId,
           shop_name: shopName,
           shop_url: shopUrl,
-          encrypted_access_token: encryptedAccessToken,
-          encrypted_refresh_token: encryptedRefreshToken,
+          encrypted_access_token: encAccess,
+          access_token_iv: ivAccess,
+          encrypted_refresh_token: encRefresh,
+          refresh_token_iv: ivRefresh,
           token_expiry: tokenExpiry.toISOString(),
         });
 

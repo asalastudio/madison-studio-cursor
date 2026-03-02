@@ -4,6 +4,7 @@ import { extractBrandAssets } from "../_shared/brandAssetsExtractor.ts";
 import { extractColorPalette } from "../_shared/colorPaletteExtractor.ts";
 import { fetchSiteCopy } from "../_shared/siteCopyExtractor.ts";
 import { inferBrandProfile } from "../_shared/brandProfileInference.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 // Type definitions (inline for Deno compatibility)
 type BrandReport = {
@@ -109,27 +110,17 @@ function normalizeBrandReport(report: Partial<BrandReport>, url: string): BrandR
   };
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
-
 /**
  * /api/scan endpoint
- * 
+ *
  * Orchestrates the full website scanning and brand extraction process.
- * 
+ *
  * Request body: { url: string, organizationId: string, forceRescan?: boolean }
  */
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { 
-      status: 200,
-      headers: corsHeaders 
-    });
-  }
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const { url, organizationId, forceRescan = false } = await req.json();

@@ -1,37 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Encrypt and store Shopify tokens in application table
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-
-function base64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-async function encryptText(plain: string, keyB64: string): Promise<{ ciphertextB64: string; ivB64: string }> {
-  const keyBytes = base64ToBytes(keyB64);
-  // Create a fresh ArrayBuffer to satisfy Deno's BufferSource typing
-  const keyCopy = new Uint8Array(keyBytes.length);
-  keyCopy.set(keyBytes);
-  const keyBuffer: ArrayBuffer = keyCopy.buffer;
-  const cryptoKey = await crypto.subtle.importKey('raw', keyBuffer, { name: 'AES-GCM' }, false, ['encrypt']);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(plain);
-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, encoded);
-  return { ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)), ivB64: bytesToBase64(iv) };
-}
+import { encryptToken } from "../_shared/encryption.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 async function storeConnectionEncrypted(
   supabase: any,
@@ -43,7 +13,7 @@ async function storeConnectionEncrypted(
   if (!ENC_KEY) throw new Error('Shopify token encryption key not configured');
 
   console.log(`Encrypting Shopify token for organization ${organizationId}`);
-  const { ciphertextB64: encAccess, ivB64: ivAccess } = await encryptText(accessToken, ENC_KEY);
+  const { ciphertextB64: encAccess, ivB64: ivAccess } = await encryptToken(accessToken, ENC_KEY);
 
   // Check if record exists for this organization
   const { data: existing, error: fetchErr } = await supabase
@@ -92,9 +62,9 @@ async function storeConnectionEncrypted(
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -109,7 +79,7 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     if (authError || !user) {
       throw new Error('Unauthorized');
     }
@@ -161,27 +131,3 @@ serve(async (req) => {
     );
   }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

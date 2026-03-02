@@ -10,16 +10,15 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { encryptToken } from "../_shared/encryption.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
   }
 
   try {
@@ -176,10 +175,20 @@ serve(async (req) => {
       console.log("[linkedin-oauth-callback] No organization access:", orgError);
     }
 
-    // Simple encryption for tokens (base64 encoding with prefix)
-    // In production, use proper encryption with pgcrypto or a secrets manager
-    const encryptedAccessToken = `enc:${btoa(access_token)}`;
-    const encryptedRefreshToken = refresh_token ? `enc:${btoa(refresh_token)}` : null;
+    // Encrypt tokens with AES-GCM
+    const tokenEncryptionKey = Deno.env.get("LINKEDIN_TOKEN_ENCRYPTION_KEY");
+    if (!tokenEncryptionKey) {
+      console.error("[linkedin-oauth-callback] LINKEDIN_TOKEN_ENCRYPTION_KEY not configured");
+      return createRedirect(oauthState.redirect_url, "linkedin_error=encryption_not_configured");
+    }
+    const { ciphertextB64: encryptedAccessToken, ivB64: accessTokenIv } = await encryptToken(access_token, tokenEncryptionKey);
+    let encryptedRefreshToken: string | null = null;
+    let refreshTokenIv: string | null = null;
+    if (refresh_token) {
+      const refreshResult = await encryptToken(refresh_token, tokenEncryptionKey);
+      encryptedRefreshToken = refreshResult.ciphertextB64;
+      refreshTokenIv = refreshResult.ivB64;
+    }
 
     // Extract scopes that were granted
     const grantedScopes = tokenData.scope ? tokenData.scope.split(" ") : [];
@@ -202,7 +211,9 @@ serve(async (req) => {
       linkedin_org_vanity_name: linkedinOrgVanityName,
       linkedin_org_logo_url: linkedinOrgLogoUrl,
       encrypted_access_token: encryptedAccessToken,
+      access_token_iv: accessTokenIv,
       encrypted_refresh_token: encryptedRefreshToken,
+      refresh_token_iv: refreshTokenIv,
       token_expiry: tokenExpiry.toISOString(),
       scopes: grantedScopes,
       connected_at: new Date().toISOString(),

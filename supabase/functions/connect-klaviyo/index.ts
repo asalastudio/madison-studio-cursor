@@ -1,23 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// Simple XOR encryption for API keys
-function encryptApiKey(apiKey: string, encryptionKey: string): string {
-  const encrypted = Array.from(apiKey).map((char, i) => 
-    String.fromCharCode(char.charCodeAt(0) ^ encryptionKey.charCodeAt(i % encryptionKey.length))
-  ).join('');
-  return btoa(encrypted);
-}
+import { encryptToken } from "../_shared/encryption.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const optionsResponse = handleCorsOptions(req);
+  if (optionsResponse) return optionsResponse;
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -85,20 +74,21 @@ serve(async (req) => {
     const listsData = await testResponse.json();
     const listCount = listsData.data?.length || 0;
 
-    // Encrypt the API key
-    const encryptionKey = Deno.env.get("KLAVIYO_ENCRYPTION_KEY");
+    // Encrypt the API key with AES-GCM
+    const encryptionKey = Deno.env.get("KLAVIYO_TOKEN_ENCRYPTION_KEY");
     if (!encryptionKey) {
       throw new Error("Encryption key not configured");
     }
 
-    const encryptedApiKey = encryptApiKey(api_key, encryptionKey);
+    const { ciphertextB64, ivB64 } = await encryptToken(api_key, encryptionKey);
 
     // Store the encrypted API key
     const { error: upsertError } = await supabase
       .from("klaviyo_connections")
       .upsert({
         organization_id,
-        api_key_encrypted: encryptedApiKey,
+        api_key_encrypted: ciphertextB64,
+        api_key_iv: ivB64,
         list_count: listCount,
         last_synced_at: new Date().toISOString(),
         sync_status: "idle",
@@ -114,10 +104,10 @@ serve(async (req) => {
     console.log(`Successfully connected Klaviyo for organization ${organization_id}`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         list_count: listCount,
-        message: "Klaviyo connected successfully" 
+        message: "Klaviyo connected successfully"
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
