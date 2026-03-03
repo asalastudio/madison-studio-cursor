@@ -63,9 +63,28 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('[Unhandled Promise Rejection]', event.reason);
 });
 
+import * as Sentry from "@sentry/react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+
+// Initialize Sentry for production error tracking
+if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.MODE,
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0.05,
+    beforeSend(event) {
+      // Filter out ResizeObserver and CORS noise
+      const message = event.exception?.values?.[0]?.value?.toLowerCase() || '';
+      if (message.includes('resizeobserver') || message.includes('cors')) {
+        return null;
+      }
+      return event;
+    },
+  });
+}
 
 console.log("[main.tsx] Starting app initialization...");
 
