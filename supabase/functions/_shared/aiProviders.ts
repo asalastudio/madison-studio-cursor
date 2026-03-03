@@ -228,7 +228,7 @@ export interface GeminiImageRequest {
     data: string;
     mimeType: string;
   }>;
-  model?: string; // Optional model override (e.g., "models/gemini-2.0-flash-exp")
+  model?: string; // Optional model override (e.g., "models/gemini-2.5-flash")
 }
 
 export async function callGeminiImage(

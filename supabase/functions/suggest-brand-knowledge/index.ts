@@ -493,7 +493,7 @@ Respond ONLY with valid JSON matching this structure:
 ${jsonInstruction}`,
           },
         ],
-        // Note: responseMimeType removed for compatibility with gemini-2.0-flash-exp
+        // Note: responseMimeType removed for compatibility with gemini-2.5-flash
         temperature: 0.4,
         maxOutputTokens: 1024,
       });

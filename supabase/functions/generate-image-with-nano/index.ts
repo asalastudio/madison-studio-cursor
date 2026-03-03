@@ -21,7 +21,7 @@ serve(async (req) => {
     const { prompt } = await req.json();
     console.log('[generate-image-with-nano] Generating image for prompt:', prompt.substring(0, 100));
 
-    const response = await fetch(`${GEMINI_API_BASE}/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`${GEMINI_API_BASE}/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

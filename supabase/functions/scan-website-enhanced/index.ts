@@ -254,7 +254,7 @@ serve(async (req) => {
         source_url: normalizedUrl,
         scanned_at: new Date().toISOString(),
         confidence: visualAnalysis.confidence,
-        gemini_model: 'gemini-1.5-flash',
+        gemini_model: 'gemini-2.5-flash',
         squad_reasoning: squadAssignment.reasoning,
         analysis_raw: visualAnalysis,
       },

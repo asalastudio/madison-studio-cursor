@@ -1,6 +1,6 @@
 export const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-const DEFAULT_MODEL = "models/gemini-2.0-flash-exp";
+const DEFAULT_MODEL = "models/gemini-2.5-flash";
 
 type OpenAIContentPart =
   | { type: "text"; text: string }

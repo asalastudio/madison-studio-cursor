@@ -681,12 +681,9 @@ serve(async (req) => {
       if (aiProvider === "gemini-3-pro-image" || aiProvider === "gemini-3") {
         effectiveProvider = "gemini";
         effectiveGeminiModel = "models/gemini-3-pro-image-preview";
-      } else if (aiProvider === "gemini" || aiProvider === "gemini-2.0-flash") {
+      } else if (aiProvider === "gemini" || aiProvider === "gemini-2.0-flash" || aiProvider === "gemini-2.0-flash-exp") {
         effectiveProvider = "gemini";
-        effectiveGeminiModel = "models/gemini-2.0-flash-exp";
-      } else if (aiProvider === "gemini-2.0-flash-exp") {
-        effectiveProvider = "gemini";
-        effectiveGeminiModel = "models/gemini-2.0-flash-exp";
+        effectiveGeminiModel = "models/gemini-2.5-flash";
       } 
       // Freepik models (actual available models from docs.freepik.com)
       else if (aiProvider === "freepik-seedream-4") {
