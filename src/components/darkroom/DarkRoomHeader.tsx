@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Save, Settings, HelpCircle, X, Download, CheckCircle, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ interface DarkRoomHeaderProps {
   onDownloadHero?: () => void;
   onSaveHero?: () => void;
   onRefineHero?: () => void;
+  // Extra content for the right side (e.g. LibrarianTrigger)
+  rightExtra?: React.ReactNode;
 }
 
 export function DarkRoomHeader({
@@ -35,11 +38,11 @@ export function DarkRoomHeader({
   savedCount,
   isSaving,
   onSaveAll,
-  onOpenSettings,
   heroImage,
   onDownloadHero,
   onSaveHero,
   onRefineHero,
+  rightExtra,
 }: DarkRoomHeaderProps) {
   const navigate = useNavigate();
 
@@ -195,6 +198,8 @@ export function DarkRoomHeader({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+
+        {rightExtra}
       </div>
     </header>
   );

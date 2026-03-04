@@ -44,6 +44,10 @@ supabase secrets set GEMINI_API_KEY="AIzaSy..." ANTHROPIC_API_KEY="your-anthropi
 
 If you're running Supabase locally:
 
+1. Copy `.env.example` to `.env` and fill in your values
+2. For edge functions, set `GEMINI_API_KEY` and/or `ANTHROPIC_API_KEY` in your `.env` (Supabase CLI passes these to local functions)
+3. Set `ENVIRONMENT=development` in `.env` to see detailed error messages when debugging AI model issues
+
 
 ## Getting Your API Keys
 

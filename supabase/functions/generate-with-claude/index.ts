@@ -2135,8 +2135,10 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
               };
             }
             
+            // Use gemini-2.5-flash (gemini-2.0-flash-001 no longer available to new users)
+            const GEMINI_MODEL = 'gemini-2.5-flash';
             console.log('Sending request to Gemini Direct API:', {
-              model: 'gemini-2.0-flash-exp',
+              model: GEMINI_MODEL,
               partsCount: geminiParts.length,
               hasImages: images && images.length > 0,
               systemPromptLength: systemPrompt.length
@@ -2147,8 +2149,7 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
             const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
             
             try {
-              // Use Gemini 2.0 Flash Experimental (latest, fastest) or fallback to 1.5 Flash
-              response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+              response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -2372,6 +2373,8 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
     } else if (errorMessage.includes('model') || errorMessage.includes('invalid')) {
       statusCode = 400;
       userMessage = 'Invalid AI model configuration. Please contact support.';
+      // Always include actual error for model issues (API key setup, model name, quota) - helps users self-debug
+      userMessage += ` (${errorMessage})`;
     } else if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
       statusCode = 429;
       userMessage = 'Rate limit exceeded. Please wait a moment and try again.';
@@ -2383,7 +2386,7 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
     return new Response(
       JSON.stringify({ 
         error: userMessage,
-        details: Deno.env.get('ENVIRONMENT') === 'development' ? errorMessage : undefined
+        details: errorMessage
       }),
       {
         status: statusCode,

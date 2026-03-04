@@ -4,7 +4,7 @@
  * Manages dashboard layout state and provides methods for widget operations.
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { DashboardLayout, WidgetConfig, WidgetType, DEFAULT_LAYOUT, WIDGET_REGISTRY, WIDGET_SIZES } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -32,6 +32,7 @@ export function WidgetProvider({ children }: { children: ReactNode }) {
   const [layout, setLayout] = useState<DashboardLayout>(DEFAULT_LAYOUT);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
+  const initialLoadDoneRef = useRef(false);
 
   // Load layout from database
   useEffect(() => {
@@ -60,6 +61,7 @@ export function WidgetProvider({ children }: { children: ReactNode }) {
         console.error('[WidgetContext] Error loading layout:', e);
       } finally {
         setIsLoading(false);
+        initialLoadDoneRef.current = true;
       }
     };
 
@@ -68,7 +70,7 @@ export function WidgetProvider({ children }: { children: ReactNode }) {
 
   // Save layout to database
   const saveLayout = useCallback(async () => {
-    if (!organizationId) return;
+    if (!organizationId || !initialLoadDoneRef.current) return;
 
     try {
       // Get current settings
@@ -100,12 +102,17 @@ export function WidgetProvider({ children }: { children: ReactNode }) {
         console.error('[WidgetContext] Error saving layout:', error);
         toast({
           title: 'Failed to save layout',
-          description: 'Your dashboard changes couldn\'t be saved.',
+          description: error.message,
           variant: 'destructive',
         });
       }
     } catch (e) {
       console.error('[WidgetContext] Error saving layout:', e);
+      toast({
+        title: 'Failed to save layout',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
     }
   }, [organizationId, layout, toast]);
 
@@ -184,12 +191,16 @@ export function WidgetProvider({ children }: { children: ReactNode }) {
     });
   }, [toast]);
 
-  // Auto-save when exiting edit mode
+  // Auto-save when layout changes (debounced) - saves during edit mode too
   useEffect(() => {
-    if (!isEditMode && !isLoading) {
+    if (isLoading || !initialLoadDoneRef.current || !organizationId) return;
+
+    const timeoutId = setTimeout(() => {
       saveLayout();
-    }
-  }, [isEditMode, isLoading, saveLayout]);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [layout, isLoading, organizationId, saveLayout]);
 
   return (
     <WidgetContext.Provider

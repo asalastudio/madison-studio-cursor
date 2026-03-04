@@ -47,7 +47,7 @@ const STYLE_CONFIG = {
   },
   dramatic: {
     gradient: "from-purple-500/20 via-violet-500/10 to-pink-500/20",
-    accent: "#8b5cf6",
+    accent: "#B8956A",
     description: "Bold contrasts, impactful timing",
   },
   minimal: {

@@ -1,0 +1,87 @@
+<!--
+  Perfume Bottle Label - Wraparound
+  Dimensions: 200mm (W) × 80mm (H) - wraps around bottle circumference
+  Bleed: 3mm on all sides
+  Panel zones: front, back, overlap
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 280" width="620" height="280">
+  <defs>
+    <style>
+      .cut-line { fill: none; stroke: #000; stroke-width: 1; }
+      .score-line { fill: none; stroke: #FF0000; stroke-width: 0.5; stroke-dasharray: 3,3; }
+      .bleed-zone { fill: rgba(255,0,0,0.05); }
+      .safe-zone { fill: rgba(0,255,0,0.05); }
+      .overlap-zone { fill: rgba(0,0,255,0.05); }
+      .panel-label { font-family: Arial; font-size: 12px; fill: #666; }
+      .zone-label { font-family: Arial; font-size: 10px; fill: #999; }
+    </style>
+  </defs>
+
+  <!-- Full label area with bleed -->
+  <rect class="bleed-zone" x="0" y="0" width="620" height="280"/>
+
+  <!-- Main label area (cut line) -->
+  <rect class="cut-line" x="10" y="40" width="600" height="200"/>
+
+  <!-- Vertical score lines (wrap zones) -->
+  <!-- Front panel ends -->
+  <path class="score-line" d="M 210,40 L 210,240"/>
+  <!-- Back panel starts -->
+  <path class="score-line" d="M 410,40 L 410,240"/>
+  <!-- Overlap zone starts -->
+  <path class="score-line" d="M 580,40 L 580,240" stroke="#0000FF"/>
+
+  <!-- Front Panel Zone -->
+  <g id="front" data-panel-type="printable">
+    <rect class="safe-zone" x="20" y="50" width="180" height="180" stroke-dasharray="2,2" stroke="#00FF00"/>
+    <text class="panel-label" x="110" y="140" text-anchor="middle">FRONT PANEL</text>
+    <text class="zone-label" x="110" y="160" text-anchor="middle">(Primary artwork area)</text>
+  </g>
+
+  <!-- Side Transition (Left) -->
+  <g id="left-side" data-panel-type="side">
+    <rect class="safe-zone" x="200" y="50" width="20" height="180" opacity="0.3"/>
+    <text class="zone-label" x="210" y="140" text-anchor="middle" transform="rotate(-90 210 140)">Side</text>
+  </g>
+
+  <!-- Back Panel Zone -->
+  <g id="back" data-panel-type="printable">
+    <rect class="safe-zone" x="220" y="50" width="180" height="180" stroke-dasharray="2,2" stroke="#00FF00"/>
+    <text class="panel-label" x="310" y="140" text-anchor="middle">BACK PANEL</text>
+    <text class="zone-label" x="310" y="160" text-anchor="middle">(Ingredients, info, barcode)</text>
+  </g>
+
+  <!-- Side Transition (Right) -->
+  <g id="right-side" data-panel-type="side">
+    <rect class="safe-zone" x="400" y="50" width="20" height="180" opacity="0.3"/>
+    <text class="zone-label" x="410" y="140" text-anchor="middle" transform="rotate(-90 410 140)">Side</text>
+  </g>
+
+  <!-- Wrap-around Extension -->
+  <g id="wraparound" data-panel-type="side">
+    <rect class="safe-zone" x="420" y="50" width="150" height="180" opacity="0.3"/>
+    <text class="zone-label" x="495" y="140" text-anchor="middle">Wraparound</text>
+    <text class="zone-label" x="495" y="160" text-anchor="middle" font-size="9">(Continues to front)</text>
+  </g>
+
+  <!-- Overlap Zone (glue area) -->
+  <g id="overlap" data-panel-type="glue">
+    <rect class="overlap-zone" x="570" y="50" width="30" height="180"/>
+    <text class="zone-label" x="585" y="140" text-anchor="middle" transform="rotate(-90 585 140)">Overlap/Glue</text>
+  </g>
+
+  <!-- Bleed indicators -->
+  <text class="zone-label" x="310" y="25" text-anchor="middle">← Bleed: 3mm on all sides →</text>
+  <text class="zone-label" x="310" y="260" text-anchor="middle">Safe zone: 5mm from cut line</text>
+
+  <!-- Dimension annotations -->
+  <line x1="10" y1="250" x2="610" y2="250" stroke="#666" stroke-width="0.5" marker-end="url(#arrowhead)"/>
+  <line x1="10" y1="250" x2="10" y2="245" stroke="#666" stroke-width="0.5"/>
+  <line x1="610" y1="250" x2="610" y2="245" stroke="#666" stroke-width="0.5"/>
+  <text class="zone-label" x="310" y="270" text-anchor="middle">200mm (wrap circumference)</text>
+
+  <line x1="5" y1="40" x2="5" y2="240" stroke="#666" stroke-width="0.5"/>
+  <line x1="5" y1="40" x2="0" y2="40" stroke="#666" stroke-width="0.5"/>
+  <line x1="5" y1="240" x2="0" y2="240" stroke="#666" stroke-width="0.5"/>
+  <text class="zone-label" x="25" y="145" transform="rotate(-90 15 140)">80mm (height)</text>
+</svg>

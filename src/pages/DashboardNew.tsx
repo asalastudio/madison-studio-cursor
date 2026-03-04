@@ -45,6 +45,7 @@ import { RoleDashboardWidgets } from "@/components/dashboard/RoleDashboardWidget
 import { useUserRole } from "@/hooks/useUserRole";
 
 import { BottomNavigation } from "@/components/layout/BottomNavigation";
+import { TextureOverlay } from "@/components/ui/texture-overlay";
 
 export default function DashboardNew() {
   const navigate = useNavigate();
@@ -123,9 +124,9 @@ export default function DashboardNew() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-[#FAFAFA] flex flex-col">
+    <div className="h-screen overflow-hidden flex flex-col">
       {/* Top Bar with Madison Button - Desktop Only */}
-      <div className="hidden md:flex h-16 border-b border-[#E0E0E0] px-8 items-center justify-between bg-white">
+      <div className="hidden md:flex h-16 border-b border-[#E0E0E0] px-8 items-center justify-between bg-white shrink-0">
         <h1 className="text-xl font-semibold text-[#1C150D]">Dashboard</h1>
         <div className="flex items-center gap-3">
           {/* Reset Button (only in edit mode) */}
@@ -219,7 +220,7 @@ export default function DashboardNew() {
       </div>
 
       {/* Mobile Header - Simplified */}
-      <div className="md:hidden h-14 border-b border-[#E0E0E0] px-4 flex items-center justify-between bg-white sticky top-0 z-10">
+      <div className="md:hidden h-14 border-b border-[#E0E0E0] px-4 flex items-center justify-between bg-white sticky top-0 z-10 shrink-0">
         <h1 className="text-base sm:text-lg font-semibold text-[#1C150D]">Dashboard</h1>
         <div className="flex items-center gap-2">
           <Button
@@ -267,9 +268,11 @@ export default function DashboardNew() {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-auto px-3 sm:px-4 md:px-8 py-3 sm:py-4 md:py-6 pb-20 sm:pb-24 md:pb-6 main-content">
-        <div className="max-w-[1400px] mx-auto space-y-3 sm:space-y-4 md:space-y-6">
+      {/* Main Content Area - Brand background with dots texture */}
+      <div className="flex-1 overflow-auto main-content relative bg-[#F5F1E8]">
+        <div className="relative min-h-full">
+          <TextureOverlay texture="grid" opacity={0.35} gridSize={8} />
+          <div className="relative z-10 max-w-[1400px] mx-auto space-y-3 sm:space-y-4 md:space-y-6">
 
           {/* WIDGET SYSTEM - All components including hero are widgets */}
           <DashboardWidgetSystem
@@ -306,6 +309,7 @@ export default function DashboardNew() {
           )}
           */}
 
+          </div>
         </div>
       </div>
 

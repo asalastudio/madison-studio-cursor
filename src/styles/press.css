@@ -1,0 +1,341 @@
+/* ==============================================
+   THE PRESS - ANTI-GRAVITY DESIGN SYSTEM
+   Packaging design studio with luxury aerospace aesthetic
+   ============================================== */
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(18, 18, 26, 0.3);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.2);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.4);
+}
+
+/* Glass Panel Effect */
+.glass-panel {
+  background: rgba(18, 18, 26, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 240, 255, 0.1);
+}
+
+/* Cyber Button - Anti-Gravity Style */
+.cyber-button {
+  position: relative;
+  background: rgba(0, 240, 255, 0.05);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  color: #f0f0f0;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.cyber-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.cyber-button:hover {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: #00f0ff;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.cyber-button:hover::before {
+  left: 100%;
+}
+
+.cyber-button:active {
+  transform: translateY(0);
+}
+
+/* Cyber Input */
+.cyber-input {
+  background: rgba(5, 5, 8, 0.6);
+  border: 1px solid rgba(26, 26, 31, 1);
+  color: #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.cyber-input:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1);
+  background: rgba(5, 5, 8, 0.8);
+}
+
+.cyber-input::placeholder {
+  color: #555566;
+}
+
+/* Cyber Slider */
+.cyber-slider [role="slider"] {
+  background: linear-gradient(135deg, #00f0ff 0%, #8b5cf6 100%);
+  border: 2px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.cyber-slider [role="slider"]:hover {
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+  transform: scale(1.1);
+}
+
+/* Canvas Background with Star Field */
+.canvas-background {
+  background: #0a0a0f;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(0, 240, 255, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
+    radial-gradient(1px 1px at 10% 20%, rgba(240, 240, 240, 0.1) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, rgba(240, 240, 240, 0.1) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 40%, rgba(240, 240, 240, 0.1) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 80%, rgba(240, 240, 240, 0.1) 0%, transparent 100%);
+}
+
+/* Template Card Animations */
+@keyframes templatePulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
+  }
+}
+
+.template-card-active {
+  animation: templatePulse 2s ease-in-out infinite;
+}
+
+/* Dimension Annotation Labels */
+.dimension-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: #00f0ff;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+  letter-spacing: 0.5px;
+}
+
+/* Orbital Ring Effect */
+@keyframes orbitalRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.orbital-ring {
+  position: absolute;
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: orbitalRotate 20s linear infinite;
+}
+
+/* Floating Particles */
+@keyframes particleFloat {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-20px) translateX(10px);
+    opacity: 0.6;
+  }
+}
+
+.particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #00f0ff;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: particleFloat 3s ease-in-out infinite;
+  box-shadow: 0 0 4px rgba(0, 240, 255, 0.8);
+}
+
+/* Scan Line Effect (subtle CRT feel) */
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.scanline-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 240, 255, 0.03) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  animation: scanline 8s linear infinite;
+  opacity: 0.2;
+}
+
+/* Export Format Buttons */
+.export-format-button {
+  position: relative;
+  background: rgba(18, 18, 26, 0.5);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  transition: all 0.3s ease;
+}
+
+.export-format-button:hover {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+}
+
+.export-format-button.active {
+  background: rgba(0, 240, 255, 0.12);
+  border-color: #00f0ff;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+}
+
+/* 3D Preview Container */
+.preview-3d-container {
+  background: radial-gradient(circle at center, rgba(0, 240, 255, 0.05) 0%, transparent 70%);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.preview-3d-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1px 1px at 20% 30%, rgba(240, 240, 240, 0.05) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 70%, rgba(240, 240, 240, 0.05) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Zoom Controls */
+.zoom-controls {
+  background: rgba(18, 18, 26, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 8px;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+}
+
+/* Loading Shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(18, 18, 26, 0.5) 0%,
+    rgba(0, 240, 255, 0.1) 50%,
+    rgba(18, 18, 26, 0.5) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Badge Styles */
+.badge-premium {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(0, 240, 255, 0.2) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #8b5cf6;
+  text-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}
+
+/* Selection Pulse */
+@keyframes selectionPulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.selection-indicator {
+  animation: selectionPulse 1.5s ease-in-out infinite;
+}
+
+/* Print Settings Panel */
+.print-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.print-setting-item {
+  background: rgba(10, 10, 15, 0.5);
+  border: 1px solid rgba(26, 26, 31, 1);
+  border-radius: 6px;
+  padding: 8px;
+  transition: all 0.3s ease;
+}
+
+.print-setting-item:hover {
+  border-color: rgba(0, 240, 255, 0.3);
+  background: rgba(0, 240, 255, 0.05);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .glass-panel {
+    backdrop-filter: blur(8px);
+  }
+
+  .particle {
+    display: none; /* Disable particles on smaller screens for performance */
+  }
+}
+
+/* Focus Visible States */
+*:focus-visible {
+  outline: 2px solid #00f0ff;
+  outline-offset: 2px;
+}
+
+/* Disable default focus outline */
+*:focus:not(:focus-visible) {
+  outline: none;
+}

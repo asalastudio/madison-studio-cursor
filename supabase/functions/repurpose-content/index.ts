@@ -1066,7 +1066,7 @@ FAILURE TO FOLLOW CODEX V2 PRINCIPLES OR BRAND GUIDELINES IS UNACCEPTABLE.`;
         console.log(`Calling Gemini for ${derivativeType}...`);
         try {
           const geminiResponse = await generateGeminiContent({
-            model: 'models/gemini-2.0-flash-exp',
+            model: 'models/gemini-2.5-flash',
             systemPrompt,
             messages: [{ role: 'user', content: fullPrompt }],
             maxOutputTokens: 1200,

@@ -361,17 +361,14 @@ export function ImageEditorModal({
   const handleCreateVideo = useCallback(() => {
     if (!image) return;
 
-    navigate("/video-project", {
+    navigate("/studio", {
       state: {
-        startingImage: {
-          url: image.imageUrl,
-          id: image.id,
-          prompt: image.prompt,
-        },
+        mode: "video",
+        subjectImage: image.imageUrl,
       },
     });
     onClose();
-    toast.success("Starting video project...");
+    toast.success("Opening Studio...");
   }, [image, navigate, onClose]);
 
   // Save to library

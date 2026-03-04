@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom"],
   },
   optimizeDeps: {
-    exclude: ["fabric"],
+    include: ["fabric"],
   },
   build: {
     rollupOptions: {

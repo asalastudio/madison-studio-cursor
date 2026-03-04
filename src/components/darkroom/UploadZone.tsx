@@ -20,17 +20,18 @@ interface UploadZoneProps {
   image: UploadedImage | null;
   onUpload: (image: UploadedImage) => void;
   onRemove?: () => void;
+  onLibraryOpen?: () => void;
   disabled?: boolean;
   className?: string;
 }
 
 export function UploadZone({
-  type,
   label,
   description,
   image,
   onUpload,
   onRemove,
+  onLibraryOpen,
   disabled = false,
   className,
 }: UploadZoneProps) {
@@ -118,10 +119,13 @@ export function UploadZone({
   );
 
   const handleClick = useCallback(() => {
-    if (!disabled && inputRef.current) {
+    if (disabled) return;
+    if (onLibraryOpen) {
+      onLibraryOpen();
+    } else if (inputRef.current) {
       inputRef.current.click();
     }
-  }, [disabled]);
+  }, [disabled, onLibraryOpen]);
 
   const handleRemove = useCallback(
     (e: React.MouseEvent) => {

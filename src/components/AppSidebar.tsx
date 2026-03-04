@@ -52,7 +52,8 @@ export function AppSidebar() {
       { url: "/create" },
       { url: "/multiply" },
       { url: "/darkroom" },
-      { url: "/video-project" },
+      // { url: "/press" }, // Hidden - keep in code, not pushed live
+      // { url: "/video-project" }, // Removed from project
       // { url: "/image-editor" }, // Hidden - use Dark Room instead
       // { url: "/email-builder" }, // Temporarily hidden for launch
     ];
@@ -106,7 +107,8 @@ export function AppSidebar() {
         { title: "Create", url: "/create", icon: Pencil },
         { title: "Multiply", url: "/multiply", icon: Share2 },
         { title: "Dark Room", url: "/darkroom", icon: Camera },
-        { title: "Video Project", url: "/video-project", icon: Video },
+        // { title: "The Press", url: "/press", icon: Package }, // Hidden - keep in code, not pushed live
+        // { title: "Video Project", url: "/video-project", icon: Video }, // Removed from project
         // { title: "Image Studio", url: "/image-editor", icon: Image }, // Hidden - use Dark Room instead
         // { title: "Email Builder", url: "/email-builder", icon: Mail }, // Temporarily hidden for launch
       ]
@@ -209,7 +211,7 @@ export function AppSidebar() {
                 // Mobile: Logo left, close button right, with proper spacing
                 <div className="flex items-center justify-between w-full">
                   <NavLink to="/dashboard" className="group flex-shrink-0">
-                    <span className="font-serif text-lg tracking-[0.18em]" style={{ fontWeight: 300, color: '#F5F5DC' }}>MADISON</span>
+                    <span className="font-serif text-lg tracking-[0.18em] text-brand-parchment" style={{ fontWeight: 300 }}>MADISON</span>
                   </NavLink>
 
                   <button
@@ -235,7 +237,7 @@ export function AppSidebar() {
                     </div>
                   </button>
                   <NavLink to="/dashboard" className="group">
-                    <span className="font-serif text-xl tracking-[0.216em]" style={{ fontWeight: 300, color: '#F5F5DC' }}>MADISON</span>
+                    <span className="font-serif text-xl tracking-[0.216em] text-brand-parchment" style={{ fontWeight: 300 }}>MADISON</span>
                   </NavLink>
                 </div>
               )}
@@ -247,7 +249,7 @@ export function AppSidebar() {
           {!open && (
             <div className="px-2 pt-6 pb-4 flex flex-col items-center gap-3">
               <NavLink to="/dashboard" className="group">
-                <span className="font-serif text-sm tracking-wider" style={{ fontWeight: 300, color: '#F5F5DC' }}>M</span>
+                <span className="font-serif text-sm tracking-wider text-brand-parchment" style={{ fontWeight: 300 }}>M</span>
               </NavLink>
               <button
                 onClick={toggleSidebar}

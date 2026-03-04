@@ -8,7 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { Send, Target, Zap, BarChart, RefreshCcw, Users, Flag, Info, ArrowRight, BrainCircuit } from "lucide-react";
+import { TextureOverlay } from "@/components/ui/texture-overlay";
+import { Send, Target, Zap, BarChart, Users, Flag, Info, ArrowRight, BrainCircuit, ArrowUp, Plus, Mic } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./thinkmode.css";
@@ -64,13 +65,6 @@ Example:
       description: "Focuses on uncovering hidden assets, reactivating past clients, and risk-reversed offers."
     },
     { 
-      label: "7-Day Turnaround", 
-      icon: RefreshCcw,
-      prompt: "Create a 7-day emergency turnaround plan focusing on radical simplification and execution. Identify open loops and the single highest-leverage action.",
-      framework: "Rapid Execution Protocol",
-      description: "Rapidly clearing 'open loops' and focusing all energy on the single highest-leverage action."
-    },
-    { 
       label: "Product Launch", 
       icon: Target,
       prompt: "Map out a campaign sequence that builds anticipation and scarcity. Include the 'Sideways Sales Letter' structure.",
@@ -85,21 +79,21 @@ Example:
       description: "Distinguishing between efficiency and effectiveness to scale sustainable growth."
     },
     { 
-      label: "Customer Retention", 
+      label: "Retention", 
       icon: Users,
       prompt: "Design a post-purchase experience that turns customers into advocates. Map out the emotional phases of the customer journey.",
       framework: "The First 100 Days Model",
       description: "Choreographing the customer journey to eliminate buyer's remorse and foster loyalty."
     },
     { 
-      label: "Brand Positioning", 
+      label: "Positioning", 
       icon: Flag,
       prompt: "Help me find my brand's 'only-ness' and radical differentiation. Identify where the market zigs so we can zag.",
       framework: "Radical Differentiation",
       description: "Finding the whitespace in the market. When everyone zigs, your brand should zag."
     },
     { 
-      label: "Strategic Brainstorming", 
+      label: "Strategy", 
       icon: BrainCircuit,
       prompt: "I need to brainstorm a strategic issue. Guide me through a strategic analysis of my situation.",
       framework: "Open Strategic Analysis",
@@ -140,8 +134,9 @@ Example:
       }
       
       const CHAT_URL = `${supabaseUrl}/functions/v1/think-mode-chat`;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       console.log('[ThinkMode] Calling chat endpoint:', CHAT_URL);
-      
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -157,6 +152,7 @@ Example:
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
+          ...(anonKey && { apikey: anonKey }),
         },
         body: JSON.stringify({
           messages: [
@@ -444,83 +440,86 @@ Example:
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="think-mode bg-vellum-cream min-h-screen flex flex-col text-ink-black">
-      <div className="grow flex flex-col items-center px-4 sm:px-6 pb-48">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="w-full max-w-4xl text-center pt-16 space-y-3 relative"
-        >
-          <p className="think-mode-heading text-4xl sm:text-5xl font-serif text-ink-black">
-            Strategic Planning Session
-          </p>
-          <div className="flex items-center justify-center gap-2">
-            <p className="text-sm sm:text-base text-charcoal/70">
-              Select a strategic focus or start a new conversation.
+    <div className="think-mode min-h-screen flex flex-col text-zinc-200">
+      <div className="grow flex flex-col items-center px-4 sm:px-6 pb-48 relative bg-[#171717]">
+        <TextureOverlay texture="grid" gridSize={16} opacity={0.06} className="invert" />
+        <div className="relative z-10 w-full flex flex-col items-center flex-1">
+        {/* Strategic Planning + Strategy Guide - only when empty */}
+        {isEmpty && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="w-full max-w-4xl text-center pt-12 sm:pt-16 space-y-3 relative"
+          >
+            <p className="think-mode-heading text-3xl sm:text-4xl text-zinc-50 font-serif">
+              Strategic Planning
             </p>
-            
-            {/* Strategy Guide Sheet Trigger */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <button className="inline-flex items-center gap-1 text-xs text-brass hover:text-brass/80 transition-colors border border-brass/30 rounded-full px-2 py-0.5 hover:bg-brass/10 bg-parchment-white">
-                  <Info className="w-3 h-3" />
-                  <span>Strategy Guide</span>
-                </button>
-              </SheetTrigger>
-              <SheetContent className="bg-parchment-white border-charcoal/10 text-ink-black sm:max-w-md overflow-y-auto">
+            <div className="flex items-center justify-center gap-2">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-400 transition-colors border border-zinc-600 rounded-lg px-2 py-0.5 hover:bg-zinc-800/60 bg-zinc-800/40">
+                    <Info className="w-3 h-3" />
+                    <span>Strategy Guide</span>
+                  </button>
+                </SheetTrigger>
+              <SheetContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md overflow-y-auto">
                 <SheetHeader className="mb-6">
-                  <SheetTitle className="text-2xl font-serif text-ink-black">Strategic Frameworks</SheetTitle>
-                  <SheetDescription className="text-charcoal/70">
+                  <SheetTitle className="text-2xl font-semibold text-zinc-50">Strategic Frameworks</SheetTitle>
+                  <SheetDescription className="text-zinc-400">
                     Our AI models are trained on these specific methodologies to give you expert-level guidance.
                   </SheetDescription>
                 </SheetHeader>
                 <div className="space-y-6">
                   {strategicOptions.map((option) => (
-                    <div key={option.label} className="space-y-2 border-b border-charcoal/10 pb-4 last:border-0">
-                      <div className="flex items-center gap-2 text-brass">
+                    <div key={option.label} className="space-y-2 border-b border-zinc-800 pb-4 last:border-0">
+                      <div className="flex items-center gap-2 text-orange-400">
                         <option.icon className="w-4 h-4" />
-                        <h3 className="font-semibold text-ink-black">{option.label}</h3>
+                        <h3 className="font-semibold text-zinc-100">{option.label}</h3>
                       </div>
                       <div>
-                        <p className="text-xs uppercase tracking-wider text-charcoal/50 mb-1">The Framework</p>
-                        <p className="text-sm font-medium text-ink-black">{option.framework}</p>
+                        <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">The Framework</p>
+                        <p className="text-sm font-medium text-zinc-200">{option.framework}</p>
                       </div>
-                      <p className="text-sm text-charcoal/70 leading-relaxed">
+                      <p className="text-sm text-zinc-400 leading-relaxed">
                         {option.description}
                       </p>
                     </div>
                   ))}
                 </div>
               </SheetContent>
-            </Sheet>
-          </div>
-        </motion.div>
-
-        <div className="w-full max-w-3xl mt-8 space-y-6 flex-1 flex flex-col">
-          {isEmpty && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
-              {strategicOptions.map((option, index) => (
-                <motion.div
-                  key={option.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1, duration: 0.5 }}
-                >
-                  <Button
-                    variant="outline"
-                    className="w-full h-auto px-4 py-4 flex flex-col items-center justify-center gap-2 bg-parchment-white border-charcoal/10 hover:bg-vellum-cream hover:border-brass/30 transition-all text-ink-black group shadow-sm"
-                    onClick={() => handleSubmit(option.prompt)}
-                  >
-                    <option.icon className="w-6 h-6 text-brass group-hover:text-brass/80 transition-colors mb-1" strokeWidth={1.5} />
-                    <span className="text-sm font-medium text-center leading-tight">{option.label}</span>
-                  </Button>
-                </motion.div>
-              ))}
+              </Sheet>
             </div>
-          )}
+          </motion.div>
+        )}
 
-          <ScrollArea className={cn("flex-1", isEmpty ? "hidden" : "flex")} ref={scrollRef}>
+        {/* Chips - rectangular, stacked in 2 rows, only when empty */}
+        {isEmpty && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-6 sm:mt-8 max-w-2xl"
+          >
+            {strategicOptions.map((option, index) => (
+              <motion.button
+                key={option.label}
+                type="button"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04, duration: 0.3 }}
+                onClick={() => handleSubmit(option.prompt)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-zinc-600/80 bg-zinc-800/50 text-zinc-300 text-sm font-medium hover:bg-zinc-700/60 hover:border-zinc-500 hover:text-zinc-100 transition-all duration-200 group"
+              >
+                <option.icon className="w-4 h-4 text-orange-400/90 group-hover:text-orange-400 shrink-0" strokeWidth={1.5} />
+                <span className="whitespace-nowrap">{option.label}</span>
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+
+        <div className={cn("w-full max-w-3xl flex-1 flex flex-col", isEmpty ? "hidden" : "flex mt-8")}>
+          <ScrollArea className="flex-1" ref={scrollRef}>
             <div className="space-y-8 w-full pb-4">
               {messages.map((message, index) => {
                 // Only parse actions for assistant messages
@@ -547,10 +546,10 @@ Example:
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4"
                   >
-                    <p className="text-[0.65rem] uppercase tracking-[0.35em] text-brass/70">
+                    <p className="text-[0.65rem] uppercase tracking-[0.35em] text-zinc-500">
                       {message.role === "user" ? userName || "You" : "Madison"}
                     </p>
-                    <div className="think-mode-body text-[1rem] leading-relaxed text-charcoal prose max-w-none prose-p:leading-relaxed prose-pre:bg-charcoal/5 prose-pre:text-ink-black prose-code:text-brass prose-headings:text-ink-black prose-strong:text-ink-black prose-a:text-brass hover:prose-a:text-brass/80">
+                    <div className="think-mode-body text-[1rem] leading-relaxed text-zinc-300 prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-900 prose-pre:text-zinc-200 prose-code:text-orange-400 prose-headings:text-zinc-50 prose-strong:text-zinc-100 prose-a:text-orange-400 hover:prose-a:text-orange-300">
                       {isAssistant ? (
                         <ReactMarkdown 
                           remarkPlugins={[remarkGfm]}
@@ -568,17 +567,17 @@ Example:
 
                     {/* Render Action Buttons if present (Assistant only) */}
                     {actions.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-4 pt-2 border-t border-charcoal/10">
+                      <div className="flex flex-wrap gap-2 mt-4 pt-2 border-t border-zinc-800">
                         {actions.map((action, i) => (
                           <Button
                             key={i}
                             variant="secondary"
                             size="sm"
                             onClick={() => handleSubmit(action.prompt)}
-                            className="bg-vellum-cream hover:bg-brass/10 text-ink-black border border-charcoal/10 hover:border-brass/30 transition-all text-xs h-auto py-2 px-3"
+                            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-600 hover:border-orange-500/50 transition-all text-xs h-auto py-2 px-3"
                           >
                             {action.label}
-                            <ArrowRight className="w-3 h-3 ml-2 text-charcoal/50" />
+                            <ArrowRight className="w-3 h-3 ml-2 text-zinc-500" />
                           </Button>
                         ))}
                       </div>
@@ -591,10 +590,10 @@ Example:
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex items-center gap-3 text-sm text-brass/70"
+                  className="flex items-center gap-3 text-sm text-zinc-500"
                 >
                   <motion.span
-                    className="inline-block h-2 w-2 rounded-full bg-brass"
+                    className="inline-block h-2 w-2 rounded-full bg-orange-500"
                     animate={{ opacity: [0.2, 1, 0.2] }}
                     transition={{ repeat: Infinity, duration: 1.6 }}
                   />
@@ -604,29 +603,45 @@ Example:
             </div>
           </ScrollArea>
         </div>
+        </div>
       </div>
 
-      <footer className="think-mode-footer sticky bottom-0 left-0 right-0 bg-parchment-white border-t border-charcoal/10 shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 sm:px-0 py-6 flex items-center gap-3">
-          <Textarea
-            ref={textareaRef}
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Write a thought, question, or hypothesis…"
-            className="flex-1 resize-none border border-charcoal/20 bg-vellum-cream text-ink-black placeholder:text-charcoal/50 focus-visible:ring-2 focus-visible:ring-brass/20 focus-visible:outline-none text-base rounded-lg"
-            rows={2}
-            disabled={isLoading}
-          />
-          <button
-            onClick={() => handleSubmit()}
-            disabled={!idea.trim() || isLoading}
-            className="rounded-lg bg-brass text-ink-black px-6 py-3 text-sm font-semibold hover:bg-brass/90 transition-colors disabled:opacity-40 shadow-sm"
-          >
-            Send
-          </button>
-        </div>
-      </footer>
+      {/* Chat bar - pill-shaped container matching reference */}
+      <footer className="think-mode-footer sticky bottom-0 left-0 right-0 bg-[#171717] pt-4 pb-6 px-4">
+          <div className="max-w-4xl mx-auto flex items-center gap-2 px-4 py-3 rounded-[1.25rem] bg-zinc-800/90 border border-zinc-700/50">
+            <button
+              type="button"
+              className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50 transition-colors shrink-0"
+              aria-label="Add"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <Textarea
+              ref={textareaRef}
+              value={idea}
+              onChange={(e) => setIdea(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder=""
+              className="flex-1 min-h-[44px] max-h-32 resize-none border-0 bg-transparent text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none text-base py-2 px-0 rounded-none shadow-none"
+              rows={2}
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50 transition-colors shrink-0"
+              aria-label="Microphone"
+            >
+              <Mic className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleSubmit()}
+              disabled={!idea.trim() || isLoading}
+              className="p-2.5 rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
+          </div>
+        </footer>
     </div>
   );
 }

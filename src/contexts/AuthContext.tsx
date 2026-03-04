@@ -115,19 +115,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Connection timeout - if Supabase doesn't respond in 8 seconds, stop waiting
-    const connectionTimeout = setTimeout(() => {
-      if (loading) {
-        logger.error("[AuthProvider] Connection timeout - Supabase may be unavailable");
-        setSession(null);
-        setUser(null);
-        setLoading(false);
-      }
-    }, 8000);
+    // Connection timeout removed - Supabase SDK handles connection states/retries internally
+    // We avoid forcefully logging out users due to temporary network glitches
 
     // Check for existing session
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
-        clearTimeout(connectionTimeout);
+
         if (error) {
           logger.error("[AuthProvider] getSession error:", error);
           setSession(null);
@@ -147,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       })
       .catch((err) => {
-        clearTimeout(connectionTimeout);
+
         logger.error("[AuthProvider] getSession exception:", err);
         setSession(null);
         setUser(null);
@@ -155,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     return () => {
-      clearTimeout(connectionTimeout);
+
       subscription.unsubscribe();
     };
   }, []);

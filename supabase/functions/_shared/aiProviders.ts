@@ -7,7 +7,7 @@ const GEMINI_TEXT_MODEL =
   Deno.env.get("GEMINI_TEXT_MODEL") ?? "models/gemini-3-pro-preview";
 const GEMINI_IMAGE_MODEL =
   Deno.env.get("GEMINI_IMAGE_MODEL") ??
-  "models/gemini-3-pro-image-preview";
+  "models/gemini-2.5-flash-image";
 const GEMINI_API_ENDPOINT =
   Deno.env.get("GEMINI_API_ENDPOINT") ??
   "https://generativelanguage.googleapis.com/v1beta";

@@ -243,6 +243,15 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
 
       const fullPrompt = `${promptParts}${blogRequirements}\n\n[EXECUTE THIS BRIEF IMMEDIATELY. OUTPUT ONLY THE FINAL COPY. NO QUESTIONS OR ANALYSIS.]`;
 
+      // Verify authentication before auto-save and edge function
+      const { data: { user: authUser }, error: authCheckError } = await supabase.auth.getUser();
+      if (authCheckError || !authUser) {
+        throw new Error("Authentication required. Please sign in again.");
+      }
+      if (!currentOrganizationId) {
+        throw new Error("No organization found. Please complete onboarding first.");
+      }
+
       // ENHANCED AUTO-SAVE: Capture rich metadata for intelligent reuse
       try {
         // Generate smart name
@@ -286,6 +295,7 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
                 format.toLowerCase().includes('product') ? 'product' : 'other',
           collection: "auto_saved",
           organization_id: currentOrganizationId,
+          created_by: authUser.id,
           is_template: false,
           times_used: 1,
 
@@ -314,16 +324,6 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
       } catch (error) {
         logger.error("Auto-save failed:", error);
         // Silently fail - don't interrupt user experience
-      }
-
-      // Verify authentication before calling edge function
-      const { data: { user: authUser }, error: authCheckError } = await supabase.auth.getUser();
-      if (authCheckError || !authUser) {
-        throw new Error("Authentication required. Please sign in again.");
-      }
-
-      if (!currentOrganizationId) {
-        throw new Error("No organization found. Please complete onboarding first.");
       }
 
       // Verify Supabase URL is configured

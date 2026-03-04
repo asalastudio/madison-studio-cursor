@@ -129,6 +129,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Early check: GEMINI_API_KEY is required
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === '') {
+    console.error('GEMINI_API_KEY is not configured in Supabase Edge Function secrets');
+    return new Response(
+      JSON.stringify({
+        error: 'AI service is not configured. Please add GEMINI_API_KEY in Supabase Dashboard → Project Settings → Edge Functions → Secrets.',
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     // Authenticate the request
     const authHeader = req.headers.get('Authorization');
@@ -155,11 +167,34 @@ serve(async (req) => {
 
     console.log(`Authenticated request from user: ${user.id}`);
 
-    const { messages, userName, mode = 'creative' } = await req.json() as {
-      messages: OpenAIMessage[];
-      userName?: string;
-      mode?: 'creative' | 'strategic';
-    };
+    // Create a Supabase client with the user's token for RLS-scoped queries
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+
+    let messages: OpenAIMessage[];
+    let userName: string | undefined;
+    let mode: 'creative' | 'strategic';
+
+    try {
+      const body = await req.json() as { messages?: OpenAIMessage[]; userName?: string; mode?: string };
+      messages = body.messages;
+      userName = body.userName;
+      mode = body.mode === 'strategic' ? 'strategic' : 'creative';
+
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'Request must include a non-empty messages array' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body. Expected JSON with messages array.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log(`Think Mode chat request (${mode}), messages:`, messages.length);
     const lastMessageContent = messages[messages.length - 1]?.content;
@@ -170,37 +205,47 @@ serve(async (req) => {
     console.log('Legacy Madison config loaded:', legacyMadisonConfig ? `${legacyMadisonConfig.length} chars` : 'none');
     
     // Fetch Madison Masters context (new Three Silos architecture)
-    const supabaseForMasters = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const lastMessage = messages[messages.length - 1]?.content;
-    const briefText = typeof lastMessage === 'string' ? lastMessage : '';
-    
-    const { strategy: madisonStrategy, masterContext: madisonMasterContext } = await getMadisonMasterContext(
-      supabaseForMasters,
-      undefined, // content type not specified in think mode
-      briefText
-    );
-    console.log(`Madison Masters: ${madisonStrategy.copySquad}, Primary: ${madisonStrategy.primaryCopyMaster}`);
+    let madisonStrategy = { copySquad: 'THE_STORYTELLERS' as const, primaryCopyMaster: 'PETERMAN_ROMANCE' };
+    let madisonMasterContext = '';
+
+    try {
+      const supabaseForMasters = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const lastMessage = messages[messages.length - 1]?.content;
+      const briefText = typeof lastMessage === 'string' ? lastMessage : '';
+
+      const result = await getMadisonMasterContext(
+        supabaseForMasters,
+        undefined, // content type not specified in think mode
+        briefText
+      );
+      madisonStrategy = result.strategy;
+      madisonMasterContext = result.masterContext;
+      console.log(`Madison Masters: ${madisonStrategy.copySquad}, Primary: ${madisonStrategy.primaryCopyMaster}`);
+    } catch (mastersError) {
+      console.warn('Madison Masters context failed, using defaults:', mastersError);
+      // Continue with empty master context - strategic mode will still work
+    }
     
     // Fetch User's Brand Context (Products, Knowledge, Config)
     let brandContext = "No brand context available.";
     let isBrandContextSparse = true;
 
     try {
-      // 1. Fetch Brand Products
-      const { data: products, error: productsError } = await supabaseAuth
+      // 1. Fetch Brand Products (use supabaseUser for RLS-scoped org data)
+      const { data: products, error: productsError } = await supabaseUser
         .from('brand_products')
         .select('name, collection, scent_family, description')
         .limit(5); // Fetch top 5 products for context
 
       // 2. Fetch Brand Knowledge (Voice, Guidelines)
-      const { data: knowledge, error: knowledgeError } = await supabaseAuth
+      const { data: knowledge, error: knowledgeError } = await supabaseUser
         .from('brand_knowledge')
         .select('knowledge_type, content')
         .eq('is_active', true)
         .limit(3);
 
       // 3. Fetch Organization Brand Config
-      const { data: orgs, error: orgError } = await supabaseAuth
+      const { data: orgs, error: orgError } = await supabaseUser
         .from('organizations')
         .select('brand_config')
         .limit(1)
@@ -400,9 +445,14 @@ CRITICAL OUTPUT FORMATTING:
     }
 
   } catch (error) {
-    console.error('Think Mode error:', error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Think Mode error:', err.message, err.stack);
+    const isDev = Deno.env.get('DENO_ENV') === 'development';
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({
+        error: err.message,
+        ...(isDev && err.stack && { stack: err.stack }),
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

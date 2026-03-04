@@ -406,17 +406,25 @@ export default function DarkRoom() {
       if (error) {
         console.error("❌ Generation error:", error);
         console.error("❌ Error details:", JSON.stringify(error, null, 2));
-        const errorMsg = error.message || error.context?.body || error.toString();
+        let errorMsg = error.message || error.toString();
+        // Extract actual error from edge function response body (FunctionsHttpError)
+        try {
+          if (typeof (error as any)?.context?.json === "function") {
+            const body = await (error as any).context.json();
+            if (body?.error) errorMsg = body.error;
+          }
+        } catch (_) {
+          // Fall back to error.message
+        }
 
-        if (errorMsg.includes("Rate limit") || error.status === 429) {
+        if (errorMsg.includes("Rate limit") || (error as any).status === 429) {
           madison.error("Rate limit reached", "Please wait a moment before generating another image.");
-        } else if (errorMsg.includes("credits") || error.status === 402) {
+        } else if (errorMsg.includes("credits") || (error as any).status === 402) {
           madison.error("AI credits depleted", "Please add credits in Settings.");
         } else if (errorMsg.includes("organization") || errorMsg.includes("onboarding")) {
-          // Action toast not perfectly mapped, simplifying for now or could add custom action
           madison.error("Setup incomplete", "Please complete onboarding to start generating images.");
         } else {
-          madison.error("Generation failed", errorMsg.substring(0, 100));
+          madison.error("Generation failed", errorMsg.substring(0, 200));
         }
         return;
       }
@@ -612,22 +620,18 @@ export default function DarkRoom() {
         onDownloadHero={heroImage ? () => handleDownloadImage(heroImage) : undefined}
         onSaveHero={heroImage ? () => handleSaveImage(heroImage.id) : undefined}
         onRefineHero={heroImage ? () => handleOpenLightTable(heroImage) : undefined}
+        rightExtra={
+          <LibrarianTrigger
+            variant="icon"
+            context="dark_room"
+            category="image"
+            onFrameworkSelect={(framework) => {
+              setPrompt((prev) => prev ? `${prev}\n\n${framework.framework_content}` : framework.framework_content);
+              madison.frameworkAcquired();
+            }}
+          />
+        }
       />
-
-      {/* Librarian Quick Access - Image Frameworks */}
-      <div className="absolute top-4 right-4 z-10">
-        <LibrarianTrigger
-          variant="icon"
-          context="dark_room"
-          category="image"
-          onFrameworkSelect={(framework) => {
-            // Append framework to current prompt
-            setPrompt((prev) => prev ? `${prev}\n\n${framework.framework_content}` : framework.framework_content);
-            madison.frameworkAcquired();
-            // Optional: madison.success("Framework applied", `"${framework.title}" added to your prompt.`);
-          }}
-        />
-      </div>
 
       {/* Main Grid */}
       <div className="dark-room-grid">

@@ -113,7 +113,7 @@ If a field is completely blank or unreadable, return null for that field and con
         },
       ],
       responseMimeType: 'application/json',
-      model: 'models/gemini-2.0-flash-exp',
+      model: 'models/gemini-2.5-flash',
       maxOutputTokens: 2048,
       temperature: 0.2,
     });

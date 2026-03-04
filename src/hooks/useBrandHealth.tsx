@@ -85,9 +85,18 @@ export function useBrandHealth() {
       queryClient.refetchQueries({ queryKey: ["brand-health", user?.id] });
       toast.success("Brand health analysis complete!");
     },
-    onError: (error: Error) => {
+    onError: async (error: any) => {
       console.error("Error analyzing brand health:", error);
-      toast.error("Failed to analyze brand health");
+      let message = error?.message ?? "Failed to analyze brand health";
+      try {
+        if (typeof error?.context?.json === "function") {
+          const body = await error.context.json();
+          if (body?.error) message = body.error;
+        }
+      } catch (_) {
+        // Fall back to error.message
+      }
+      toast.error(message);
     },
   });
 

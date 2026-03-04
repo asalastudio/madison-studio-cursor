@@ -1,0 +1,86 @@
+<!--
+  50ml Perfume Bottle Box - Tuck End
+  Dimensions: 50mm (W) × 150mm (H) × 50mm (D)
+  Bleed: 3mm
+  Panel zones: front, back, left, right, top, bottom, top_flap, bottom_flap
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 650" width="400" height="650">
+  <defs>
+    <style>
+      .cut-line { fill: none; stroke: #000; stroke-width: 1; }
+      .fold-line { fill: none; stroke: #FF0000; stroke-width: 0.5; stroke-dasharray: 5,5; }
+      .bleed-zone { fill: rgba(255,0,0,0.1); }
+      .safe-zone { fill: rgba(0,255,0,0.1); }
+      .panel-label { font-family: Arial; font-size: 10px; fill: #666; }
+    </style>
+  </defs>
+
+  <!-- Bleed zones (3mm = approx 8.5px at this scale) -->
+  <rect class="bleed-zone" x="0" y="0" width="400" height="650"/>
+
+  <!-- Bottom Flap -->
+  <g id="bottom-flap" data-panel-type="flap">
+    <path class="cut-line" d="M 50,150 L 200,150 L 200,200 L 50,200 Z"/>
+    <path class="fold-line" d="M 50,200 L 200,200"/>
+    <text class="panel-label" x="125" y="175">Bottom Flap</text>
+  </g>
+
+  <!-- Front Panel -->
+  <g id="front" data-panel-type="printable">
+    <rect class="cut-line" x="50" y="200" width="150" height="150"/>
+    <path class="fold-line" d="M 50,350 L 200,350"/>
+    <text class="panel-label" x="125" y="275">FRONT PANEL</text>
+  </g>
+
+  <!-- Bottom Panel -->
+  <g id="bottom" data-panel-type="printable">
+    <rect class="cut-line" x="50" y="350" width="150" height="50"/>
+    <path class="fold-line" d="M 50,400 L 200,400"/>
+    <text class="panel-label" x="125" y="378">Bottom</text>
+  </g>
+
+  <!-- Back Panel -->
+  <g id="back" data-panel-type="printable">
+    <rect class="cut-line" x="50" y="400" width="150" height="150"/>
+    <path class="fold-line" d="M 50,550 L 200,550"/>
+    <text class="panel-label" x="125" y="475">BACK PANEL</text>
+  </g>
+
+  <!-- Top Panel -->
+  <g id="top" data-panel-type="printable">
+    <rect class="cut-line" x="50" y="550" width="150" height="50"/>
+    <path class="fold-line" d="M 50,600 L 200,600"/>
+    <text class="panel-label" x="125" y="578">Top</text>
+  </g>
+
+  <!-- Top Flap -->
+  <g id="top-flap" data-panel-type="flap">
+    <path class="cut-line" d="M 50,600 L 200,600 L 200,650 L 50,650 Z"/>
+    <text class="panel-label" x="125" y="625">Top Flap</text>
+  </g>
+
+  <!-- Left Side Panel -->
+  <g id="left" data-panel-type="side">
+    <rect class="cut-line" x="0" y="200" width="50" height="150"/>
+    <path class="fold-line" d="M 50,200 L 50,350"/>
+    <text class="panel-label" x="15" y="275" transform="rotate(-90 25 275)">Left</text>
+  </g>
+
+  <!-- Right Side Panel -->
+  <g id="right" data-panel-type="side">
+    <rect class="cut-line" x="200" y="200" width="50" height="150"/>
+    <path class="fold-line" d="M 200,200 L 200,350"/>
+    <text class="panel-label" x="215" y="275" transform="rotate(90 225 275)">Right</text>
+  </g>
+
+  <!-- Glue Tab -->
+  <g id="glue-tab" data-panel-type="glue">
+    <path class="cut-line" d="M 250,200 L 270,200 L 270,350 L 250,350 Z"/>
+    <path class="fold-line" d="M 250,200 L 250,350"/>
+    <text class="panel-label" x="252" y="275" transform="rotate(90 260 275)">Glue</text>
+  </g>
+
+  <!-- Safe zones (5mm from edges) -->
+  <rect class="safe-zone" x="65" y="215" width="120" height="120" opacity="0.2" stroke-dasharray="2,2" stroke="#00FF00"/>
+  <rect class="safe-zone" x="65" y="415" width="120" height="120" opacity="0.2" stroke-dasharray="2,2" stroke="#00FF00"/>
+</svg>

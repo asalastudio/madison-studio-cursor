@@ -144,8 +144,18 @@ export default function LightTable() {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(initialSession.selectedId);
   const [sessionId] = useState<string>(initialSession.sessionId);
 
-  // Save session to localStorage whenever images change
+  // Track if we've successfully initialized to prevent overwriting session with empty state
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Mark as initialized once the component mounts
   useEffect(() => {
+    setIsInitialized(true);
+  }, []);
+
+  // Save session to localStorage whenever images change, but ONLY after initialization
+  useEffect(() => {
+    if (!isInitialized) return;
+
     if (images.length > 0) {
       try {
         localStorage.setItem(
@@ -161,7 +171,7 @@ export default function LightTable() {
         console.error("Failed to save session to localStorage:", e);
       }
     }
-  }, [images, selectedImageId, sessionId]);
+  }, [images, selectedImageId, sessionId, isInitialized]);
 
   // UI state
   const [activeTab, setActiveTab] = useState<"refine" | "text" | "variations" | "ad">("refine");
@@ -502,16 +512,13 @@ export default function LightTable() {
   const handleCreateVideo = useCallback(() => {
     if (!selectedImage) return;
 
-    navigate("/video-project", {
+    navigate("/studio", {
       state: {
-        startingImage: {
-          url: selectedImage.imageUrl,
-          id: selectedImage.id,
-          prompt: selectedImage.prompt,
-        },
+        mode: "video",
+        subjectImage: selectedImage.imageUrl,
       },
     });
-    toast.success("Starting video project...");
+    toast.success("Opening Studio...");
   }, [selectedImage, navigate]);
 
   // Save to library
@@ -1278,7 +1285,7 @@ Generate a polished, publication-ready advertisement image where the product and
                                 className={cn(
                                   "light-table-ad-editor__color-swatch",
                                   (adConfig.colorBlockColor || adConfig.preset.defaultStyles.colorBlockColor) === color.value &&
-                                    "light-table-ad-editor__color-swatch--selected"
+                                  "light-table-ad-editor__color-swatch--selected"
                                 )}
                                 style={{ backgroundColor: color.value }}
                                 onClick={() =>
@@ -1300,7 +1307,7 @@ Generate a polished, publication-ready advertisement image where the product and
                                 className={cn(
                                   "light-table-ad-editor__color-swatch",
                                   (adConfig.textColor || adConfig.preset.defaultStyles.textColor) === color.value &&
-                                    "light-table-ad-editor__color-swatch--selected"
+                                  "light-table-ad-editor__color-swatch--selected"
                                 )}
                                 style={{ backgroundColor: color.value }}
                                 onClick={() =>
@@ -1323,7 +1330,7 @@ Generate a polished, publication-ready advertisement image where the product and
                                   className={cn(
                                     "light-table-ad-editor__color-swatch",
                                     (adConfig.ctaBackgroundColor || adConfig.preset.defaultStyles.ctaBackgroundColor) === color.value &&
-                                      "light-table-ad-editor__color-swatch--selected"
+                                    "light-table-ad-editor__color-swatch--selected"
                                   )}
                                   style={{ backgroundColor: color.value }}
                                   onClick={() =>
@@ -1346,7 +1353,7 @@ Generate a polished, publication-ready advertisement image where the product and
                                 className={cn(
                                   "light-table-ad-editor__font-btn",
                                   (adConfig.fontFamily || adConfig.preset.defaultStyles.fontFamily) === font.value &&
-                                    "light-table-ad-editor__font-btn--active"
+                                  "light-table-ad-editor__font-btn--active"
                                 )}
                                 style={{ fontFamily: font.style }}
                                 onClick={() =>

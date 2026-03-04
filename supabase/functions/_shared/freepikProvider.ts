@@ -1,8 +1,8 @@
 /**
  * Freepik API Provider for Madison Studio
- * 
+ *
  * Provides access to Freepik's AI image and video generation services:
- * 
+ *
  * IMAGE MODELS (2024-2025):
  * - Seedream 4 4K: Reference images + strong aesthetics (TRENDING)
  * - Seedream: Exceptional creativity
@@ -13,19 +13,19 @@
  * - Ideogram 3: Typography and graphic design
  * - GPT: OpenAI's technology
  * - Runway: Creative outputs
- * 
+ *
  * VIDEO MODELS:
  * - Kling O1: Multimodal generation with references (NEW)
  * - Kling 2.1/2.5: Exceptional dynamics
  * - Google Veo 2/3/3.1: Sound, voices, improved physics
  * - MiniMax Hailuo 2.3: Cinematic realism
- * 
+ *
  * FEATURES:
  * - AI Characters: Consistent faces across generations
  * - Expanded aspect ratios (10+ options)
  * - Start/End image for videos
  * - Audio generation
- * 
+ *
  * API Docs: https://docs.freepik.com/
  */
 
@@ -36,7 +36,7 @@ const FREEPIK_API_BASE = "https://api.freepik.com/v1/ai";
 // ============================================
 
 // Image Models - Actual available models from docs.freepik.com
-export type FreepikImageModel = 
+export type FreepikImageModel =
   | "mystic"            // Freepik's own AI model
   | "classic-fast"      // Fast generation
   | "flux-dev"          // Flux development version
@@ -69,7 +69,7 @@ export type FreepikModel = FreepikImageModel;
 export type FreepikResolution = "1k" | "2k" | "4k";
 
 // Expanded aspect ratios matching Freepik's current offerings
-export type FreepikAspectRatio = 
+export type FreepikAspectRatio =
   // Standard
   | "square_1_1"        // 1:1 Square
   | "widescreen_16_9"   // 16:9 Widescreen
@@ -196,7 +196,7 @@ function getApiKey(): string {
 
 function mapAspectRatio(ratio?: string): FreepikAspectRatio {
   if (!ratio) return "square_1_1";
-  
+
   const mapping: Record<string, FreepikAspectRatio> = {
     // Common formats
     "1:1": "square_1_1",
@@ -225,7 +225,7 @@ function mapAspectRatio(ratio?: string): FreepikAspectRatio {
     "film_horizontal_21_9": "film_horizontal_21_9",
     "film_vertical_9_21": "film_vertical_9_21",
   };
-  
+
   return mapping[ratio] || "square_1_1";
 }
 
@@ -244,24 +244,36 @@ function getImageEndpoint(model: FreepikImageModel): string {
   return endpoints[model] || "/mystic";
 }
 
-// Map video model to API endpoint
+// Map video model to actual Freepik API endpoint
+// Based on: https://docs.freepik.com/api-reference/image-to-video/
 function getVideoEndpoint(model: FreepikVideoModel, resolution: VideoResolution): string {
-  // Some models have resolution in the endpoint
-  const baseEndpoints: Record<FreepikVideoModel, string> = {
-    "auto": "/image-to-video/auto",
-    "kling-o1": "/image-to-video/kling-o1",
-    "google-veo-3.1": "/image-to-video/google-veo-3.1",
-    "minimax-hailuo-2.3": "/image-to-video/minimax-hailuo-2.3",
-    "google-veo-2": "/image-to-video/google-veo-2",
-    "google-veo-3": "/image-to-video/google-veo-3",
-    "google-veo-3-fast": "/image-to-video/google-veo-3-fast",
-    "google-veo-3.1-fast": "/image-to-video/google-veo-3.1-fast",
-    "kling-2.1": "/image-to-video/kling-2.1",
-    "kling-2.1-master": "/image-to-video/kling-2.1-master",
-    "kling-2.5": "/image-to-video/kling-2.5",
-    "seedance-pro": `/image-to-video/seedance-pro-${resolution}`,
+  // Map our model names to actual Freepik API model names
+  const modelMapping: Record<FreepikVideoModel, string> = {
+    // Auto-select: Use Kling 2.0 as default
+    "auto": "kling-v2",
+
+    // Kling models - Map to actual API names
+    "kling-o1": "kling-pro",           // Kling 1.6 Pro is closest to O1
+    "kling-2.1": "kling-v2-1-std",     // Kling 2.1 Standard
+    "kling-2.1-master": "kling-v2-1-master",
+    "kling-2.5": "kling-v2-5-pro",     // Kling 2.5 Pro
+
+    // MiniMax - Map to actual API name
+    "minimax-hailuo-2.3": "minimax-hailuo-02-768p",
+
+    // Google Veo models don't exist in Freepik API - fallback to Kling
+    "google-veo-2": "kling-v2",
+    "google-veo-3": "kling-v2-5-pro",
+    "google-veo-3-fast": "kling-v2",
+    "google-veo-3.1": "kling-v2-5-pro",
+    "google-veo-3.1-fast": "kling-v2",
+
+    // Seedance Pro - Resolution in endpoint
+    "seedance-pro": resolution === "1080p" ? "seedance-pro-1080p" : "seedance-pro-720p",
   };
-  return baseEndpoints[model] || `/image-to-video/seedance-pro-${resolution}`;
+
+  const apiModel = modelMapping[model] || "kling-v2";
+  return `/image-to-video/${apiModel}`;
 }
 
 async function makeFreepikRequest<T>(
@@ -270,10 +282,10 @@ async function makeFreepikRequest<T>(
   method: "POST" | "GET" = "POST"
 ): Promise<T> {
   const url = `${FREEPIK_API_BASE}${endpoint}`;
-  
-  console.log(`[Freepik] ${method} ${endpoint}`, { 
+
+  console.log(`[Freepik] ${method} ${endpoint}`, {
     bodyKeys: Object.keys(body),
-    promptLength: typeof body.prompt === 'string' ? body.prompt.length : 0 
+    promptLength: typeof body.prompt === 'string' ? body.prompt.length : 0
   });
 
   const response = await fetch(url, {
@@ -289,7 +301,7 @@ async function makeFreepikRequest<T>(
     const errorData = await response.json().catch(() => ({}));
     console.error(`[Freepik] Error ${response.status}:`, errorData);
     throw new Error(
-      errorData?.error?.message || 
+      errorData?.error?.message ||
       `Freepik API error: ${response.status} ${response.statusText}`
     );
   }
@@ -304,7 +316,7 @@ async function pollForCompletion(
   intervalMs = 2000
 ): Promise<FreepikCompletedTask> {
   const statusUrl = `${endpoint}/${taskId}`;
-  
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const response = await fetch(`${FREEPIK_API_BASE}${statusUrl}`, {
       method: "GET",
@@ -378,9 +390,9 @@ export async function generateWithMystic(
 
   // Poll for completion
   const completed = await pollForCompletion("/mystic", taskId);
-  
+
   console.log(`[Freepik] Mystic completed response:`, JSON.stringify(completed.data, null, 2));
-  
+
   // Mystic returns generated as string array directly (not objects with url property)
   const imageUrl = completed.data.generated?.[0];
   if (!imageUrl || typeof imageUrl !== 'string') {
@@ -405,7 +417,7 @@ export async function generateWithModel(
   };
 
   // Resolution for models that support it
-  if (model === "mystic" || model === "seedream-4-4k") {
+  if (model === "mystic" || model === "seedream-4") {
     body.resolution = params.resolution || "2k";
   }
 
@@ -417,8 +429,8 @@ export async function generateWithModel(
     body.negative_prompt = params.negativePrompt;
   }
 
-  // Reference images for models that support them (Seedream 4 4K)
-  if (params.referenceImages?.length && (model === "seedream-4-4k" || model === "seedream")) {
+  // Reference images for models that support them (Seedream 4)
+  if (params.referenceImages?.length && (model === "seedream-4" || model === "seedream")) {
     body.reference_images = params.referenceImages.map(ref => ({
       url: ref.url,
       weight: ref.weight ?? 0.8,
@@ -439,7 +451,7 @@ export async function generateWithModel(
     body.webhook_url = params.webhookUrl;
   }
 
-  console.log(`[Freepik] ${model} request to ${endpoint}:`, { 
+  console.log(`[Freepik] ${model} request to ${endpoint}:`, {
     promptLength: params.prompt.length,
     aspectRatio: body.aspect_ratio,
     hasReferences: !!params.referenceImages?.length,
@@ -456,9 +468,9 @@ export async function generateWithModel(
 
   // Poll for completion
   const completed = await pollForCompletion(endpoint, taskId);
-  
+
   console.log(`[Freepik] ${model} completed response:`, JSON.stringify(completed.data, null, 2));
-  
+
   // Most models return generated as string array directly
   const imageUrl = completed.data.generated?.[0] || completed.data.result?.url;
   if (!imageUrl || typeof imageUrl !== 'string') {
@@ -497,16 +509,19 @@ export async function generateImage(
 
 /**
  * Generate a video from an image using Freepik video models
- * 
+ *
  * Supports multiple models:
  * - Kling O1/2.1/2.5: Various quality/speed tiers
  * - Google Veo 2/3/3.1: With audio support
  * - MiniMax Hailuo 2.3: Cinematic realism
  * - Seedance Pro: Legacy Freepik model
  */
-export async function generateVideo(
+/**
+ * Initiate a video generation task (returns immediately with taskId)
+ */
+export async function createVideoTask(
   params: FreepikVideoParams
-): Promise<{ videoUrl: string; taskId: string; model: FreepikVideoModel }> {
+): Promise<{ taskId: string; model: FreepikVideoModel }> {
   const model = params.model || "seedance-pro";
   const resolution = params.resolution || "720p";
   const endpoint = getVideoEndpoint(model, resolution);
@@ -525,8 +540,8 @@ export async function generateVideo(
 
   // End image for models that support start/end frames
   if (params.endImageUrl && (
-    model === "kling-o1" || 
-    model === "google-veo-3.1" || 
+    model === "kling-o1" ||
+    model === "google-veo-3.1" ||
     model === "google-veo-3.1-fast" ||
     model === "kling-2.1"
   )) {
@@ -535,7 +550,7 @@ export async function generateVideo(
 
   // Audio for supported models (Veo 3+, Kling O1)
   if (params.includeAudio && (
-    model.includes("veo-3") || 
+    model.includes("veo-3") ||
     model === "kling-o1"
   )) {
     body.include_audio = true;
@@ -575,6 +590,52 @@ export async function generateVideo(
   const taskId = taskResponse.data.task_id;
   console.log(`[Freepik] Video task created: ${taskId}`);
 
+  return { taskId, model };
+}
+
+/**
+ * Check the status of a video generation task
+ */
+export async function getVideoStatus(
+  model: FreepikVideoModel,
+  resolution: VideoResolution,
+  taskId: string
+): Promise<{ status: string; videoUrl?: string }> {
+  const endpoint = getVideoEndpoint(model, resolution);
+  const statusUrl = `${endpoint}/${taskId}`;
+
+  const response = await fetch(`${FREEPIK_API_BASE}${statusUrl}`, {
+    method: "GET",
+    headers: {
+      "x-freepik-api-key": getApiKey(),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to check task status: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const status = data.data?.status;
+
+  if (status === "COMPLETED") {
+    const videoUrl = data.data.generated?.[0] || data.data.result?.url || data.data.video?.url;
+    return { status, videoUrl };
+  }
+
+  return { status };
+}
+
+/**
+ * Legacy helper that still polls internally (use with caution)
+ */
+export async function generateVideo(
+  params: FreepikVideoParams
+): Promise<{ videoUrl: string; taskId: string; model: FreepikVideoModel }> {
+  const { taskId, model } = await createVideoTask(params);
+  const resolution = params.resolution || "720p";
+  const endpoint = getVideoEndpoint(model, resolution);
+
   // Poll for completion (videos take longer - up to 6 minutes)
   const completed = await pollForCompletion(
     endpoint,
@@ -584,7 +645,7 @@ export async function generateVideo(
   );
 
   console.log(`[Freepik] Video completed response:`, JSON.stringify(completed.data, null, 2));
-  
+
   // Video may return URL in different formats depending on endpoint version
   const videoUrl = completed.data.generated?.[0] || completed.data.result?.url || completed.data.video?.url;
   if (!videoUrl || typeof videoUrl !== 'string') {
@@ -624,8 +685,8 @@ export async function upscaleImage(
 
   // Poll for completion
   const completed = await pollForCompletion("/upscale", taskId);
-  
-  const imageUrl = completed.data.generated?.[0]?.url;
+
+  const imageUrl = completed.data.generated?.[0];
   if (!imageUrl) {
     throw new Error("No image URL in upscale response");
   }
@@ -670,8 +731,8 @@ export async function relightImage(
 
   // Poll for completion
   const completed = await pollForCompletion("/relight", taskId);
-  
-  const imageUrl = completed.data.generated?.[0]?.url;
+
+  const imageUrl = completed.data.generated?.[0];
   if (!imageUrl) {
     throw new Error("No image URL in relight response");
   }
@@ -731,17 +792,19 @@ export const FreepikProvider = {
   generateWithModel,
   generateWithMystic,
   generateWithFlux,
-  
+
   // Video generation
   generateVideo,
-  
+  createVideoTask,
+  getVideoStatus,
+
   // Image editing
   upscaleImage,
   relightImage,
-  
+
   // Helpers
   mapAspectRatio,
-  
+
   // Metadata for UI
   IMAGE_MODELS,
   VIDEO_MODELS,

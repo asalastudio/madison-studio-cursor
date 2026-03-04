@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Lightbulb,
@@ -612,7 +613,7 @@ export function RightPanel({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [activeTab, setActiveTab] = useState<RightPanelTab>("madison");
-  const productSlotInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
 
   // Get photography options
   const cameraOptions = getCameraOptions();
@@ -1104,34 +1105,6 @@ export function RightPanel({
                     const slot = productSlots?.[index];
                     const hasImage = slot?.imageUrl;
 
-                    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        if (ev.target?.result && onProductSlotsChange) {
-                          const newSlots = [...(productSlots || [])];
-                          // Ensure we have enough slots
-                          while (newSlots.length <= index) {
-                            newSlots.push({ id: `slot-${newSlots.length}`, imageUrl: null });
-                          }
-                          newSlots[index] = {
-                            id: slot?.id || `slot-${index}`,
-                            imageUrl: ev.target.result as string,
-                            name: file.name,
-                          };
-                          onProductSlotsChange(newSlots);
-                          toast.success(`Product ${index + 1} added`);
-                        }
-                      };
-                      reader.readAsDataURL(file);
-                      // Reset input
-                      if (productSlotInputRefs.current[index]) {
-                        productSlotInputRefs.current[index]!.value = '';
-                      }
-                    };
-
                     const handleRemove = (e: React.MouseEvent) => {
                       e.stopPropagation();
                       if (onProductSlotsChange && productSlots) {
@@ -1144,18 +1117,11 @@ export function RightPanel({
 
                     return (
                       <div key={index} className="relative">
-                        <input
-                          ref={(el) => { productSlotInputRefs.current[index] = el; }}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileSelect}
-                          className="hidden"
-                          id={`product-slot-${index}`}
-                        />
-                        <motion.label
-                          htmlFor={`product-slot-${index}`}
+                        <motion.button
+                          type="button"
+                          onClick={() => !hasImage && setActiveSlotIndex(index)}
                           className={cn(
-                            "aspect-square rounded flex items-center justify-center cursor-pointer transition-all border overflow-hidden",
+                            "aspect-square w-full rounded flex items-center justify-center cursor-pointer transition-all border overflow-hidden",
                             hasImage
                               ? "border-white/[0.12] bg-black"
                               : "border-dashed border-white/[0.06] bg-[var(--camera-body-deep)] hover:border-white/[0.12] hover:bg-white/[0.03]"
@@ -1168,6 +1134,7 @@ export function RightPanel({
                               src={slot.imageUrl!}
                               alt={`Product ${index + 1}`}
                               className="w-full h-full object-cover"
+                              loading="lazy"
                             />
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
@@ -1175,7 +1142,7 @@ export function RightPanel({
                               <span className="text-[8px] font-mono text-[var(--darkroom-text-dim)]">{index + 1}</span>
                             </div>
                           )}
-                        </motion.label>
+                        </motion.button>
 
                         {/* Remove button */}
                         {hasImage && (
@@ -1198,6 +1165,28 @@ export function RightPanel({
                   Add products to composite into scenes
                 </p>
               </div>
+
+              {/* Image Library Modal for product slots */}
+              <ImageLibraryModal
+                open={activeSlotIndex !== null}
+                onOpenChange={(open) => { if (!open) setActiveSlotIndex(null); }}
+                title={activeSlotIndex !== null ? `Product Slot ${activeSlotIndex + 1}` : "Select Image"}
+                onSelectImage={(image) => {
+                  if (activeSlotIndex === null || !onProductSlotsChange) return;
+                  const newSlots = [...(productSlots || [])];
+                  while (newSlots.length <= activeSlotIndex) {
+                    newSlots.push({ id: `slot-${newSlots.length}`, imageUrl: null });
+                  }
+                  newSlots[activeSlotIndex] = {
+                    id: productSlots?.[activeSlotIndex]?.id || `slot-${activeSlotIndex}`,
+                    imageUrl: image.url,
+                    name: image.name,
+                  };
+                  onProductSlotsChange(newSlots);
+                  toast.success(`Product ${activeSlotIndex + 1} added`);
+                  setActiveSlotIndex(null);
+                }}
+              />
 
               {/* Quick Aspect Ratios */}
               <div className="camera-panel p-2.5 space-y-2">

@@ -133,7 +133,10 @@ export function DashboardWidgetSystem({
   }, [widgets, isEditMode]);
 
   const onLayoutChange = useCallback((newLayout: any) => {
-    // Only process changes if something actually moved or resized
+    // Only process layout changes when in edit mode - prevents react-grid-layout from
+    // overwriting saved layout on initial mount / resize (known RGL behavior)
+    if (!isEditMode) return;
+
     const updatedWidgets = widgets.map(w => {
       const layoutItem = newLayout.find((item: any) => item.i === w.id);
       if (layoutItem) {
@@ -156,7 +159,7 @@ export function DashboardWidgetSystem({
     if (hasChanged) {
       onWidgetsChange(updatedWidgets);
     }
-  }, [widgets, onWidgetsChange]);
+  }, [widgets, isEditMode, onWidgetsChange]);
 
   return (
     <div className="space-y-6" ref={containerRef}>

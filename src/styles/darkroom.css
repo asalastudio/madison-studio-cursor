@@ -209,10 +209,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-xs) var(--space-md);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(8, 8, 8, 0.95);
-  height: 48px;
+  height: 44px;
   position: relative;
   /* Subtle depth */
   box-shadow: 
@@ -273,7 +273,7 @@
   display: grid;
   grid-template-columns: 280px 1fr auto;
   gap: 0;
-  height: calc(100vh - 64px);
+  height: calc(100vh - 44px);
   overflow: hidden;
 }
 
@@ -2492,16 +2492,16 @@
 .prompt-bar {
   position: relative;
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   background: var(--camera-body);
   background-image: var(--camera-body-gloss);
   border-top: 1px solid var(--darkroom-border);
   overflow: hidden;
   transition: all var(--duration-normal) var(--ease-out);
   /* Top plate shadow */
-  box-shadow: 
+  box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 -2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -2533,31 +2533,109 @@
 
 .prompt-bar__input-container {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-md);
+  align-items: center;
+  gap: var(--space-sm);
   flex: 1;
+  min-width: 0;
+}
+
+/* Mode Toggle Pills */
+.prompt-bar__mode-pills {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--darkroom-border);
+  border-radius: 8px;
+}
+
+.prompt-bar__mode-pill {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--darkroom-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.prompt-bar__mode-pill.active {
+  background: var(--camera-body);
+  color: var(--darkroom-accent);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.prompt-bar__mode-pill:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Attachment Button */
+.prompt-bar__attachment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 1px solid var(--darkroom-border);
+  border-radius: 7px;
+  color: var(--darkroom-text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.prompt-bar__attachment:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Inline Pro Badge */
+.prompt-bar__pro-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  background: rgba(184, 149, 106, 0.12);
+  border: 1px solid rgba(184, 149, 106, 0.25);
+  border-radius: 5px;
+  font-size: 10px;
+  font-family: var(--lcd-font, monospace);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--darkroom-accent);
+  white-space: nowrap;
 }
 
 .prompt-bar__input,
 .prompt-input {
   flex: 1;
-  min-height: 48px;
-  max-height: 200px;
-  padding: var(--space-md);
+  min-height: 40px;
+  max-height: 160px;
+  padding: 10px var(--space-md);
   background: var(--camera-body-deep);
   border: 1px solid var(--darkroom-border);
   border-radius: 8px;
   color: var(--darkroom-text);
-  font-size: 14px;
+  font-size: 13px;
   font-family: var(--font-body);
   resize: none;
   outline: none;
-  line-height: 1.5;
+  line-height: 1.45;
   transition: all var(--duration-fast) var(--ease-out);
   /* Inset for input field feel */
-  box-shadow: 
+  box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.4),
     inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+  min-width: 0;
 }
 
 .prompt-bar__input:focus,
@@ -2581,8 +2659,8 @@
 }
 
 .prompt-submit {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   background: var(--camera-body);
   background-image: var(--camera-body-gloss);
   border: 1px solid var(--darkroom-border);
@@ -2595,7 +2673,7 @@
   transition: all var(--duration-fast) var(--ease-out);
   flex-shrink: 0;
   /* Button depth */
-  box-shadow: 
+  box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 2px 8px rgba(0, 0, 0, 0.4);
 }
@@ -2626,17 +2704,9 @@
     0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* Pro Mode Indicator */
+/* Pro Mode Indicator (legacy - now replaced by inline badge) */
 .prompt-bar__pro-indicator {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-sm);
-  background: rgba(184, 149, 106, 0.1);
-  border-radius: 6px;
-  font-size: 0.75rem;
-  color: var(--darkroom-accent);
+  display: none;
 }
 
 /* -----------------------------------------------------------------------------

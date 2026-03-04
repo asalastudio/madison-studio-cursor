@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useOrganization } from '@/hooks/useOrganization';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardWidget, DashboardWidgetType } from '@/components/dashboard/DashboardWidgetSystem';
+import { useToast } from '@/hooks/use-toast';
 
 interface DashboardWidgetContextType {
   widgets: DashboardWidget[];
@@ -11,7 +12,7 @@ interface DashboardWidgetContextType {
   removeWidget: (id: string) => void;
   updateWidget: (id: string, updates: Partial<DashboardWidget>) => void;
   resetWidgets: () => void;
-  saveWidgets: () => Promise<void>;
+  saveWidgets: (showSuccessToast?: boolean) => Promise<void>;
 }
 
 const DashboardWidgetContext = createContext<DashboardWidgetContextType | undefined>(undefined);
@@ -31,9 +32,12 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
 
 export function DashboardWidgetProvider({ children }: { children: React.ReactNode }) {
   const { organizationId } = useOrganization();
+  const { toast } = useToast();
   const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const initialLoadDoneRef = useRef(false);
+  const loadErrorRef = useRef(false);
 
   // Load widgets from database
   useEffect(() => {
@@ -42,6 +46,9 @@ export function DashboardWidgetProvider({ children }: { children: React.ReactNod
         setIsLoading(false);
         return;
       }
+
+      initialLoadDoneRef.current = false;
+      loadErrorRef.current = false;
 
       try {
         const { data } = await supabase
@@ -74,26 +81,37 @@ export function DashboardWidgetProvider({ children }: { children: React.ReactNod
         }
       } catch (error) {
         console.error('Error loading dashboard widgets:', error);
-        // On error, use default widgets
+        loadErrorRef.current = true;
+        // On error, use default widgets but do NOT save (would overwrite user's layout)
         setWidgets(DEFAULT_WIDGETS);
       } finally {
         setIsLoading(false);
+        initialLoadDoneRef.current = true;
       }
     };
 
     loadWidgets();
   }, [organizationId]);
 
-  // Save widgets to database
-  const saveWidgets = useCallback(async () => {
-    if (!organizationId || isLoading) return;
+  // Save widgets to database (showToast = only show success toast when explicitly saving, e.g. on "Done Editing")
+  const saveWidgets = useCallback(async (showSuccessToast = false) => {
+    if (!organizationId || isLoading || !initialLoadDoneRef.current || loadErrorRef.current) return;
 
     try {
-      const { data: orgData } = await supabase
+      const { data: orgData, error: fetchError } = await supabase
         .from('organizations')
         .select('settings')
         .eq('id', organizationId)
         .single();
+
+      if (fetchError || orgData == null) {
+        toast({
+          title: 'Could not load organization settings',
+          description: fetchError?.message,
+          variant: 'destructive',
+        });
+        return;
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const currentSettings = (orgData?.settings && typeof orgData.settings === 'object')
@@ -105,32 +123,51 @@ export function DashboardWidgetProvider({ children }: { children: React.ReactNod
         dashboardWidgets: widgets,
       };
 
-      await supabase
+      const { error } = await supabase
         .from('organizations')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({ settings: updatedSettings as any })
         .eq('id', organizationId);
+
+      if (error) {
+        console.error('Error saving dashboard widgets:', error);
+        toast({
+          title: 'Failed to save dashboard',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else if (showSuccessToast) {
+        toast({
+          title: 'Layout saved',
+          description: 'Your dashboard layout has been saved.',
+        });
+      }
     } catch (error) {
       console.error('Error saving dashboard widgets:', error);
+      toast({
+        title: 'Failed to save dashboard',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
     }
-  }, [organizationId, widgets, isLoading]);
+  }, [organizationId, widgets, isLoading, toast]);
 
-  // Auto-save when widgets change
+  // Auto-save only when in edit mode and widgets change (prevents overwriting on load/navigation)
   useEffect(() => {
-    if (!isLoading && organizationId) {
+    if (isEditMode && !isLoading && organizationId) {
       const timeoutId = setTimeout(() => {
         saveWidgets();
       }, 500); // Debounce saves
 
       return () => clearTimeout(timeoutId);
     }
-  }, [widgets, isLoading, organizationId, saveWidgets]);
+  }, [widgets, isEditMode, isLoading, organizationId, saveWidgets]);
 
   const toggleEditMode = useCallback(() => {
     setIsEditMode(prev => !prev);
-    // Save when exiting edit mode
+    // Save when exiting edit mode and show confirmation
     if (isEditMode) {
-      saveWidgets();
+      saveWidgets(true);
     }
   }, [isEditMode, saveWidgets]);
 

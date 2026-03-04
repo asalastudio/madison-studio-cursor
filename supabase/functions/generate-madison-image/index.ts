@@ -676,20 +676,18 @@ serve(async (req) => {
     let effectiveProvider = provider;
     let effectiveFreepikModel = freepikModel;
     let effectiveFreepikResolution = freepikResolution;
-    // Default to Gemini 3.0 Pro (Nano Banana) for image generation
-    let effectiveGeminiModel: string = "models/gemini-3-pro-image-preview";
+    // Use Gemini 2.5 Flash Image (production) - supports text-to-image and image editing
+    // See: https://ai.google.dev/gemini-api/docs/image-generation
+    let effectiveGeminiModel: string = "models/gemini-2.5-flash-image";
     
     if (aiProvider) {
-      // Gemini models (Google Direct)
+      // Gemini image models (must support responseModalities: ["IMAGE"])
       if (aiProvider === "gemini-3-pro-image" || aiProvider === "gemini-3") {
         effectiveProvider = "gemini";
-        effectiveGeminiModel = "models/gemini-3-pro-image-preview";
-      } else if (aiProvider === "gemini" || aiProvider === "gemini-2.0-flash") {
+        effectiveGeminiModel = "models/gemini-3.1-flash-image-preview";
+      } else if (aiProvider === "gemini" || aiProvider === "gemini-2.0-flash" || aiProvider === "gemini-2.0-flash-exp") {
         effectiveProvider = "gemini";
-        effectiveGeminiModel = "models/gemini-2.0-flash-exp";
-      } else if (aiProvider === "gemini-2.0-flash-exp") {
-        effectiveProvider = "gemini";
-        effectiveGeminiModel = "models/gemini-2.0-flash-exp";
+        effectiveGeminiModel = "models/gemini-2.5-flash-image";
       } 
       // Freepik models (actual available models from docs.freepik.com)
       else if (aiProvider === "freepik-seedream-4") {
@@ -715,8 +713,7 @@ serve(async (req) => {
         effectiveFreepikModel = "classic-fast";
       } else if (aiProvider === "auto") {
         effectiveProvider = "auto";
-        // Default to Gemini 3.0 Pro for auto mode
-        effectiveGeminiModel = "models/gemini-3-pro-image-preview";
+        effectiveGeminiModel = "models/gemini-2.5-flash-image";
       }
     }
     
@@ -1408,10 +1405,13 @@ serve(async (req) => {
       },
     );
   } catch (error) {
-    console.error("❌ generate-madison-image Error:", error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errMsg = err.message || "Image generation failed.";
+    console.error("❌ generate-madison-image Error:", errMsg, err.stack);
     return new Response(
       JSON.stringify({
-        error: error.message || "Image generation failed.",
+        error: errMsg,
+        details: Deno.env.get("ENVIRONMENT") === "development" ? err.stack : undefined,
       }),
       {
         status: 500,

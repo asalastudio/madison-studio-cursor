@@ -1,0 +1,83 @@
+<!--
+  10ml Roller Bottle Box - Small Format
+  Dimensions: 30mm (W) × 100mm (H) × 30mm (D)
+  Bleed: 3mm
+  Panel zones: front, back, left, right, top, bottom, top_flap
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 520" width="280" height="520">
+  <defs>
+    <style>
+      .cut-line { fill: none; stroke: #000; stroke-width: 1; }
+      .fold-line { fill: none; stroke: #FF0000; stroke-width: 0.5; stroke-dasharray: 5,5; }
+      .bleed-zone { fill: rgba(255,0,0,0.1); }
+      .safe-zone { fill: rgba(0,255,0,0.1); }
+      .panel-label { font-family: Arial; font-size: 9px; fill: #666; }
+    </style>
+  </defs>
+
+  <!-- Bleed zones -->
+  <rect class="bleed-zone" x="0" y="0" width="280" height="520"/>
+
+  <!-- Front Panel -->
+  <g id="front" data-panel-type="printable">
+    <rect class="cut-line" x="40" y="100" width="90" height="100"/>
+    <path class="fold-line" d="M 40,200 L 130,200"/>
+    <text class="panel-label" x="85" y="150">FRONT</text>
+  </g>
+
+  <!-- Bottom Panel -->
+  <g id="bottom" data-panel-type="printable">
+    <rect class="cut-line" x="40" y="200" width="90" height="30"/>
+    <path class="fold-line" d="M 40,230 L 130,230"/>
+    <text class="panel-label" x="85" y="218">Bottom</text>
+  </g>
+
+  <!-- Back Panel -->
+  <g id="back" data-panel-type="printable">
+    <rect class="cut-line" x="40" y="230" width="90" height="100"/>
+    <path class="fold-line" d="M 40,330 L 130,330"/>
+    <text class="panel-label" x="85" y="280">BACK</text>
+  </g>
+
+  <!-- Top Panel -->
+  <g id="top" data-panel-type="printable">
+    <rect class="cut-line" x="40" y="330" width="90" height="30"/>
+    <path class="fold-line" d="M 40,360 L 130,360"/>
+    <text class="panel-label" x="85" y="348">Top</text>
+  </g>
+
+  <!-- Top Flap -->
+  <g id="top-flap" data-panel-type="flap">
+    <path class="cut-line" d="M 40,360 L 130,360 L 130,400 L 40,400 Z"/>
+    <text class="panel-label" x="85" y="382">Tuck Flap</text>
+  </g>
+
+  <!-- Left Side Panel -->
+  <g id="left" data-panel-type="side">
+    <rect class="cut-line" x="10" y="100" width="30" height="100"/>
+    <path class="fold-line" d="M 40,100 L 40,200"/>
+    <text class="panel-label" x="18" y="150" transform="rotate(-90 25 150)">L</text>
+  </g>
+
+  <!-- Right Side Panel -->
+  <g id="right" data-panel-type="side">
+    <rect class="cut-line" x="130" y="100" width="30" height="100"/>
+    <path class="fold-line" d="M 130,100 L 130,200"/>
+    <text class="panel-label" x="138" y="150" transform="rotate(90 145 150)">R</text>
+  </g>
+
+  <!-- Glue Tab -->
+  <g id="glue-tab" data-panel-type="glue">
+    <path class="cut-line" d="M 160,100 L 175,100 L 175,200 L 160,200 Z"/>
+    <path class="fold-line" d="M 160,100 L 160,200"/>
+    <text class="panel-label" x="162" y="150" transform="rotate(90 167 150)">G</text>
+  </g>
+
+  <!-- Safe zones -->
+  <rect class="safe-zone" x="50" y="110" width="70" height="80" opacity="0.2" stroke-dasharray="2,2" stroke="#00FF00"/>
+  <rect class="safe-zone" x="50" y="240" width="70" height="80" opacity="0.2" stroke-dasharray="2,2" stroke="#00FF00"/>
+
+  <!-- Window cutout (optional - for seeing bottle) -->
+  <circle class="cut-line" cx="85" cy="150" r="15" stroke="#0000FF" stroke-width="0.5"/>
+  <text class="panel-label" x="85" y="155" text-anchor="middle" fill="#0000FF" font-size="7">window</text>
+</svg>

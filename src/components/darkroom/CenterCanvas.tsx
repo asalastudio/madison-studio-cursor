@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Camera,
   Loader2,
-  Send,
+  ArrowUp,
+  Paperclip,
 } from "lucide-react";
 import { ThumbnailCarousel } from "./ThumbnailCarousel";
 import { DevelopingAnimation, useDevelopingAnimation } from "./DevelopingAnimation";
@@ -202,13 +203,14 @@ export function CenterCanvas({
 }: CenterCanvasProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [activeMode, setActiveMode] = useState<"prompt" | "visual">("prompt");
 
   // Auto-resize textarea
   const resizeTextarea = () => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = "48px";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      textarea.style.height = "40px";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
     }
   };
 
@@ -302,23 +304,38 @@ export function CenterCanvas({
         maxSlots={maxImages}
       />
 
-      {/* Prompt Bar */}
+      {/* Prompt Bar - Compact Freepik-style */}
       <div className={cn("prompt-bar", isFocused && "focused")}>
-        {/* Pro Mode Indicator */}
-        {proSettingsCount > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="prompt-bar__pro-indicator"
+        {/* Mode Toggle Pills */}
+        <div className="prompt-bar__mode-pills">
+          <button
+            type="button"
+            className={cn("prompt-bar__mode-pill", activeMode === "prompt" && "active")}
+            onClick={() => setActiveMode("prompt")}
           >
-            <span>
-              Pro Mode: {proSettingsCount} setting
-              {proSettingsCount > 1 ? "s" : ""} active
-            </span>
-          </motion.div>
-        )}
+            Prompt
+          </button>
+          <button
+            type="button"
+            className="prompt-bar__mode-pill"
+            disabled
+            title="Coming soon"
+          >
+            Visual
+          </button>
+        </div>
 
         <div className="prompt-bar__input-container">
+          {/* Attachment icon (placeholder) */}
+          <button
+            type="button"
+            className="prompt-bar__attachment"
+            disabled
+            title="Attach image (coming soon)"
+          >
+            <Paperclip size={15} />
+          </button>
+
           <textarea
             ref={textareaRef}
             value={prompt}
@@ -329,11 +346,22 @@ export function CenterCanvas({
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
-            placeholder="Describe your vision... (Press Enter to generate)"
+            placeholder="What do you want to change?"
             className="prompt-input"
             disabled={isGenerating}
             rows={1}
           />
+
+          {/* Inline Pro Badge */}
+          {proSettingsCount > 0 && (
+            <motion.span
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="prompt-bar__pro-badge"
+            >
+              Pro·{proSettingsCount}
+            </motion.span>
+          )}
 
           <motion.button
             type="button"
@@ -344,9 +372,9 @@ export function CenterCanvas({
             whileTap={canGenerate ? { scale: 0.95 } : {}}
           >
             {isGenerating ? (
-              <Loader2 size={18} className="animate-spin" />
+              <Loader2 size={16} className="animate-spin" />
             ) : (
-              <Send size={18} />
+              <ArrowUp size={16} />
             )}
           </motion.button>
         </div>

@@ -10,6 +10,7 @@ import type { ProModeSettings } from "./ProSettings";
 import { ProductSelector } from "@/components/forge/ProductSelector";
 import { Product } from "@/hooks/useProducts";
 import { cn } from "@/lib/utils";
+import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
 
 interface UploadedImage {
   url: string;
@@ -63,6 +64,7 @@ export function LeftRail({
 }: LeftRailProps) {
   const [showBackgroundUpload, setShowBackgroundUpload] = useState(false);
   const [showStyleUpload, setShowStyleUpload] = useState(false);
+  const [showProductLibrary, setShowProductLibrary] = useState(false);
 
   const proSettingsCount = Object.values(proSettings).filter(Boolean).length;
 
@@ -158,6 +160,7 @@ export function LeftRail({
             image={productImage}
             onUpload={onProductImageUpload}
             onRemove={() => onProductImageUpload(null)}
+            onLibraryOpen={() => setShowProductLibrary(true)}
             disabled={isGenerating}
           />
         </div>
@@ -253,6 +256,13 @@ export function LeftRail({
         disabled={!canGenerate}
         sessionCount={sessionCount}
         maxImages={maxImages}
+      />
+
+      <ImageLibraryModal
+        open={showProductLibrary}
+        onOpenChange={setShowProductLibrary}
+        onSelectImage={onProductImageUpload}
+        title="Select Product Image"
       />
     </aside>
   );

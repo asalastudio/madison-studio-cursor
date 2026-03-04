@@ -84,10 +84,10 @@ export function ProductSelector({
                       setOpen(false);
                       setSearchValue("");
                     }}
-                    className="hover:bg-studio-card text-studio-text-primary cursor-pointer"
+                    className="text-[#EAEAEA] hover:bg-white/10 cursor-pointer aria-selected:bg-white/10 aria-selected:text-[#EAEAEA]"
                   >
                     {product.name}
-                    <span className="ml-auto text-xs text-studio-text-muted">
+                    <span className="ml-auto text-xs text-[#888]">
                       {product.category || 'Uncategorized'}
                     </span>
                   </CommandItem>
