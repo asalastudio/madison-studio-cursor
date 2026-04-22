@@ -295,13 +295,15 @@ export const FITMENT_TYPES: VariationOption[] = [
   {
     id: "roller-ball",
     label: "Metal Roller Ball",
-    prompt: "polished stainless-steel roller-ball applicator seated in the bottle neck, bright silver ball with a translucent plastic neck plug",
+    prompt:
+      "FITMENT is a polished stainless-steel roller-ball applicator seated in the bottle neck: the BALL is bright MIRROR-POLISHED STAINLESS STEEL — chrome-silver, reflective, metallic — and STAYS BRIGHT METALLIC STEEL REGARDLESS OF THE GLASS BODY COLOUR OR FINISH (even when the body is frosted, amber, cobalt, or swirl, the ball is NEVER dark, NEVER black, NEVER tinted, NEVER colour-matched to the body). Immediately below the steel ball, a small TRANSLUCENT CLEAR PLASTIC neck plug holds it in place; the plug is clear or very faintly frosted plastic, never dark, never coloured. Together the ball + plug form a classic perfume roll-on top.",
     swatch: "#B8BAB8",
   },
   {
     id: "roller-ball-plastic",
     label: "Plastic Roller Ball",
-    prompt: "plastic roller-ball applicator seated in the bottle neck, matte white plastic ball with a colour-matched plastic neck plug, lightweight personal-care feel",
+    prompt:
+      "FITMENT is a plastic roller-ball applicator seated in the bottle neck: the BALL is MATTE WHITE PLASTIC — never dark, never tinted, never colour-matched to the glass body — with a colour-matched clear plastic neck plug below. Lightweight personal-care feel. Regardless of the bottle body material or colour, the ball stays matte white plastic.",
     swatch: "#D8D5CF",
   },
   {
@@ -695,6 +697,11 @@ const UNIVERSAL_MATERIAL_RULES = [
   "The attached reference image is a SHAPE and PROPORTION guide only — use it to reproduce the bottle's silhouette, neck, shoulder, and overall geometry exactly. Do NOT copy the reference's colour or material literally; the final bottle material is determined by the VARIATION DETAILS below. The final image must always look like a freshly photographed studio shot, not a recoloured cut-out of the reference.",
   // Cap-protection rule
   "STRICT RULE: The cap's appearance is determined ONLY by the CAP description in the VARIATION DETAILS. Never apply the bottle-body material, pattern, colour, or finish to the cap. If no cap variation is specified, keep the cap identical to the reference image's cap.",
+  // Fitment-protection rule (mirrors cap-protection — prevents body-colour
+  // bleed onto the roller ball / sprayer / pump. Specifically addresses the
+  // frosted-body → dark-ball artefact where the model extends the body's
+  // muted/diffuse tone onto the metal ball.)
+  "STRICT RULE: The fitment's appearance — ball colour, sprayer collar, pump actuator, etc. — is determined ONLY by the FITMENT description in the VARIATION DETAILS. The bottle-body's material, colour, finish, or diffusion NEVER bleeds onto the fitment. A metal roller ball stays BRIGHT MIRROR-POLISHED STAINLESS STEEL (chrome-silver, reflective) even when the body is frosted, amber, cobalt, or any coloured/diffuse glass. A plastic roller ball stays matte white. A metal sprayer collar stays bright metal. If no fitment variation is specified, keep the fitment identical to the reference image's fitment.",
 ].join(" ");
 
 export interface CompositionPreset {
