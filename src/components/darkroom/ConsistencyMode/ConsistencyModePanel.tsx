@@ -20,6 +20,7 @@ import {
 } from "@/config/consistencyVariations";
 import {
   MAX_VARIATION_SET_SIZE,
+  capsForFitments,
   expandVariationMatrix,
   type VariationAxis,
   type VariationOption,
@@ -153,12 +154,22 @@ export function ConsistencyModePanel({
     setSelection((prev) => {
       const current = prev[axis];
       const exists = current.some((o) => o.id === option.id);
-      return {
-        ...prev,
-        [axis]: exists
-          ? current.filter((o) => o.id !== option.id)
-          : [...current, option],
-      };
+      const nextOnAxis = exists
+        ? current.filter((o) => o.id !== option.id)
+        : [...current, option];
+      const next = { ...prev, [axis]: nextOnAxis };
+
+      // If the user just changed the fitment set, prune cap selections
+      // that are no longer offered with the new fitment lineup. Without
+      // this, a stale cap selection would stay ticked but disappear from
+      // the visible chip list, silently generating unsellable SKUs.
+      if (axis === "fitmentType") {
+        const validCapIds = new Set(
+          capsForFitments(next.fitmentType.map((o) => o.id)).map((c) => c.id),
+        );
+        next.capColor = next.capColor.filter((c) => validCapIds.has(c.id));
+      }
+      return next;
     });
   };
 
