@@ -116,9 +116,17 @@ export default function BestBottlesPipeline() {
     try {
       const text = await file.text();
       const result = await importPipelineCsv(text, organizationId);
+      console.log("[pipeline-import-ui] result:", result);
       if (result.errors.length > 0) {
         toast.error(`Import completed with errors`, {
           description: result.errors.join("\n"),
+          duration: 30000,
+        });
+      } else if (result.inserted === 0 && result.skipped === 0) {
+        toast.error("Import returned 0 rows", {
+          description:
+            "The CSV parsed but no rows were inserted. Check the browser console for [pipeline-import] logs with full details.",
+          duration: 30000,
         });
       } else {
         toast.success(
