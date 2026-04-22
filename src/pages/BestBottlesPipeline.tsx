@@ -8,6 +8,7 @@ import {
   Loader2,
   Play,
   Filter,
+  ImageDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,10 @@ import {
   type ShapeGroup,
 } from "@/lib/bestBottlesPipeline";
 import { writePipelinePrefill } from "@/lib/bestBottlesPipelineBridge";
+import {
+  syncReferenceImages,
+  type ReferenceSyncProgress,
+} from "@/lib/bestBottlesReferenceSync";
 
 /**
  * Maps Best Bottles catalog glass-color names to Consistency Mode bottle-color
@@ -71,6 +76,10 @@ export default function BestBottlesPipeline() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<ReferenceSyncProgress | null>(
+    null,
+  );
 
   const { data: rows = [], isLoading: rowsLoading } = useQuery({
     queryKey: ["best-bottles-pipeline-groups", organizationId],
@@ -145,6 +154,75 @@ export default function BestBottlesPipeline() {
     }
   };
 
+  // ─── Reference image sync ─────────────────────────────────────────────────
+  //
+  // Pulls the hero image from each row's product_url via the
+  // scrape-product-reference edge function and stores it in
+  // legacy_hero_image_url. Skips rows that already have one (fill-the-gaps
+  // semantics) unless `force` is true — forcing is a follow-up UI feature;
+  // P0 just runs the gap-fill path.
+  const missingReferenceCount = useMemo(
+    () =>
+      rows.filter((r) => r.product_url && !r.legacy_hero_image_url).length,
+    [rows],
+  );
+
+  const handleSyncReferences = async () => {
+    if (!organizationId) return;
+    if (missingReferenceCount === 0) {
+      toast.info("All rows already have reference images.");
+      return;
+    }
+    setSyncing(true);
+    setSyncProgress({
+      total: missingReferenceCount,
+      completed: 0,
+      succeeded: 0,
+      skipped: 0,
+      failed: 0,
+    });
+    try {
+      const existing = new Map(
+        rows.map((r) => [r.id, r.legacy_hero_image_url ?? null] as const),
+      );
+      const inputRows = rows
+        .filter((r) => r.product_url)
+        .map((r) => ({
+          id: r.id,
+          productUrl: r.product_url,
+          displayName: r.display_name,
+        }));
+      const outcomes = await syncReferenceImages(inputRows, existing, {
+        concurrency: 4,
+        force: false,
+        onProgress: (p) => setSyncProgress(p),
+      });
+      const synced = outcomes.filter((o) => o.status === "synced").length;
+      const failed = outcomes.filter((o) => o.status === "error").length;
+      if (synced > 0) {
+        toast.success(`Synced ${synced} reference images`, {
+          description: failed > 0 ? `${failed} rows failed` : undefined,
+        });
+      } else if (failed > 0) {
+        toast.error(`Sync finished with ${failed} failures`, {
+          description: "Check the product URLs or try again later.",
+        });
+      } else {
+        toast.info("Nothing to sync");
+      }
+      queryClient.invalidateQueries({ queryKey: ["best-bottles-pipeline-groups"] });
+    } catch (err) {
+      toast.error("Sync failed", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setSyncing(false);
+      // Keep the last progress snapshot visible briefly so the operator can
+      // see the final tallies before the pill disappears.
+      setTimeout(() => setSyncProgress(null), 4000);
+    }
+  };
+
   // ─── Launch ──────────────────────────────────────────────────────────────
   //
   // Build a pre-fill from the shape group: pre-tick every unique
@@ -175,6 +253,13 @@ export default function BestBottlesPipeline() {
       (group.capacityMl != null ? ` · ${group.capacityMl}ml` : "") +
       (group.threadSize ? ` · ${group.threadSize}` : "");
 
+    // Pick a representative reference image for the shape group — first
+    // row with a synced legacy_hero_image_url wins. Consistency Mode
+    // pre-loads this as the master reference so the operator skips the
+    // "find a PSD, flatten, screenshot, upload" loop when a valid
+    // product-page image already covers the shape.
+    const rowWithReference = group.rows.find((r) => r.legacy_hero_image_url);
+
     writePipelinePrefill({
       shapeKey: group.key,
       shapeLabel,
@@ -184,6 +269,8 @@ export default function BestBottlesPipeline() {
       family: group.family,
       capacityMl: group.capacityMl,
       threadSize: group.threadSize,
+      masterReferenceUrl: rowWithReference?.legacy_hero_image_url ?? undefined,
+      masterReferenceLabel: rowWithReference?.display_name ?? undefined,
     });
 
     navigate("/darkroom?mode=consistency&from=pipeline");
@@ -224,6 +311,27 @@ export default function BestBottlesPipeline() {
                 if (f) void handleCsvFile(f);
               }}
             />
+            <Button
+              variant="outline"
+              onClick={handleSyncReferences}
+              disabled={
+                syncing || !organizationId || missingReferenceCount === 0
+              }
+              title={
+                missingReferenceCount === 0
+                  ? "All rows already have reference images"
+                  : `Scrape product_url for ${missingReferenceCount} row${missingReferenceCount === 1 ? "" : "s"} missing a reference`
+              }
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <ImageDown className="w-4 h-4 mr-2" />
+              )}
+              {syncing && syncProgress
+                ? `Syncing ${syncProgress.completed}/${syncProgress.total}`
+                : `Sync references${missingReferenceCount > 0 ? ` (${missingReferenceCount})` : ""}`}
+            </Button>
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
@@ -384,6 +492,15 @@ function ShapeGroupCard({
     (group.capacityMl != null ? ` · ${group.capacityMl}ml` : "") +
     (group.threadSize ? ` · ${group.threadSize}` : "");
 
+  // Reference thumbnails synced from bestbottles.com product pages. Cap to
+  // 4 so the strip stays compact; the full SKU list below still shows all.
+  const referenceThumbs = group.rows
+    .filter((r) => r.legacy_hero_image_url)
+    .slice(0, 4);
+  const totalWithReference = group.rows.filter(
+    (r) => r.legacy_hero_image_url,
+  ).length;
+
   return (
     <Card className="p-4 border-white/[0.06] bg-white/[0.02] text-white space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -406,6 +523,34 @@ function ShapeGroupCard({
           Launch
         </Button>
       </div>
+
+      {/* Reference thumbnail strip — rendered only when at least one row
+          has a scraped legacy_hero_image_url. Gives the operator an
+          instant visual answer to "what does this shape look like?" so
+          they can pick a master reference without opening Photoshop. */}
+      {referenceThumbs.length > 0 && (
+        <div className="flex items-center gap-1.5 -mx-0.5">
+          {referenceThumbs.map((row) => (
+            <div
+              key={`${row.id}-thumb`}
+              className="relative w-10 h-10 rounded border border-white/[0.08] bg-black/30 overflow-hidden flex-shrink-0"
+              title={row.display_name}
+            >
+              <img
+                src={row.legacy_hero_image_url ?? ""}
+                alt=""
+                loading="lazy"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ))}
+          {totalWithReference > referenceThumbs.length && (
+            <span className="text-[10px] font-mono uppercase tracking-wider text-white/40">
+              +{totalWithReference - referenceThumbs.length} more
+            </span>
+          )}
+        </div>
+      )}
 
       {/* SKU list */}
       <div className="space-y-1 max-h-56 overflow-y-auto pr-1">

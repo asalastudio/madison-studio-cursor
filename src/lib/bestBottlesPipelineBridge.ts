@@ -38,6 +38,15 @@ export interface PipelinePrefill {
   family: string;
   capacityMl: number | null;
   threadSize: string | null;
+  /**
+   * Hero image URL scraped from a representative product page in the shape
+   * group (legacy_hero_image_url). When present, Consistency Mode pre-loads
+   * this as the master reference so the operator doesn't have to upload a
+   * PSD screenshot for the most common path — visually-accurate reference
+   * for an existing SKU.
+   */
+  masterReferenceUrl?: string;
+  masterReferenceLabel?: string;
   /** Optional timestamp so we can expire stale handoffs after ~30 min. */
   writtenAt: number;
 }

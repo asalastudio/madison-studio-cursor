@@ -146,6 +146,9 @@ export function ConsistencyModePanel({
   // On mount, check for a Best Bottles Pipeline pre-fill. If present,
   // pre-tick the matching bottle-color + fitment chips so the operator
   // opens Consistency Mode with the right matrix already configured.
+  // If a synced product-page reference image is on the prefill, also
+  // pre-load it as the master reference so the default path is
+  // zero-upload — just tune and expose.
   // Reads + clears the handoff so a refresh doesn't re-apply stale state.
   useEffect(() => {
     const prefill = readAndClearPipelinePrefill();
@@ -163,8 +166,23 @@ export function ConsistencyModePanel({
       capColor: [],
       fitmentType: fitments,
     });
+
+    const preloadedMaster = !!prefill.masterReferenceUrl;
+    if (prefill.masterReferenceUrl) {
+      setMasterImage({
+        url: prefill.masterReferenceUrl,
+        name: prefill.masterReferenceLabel
+          ? `Reference: ${prefill.masterReferenceLabel}`
+          : "Reference from product page",
+      });
+    }
+
     toast.success(`Pipeline pre-fill applied: ${prefill.shapeLabel}`, {
-      description: `${bottleColors.length} colors × ${fitments.length} fitments. Upload a master reference and expose.`,
+      description:
+        `${bottleColors.length} colors × ${fitments.length} fitments.` +
+        (preloadedMaster
+          ? " Master reference pre-loaded from product page — tune and expose."
+          : " Upload a master reference and expose."),
     });
   }, []);
 
