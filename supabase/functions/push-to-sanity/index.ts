@@ -27,6 +27,25 @@ interface SanityConfig {
   dataset: string;
   token: string;
   apiVersion: string;
+  /** Studio URL for "Open in Studio" links (optional). */
+  studioUrl?: string;
+  /**
+   * Tarife Attar-specific behavior (journalEntry aliasing, location
+   * auto-detection from title). Defaults to `true` for orgs that rely on
+   * env-var fallback (historical behavior). Brand-config-driven orgs must
+   * opt in explicitly via `brand_config.sanity.legacyTarifeFeatures = true`.
+   */
+  legacyTarifeFeatures: boolean;
+  /**
+   * Optional override for the Sanity document type. If set, replaces the
+   * client-supplied sanityDocumentType. Useful when a new client's schema
+   * uses `post` or `blogPost` instead of Tarife's `journalEntry`.
+   */
+  documentType?: string;
+  /** Which fields to populate with the featured image asset reference. */
+  imageFieldNames?: string[];
+  /** Which fields to populate with the linked product reference. */
+  productReferenceFieldNames?: string[];
 }
 
 interface PushRequest {
@@ -42,22 +61,99 @@ interface PushRequest {
 }
 
 /**
- * Get Sanity configuration from Supabase secrets or DB
- * TODO: Fetch from organizations.brand_config if available
+ * Fetch `brand_config.sanity` for an org, if set. Returns null on any
+ * failure (network, missing, malformed) so the caller can fall back to env.
  */
-async function getSanityConfig(organizationId?: string): Promise<SanityConfig> {
-  const projectId = Deno.env.get("SANITY_PROJECT_ID") || "8h5l91ut";
-  const dataset = Deno.env.get("SANITY_DATASET") || "production";
-  const token = Deno.env.get("SANITY_WRITE_TOKEN");
-  const apiVersion = Deno.env.get("SANITY_API_VERSION") || "2024-01-01";
+async function fetchOrgSanityOverrides(
+  supabaseUrl: string,
+  supabaseKey: string,
+  organizationId: string,
+): Promise<Partial<SanityConfig> | null> {
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/organizations?id=eq.${organizationId}&select=brand_config`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+      },
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    const sanity = rows?.[0]?.brand_config?.sanity;
+    if (!sanity || typeof sanity !== "object") return null;
+    return {
+      projectId: sanity.projectId ?? sanity.project_id,
+      dataset: sanity.dataset,
+      token: sanity.writeToken ?? sanity.write_token ?? sanity.token,
+      apiVersion: sanity.apiVersion ?? sanity.api_version,
+      studioUrl: sanity.studioUrl ?? sanity.studio_url,
+      legacyTarifeFeatures:
+        typeof sanity.legacyTarifeFeatures === "boolean"
+          ? sanity.legacyTarifeFeatures
+          : false,
+      documentType: sanity.documentType ?? sanity.document_type,
+      imageFieldNames: Array.isArray(sanity.imageFieldNames)
+        ? sanity.imageFieldNames
+        : undefined,
+      productReferenceFieldNames: Array.isArray(sanity.productReferenceFieldNames)
+        ? sanity.productReferenceFieldNames
+        : undefined,
+    };
+  } catch (err) {
+    console.warn("[push-to-sanity] Failed to read brand_config.sanity:", err);
+    return null;
+  }
+}
+
+/**
+ * Resolve Sanity configuration: per-org override from brand_config.sanity
+ * first, then environment variables. No hardcoded project IDs — if both
+ * sources are missing the required fields we throw so nothing accidentally
+ * publishes to the wrong project.
+ */
+async function getSanityConfig(
+  supabaseUrl: string,
+  supabaseKey: string,
+  organizationId?: string,
+): Promise<SanityConfig> {
+  const orgOverrides = organizationId
+    ? await fetchOrgSanityOverrides(supabaseUrl, supabaseKey, organizationId)
+    : null;
+
+  const projectId = orgOverrides?.projectId || Deno.env.get("SANITY_PROJECT_ID");
+  const dataset =
+    orgOverrides?.dataset || Deno.env.get("SANITY_DATASET") || "production";
+  const token = orgOverrides?.token || Deno.env.get("SANITY_WRITE_TOKEN");
+  const apiVersion =
+    orgOverrides?.apiVersion ||
+    Deno.env.get("SANITY_API_VERSION") ||
+    "2024-01-01";
 
   if (!projectId || !token) {
     throw new Error(
-      "Missing Sanity configuration. Set SANITY_PROJECT_ID and SANITY_WRITE_TOKEN in Supabase secrets."
+      "Sanity is not configured for this organization. Go to Settings → Integrations → Sanity and paste the project ID and write token, or set SANITY_PROJECT_ID / SANITY_WRITE_TOKEN in Supabase secrets.",
     );
   }
 
-  return { projectId, dataset, token, apiVersion };
+  // Default Tarife-specific behaviors ON only when the org has no
+  // explicit brand_config.sanity (env-fallback path = legacy Tarife).
+  // Orgs with their own config are opt-in.
+  const legacyTarifeFeatures =
+    orgOverrides?.legacyTarifeFeatures ?? !orgOverrides;
+
+  return {
+    projectId,
+    dataset,
+    token,
+    apiVersion,
+    studioUrl: orgOverrides?.studioUrl,
+    legacyTarifeFeatures,
+    documentType: orgOverrides?.documentType,
+    imageFieldNames: orgOverrides?.imageFieldNames,
+    productReferenceFieldNames: orgOverrides?.productReferenceFieldNames,
+  };
 }
 
 /**
@@ -186,23 +282,23 @@ async function transformContentToSanity(
   contentType: string,
   sanityDocumentType: string,
   sanityClient: any,
+  sanityConfig: SanityConfig,
   extraMetadata?: any,
   linkedProduct?: { id: string; name: string; sanityId: string }
 ): Promise<any> {
-  // -------------------------------------------------------------------------
-  // SCHEMA ALIGNMENT FIX:
-  // If the user selects "Field Journal", we map it to "journalEntry"
-  // based on the console warnings seen in Sanity Studio.
-  // -------------------------------------------------------------------------
-  // -------------------------------------------------------------------------
-  // SCHEMA ALIGNMENT FIX:
-  // We map most text-heavy types to "journalEntry" to ensure they appear
-  // in the Tarife Attar "Journal" inbox.
-  // -------------------------------------------------------------------------
-  let finalDocumentType = sanityDocumentType;
-  if (['fieldJournal', 'journal', 'post', 'blog_article', 'article'].includes(sanityDocumentType)) {
+  // Document type resolution:
+  // 1. Per-org override (brand_config.sanity.documentType) wins.
+  // 2. Legacy Tarife aliasing (journalEntry) applies only when the org
+  //    falls through to the env-var config path.
+  // 3. Otherwise the client-supplied type is used verbatim.
+  let finalDocumentType = sanityConfig.documentType || sanityDocumentType;
+  if (
+    !sanityConfig.documentType &&
+    sanityConfig.legacyTarifeFeatures &&
+    ['fieldJournal', 'journal', 'post', 'blog_article', 'article'].includes(sanityDocumentType)
+  ) {
     finalDocumentType = 'journalEntry';
-    console.log(`[push-to-sanity] Aliasing '${sanityDocumentType}' to 'journalEntry' to match schema.`);
+    console.log(`[push-to-sanity] [legacy-tarife] Aliasing '${sanityDocumentType}' to 'journalEntry' to match schema.`);
   }
 
   const baseDoc: any = {
@@ -276,8 +372,9 @@ async function transformContentToSanity(
     mappings.publishedAt = content.published_at || content.created_at || new Date().toISOString();
     mappings.date = mappings.publishedAt;
 
-    // Automated Location Detection (Tarife Attar Specific)
-    const locationCoords: Record<string, { lat: number; lng: number; name: string }> = {
+    // Automated Location Detection (Tarife Attar-specific — only runs when
+    // the org has no explicit brand_config.sanity override).
+    const locationCoords: Record<string, { lat: number; lng: number; name: string }> = sanityConfig.legacyTarifeFeatures ? {
       "havana": { lat: 23.1136, lng: -82.3666, name: "Havana, Cuba" },
       "riyadh": { lat: 24.7136, lng: 46.6753, name: "Riyadh, Saudi Arabia" },
       "kashmir": { lat: 34.0837, lng: 74.7973, name: "Kashmir, India" },
@@ -286,7 +383,7 @@ async function transformContentToSanity(
       "medina": { lat: 24.5247, lng: 39.5692, name: "Medina, Saudi Arabia" },
       "taif": { lat: 21.2854, lng: 40.4248, name: "Taif, Saudi Arabia" },
       "oman": { lat: 23.5859, lng: 58.4059, name: "Muscat, Oman" },
-    };
+    } : {};
 
     const searchKey = (content.title || "").toLowerCase();
     const detectedLocation = Object.keys(locationCoords).find(loc => searchKey.includes(loc));
@@ -340,25 +437,27 @@ async function transformContentToSanity(
           },
         };
 
-        // Targeted Image Mapping (Reduced Noise)
-        mappings.featuredImage = imageRef;
-        mappings.mainImage = imageRef;
-        // mappings.image = imageRef;
-        // mappings.media = imageRef;
-        // mappings.heroImage = imageRef;
-        // mappings.thumbnail = imageRef;
-        // mappings.coverImage = imageRef;
-        // mappings.asset = imageRef;
-        // mappings.landscape_image = imageRef;
-        // mappings.article_image = imageRef;
-        mappings.image = imageRef;
-        mappings.media = imageRef;
-        mappings.heroImage = imageRef;
-        mappings.thumbnail = imageRef;
-        mappings.coverImage = imageRef;
-        mappings.asset = imageRef;
-        mappings.landscape_image = imageRef;
-        mappings.article_image = imageRef;
+        // Image field mapping:
+        // - If org supplies `imageFieldNames`, populate only those (clean path).
+        // - Otherwise fall back to the legacy brute-force list that
+        //   historically matches Tarife's schema variants.
+        const imageFields = sanityConfig.imageFieldNames?.length
+          ? sanityConfig.imageFieldNames
+          : [
+              "featuredImage",
+              "mainImage",
+              "image",
+              "media",
+              "heroImage",
+              "thumbnail",
+              "coverImage",
+              "asset",
+              "landscape_image",
+              "article_image",
+            ];
+        for (const fieldName of imageFields) {
+          mappings[fieldName] = imageRef;
+        }
 
         console.log("[push-to-sanity] Image uploaded successfully:", asset._id);
       } catch (imgError) {
@@ -367,15 +466,20 @@ async function transformContentToSanity(
       }
     }
 
-    // Add product reference if linked
+    // Add product reference if linked. Field names default to a
+    // broad list (including Tarife's `perfume`) and can be overridden
+    // via brand_config.sanity.productReferenceFieldNames.
     if (linkedProduct?.sanityId) {
       const productRef = {
         _type: "reference",
         _ref: linkedProduct.sanityId,
       };
-      mappings.product = productRef;
-      mappings.perfume = productRef; // Some schemas use 'perfume'
-      mappings.relatedProduct = productRef;
+      const productFields = sanityConfig.productReferenceFieldNames?.length
+        ? sanityConfig.productReferenceFieldNames
+        : ["product", "perfume", "relatedProduct"];
+      for (const fieldName of productFields) {
+        mappings[fieldName] = productRef;
+      }
     }
   } else if (sanityDocumentType === "emailCampaign") {
     mappings.subject = content.metadata?.subject || content.title;
@@ -489,8 +593,12 @@ serve(async (req) => {
     const content = await fetchContent(supabaseUrl, supabaseKey, contentId, contentType);
     console.log("[push-to-sanity] Content fetched:", content?.title || content?.id);
 
-    // Get Sanity config
-    const sanityConfig = await getSanityConfig(organizationId);
+    // Get Sanity config (per-org override from brand_config.sanity, env fallback)
+    const sanityConfig = await getSanityConfig(
+      supabaseUrl,
+      supabaseKey,
+      organizationId,
+    );
 
     // Initialize Sanity client
     const sanityClient = createClient({
@@ -567,6 +675,7 @@ serve(async (req) => {
       contentType,
       sanityDocumentType,
       sanityClient,
+      sanityConfig,
       inboxMetadata,
       linkedProductData
     );
