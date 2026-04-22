@@ -1,10 +1,11 @@
-import { Home, Archive, Pencil, Share2, Calendar, FileText, Video, Settings, ChevronLeft, ChevronRight, LogOut, User, Menu, ShoppingBag, Store, Image, Mail, ChevronDown, Palette, FolderOpen, BookOpen, HelpCircle, Camera, Package, Building2 } from "lucide-react";
+import { Home, Archive, Pencil, Share2, Calendar, FileText, Video, Settings, ChevronLeft, ChevronRight, LogOut, User, Menu, ShoppingBag, Store, Image, Mail, ChevronDown, Palette, FolderOpen, BookOpen, HelpCircle, Camera, Package, Building2, Workflow } from "lucide-react";
 import { VaultSidebarBtn } from "@/components/sidebar/VaultSidebarBtn";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsEcommerceOrg } from "@/hooks/useIndustryConfig";
+import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
 import { useState, useEffect } from "react";
 import {
   Sidebar,
@@ -33,6 +34,7 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const { isEcommerce, loading: isEcommerceLoading } = useIsEcommerceOrg();
+  const { enabled: gridPipelineEnabled } = useGridPipelineFeatureFlag();
 
   // Helper to check if a group contains the active route
   const isGroupActive = (items: { url: string }[]) => {
@@ -90,10 +92,14 @@ export function AppSidebar() {
     if (checkGroupActive(helpItems)) setHelpOpen(true);
   }, [location.pathname]);
 
-  // Top-level nav items (always visible)
+  // Top-level nav items (always visible). Pipeline is org-gated so it only
+  // shows for orgs with `brand_config.features.grid_pipeline` flipped on.
   const topLevelItems = [
     { title: "Dashboard", url: "/dashboard", icon: Home },
     { title: "Schedule", url: "/schedule", icon: Calendar },
+    ...(gridPipelineEnabled
+      ? [{ title: "Pipeline", url: "/best-bottles/pipeline", icon: Workflow }]
+      : []),
   ];
 
   // Grouped navigation structure
