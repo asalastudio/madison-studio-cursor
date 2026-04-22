@@ -29,6 +29,15 @@ export interface PipelinePrefill {
    * consistencyVariations.FITMENT_TYPES (e.g. "fine-mist-metal", "roller-ball").
    */
   fitmentIds: string[];
+  /**
+   * Catalog metadata for the shape group — used downstream by the edge
+   * function to auto-tag generated images (library_tags) and build
+   * human-readable storage filenames so the client's team can find and
+   * validate outputs by family/capacity/thread without spelunking UUIDs.
+   */
+  family: string;
+  capacityMl: number | null;
+  threadSize: string | null;
   /** Optional timestamp so we can expire stale handoffs after ~30 min. */
   writtenAt: number;
 }

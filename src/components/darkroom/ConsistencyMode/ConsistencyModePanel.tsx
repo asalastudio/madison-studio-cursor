@@ -383,6 +383,15 @@ export function ConsistencyModePanel({
       materialReferences,
       composition,
       studio,
+      pipelineContext: pipelinePrefill
+        ? {
+            source: "best-bottles-pipeline",
+            family: pipelinePrefill.family,
+            capacityMl: pipelinePrefill.capacityMl,
+            threadSize: pipelinePrefill.threadSize,
+            shapeKey: pipelinePrefill.shapeKey,
+          }
+        : undefined,
     });
   };
 

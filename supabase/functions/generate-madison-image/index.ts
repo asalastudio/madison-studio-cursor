@@ -688,6 +688,12 @@ serve(async (req) => {
       // separated prompt/label fields. Interpreted as "use this for both".
       variationDescriptor,
       setPosition, // number | undefined — 0-indexed order within the set
+
+      // Best Bottles Grid Pipeline context — present only when the run was
+      // launched from the Pipeline page. Drives library_tags and the
+      // human-readable storage filename below so the client's team can
+      // locate outputs by family/capacity/thread instead of UUIDs.
+      pipelineContext,
     } = body;
 
     // Resolve the two separate roles from whatever fields the client sent.
@@ -703,7 +709,63 @@ serve(async (req) => {
         : typeof variationDescriptor === "string" && variationDescriptor.trim()
           ? variationDescriptor.trim()
           : undefined;
-    
+
+    // ─── Best Bottles Pipeline meta ───────────────────────────────────
+    // When this run was launched from the Grid Pipeline, compute a
+    // canonical set of library_tags and a human-readable storage path
+    // so the client's team can locate outputs by family/capacity/thread
+    // in the Library instead of UUID hunting. For non-pipeline runs this
+    // stays null and the rest of the pipeline behaves exactly as before.
+    const slugify = (v: unknown): string => {
+      if (v == null) return "";
+      return String(v)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60);
+    };
+    const pipelineMeta: {
+      libraryTags: string[];
+      storagePathPrefix: string;
+      variationSlug: string;
+    } | null = (() => {
+      const ctx = pipelineContext as
+        | {
+            source?: string;
+            family?: string;
+            capacityMl?: number | null;
+            threadSize?: string | null;
+            shapeKey?: string;
+          }
+        | undefined;
+      if (!ctx || ctx.source !== "best-bottles-pipeline") return null;
+      const familySlug = slugify(ctx.family) || "unknown-family";
+      const capSlug =
+        typeof ctx.capacityMl === "number" && Number.isFinite(ctx.capacityMl)
+          ? `${ctx.capacityMl}ml`
+          : null;
+      const threadSlug = ctx.threadSize ? slugify(ctx.threadSize) : null;
+      const shapeSlug = [familySlug, capSlug, threadSlug]
+        .filter(Boolean)
+        .join("-");
+      const variationSlug =
+        slugify(effectiveVariationLabel) ||
+        (typeof setPosition === "number" ? `pos-${setPosition}` : "variation");
+      const libraryTags = Array.from(
+        new Set(
+          ["best-bottles", "pipeline", familySlug, shapeSlug].filter(
+            (t) => t && t.length > 0,
+          ),
+        ),
+      );
+      return {
+        libraryTags,
+        storagePathPrefix: `pipeline/${familySlug}/${shapeSlug}`,
+        variationSlug,
+      };
+    })();
+
     // Map frontend-friendly names to backend values
     // aiProvider maps to: provider + freepikModel + geminiModel
     // resolution maps to: freepikResolution
@@ -1319,7 +1381,16 @@ serve(async (req) => {
           throw new Error(`Failed to fetch Freepik image for re-upload: ${freepikFetch.status}`);
         }
         const freepikBuffer = await freepikFetch.arrayBuffer();
-        const freepikFilename = `${resolvedOrgId}/${Date.now()}-${crypto.randomUUID()}.png`;
+        // Pipeline-aware storage path when launched from the Grid Pipeline;
+        // UUID path (unchanged) for everything else.
+        const freepikShortId = crypto.randomUUID().slice(0, 8);
+        const freepikPosition =
+          typeof setPosition === "number" && Number.isFinite(setPosition)
+            ? Math.max(0, Math.floor(setPosition))
+            : 0;
+        const freepikFilename = pipelineMeta
+          ? `${resolvedOrgId}/${pipelineMeta.storagePathPrefix}/${pipelineMeta.variationSlug}-pos${freepikPosition}-${freepikShortId}.png`
+          : `${resolvedOrgId}/${Date.now()}-${crypto.randomUUID()}.png`;
 
         const { error: freepikUploadErr } = await supabase.storage
           .from("generated-images")
@@ -1450,8 +1521,16 @@ serve(async (req) => {
         cropped: conformed.wasModified,
       });
 
-      // Upload Gemini's base64 image to Supabase Storage
-      const filename = `${resolvedOrgId}/${Date.now()}-${crypto.randomUUID()}.png`;
+      // Upload Gemini's base64 image to Supabase Storage. Pipeline-aware
+      // path when launched from the Grid Pipeline; UUID path otherwise.
+      const geminiShortId = crypto.randomUUID().slice(0, 8);
+      const geminiPosition =
+        typeof setPosition === "number" && Number.isFinite(setPosition)
+          ? Math.max(0, Math.floor(setPosition))
+          : 0;
+      const filename = pipelineMeta
+        ? `${resolvedOrgId}/${pipelineMeta.storagePathPrefix}/${pipelineMeta.variationSlug}-pos${geminiPosition}-${geminiShortId}.png`
+        : `${resolvedOrgId}/${Date.now()}-${crypto.randomUUID()}.png`;
 
       const { error: uploadErr } = await supabase.storage
         .from("generated-images")
@@ -1548,6 +1627,19 @@ serve(async (req) => {
     }
     if (typeof setPosition === "number" && Number.isFinite(setPosition)) {
       insertPayload.set_position = Math.max(0, Math.floor(setPosition));
+    }
+
+    // Auto-tag pipeline-originated images so the client's team can filter
+    // the Library by brand/family/shape without coordinating on tag names.
+    // Merges with any library_tags already on the payload (none today, but
+    // future callers might supply their own).
+    if (pipelineMeta) {
+      const existing = Array.isArray(insertPayload.library_tags)
+        ? (insertPayload.library_tags as string[])
+        : [];
+      insertPayload.library_tags = Array.from(
+        new Set([...existing, ...pipelineMeta.libraryTags]),
+      );
     }
 
     const savedImage = await insertGeneratedImageRecord(

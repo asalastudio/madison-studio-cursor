@@ -181,6 +181,9 @@ export default function BestBottlesPipeline() {
       pipelineGroupIds: group.rows.map((r) => r.id),
       bottleColorIds: Array.from(colorIds),
       fitmentIds: Array.from(fitmentIds),
+      family: group.family,
+      capacityMl: group.capacityMl,
+      threadSize: group.threadSize,
     });
 
     navigate("/darkroom?mode=consistency&from=pipeline");

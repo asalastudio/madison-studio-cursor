@@ -50,6 +50,21 @@ export interface VariationItem {
   error?: string;
 }
 
+/**
+ * Catalog metadata forwarded to the edge function when a consistency run
+ * originated from the Best Bottles Grid Pipeline. Lets the server auto-tag
+ * generated rows (library_tags) and build a product-aware storage filename
+ * so the client's team can validate outputs by family/capacity/thread.
+ * Omitted entirely for non-pipeline runs — behaviour unchanged in that case.
+ */
+export interface PipelineGenerationContext {
+  source: "best-bottles-pipeline";
+  family: string;
+  capacityMl: number | null;
+  threadSize: string | null;
+  shapeKey: string;
+}
+
 export interface ConsistencySetPayload {
   /** URL of the master reference image (already uploaded to storage). */
   masterImageUrl: string;
@@ -85,6 +100,11 @@ export interface ConsistencySetPayload {
   materialReferences?: Record<string, { url: string; name?: string } | undefined>;
   /** Composition preset — "assembled" (default) or "exploded-uncapped". */
   composition?: CompositionId;
+  /**
+   * Present only when this run was launched from the Best Bottles Pipeline.
+   * Threaded through to the edge function so it can tag + name images.
+   */
+  pipelineContext?: PipelineGenerationContext;
   /**
    * Studio controls — backdrop colour, light direction, shadow direction,
    * shadow intensity. Shared across every variation in the set so the
@@ -244,6 +264,9 @@ export function runConsistencySet(
                 variationPrompt: item.descriptor,
                 variationLabel: item.label,
                 setPosition: item.position,
+                // Only present for pipeline-originated runs — drives
+                // library_tags + human-readable storage path server-side.
+                pipelineContext: payload.pipelineContext,
               },
             },
           );
