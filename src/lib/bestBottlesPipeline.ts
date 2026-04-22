@@ -263,6 +263,13 @@ export async function importPipelineCsv(
   const rawRows = parseCsv(csvText);
   const result: ImportResult = { inserted: 0, updated: 0, skipped: 0, errors: [] };
 
+  // Diagnostic: surface how many raw rows we parsed + the first mapped row so
+  // a silent failure is visible in the browser console immediately.
+  console.log("[pipeline-import] raw CSV rows parsed:", rawRows.length);
+  if (rawRows.length > 0) {
+    console.log("[pipeline-import] first raw row keys:", Object.keys(rawRows[0]));
+  }
+
   const payload: ImportRow[] = [];
   for (const row of rawRows) {
     const mapped = csvRowToImport(row, organizationId);
@@ -273,14 +280,27 @@ export async function importPipelineCsv(
     payload.push(mapped);
   }
 
-  if (payload.length === 0) return result;
+  console.log("[pipeline-import] mapped rows:", payload.length, "skipped:", result.skipped);
+  if (payload.length > 0) {
+    console.log("[pipeline-import] first mapped row:", payload[0]);
+  }
+
+  if (payload.length === 0) {
+    result.errors.push(
+      `CSV parsed ${rawRows.length} rows but 0 mapped to importable records — header mismatch? ` +
+        `First row keys: ${rawRows[0] ? Object.keys(rawRows[0]).join(" | ") : "none"}`,
+    );
+    return result;
+  }
 
   // Split into withSlug (upsert by org+slug) and withoutSlug (plain insert).
   const withSlug = payload.filter((p) => p.convex_slug);
   const withoutSlug = payload.filter((p) => !p.convex_slug);
 
+  console.log("[pipeline-import] with slug:", withSlug.length, "without slug:", withoutSlug.length);
+
   if (withSlug.length > 0) {
-    const { error, count } = await supabase
+    const response = await supabase
       .from("best_bottles_pipeline_groups")
       .upsert(withSlug, {
         onConflict: "organization_id,convex_slug",
@@ -288,27 +308,50 @@ export async function importPipelineCsv(
       })
       .select("id", { count: "exact" });
 
-    if (error) {
-      result.errors.push(`Upsert failed: ${error.message}`);
+    console.log("[pipeline-import] upsert response:", {
+      error: response.error,
+      status: response.status,
+      statusText: response.statusText,
+      count: response.count,
+      dataLength: response.data?.length,
+    });
+
+    if (response.error) {
+      result.errors.push(
+        `Upsert failed (${response.status}): ${response.error.message}` +
+          (response.error.details ? ` · details: ${response.error.details}` : "") +
+          (response.error.hint ? ` · hint: ${response.error.hint}` : ""),
+      );
     } else {
-      // Supabase doesn't distinguish insert vs update on upsert; combine.
-      result.inserted += count ?? 0;
+      // Prefer data.length over count — count can be null even on success
+      // depending on Supabase client version and Prefer header.
+      result.inserted += response.data?.length ?? response.count ?? 0;
     }
   }
 
   if (withoutSlug.length > 0) {
-    const { error, count } = await supabase
+    const response = await supabase
       .from("best_bottles_pipeline_groups")
       .insert(withoutSlug)
       .select("id", { count: "exact" });
 
-    if (error) {
-      result.errors.push(`Insert (no slug) failed: ${error.message}`);
+    console.log("[pipeline-import] insert (no slug) response:", {
+      error: response.error,
+      status: response.status,
+      dataLength: response.data?.length,
+    });
+
+    if (response.error) {
+      result.errors.push(
+        `Insert (no slug) failed (${response.status}): ${response.error.message}` +
+          (response.error.details ? ` · details: ${response.error.details}` : ""),
+      );
     } else {
-      result.inserted += count ?? 0;
+      result.inserted += response.data?.length ?? response.count ?? 0;
     }
   }
 
+  console.log("[pipeline-import] final result:", result);
   return result;
 }
 
