@@ -20,6 +20,19 @@ export interface VariationOption {
   prompt: string;
   /** Optional swatch colour for the chip UI. */
   swatch?: string;
+  /**
+   * Which fitments this cap is actually offered with in the Best Bottles
+   * cylinder family catalog. Used to soft-gate invalid combinations in the
+   * UI (a spray fitment has fewer cap colours than a roll-on). When empty
+   * or omitted, the cap is treated as universally available.
+   */
+  compatibleFitments?: Array<
+    | "fine-mist-metal"
+    | "fine-mist-plastic"
+    | "lotion-pump"
+    | "roller-ball"
+    | "over-cap"
+  >;
 }
 
 export interface VariationAxisConfig {
@@ -81,98 +94,148 @@ export const BOTTLE_COLORS: VariationOption[] = [
   },
 ];
 
+/**
+ * CAP FINISHES — Best Bottles cylinder family.
+ *
+ * CRITICAL MATERIAL NOTE: every cap below is PHENOLIC PLASTIC (a premium
+ * moulded thermosetting resin), NOT metal. Caps that look gold, silver, or
+ * copper are plastic with a metallised / lacquered finish — they should
+ * read as high-end metallic caps but with slightly softer highlights than
+ * true polished metal, because they are in fact moulded plastic. Every
+ * prompt states this explicitly so Gemini does not default to rendering
+ * hard machined-metal specular behaviour.
+ *
+ * The `compatibleFitments` array lists the fitments the cap is actually
+ * offered with in the Best Bottles cylinder catalog. When a user selects
+ * a fitment, the UI should soft-gate the caps to the intersecting set.
+ */
 export const CAP_COLORS: VariationOption[] = [
-  // ─── Metal finishes ────────────────────────────────────────────────────
+  // ─── Solid colour caps ─────────────────────────────────────────────────
   {
-    id: "polished-gold",
-    label: "Polished Gold",
+    id: "black",
+    label: "Black",
     prompt:
-      "polished gold metal cap with a mirror-bright reflective finish, warm yellow-gold tone, crisp specular highlights",
-    swatch: "#C9A24B",
+      "glossy black phenolic plastic cap with a smooth reflective moulded surface, deep neutral black, premium high-quality phenolic resin construction — the cap is NOT metal, it is moulded phenolic plastic with a polished lacquered finish; highlights are clean but slightly softer than true polished metal",
+    swatch: "#1E1E1E",
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "lotion-pump"],
   },
   {
-    id: "brushed-gold",
-    label: "Brushed Gold",
+    id: "shiny-black",
+    label: "Shiny Black",
     prompt:
-      "brushed gold metal cap with a satin finish, fine horizontal grain texture, soft warm-gold sheen, no mirror reflection",
-    swatch: "#B28C3C",
+      "high-gloss black phenolic plastic cap with a very bright polished lacquered finish, deep jet-black, sharp specular highlights characteristic of premium moulded phenolic resin — NOT metal, but a glossy plastic cap with a near-piano-black sheen",
+    swatch: "#0B0B0B",
+    compatibleFitments: ["roller-ball"],
   },
   {
-    id: "matte-gold",
-    label: "Matte Gold",
+    id: "white",
+    label: "White",
     prompt:
-      "matte gold metal cap with a completely non-reflective soft-touch finish, warm muted gold tone, no specular highlights, no grain, no mirror quality",
-    swatch: "#9E7E3D",
+      "soft-matte white phenolic plastic cap with a clean even moulded surface, neutral bright white, premium high-quality phenolic resin construction — NOT metal, a moulded plastic cap with a low-sheen finish",
+    swatch: "#EFEDE8",
+    compatibleFitments: ["roller-ball"],
   },
   {
-    id: "rose-gold",
-    label: "Rose Gold",
+    id: "turquoise",
+    label: "Turquoise",
     prompt:
-      "polished rose-gold metal cap with a warm pink-copper tone and a soft reflective finish",
-    swatch: "#B76E6E",
+      "glossy turquoise phenolic plastic cap with a rich aqua-teal tone and smooth reflective lacquered surface, premium high-quality phenolic resin construction — NOT metal, a moulded plastic cap with a crisp jewel-tone finish",
+    swatch: "#2EA3A6",
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic"],
   },
   {
-    id: "polished-silver",
-    label: "Polished Silver",
+    id: "red",
+    label: "Red",
     prompt:
-      "polished silver metal cap with a mirror-bright chrome-like finish, cool neutral silver tone, crisp reflective highlights",
-    swatch: "#C7CBD0",
+      "glossy red phenolic plastic cap with a rich true-red tone and smooth reflective lacquered surface, premium high-quality phenolic resin construction — NOT metal, a moulded plastic cap with a lipstick-gloss finish",
+    swatch: "#B52A26",
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic"],
+  },
+  // ─── Metallic-look caps (still phenolic plastic) ───────────────────────
+  //
+  // Every one of these is moulded phenolic plastic with a metallised or
+  // highly lacquered finish that READS as metal in a product photo. The
+  // prompts say so explicitly so Gemini doesn't render mechanical-metal
+  // surface physics (sharp machined specular hotspots, hairline machining
+  // marks, etc.).
+  {
+    id: "satin-silver",
+    label: "Satin Silver",
+    prompt:
+      "satin silver phenolic plastic cap with a soft brushed-looking metallic silver appearance, cool neutral silver tone, a finish between fully matte and fully glossy, premium high-quality moulded phenolic resin with a metallised coating — NOT metal; the cap reads as a silver metallic cap in catalog photography but is in fact moulded plastic, so highlights are softly diffused rather than sharply specular",
+    swatch: "#B6B9BC",
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic"],
   },
   {
-    id: "brushed-silver",
-    label: "Brushed Silver",
+    id: "shiny-silver",
+    label: "Shiny Silver",
     prompt:
-      "brushed silver metal cap with a satin finish, fine horizontal grain, soft neutral sheen, no mirror reflection",
-    swatch: "#A7ABAE",
+      "high-gloss silver phenolic plastic cap with a bright mirror-like metallised finish, cool neutral silver tone, crisp but slightly softened highlights, premium high-quality moulded phenolic resin with a polished silver metallised coating — NOT metal; reads as polished silver in catalog photography but is moulded plastic, so the specular highlights are clean yet slightly diffused compared to true chrome",
+    swatch: "#D1D4D9",
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "roller-ball"],
   },
   {
     id: "matte-silver",
     label: "Matte Silver",
     prompt:
-      "matte silver metal cap with a completely non-reflective soft-touch finish, cool muted silver-grey tone, no specular highlights, no grain, no mirror quality",
+      "matte silver phenolic plastic cap with a muted non-reflective metallic silver appearance, cool muted silver-grey tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte metallised coating — NOT metal; reads as a brushed-matte silver metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
     swatch: "#8F9398",
+    compatibleFitments: ["roller-ball", "lotion-pump"],
   },
   {
-    id: "matte-black",
-    label: "Matte Black",
+    id: "shiny-gold",
+    label: "Shiny Gold",
     prompt:
-      "matte black cap with a completely non-reflective soft-touch coating, deep neutral black, no shine, no highlights",
-    swatch: "#1E1E1E",
+      "high-gloss gold phenolic plastic cap with a bright polished metallised finish, warm yellow-gold tone, crisp but slightly softened highlights, premium high-quality moulded phenolic resin with a polished gold metallised coating — NOT metal; reads as polished gold in catalog photography but is moulded plastic, so the specular highlights are clean yet slightly diffused compared to true machined metal",
+    swatch: "#C9A24B",
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "roller-ball", "lotion-pump"],
   },
+  {
+    id: "matte-gold",
+    label: "Matte Gold",
+    prompt:
+      "matte gold phenolic plastic cap with a muted non-reflective metallic gold appearance, warm muted gold tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte gold metallised coating — NOT metal; reads as a brushed-matte gold metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
+    swatch: "#9E7E3D",
+    compatibleFitments: ["roller-ball"],
+  },
+  {
+    id: "matte-copper",
+    label: "Matte Copper",
+    prompt:
+      "matte copper phenolic plastic cap with a muted non-reflective metallic copper appearance, warm orange-bronze tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte copper metallised coating — NOT metal; reads as a brushed-matte copper metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
+    swatch: "#B26F44",
+    compatibleFitments: ["roller-ball"],
+  },
+  // ─── Decorated caps — dot / pattern motifs (phenolic plastic base) ─────
+  //
+  // Dots are a surface decoration (printed or applied) on a phenolic cap —
+  // NOT three-dimensional rhinestones. Prompts describe them as flat or
+  // slightly raised round dots rather than faceted crystals.
+  {
+    id: "black-silver-dots",
+    label: "Black with Silver Dots",
+    prompt:
+      "glossy black phenolic plastic cap with an even pattern of small round silver dots applied across the surface, deep jet-black base with bright metallic-silver dot motif, premium high-quality moulded phenolic resin — NOT metal; dots are a surface decoration (flat or very slightly raised applied circles), not faceted rhinestones or embedded crystals",
+    swatch: "#1A1A1A",
+    compatibleFitments: ["roller-ball"],
+  },
+  {
+    id: "pink-dots",
+    label: "Pink with Dots",
+    prompt:
+      "soft muted-pink phenolic plastic cap with an even pattern of small round contrasting dots applied across the surface, warm rose-pink base with delicate dot motif, premium high-quality moulded phenolic resin with a satin finish — NOT metal; dots are a surface decoration (flat or very slightly raised applied circles), not faceted rhinestones or embedded crystals",
+    swatch: "#D9A3B2",
+    compatibleFitments: ["roller-ball"],
+  },
+  // ─── Natural-material caps (kept for completeness across families) ─────
   {
     id: "natural-wood",
     label: "Natural Wood",
     prompt:
-      "natural light-wood cap with a fine vertical grain visible through a matte-sealed surface, warm neutral wood tone",
+      "natural light-wood cap with a fine vertical grain visible through a matte-sealed surface, warm neutral wood tone — this cap is real wood with a satin seal, not phenolic plastic",
     swatch: "#B08B5E",
-  },
-  // ─── Decorated caps (rhinestone-embellished) ───────────────────────────
-  //
-  // Rhinestones are a physical embellishment — faceted clear-crystal stones
-  // embedded around the top circumference of the cap, NOT a painted or
-  // printed pattern. The prompts explicitly describe the stones' geometry
-  // and light behaviour so Gemini produces real-looking embellishments
-  // instead of a decorative graphic.
-  {
-    id: "black-rhinestones",
-    label: "Black Rhinestones",
-    prompt:
-      "matte black cap with a band of FACETED CLEAR-CRYSTAL rhinestones physically embedded around the entire top edge of the cap. The rhinestones are individually cut three-dimensional crystals that catch light with distinct small bright sparkle highlights and subtle internal refractions. The body of the cap is a matte non-reflective black. The rhinestones sit proud of the surface as real physical embellishments, not as a printed pattern, painted texture, or flat graphic.",
-    swatch: "#2A2A2A",
-  },
-  {
-    id: "pink-rhinestones",
-    label: "Pink Rhinestones",
-    prompt:
-      "soft muted-pink cap with a satin finish and a band of FACETED CLEAR-CRYSTAL rhinestones physically embedded around the entire top edge of the cap. The rhinestones are individually cut three-dimensional crystals that catch light with distinct small bright sparkle highlights and subtle internal refractions. The base cap is a muted rose-pink with a soft smooth satin finish. The rhinestones sit proud of the surface as real physical embellishments, not as a printed pattern, painted texture, or flat graphic.",
-    swatch: "#D9A3B2",
-  },
-  {
-    id: "silver-rhinestones",
-    label: "Silver Rhinestones",
-    prompt:
-      "polished silver cap with a band of FACETED CLEAR-CRYSTAL rhinestones physically embedded around the entire top edge of the cap. The rhinestones are individually cut three-dimensional crystals that catch light with distinct small bright sparkle highlights and subtle internal refractions. The silver has a bright reflective mirror-like finish. The rhinestones sit proud of the surface as real physical embellishments, not as a printed pattern, painted texture, or flat graphic.",
-    swatch: "#D6D9DE",
+    // No compatibleFitments set — wood caps are cross-family, used where
+    // explicitly specified in the source catalog.
   },
 ];
 
@@ -219,7 +282,7 @@ export const VARIATION_AXES: VariationAxisConfig[] = [
   {
     id: "capColor",
     label: "Cap Finish",
-    helper: "Cap / closure colour and finish.",
+    helper: "Phenolic plastic cap colour / finish. Caps shown match the selected fitment's real catalog lineup.",
     options: CAP_COLORS,
   },
   {
@@ -229,6 +292,31 @@ export const VARIATION_AXES: VariationAxisConfig[] = [
     options: FITMENT_TYPES,
   },
 ];
+
+/**
+ * Soft-gate: given a selected fitment (or multiple fitments), return the cap
+ * options that are actually offered with that fitment in the Best Bottles
+ * cylinder catalog. Caps with no `compatibleFitments` field are always
+ * returned (treated as cross-fitment).
+ *
+ * UI guidance: if the user has selected one or more fitments in the same
+ * run, filter the cap chips through this helper so they can't pick
+ * "Turquoise" on a roll-on (the Best Bottles cylinder family doesn't
+ * actually offer that SKU, so generating it would produce an image that
+ * can't be sold).
+ */
+export function capsForFitments(
+  fitmentIds: Array<VariationOption["id"]>,
+): VariationOption[] {
+  if (fitmentIds.length === 0) return CAP_COLORS;
+  const ids = new Set(fitmentIds);
+  return CAP_COLORS.filter((cap) => {
+    if (!cap.compatibleFitments || cap.compatibleFitments.length === 0) {
+      return true;
+    }
+    return cap.compatibleFitments.some((f) => ids.has(f));
+  });
+}
 
 /** Hard safety cap on set size — keeps a single run under ~5 minutes. */
 export const MAX_VARIATION_SET_SIZE = 50;
@@ -244,7 +332,7 @@ const UNIVERSAL_SCENE_RULES = [
   "Seamless off-white studio backdrop (#F5F3EF), no gradient, no texture.",
   "Soft top-key lighting at a 45° angle from camera-right, gentle fill from the left.",
   "No labels, no branding, no text, no packaging, no props.",
-  "Crisp commercial-catalog clarity, true-to-life material rendering (glass transparency, metal reflectivity, matte coatings) with no stylisation.",
+  "Crisp commercial-catalog clarity, true-to-life material rendering — glass transparency and refraction for the BODY, and premium moulded phenolic-plastic surface behaviour for the CAP (softly diffused highlights rather than hard machined-metal specular hotspots, even when the cap has a metallic-looking finish).",
   // Reference-image role
   "The attached reference image is a SHAPE and PROPORTION guide only — use it to reproduce the bottle's silhouette, neck, shoulder, and overall geometry exactly. Do NOT copy the reference's colour or material literally; the final bottle material is determined by the VARIATION DETAILS below. The final image must always look like a freshly photographed studio shot, not a recoloured cut-out of the reference.",
   // Global cap-protection rule

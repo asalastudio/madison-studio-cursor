@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   VARIATION_AXES,
+  capsForFitments,
   type VariationAxis,
   type VariationOption,
 } from "@/config/consistencyVariations";
@@ -51,42 +52,60 @@ export function VariationMatrix({
 }: VariationMatrixProps) {
   return (
     <div className="space-y-3">
-      {VARIATION_AXES.map((axis, axisIdx) => (
-        <div
-          key={axis.id}
-          className={cn(
-            "space-y-1.5",
-            axisIdx > 0 && "pt-3 border-t border-white/[0.04]",
-          )}
-        >
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--darkroom-text-muted)]">
-              {axis.label}
+      {VARIATION_AXES.map((axis, axisIdx) => {
+        // Cap axis soft-gate: if the user has chosen one or more fitments,
+        // only show caps that are actually offered with those fitments in
+        // the Best Bottles catalog. This prevents generating a "Turquoise
+        // roll-on" when the real SKU lineup doesn't include it.
+        const selectedFitmentIds = selection.fitmentType.map((o) => o.id);
+        const options =
+          axis.id === "capColor" && selectedFitmentIds.length > 0
+            ? capsForFitments(selectedFitmentIds)
+            : axis.options;
+        const gated =
+          axis.id === "capColor" &&
+          selectedFitmentIds.length > 0 &&
+          options.length < axis.options.length;
+        return (
+          <div
+            key={axis.id}
+            className={cn(
+              "space-y-1.5",
+              axisIdx > 0 && "pt-3 border-t border-white/[0.04]",
+            )}
+          >
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--darkroom-text-muted)]">
+                {axis.label}
+              </div>
+              <p className="text-[9px] text-[var(--darkroom-text-dim)] mt-0.5">
+                {axis.helper}
+                {gated
+                  ? ` · showing ${options.length}/${axis.options.length} offered with your fitment`
+                  : ""}
+              </p>
             </div>
-            <p className="text-[9px] text-[var(--darkroom-text-dim)] mt-0.5">
-              {axis.helper}
-            </p>
+            <div className="flex flex-wrap gap-1">
+              {options.map((option) => {
+                const isSelected = selection[axis.id].some((o) => o.id === option.id);
+                const attachedRef = materialReferences[option.id];
+                return (
+                  <VariationChip
+                    key={option.id}
+                    option={option}
+                    isSelected={isSelected}
+                    attachedRef={attachedRef}
+                    disabled={disabled}
+                    onToggle={() => onToggle(axis.id, option)}
+                    onAttach={(ref) => onAttachReference(option.id, ref)}
+                    onRemove={() => onRemoveReference(option.id)}
+                  />
+                );
+              })}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {axis.options.map((option) => {
-              const isSelected = selection[axis.id].some((o) => o.id === option.id);
-              const attachedRef = materialReferences[option.id];
-              return (
-                <VariationChip
-                  key={option.id}
-                  option={option}
-                  isSelected={isSelected}
-                  attachedRef={attachedRef}
-                  disabled={disabled}
-                  onToggle={() => onToggle(axis.id, option)}
-                  onAttach={(ref) => onAttachReference(option.id, ref)}
-                  onRemove={() => onRemoveReference(option.id)}
-                />
-              );
-            })}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
