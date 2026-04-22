@@ -305,7 +305,7 @@ export function useDashboardStats() {
             return {
               text: `Turn "${recentMaster.title}" into an Instagram carousel`,
               cta: 'Multiply Now',
-              route: `/multiply?master=${recentMaster.id}`,
+              route: `/multiply?id=${recentMaster.id}`,
               priority: 'multiply',
             };
           }

@@ -29,6 +29,7 @@ export interface LibraryContentItem {
   aspectRatio?: string;
   finalPrompt?: string;
   featuredImageUrl?: string; // For blog posts
+  platformSpecs?: Record<string, unknown> | null;
 }
 
 export const useLibraryContent = (groupBySessions = false, page = 1, limit = 30) => {
@@ -166,6 +167,7 @@ export const useLibraryContent = (groupBySessions = false, page = 1, limit = 30)
               brandConsistencyScore: item.brand_consistency_score || undefined,
               brandAnalysis: item.brand_analysis || undefined,
               lastBrandCheckAt: item.last_brand_check_at || undefined,
+              platformSpecs: (item.platform_specs as Record<string, unknown> | null) || null,
             };
           })
         );

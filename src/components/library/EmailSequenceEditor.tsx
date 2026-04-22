@@ -11,7 +11,11 @@ import { AutosaveIndicator } from "@/components/ui/autosave-indicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { AUTOSAVE_CONFIG } from "@/config/autosaveConfig";
 import { useToast } from "@/hooks/use-toast";
-import { parseEmailSequence, ParsedEmailPart } from "@/lib/emailSequence";
+import {
+  buildSequenceEmailsFromDerivative,
+  buildSequencePlatformSpecsFromContent,
+  serializeSequenceEmails,
+} from "@/lib/multiplyUtils";
 
 interface EmailPart {
   id: string;
@@ -26,6 +30,7 @@ interface EmailSequenceEditorProps {
   open: boolean;
   title: string;
   initialContent: string;
+  initialPlatformSpecs?: any;
   contentId?: string;
   contentType?: string;
   category?: "master" | "derivative" | "output"; // Which type of content
@@ -34,36 +39,19 @@ interface EmailSequenceEditorProps {
 }
 
 // Convert parsed email parts to editor format
-function buildEmailParts(content: string, contentId?: string): EmailPart[] {
-  const parsed = parseEmailSequence(content);
-  
-  return parsed.map((part, index) => ({
-    id: `${contentId || 'email'}-part-${index + 1}`,
-    sequenceNumber: index + 1,
-    subject: part.subject || `Email ${index + 1}`,
-    preview: part.preview || part.content.slice(0, 140),
-    content: part.content,
-    charCount: part.content.length,
-  }));
-}
-
-// Serialize email parts back to text format
-function serializeEmailParts(parts: EmailPart[]): string {
-  return parts.map((part, index) => {
-    const lines: string[] = [];
-    lines.push(`Email ${part.sequenceNumber}`);
-    if (part.subject) lines.push(`Subject: ${part.subject}`);
-    if (part.preview) lines.push(`Preview: ${part.preview}`);
-    lines.push('');
-    lines.push(part.content);
-    return lines.join('\n');
-  }).join('\n\n---\n\n');
+function buildEmailParts(content: string, contentId?: string, platformSpecs?: any): EmailPart[] {
+  return buildSequenceEmailsFromDerivative({
+    id: contentId || "email",
+    generated_content: content,
+    platform_specs: platformSpecs,
+  });
 }
 
 export function EmailSequenceEditor({ 
   open, 
   title, 
   initialContent, 
+  initialPlatformSpecs,
   contentId,
   contentType,
   category = "master",
@@ -82,27 +70,31 @@ export function EmailSequenceEditor({
     : "outputs";
   
   const fieldName = category === "master" ? "full_content" : "generated_content";
+  const serializedContent = serializeSequenceEmails(emailParts);
+  const sequencePlatformSpecs =
+    category === "derivative"
+      ? buildSequencePlatformSpecsFromContent(serializedContent, contentType)
+      : undefined;
 
   // Auto-save configuration
-  const getContentForSave = () => serializeEmailParts(emailParts);
-  
   const { saveStatus, lastSavedAt, forceSave } = useAutoSave({
-    content: getContentForSave(),
+    content: serializedContent,
     contentId,
     contentName: title,
     delay: AUTOSAVE_CONFIG.STANDARD_DELAY,
     tableName,
-    fieldName
+    fieldName,
+    extraUpdateFields: sequencePlatformSpecs ? { platform_specs: sequencePlatformSpecs } : undefined,
   });
 
   // Initialize email parts from content
   useEffect(() => {
     if (open && initialContent) {
-      const parts = buildEmailParts(initialContent, contentId);
+      const parts = buildEmailParts(initialContent, contentId, initialPlatformSpecs);
       setEmailParts(parts);
       setSelectedEmailIndex(0);
     }
-  }, [open, initialContent, contentId]);
+  }, [open, initialContent, initialPlatformSpecs, contentId]);
 
   const handleEmailPartChange = (
     partId: string, 
@@ -124,7 +116,7 @@ export function EmailSequenceEditor({
 
   const handleSave = async () => {
     await forceSave();
-    const serialized = serializeEmailParts(emailParts);
+    const serialized = serializeSequenceEmails(emailParts);
     onSave(serialized);
   };
 
@@ -137,7 +129,7 @@ export function EmailSequenceEditor({
   };
 
   const handleCopyAll = () => {
-    const serialized = serializeEmailParts(emailParts);
+    const serialized = serializeSequenceEmails(emailParts);
     navigator.clipboard.writeText(serialized);
     toast({
       title: "Copied",

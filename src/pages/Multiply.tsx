@@ -41,7 +41,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useOrganization } from "@/hooks/useOrganization";
-import { parseEmailSequence } from "@/lib/emailSequence";
+import { buildSequenceEmailsFromDerivative, buildSequencePlatformSpecsFromContent } from "@/lib/multiplyUtils";
 import fannedPagesImage from "@/assets/fanned-pages-new.jpg";
 import ticketIcon from "@/assets/ticket-icon.png";
 import envelopeIcon from "@/assets/envelope-icon.png";
@@ -235,48 +235,6 @@ const ADDITIONAL_DERIVATIVE_TYPES: DerivativeType[] = [
 
 const DERIVATIVE_TYPES = [...TOP_DERIVATIVE_TYPES, ...ADDITIONAL_DERIVATIVE_TYPES];
 
-interface RawEmailSpec {
-  subject?: string;
-  preview?: string;
-  body?: string;
-}
-
-interface RawDerivativeResponse {
-  id: string;
-  generated_content?: string;
-  platform_specs?: {
-    emails?: RawEmailSpec[];
-    [key: string]: unknown;
-  };
-}
-
-const buildSequenceEmailsFromDerivative = (derivative: RawDerivativeResponse) => {
-  if (derivative?.platform_specs?.emails?.length) {
-    return derivative.platform_specs.emails.map((email, index) => {
-      const body = email?.body || "";
-      return {
-        id: `${derivative.id}-email-${index + 1}`,
-        sequenceNumber: index + 1,
-        subject: email?.subject || `Email ${index + 1}`,
-        preview: email?.preview || body.slice(0, 140),
-        content: body,
-        charCount: body.length,
-      };
-    });
-  }
-
-  const parsed = parseEmailSequence(derivative?.generated_content || "");
-
-  return parsed.map((part, index) => ({
-    id: `${derivative.id}-parsed-${index + 1}`,
-    sequenceNumber: index + 1,
-    subject: part.subject || `Email ${index + 1}`,
-    preview: part.preview || part.content.slice(0, 140),
-    content: part.content,
-    charCount: part.content.length,
-  }));
-};
-
 export default function Multiply() {
   const { toast } = useToast();
   const location = useLocation();
@@ -334,7 +292,7 @@ export default function Multiply() {
       let selectionSource: 'url' | 'state' | 'localStorage' | 'fallback' = 'fallback';
 
       // 1. Check URL param
-      const urlId = searchParams.get('id');
+      const urlId = searchParams.get('id') || searchParams.get('master');
       if (urlId) {
         selectedId = urlId;
         selectionSource = 'url';
@@ -381,7 +339,7 @@ export default function Multiply() {
             selectedViaNavigationRef.current = true;
 
             // Update URL if it doesn't have ?id
-            if (selectionSource !== 'url') {
+            if (searchParams.get('id') !== selectedId) {
               navigate(`/multiply?id=${selectedId}`, { replace: true });
             }
 
@@ -730,10 +688,29 @@ export default function Multiply() {
     if (!selectedDerivativeForModal) return;
 
     try {
+      const derivativeType = selectedDerivativeForModal.asset_type || selectedDerivativeForModal.typeId;
+      const isSequenceType = derivativeType.includes('email_');
+      const updatedPlatformSpecs = isSequenceType
+        ? {
+            ...selectedDerivativeForModal.platformSpecs,
+            ...buildSequencePlatformSpecsFromContent(newContent, derivativeType),
+          }
+        : selectedDerivativeForModal.platformSpecs;
+      const updatedSequenceEmails = isSequenceType
+        ? buildSequenceEmailsFromDerivative({
+            id: selectedDerivativeForModal.id,
+            generated_content: newContent,
+            platform_specs: updatedPlatformSpecs,
+          })
+        : undefined;
+
       // Update database
       const { error } = await supabase
         .from('derivative_assets')
-        .update({ generated_content: newContent })
+        .update({
+          generated_content: newContent,
+          ...(isSequenceType ? { platform_specs: updatedPlatformSpecs } : {}),
+        })
         .eq('id', selectedDerivativeForModal.id);
 
       if (error) throw error;
@@ -742,14 +719,31 @@ export default function Multiply() {
       setDerivatives(prev =>
         prev.map(d =>
           d.id === selectedDerivativeForModal.id
-            ? { ...d, content: newContent, generated_content: newContent, charCount: newContent.length }
+            ? {
+                ...d,
+                content: newContent,
+                generated_content: newContent,
+                charCount: newContent.length,
+                platformSpecs: updatedPlatformSpecs,
+                sequenceEmails: updatedSequenceEmails,
+                isSequence: isSequenceType && !!updatedSequenceEmails?.length,
+              }
             : d
         )
       );
 
       // Update modal state
       setSelectedDerivativeForModal(prev =>
-        prev ? { ...prev, content: newContent, generated_content: newContent } : null
+        prev
+          ? {
+              ...prev,
+              content: newContent,
+              generated_content: newContent,
+              platformSpecs: updatedPlatformSpecs,
+              sequenceEmails: updatedSequenceEmails,
+              isSequence: isSequenceType && !!updatedSequenceEmails?.length,
+            }
+          : null
       );
 
       toast({
@@ -997,11 +991,9 @@ export default function Multiply() {
   };
 
   // Filter derivatives by selected master content ID
-  const filteredDerivatives = derivatives.filter(d => {
-    // Since derivatives might not have master_content_id stored, we'll show all for now
-    // In production, you'd filter by: d.master_content_id === selectedMaster?.id
-    return true;
-  });
+  const filteredDerivatives = derivatives.filter(d => (
+    !selectedMaster?.id || d.master_content_id === selectedMaster.id
+  ));
 
   const derivativesByType = filteredDerivatives.reduce((acc, d) => {
     if (!acc[d.typeId]) acc[d.typeId] = [];

@@ -4,7 +4,7 @@ export interface ParsedEmailPart {
   content: string;
 }
 
-const SECTION_SPLIT_REGEX = /(?=^(?:Email|Part)\s*\d+)/gim;
+const SECTION_SPLIT_REGEX = /(?=^(?:Email|Part)\s*\d+(?:\s*[:\-–][^\n\r]*)?\s*$)/gim;
 
 export function parseEmailSequence(content: string): ParsedEmailPart[] {
   if (!content) return [];
@@ -41,7 +41,7 @@ function parseSection(section: string, index: number): ParsedEmailPart {
   let working = section.trim();
   let fallbackSubject = "";
 
-  const headerMatch = working.match(/^(?:Email|Part)\s*\d+(?:\s*[:\-–]\s*(.*))?/i);
+  const headerMatch = working.match(/^(?:Email|Part)\s*\d+(?:[ \t]*[:\-–][ \t]*([^\n\r]*))?/i);
   if (headerMatch) {
     fallbackSubject = (headerMatch[1] || "").trim();
     working = working.slice(headerMatch[0].length).trimStart();
@@ -60,9 +60,9 @@ function parseSection(section: string, index: number): ParsedEmailPart {
     }
   }
 
-  const subjectResult = takeTaggedValue(/subject:\s*(.+)/i, working);
+  const subjectResult = takeTaggedValue(/^subject:\s*(.+)$/im, working);
   working = subjectResult.remainder;
-  const previewResult = takeTaggedValue(/preview:\s*(.+)/i, working);
+  const previewResult = takeTaggedValue(/^preview:\s*(.+)$/im, working);
   working = previewResult.remainder;
 
   const body = cleanBody(working);
@@ -97,7 +97,9 @@ function derivePreview(body: string) {
 function cleanBody(text: string) {
   return text
     .replace(/^(?:Email|Part)\s*\d+[^\n]*\n?/i, "")
+    .replace(/^body:\s*/im, "")
     .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n\s*---+\s*$/g, "")
     .replace(/\s+$/g, "")
     .trim();
 }
@@ -110,4 +112,3 @@ function isStandaloneHeading(line: string) {
   if (!alpha) return false;
   return trimmed === trimmed.toUpperCase();
 }
-

@@ -1197,18 +1197,29 @@ FAILURE TO FOLLOW CODEX V2 PRINCIPLES OR BRAND GUIDELINES IS UNACCEPTABLE.`;
         const smsOptions = cleanedContent.split('\n').filter((line: string) => line.trim() && !line.startsWith('REQUIREMENTS') && !line.startsWith('FORMAT'));
         platformSpecs = { options: smsOptions.slice(0, 3) };
       } else if (derivativeType === 'email_3part' || derivativeType === 'email_5part' || derivativeType === 'email_7part') {
-        // More permissive regex to handle variations in formatting
-        const emailMatches = cleanedContent.match(/EMAIL\s+\d+:?\s*[\r\n]+SUBJECT:?\s*(.+?)[\r\n]+PREVIEW:?\s*(.+?)[\r\n]+BODY:?\s*([\s\S]+?)(?=EMAIL\s+\d+:|$)/gi);
-        const emails = emailMatches?.map((match: string) => {
-          const subjectMatch = match.match(/SUBJECT:?\s*(.+)/i);
-          const previewMatch = match.match(/PREVIEW:?\s*(.+)/i);
-          const bodyMatch = match.match(/BODY:?\s*([\s\S]+)/i);
-          return {
-            subject: subjectMatch?.[1]?.trim() || '',
-            preview: previewMatch?.[1]?.trim() || '',
-            body: bodyMatch?.[1]?.trim() || '',
-          };
-        }) || [];
+        const emailSections = cleanedContent
+          .split(/(?=^EMAIL\s+\d+(?:\s*[:\-–][^\n\r]*)?\s*$)/gim)
+          .map((section: string) => section.trim())
+          .filter(Boolean);
+
+        const emails = emailSections
+          .map((section: string) => {
+            let working = section.replace(/^(?:EMAIL)\s+\d+(?:\s*[:\-–][^\n\r]*)?\s*$/im, '').trim();
+
+            const subjectMatch = working.match(/^SUBJECT:?\s*(.+)$/im);
+            const previewMatch = working.match(/^PREVIEW:?\s*(.+)$/im);
+            const bodyMatch = working.match(/(?:^|\n)BODY:?\s*([\s\S]+)/i);
+
+            return {
+              subject: subjectMatch?.[1]?.trim() || '',
+              preview: previewMatch?.[1]?.trim() || '',
+              body: (bodyMatch?.[1] || '')
+                .replace(/\n\s*---+\s*$/g, '')
+                .trim(),
+            };
+          })
+          .filter((email) => email.subject || email.preview || email.body);
+
         platformSpecs = {
           emailCount: emails.length,
           emails: emails,

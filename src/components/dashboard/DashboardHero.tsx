@@ -91,7 +91,7 @@ export function DashboardHero() {
             onClick={() => {
               // If we have a recent master, go to multiply with it
               if (stats?.recentMaster?.id) {
-                navigate(`/multiply?master=${stats.recentMaster.id}`);
+                navigate(`/multiply?id=${stats.recentMaster.id}`);
               } else {
                 navigate("/multiply");
               }
@@ -156,4 +156,3 @@ export function DashboardHero() {
       </div>
   );
 }
-

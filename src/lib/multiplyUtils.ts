@@ -27,3 +27,41 @@ export const buildSequenceEmailsFromDerivative = (derivative: RawDerivativeRespo
         charCount: part.content.length,
     }));
 };
+
+export const buildSequencePlatformSpecsFromContent = (content: string, sequenceType?: string) => {
+    const emails = parseEmailSequence(content).map((part) => ({
+        subject: part.subject,
+        preview: part.preview,
+        body: part.content,
+    }));
+
+    return {
+        emailCount: emails.length,
+        emails,
+        ...(sequenceType ? { sequenceType } : {}),
+    };
+};
+
+export const serializeSequenceEmails = (
+    emails: Array<{
+        sequenceNumber?: number;
+        subject: string;
+        preview: string;
+        content: string;
+    }>
+) => {
+    return emails
+        .map((email, index) => {
+            const sequenceNumber = email.sequenceNumber ?? index + 1;
+            const lines: string[] = [];
+
+            lines.push(`Email ${sequenceNumber}`);
+            if (email.subject) lines.push(`Subject: ${email.subject}`);
+            if (email.preview) lines.push(`Preview: ${email.preview}`);
+            lines.push("");
+            lines.push(email.content.trim());
+
+            return lines.join("\n");
+        })
+        .join("\n\n---\n\n");
+};

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
-import { parseEmailSequence } from "@/lib/emailSequence";
+import { buildSequenceEmailsFromDerivative } from "@/lib/multiplyUtils";
 
 interface DerivativeFullModalProps {
   open: boolean;
@@ -86,7 +86,13 @@ export function DerivativeFullModal({
   
   // Check if this is an email sequence
   const isEmailSequence = derivative.asset_type.includes('part');
-  const emailParts = isEmailSequence ? parseEmailSequence(derivative.generated_content) : [];
+  const emailParts = isEmailSequence
+    ? buildSequenceEmailsFromDerivative({
+        id: derivative.id,
+        generated_content: derivative.generated_content,
+        platform_specs: derivative.platform_specs,
+      })
+    : [];
 
   const handleEditClick = () => {
     setEditedContent(derivative.generated_content);
@@ -236,6 +242,12 @@ export function DerivativeFullModal({
                         <div>
                           <p className="text-xs font-medium text-muted-foreground mb-1">SUBJECT</p>
                           <p className="font-medium">{part.subject}</p>
+                        </div>
+                      )}
+                      {part.preview && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">PREVIEW</p>
+                          <p className="text-sm text-muted-foreground">{part.preview}</p>
                         </div>
                       )}
                       <div>

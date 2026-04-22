@@ -11,6 +11,7 @@ interface UseAutoSaveProps {
   delay?: number;
   tableName?: "master_content" | "derivative_assets" | "outputs"; // Which table to save to
   fieldName?: string; // Which field to update (e.g., 'full_content' or 'generated_content')
+  extraUpdateFields?: Record<string, unknown>;
 }
 
 export function useAutoSave({ 
@@ -19,7 +20,8 @@ export function useAutoSave({
   contentName,
   delay = AUTOSAVE_CONFIG.STANDARD_DELAY,
   tableName = "master_content",
-  fieldName = "full_content"
+  fieldName = "full_content",
+  extraUpdateFields = {}
 }: UseAutoSaveProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [lastSavedAt, setLastSavedAt] = useState<Date | undefined>(undefined);
@@ -32,6 +34,7 @@ export function useAutoSave({
   const contentNameRef = useRef(contentName);
   const tableNameRef = useRef(tableName);
   const fieldNameRef = useRef(fieldName);
+  const extraUpdateFieldsRef = useRef(extraUpdateFields);
   
   // Update refs when props change
   useEffect(() => {
@@ -40,7 +43,8 @@ export function useAutoSave({
     contentNameRef.current = contentName;
     tableNameRef.current = tableName;
     fieldNameRef.current = fieldName;
-  }, [content, contentId, contentName, tableName, fieldName]);
+    extraUpdateFieldsRef.current = extraUpdateFields;
+  }, [content, contentId, contentName, tableName, fieldName, extraUpdateFields]);
 
   const save = useCallback(async () => {
     const currentContent = contentRef.current;
@@ -48,6 +52,7 @@ export function useAutoSave({
     const currentContentName = contentNameRef.current;
     const currentTableName = tableNameRef.current;
     const currentFieldName = fieldNameRef.current;
+    const currentExtraUpdateFields = extraUpdateFieldsRef.current;
 
     if (currentContent === lastSavedContent.current) {
       return;
@@ -72,6 +77,7 @@ export function useAutoSave({
         // Build update payload - only master_content has updated_at column
         const updatePayload: Record<string, any> = {
           [currentFieldName]: currentContent,
+          ...currentExtraUpdateFields,
         };
         
         // Only add updated_at for tables that have it

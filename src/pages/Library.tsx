@@ -77,6 +77,7 @@ export default function Library() {
     initialText: string;
     title?: string;
     contentType?: string;
+    platformSpecs?: Record<string, unknown> | null;
   } | null>(null);
 
   // Image editor modal state (for generated images)
@@ -739,6 +740,7 @@ export default function Library() {
             asset_type: selectedContent.contentType,
             full_content: selectedContent.content,
             generated_content: selectedContent.content,
+            platform_specs: selectedContent.platformSpecs,
             created_at: selectedContent.createdAt.toISOString(),
             word_count: selectedContent.wordCount,
             quality_rating: selectedContent.rating,
@@ -841,6 +843,7 @@ export default function Library() {
                 initialText: initialText,
                 title: content.title,
                 contentType: contentType,
+                platformSpecs: content.platform_specs || null,
               });
               setEmailSequenceOpen(true);
               return;
@@ -930,6 +933,7 @@ export default function Library() {
           open={emailSequenceOpen}
           title={emailSequenceContext.title || "Email Sequence"}
           initialContent={emailSequenceContext.initialText}
+          initialPlatformSpecs={emailSequenceContext.platformSpecs}
           contentId={emailSequenceContext.id}
           contentType={emailSequenceContext.contentType}
           category={emailSequenceContext.category}
