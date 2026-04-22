@@ -10,13 +10,16 @@ import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
 import { VariationMatrix, type MaterialReferenceMap } from "./VariationMatrix";
 import { GenerationQueue } from "./GenerationQueue";
 import { SetReviewModal } from "./SetReviewModal";
+import { StudioControls } from "./StudioControls";
 import { useConsistencySet } from "@/hooks/useConsistencySet";
 import type { VariationItem } from "@/lib/consistencyMode";
 import { markImageAsHero, toggleImageHero } from "@/lib/imageLibraryTags";
 import {
   CONSISTENCY_COMPOSITIONS,
   DEFAULT_COMPOSITION_ID,
+  DEFAULT_STUDIO_SETTINGS,
   type CompositionId,
+  type StudioSettings,
 } from "@/config/consistencyVariations";
 import {
   MAX_VARIATION_SET_SIZE,
@@ -82,6 +85,12 @@ export function ConsistencyModePanel({
    */
   const [materialReferences, setMaterialReferences] = useState<MaterialReferenceMap>({});
   const [composition, setComposition] = useState<CompositionId>(DEFAULT_COMPOSITION_ID);
+  /**
+   * Studio fine-tuning — backdrop colour, light direction, shadow direction,
+   * and shadow intensity. Defaults preserve the original look exactly
+   * (bone backdrop, classic 45° light, soft SW contact shadow).
+   */
+  const [studio, setStudio] = useState<StudioSettings>(DEFAULT_STUDIO_SETTINGS);
   const [showMasterLibrary, setShowMasterLibrary] = useState(false);
   /**
    * Ids of generated images currently tagged as Hero in the DB. Updated
@@ -302,6 +311,7 @@ export function ConsistencyModePanel({
       selection,
       materialReferences,
       composition,
+      studio,
     });
   };
 
@@ -449,12 +459,19 @@ export function ConsistencyModePanel({
         </div>
       </div>
 
-      {/* 4. Optional prompt */}
+      {/* 4. Studio fine-tune — background / light / shadow */}
+      <StudioControls
+        value={studio}
+        onChange={setStudio}
+        disabled={status === "running"}
+      />
+
+      {/* 5. Optional prompt */}
       <div className="camera-panel p-2.5 space-y-2">
         <div className="flex items-center gap-1.5">
           <LEDIndicator state={userPrompt.trim() ? "active" : "off"} size="sm" />
           <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--darkroom-accent)]">
-            04 · Scene Notes
+            05 · Scene Notes
           </span>
           <span className="text-[9px] text-[var(--darkroom-text-dim)]">optional</span>
         </div>

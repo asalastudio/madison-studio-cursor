@@ -18,7 +18,9 @@ import {
   buildVariationDescriptor,
   buildVariationLabel,
   expandVariationMatrix,
+  DEFAULT_STUDIO_SETTINGS,
   type CompositionId,
+  type StudioSettings,
   type VariationOption,
 } from "@/config/consistencyVariations";
 
@@ -83,6 +85,14 @@ export interface ConsistencySetPayload {
   materialReferences?: Record<string, { url: string; name?: string } | undefined>;
   /** Composition preset — "assembled" (default) or "exploded-uncapped". */
   composition?: CompositionId;
+  /**
+   * Studio controls — backdrop colour, light direction, shadow direction,
+   * shadow intensity. Shared across every variation in the set so the
+   * entire grid lands under one locked studio treatment. When omitted
+   * the default (bone backdrop, classic 45° light, soft SW shadow) is
+   * used — identical to the pre-studio-controls behaviour.
+   */
+  studio?: StudioSettings;
 }
 
 export interface ConsistencyRunHandle {
@@ -161,6 +171,7 @@ export function runConsistencySet(
             payload.userPrompt,
             item.descriptor,
             payload.composition,
+            payload.studio,
           );
 
           // Build this variation's reference images. Always include the
@@ -279,8 +290,12 @@ function buildFinalPrompt(
   userPrompt: string,
   _variationDescriptor: string,
   composition?: CompositionId,
+  studio?: StudioSettings,
 ): string {
-  const sceneAnchor = buildSceneAnchor(composition);
+  const sceneAnchor = buildSceneAnchor(
+    composition,
+    studio ?? DEFAULT_STUDIO_SETTINGS,
+  );
   const trimmed = userPrompt.trim();
   const base = trimmed.length > 0
     ? `${trimmed}\n\n${sceneAnchor}`

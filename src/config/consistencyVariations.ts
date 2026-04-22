@@ -61,28 +61,28 @@ export const BOTTLE_COLORS: VariationOption[] = [
     id: "clear",
     label: "Clear",
     prompt:
-      "The BOTTLE BODY is clear flint glass — fully transparent, colourless, reveals anything inside. The glass has crystalline clarity, subtle edge refraction, a faint seam down the side of the body, and clean commercial-product highlights. The CAP remains exactly as specified in the CAP section below; do not tint or recolour the cap.",
+      "The BOTTLE BODY is crystal clear flint glass — fully transparent and colourless with high transparency. Render true three-dimensional glass volume: visible light refraction through the walls, a sense of thickness and depth at the shoulder and base, defined edges catching a faint rim-highlight so the silhouette reads clearly (not a cut-out), and a subtle caustic light pattern where the key light bends through the bottle onto the backdrop. Include a faint mould seam down one side of the body and subtle tooling marks at the base — real-glass micro-imperfections. NOT metallic. The CAP remains exactly as specified in the CAP section below; do not tint or recolour the cap.",
     swatch: "#EDEDE8",
   },
   {
     id: "frosted",
     label: "Frosted",
     prompt:
-      "The BOTTLE BODY is frosted glass — matte acid-etched finish across the entire body, soft translucent white, slight diffusion of any contents behind it. No shine, no gloss on the body surface. The CAP remains exactly as specified in the CAP section below; the cap is NOT frosted.",
+      "The BOTTLE BODY is frosted glass — matte acid-etched finish across the entire body, soft translucent white with a gentle interior glow where the key light passes through the surface. The frosted treatment is on the glass itself (etched from the outside), not a paint coating. Light diffuses softly through the walls rather than refracting sharply; the edges still catch a faint rim-highlight so the silhouette is defined. Include a faint mould seam and base tooling marks like a real pressed-glass bottle. NOT metallic. The CAP remains exactly as specified in the CAP section below; the cap is NOT frosted.",
     swatch: "#E4E1DB",
   },
   {
     id: "blue",
     label: "Cobalt Blue",
     prompt:
-      "The BOTTLE BODY is deep cobalt blue glass — jewel-toned, richly saturated blue tint integrated throughout the glass, still transparent with deep colour. The CAP remains exactly as specified in the CAP section below; the cap is NOT blue.",
+      "The BOTTLE BODY is deep cobalt blue glass — jewel-toned, richly saturated blue tint integrated throughout the glass, still transparent with visible depth-of-tint (darker where the glass is thicker at the shoulder and base). Render true glass volume: crisp edge-rim-highlights, visible light refraction through the coloured glass, and a subtle blue-tinted caustic cast on the backdrop where the key light bends through the bottle. Include a faint mould seam and base tooling marks. NOT metallic. The CAP remains exactly as specified in the CAP section below; the cap is NOT blue.",
     swatch: "#1E3A8A",
   },
   {
     id: "amber",
     label: "Amber",
     prompt:
-      "The BOTTLE BODY is warm amber glass — honey-brown apothecary tint integrated into the glass, transparent with rich colour. The CAP remains exactly as specified in the CAP section below; the cap is NOT amber.",
+      "The BOTTLE BODY is warm amber glass — honey-brown apothecary tint integrated throughout the glass, transparent with rich colour depth (deeper amber where the glass is thicker at the shoulder and base). Render true glass volume: crisp edge-rim-highlights, visible light refraction through the coloured glass, and a warm honey-tinted caustic cast on the backdrop where the key light bends through the bottle. Include a faint mould seam and base tooling marks. NOT metallic. The CAP remains exactly as specified in the CAP section below; the cap is NOT amber.",
     swatch: "#9A5A1C",
   },
   {
@@ -321,21 +321,303 @@ export function capsForFitments(
 /** Hard safety cap on set size — keeps a single run under ~5 minutes. */
 export const MAX_VARIATION_SET_SIZE = 50;
 
+// ─── Studio Controls ─────────────────────────────────────────────────────────
+//
+// Parameterised studio settings that feed into every variation's scene anchor.
+// Three independent controls — Background, Light Direction, Shadow — let the
+// operator fine-tune the "look" of the entire set without touching prompts.
+//
+// These replace the hardcoded off-white backdrop + 45° key light + "beneath"
+// shadow in the previous UNIVERSAL_SCENE_RULES. Defaults preserve the prior
+// behaviour exactly.
+
+export interface BackgroundPreset {
+  id: string;
+  label: string;
+  hex: string;
+  description: string;
+}
+
+export interface LightDirectionPreset {
+  id: string;
+  label: string;
+  description: string;
+  /** Recommended shadow direction to pair with this light preset. */
+  defaultShadowDirectionId: string;
+  /** Recommended shadow intensity to pair with this light preset. */
+  defaultShadowIntensityId: string;
+}
+
+export interface ShadowDirectionPreset {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface ShadowIntensityPreset {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const BACKGROUND_PRESETS: BackgroundPreset[] = [
+  {
+    id: "bone",
+    label: "Bone",
+    hex: "#F5F3EF",
+    description:
+      "a warm off-white paper-like studio backdrop (hex #F5F3EF) with a faint natural paper grain, completely uncluttered and seamless — no gradient, no texture pattern",
+  },
+  {
+    id: "cream",
+    label: "Cream",
+    hex: "#F2ECDF",
+    description:
+      "a soft cream studio backdrop (hex #F2ECDF) with a subtle natural warmth — slightly darker and warmer than bone, still completely seamless with no gradient",
+  },
+  {
+    id: "warm-sand",
+    label: "Warm Sand",
+    hex: "#EBE3D5",
+    description:
+      "a warm sand-toned studio backdrop (hex #EBE3D5) with a gentle tan undertone that pairs well with amber and wood finishes — seamless, no gradient",
+  },
+  {
+    id: "cool-bone",
+    label: "Cool Bone",
+    hex: "#EDECE8",
+    description:
+      "a cool-toned off-white studio backdrop (hex #EDECE8) with a slight grey undertone — flattering for cobalt and chrome-finish caps — seamless, no gradient",
+  },
+  {
+    id: "studio-white",
+    label: "Studio White",
+    hex: "#FAFAF8",
+    description:
+      "a bright neutral studio-white backdrop (hex #FAFAF8) — nearly pure white with a hint of warmth, seamless and fully uncluttered",
+  },
+  {
+    id: "charcoal",
+    label: "Charcoal",
+    hex: "#2A2A2C",
+    description:
+      "a deep charcoal studio backdrop (hex #2A2A2C) with a soft matte finish — used for dramatic high-contrast product shots; the lighting must rim-light the bottle strongly so it reads against the dark ground",
+  },
+];
+
+export const DEFAULT_BACKGROUND_ID = "bone";
+
+export const SHADOW_DIRECTIONS: ShadowDirectionPreset[] = [
+  {
+    id: "beneath",
+    label: "Beneath",
+    description:
+      "a soft contact shadow pooled directly beneath the product with no cast extension — the bottle appears grounded with minimal shadow footprint",
+  },
+  {
+    id: "n",
+    label: "N · behind",
+    description:
+      "a cast shadow extending straight backward, away from the camera, behind the product",
+  },
+  {
+    id: "ne",
+    label: "NE",
+    description:
+      "a cast shadow extending diagonally backward and to the right, behind-right of the product",
+  },
+  {
+    id: "e",
+    label: "E · right",
+    description:
+      "a cast shadow extending directly to the right of the product, parallel to the ground plane",
+  },
+  {
+    id: "se",
+    label: "SE",
+    description:
+      "a cast shadow extending diagonally forward (towards the camera) and to the right, in front-right of the product",
+  },
+  {
+    id: "s",
+    label: "S · front",
+    description:
+      "a cast shadow extending directly towards the camera, falling in front of the product on the ground plane",
+  },
+  {
+    id: "sw",
+    label: "SW",
+    description:
+      "a cast shadow extending diagonally forward (towards the camera) and to the left, in front-left of the product",
+  },
+  {
+    id: "w",
+    label: "W · left",
+    description:
+      "a cast shadow extending directly to the left of the product, parallel to the ground plane",
+  },
+  {
+    id: "nw",
+    label: "NW",
+    description:
+      "a cast shadow extending diagonally backward and to the left, behind-left of the product",
+  },
+];
+
+export const DEFAULT_SHADOW_DIRECTION_ID = "sw";
+
+export const SHADOW_INTENSITIES: ShadowIntensityPreset[] = [
+  {
+    id: "soft",
+    label: "Soft",
+    description:
+      "very soft and blurred at its edges, gradient falloff, approximately 25-30% opacity at its densest point directly under the base",
+  },
+  {
+    id: "medium",
+    label: "Medium",
+    description:
+      "a moderately soft edge with clearer presence, approximately 45-55% opacity at its densest point — defined enough to ground the product",
+  },
+  {
+    id: "hard",
+    label: "Hard",
+    description:
+      "a crisp sharper edge with strong definition, approximately 65-75% opacity at its densest point — implies a harder key light",
+  },
+];
+
+export const DEFAULT_SHADOW_INTENSITY_ID = "soft";
+
+export const LIGHT_DIRECTIONS: LightDirectionPreset[] = [
+  {
+    id: "classic-45",
+    label: "Classic 45°",
+    description:
+      "a soft top-key light at a 45° angle from camera-right with a gentle fill from the left — the reference commercial-catalog lighting setup; the key light produces a smooth highlight running down the right edge of the bottle and a subtle wrap onto the left",
+    defaultShadowDirectionId: "sw",
+    defaultShadowIntensityId: "soft",
+  },
+  {
+    id: "soft-top",
+    label: "Soft Top",
+    description:
+      "a large soft overhead key light directly above the product with gentle wrap-around fill from both sides — flattering for tall bottles; produces an even cap highlight and a soft shoulder falloff down the body",
+    defaultShadowDirectionId: "beneath",
+    defaultShadowIntensityId: "soft",
+  },
+  {
+    id: "dramatic-side",
+    label: "Dramatic Side",
+    description:
+      "a harder key light from 90° camera-left with minimal right-side fill, creating strong side-light modelling, a bright left edge, and a defined falloff into shadow on the right of the bottle",
+    defaultShadowDirectionId: "e",
+    defaultShadowIntensityId: "hard",
+  },
+  {
+    id: "backlit-halo",
+    label: "Backlit Halo",
+    description:
+      "a key light placed behind and slightly above the product creating a bright rim-light halo around the silhouette of the bottle, with soft low-intensity front fill to keep the cap and body barely legible — produces a luminous glass glow especially on clear and amber bodies",
+    defaultShadowDirectionId: "s",
+    defaultShadowIntensityId: "medium",
+  },
+  {
+    id: "flat-front",
+    label: "Flat Front (Catalog)",
+    description:
+      "evenly diffused front lighting with no directional shadow modelling — the flat-catalog look used for maximum colour accuracy in pure e-commerce SKU photography; the bottle is lit evenly front-on with minimal highlight gradient",
+    defaultShadowDirectionId: "beneath",
+    defaultShadowIntensityId: "soft",
+  },
+  {
+    id: "low-angle",
+    label: "Low-Angle Drama",
+    description:
+      "a key light from a low angle at camera-right around 30° above the ground plane, creating elongated upward shadows on the body and a strong modelling of the bottle's volume — more editorial than catalog",
+    defaultShadowDirectionId: "nw",
+    defaultShadowIntensityId: "medium",
+  },
+];
+
+export const DEFAULT_LIGHT_DIRECTION_ID = "classic-45";
+
 /**
- * Shared language appended to every variation in a set regardless of
- * composition — the "universal" rules that prevent reference-image
- * literalism and cap-bleed. Composition-specific framing (where the bottle
- * sits, whether the cap is on or off, etc.) lives in the individual
- * CONSISTENCY_COMPOSITIONS below.
+ * User-adjustable studio controls. Passed through the full generation pipeline
+ * so every variation in a set shares the exact same lighting, background, and
+ * shadow treatment — the whole point of Consistency Mode.
  */
-const UNIVERSAL_SCENE_RULES = [
-  "Seamless off-white studio backdrop (#F5F3EF), no gradient, no texture.",
-  "Soft top-key lighting at a 45° angle from camera-right, gentle fill from the left.",
-  "No labels, no branding, no text, no packaging, no props.",
-  "Crisp commercial-catalog clarity, true-to-life material rendering — glass transparency and refraction for the BODY, and premium moulded phenolic-plastic surface behaviour for the CAP (softly diffused highlights rather than hard machined-metal specular hotspots, even when the cap has a metallic-looking finish).",
+export interface StudioSettings {
+  backgroundId: string;
+  lightDirectionId: string;
+  shadowDirectionId: string;
+  shadowIntensityId: string;
+}
+
+export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
+  backgroundId: DEFAULT_BACKGROUND_ID,
+  lightDirectionId: DEFAULT_LIGHT_DIRECTION_ID,
+  shadowDirectionId: DEFAULT_SHADOW_DIRECTION_ID,
+  shadowIntensityId: DEFAULT_SHADOW_INTENSITY_ID,
+};
+
+export function getBackgroundPreset(id: string): BackgroundPreset {
+  return BACKGROUND_PRESETS.find((b) => b.id === id) ?? BACKGROUND_PRESETS[0];
+}
+
+export function getLightDirectionPreset(id: string): LightDirectionPreset {
+  return LIGHT_DIRECTIONS.find((l) => l.id === id) ?? LIGHT_DIRECTIONS[0];
+}
+
+export function getShadowDirectionPreset(id: string): ShadowDirectionPreset {
+  return SHADOW_DIRECTIONS.find((s) => s.id === id) ?? SHADOW_DIRECTIONS[0];
+}
+
+export function getShadowIntensityPreset(id: string): ShadowIntensityPreset {
+  return SHADOW_INTENSITIES.find((s) => s.id === id) ?? SHADOW_INTENSITIES[0];
+}
+
+/**
+ * Compose the studio portion of the scene anchor from the selected presets.
+ * This block follows Google's recommended structure for Gemini 2.5 Flash Image:
+ * the model's RLHF data maps onto "studio-lit product photograph of X on Y,
+ * lighting is Z, camera angle is W, ultra-realistic with sharp focus on V."
+ *
+ * Using that canonical template instead of a keyword list measurably improves
+ * realism and consistency across a set.
+ */
+function buildStudioAnchor(studio: StudioSettings): string {
+  const bg = getBackgroundPreset(studio.backgroundId);
+  const light = getLightDirectionPreset(studio.lightDirectionId);
+  const shadowDir = getShadowDirectionPreset(studio.shadowDirectionId);
+  const shadowInt = getShadowIntensityPreset(studio.shadowIntensityId);
+
+  return [
+    // Google's canonical Gemini 2.5 Flash Image product-photography frame:
+    // "studio-lit product photograph of [X] on [Y]. Lighting is [Z] to [purpose].
+    //  Camera angle is [W] to showcase [feature]. Ultra-realistic, sharp focus."
+    `STUDIO BRIEF — a high-resolution studio-lit product photograph of the bottle on ${bg.description}.`,
+    `The lighting is ${light.description}, designed to reveal the bottle's material, silhouette, and cap finish accurately.`,
+    `The camera is an 85mm commercial product lens at f/8 aperture held straight-on at eye-level — sharp edge-to-edge focus across the entire bottle and cap.`,
+    `Overall quality anchor: Hasselblad-grade commercial product photography, ultra-realistic, colour-accurate, neutral white-balance for e-commerce use.`,
+    `Ground-shadow treatment: ${shadowDir.description}, rendered as ${shadowInt.description}. If the composition below calls for two objects (bottle + cap separately), each object has its own individual contact shadow using the same direction and intensity — never merge them into one shadow.`,
+  ].join(" ");
+}
+
+/**
+ * Universal material + reference-handling rules that apply to every shot in
+ * every set. No parameters — these are invariants.
+ */
+const UNIVERSAL_MATERIAL_RULES = [
+  // Realism + refraction (glass-specific)
+  "Materials must read as real physical objects photographed in a real studio, not as a CG render and not as an AI-stylised illustration. For the glass BODY: crystal clear transparency with visible light refraction through the glass, subtle caustic light cast on the backdrop where light bends through the bottle, a faint rim-highlight along the edges of the glass so the silhouette is DEFINED rather than a cut-out, and tiny natural micro-imperfections (faint seam line down one side, subtle tooling marks near the base) that a real bottle would have.",
+  // Cap behaviour (phenolic plastic, NOT metal)
+  "For the CAP: premium moulded phenolic-plastic surface behaviour — softly diffused highlights rather than hard machined-metal specular hotspots, even when the cap's finish is metallic-looking gold, silver, or copper. The cap is NEVER chrome, NEVER polished steel — it is lacquered or metallised plastic with the characteristic slightly-softer reflectivity of moulded resin.",
+  // Negative constraints
+  "Do NOT add labels, branding, text, logos, packaging, or props. Do NOT over-saturate colour. Do NOT render chrome-metal sheen on the phenolic plastic cap. Do NOT add any second product to the scene.",
   // Reference-image role
   "The attached reference image is a SHAPE and PROPORTION guide only — use it to reproduce the bottle's silhouette, neck, shoulder, and overall geometry exactly. Do NOT copy the reference's colour or material literally; the final bottle material is determined by the VARIATION DETAILS below. The final image must always look like a freshly photographed studio shot, not a recoloured cut-out of the reference.",
-  // Global cap-protection rule
+  // Cap-protection rule
   "STRICT RULE: The cap's appearance is determined ONLY by the CAP description in the VARIATION DETAILS. Never apply the bottle-body material, pattern, colour, or finish to the cap. If no cap variation is specified, keep the cap identical to the reference image's cap.",
 ].join(" ");
 
@@ -345,7 +627,7 @@ export interface CompositionPreset {
   helper: string;
   /** Used on the chip UI as a mini diagram cue. */
   icon: "bottle" | "exploded";
-  /** Composition-specific framing rules prepended to UNIVERSAL_SCENE_RULES. */
+  /** Composition-specific framing rules prepended to the studio + material anchors. */
   framing: string;
 }
 
@@ -361,9 +643,8 @@ export const CONSISTENCY_COMPOSITIONS: CompositionPreset[] = [
       "COMPOSITION — ASSEMBLED HERO:",
       "E-commerce hero product shot for a luxury perfume / personal-care grid tile.",
       "The bottle is fully assembled with the cap on.",
-      "Camera: straight-on eye-level, product perfectly centred horizontally, base resting on the implied floor line at ~20% from the bottom of the frame.",
+      "Product perfectly centred horizontally, base resting on the implied floor line at ~20% from the bottom of the frame.",
       "Product fills ~70% of the frame's vertical height.",
-      "Subtle soft contact shadow directly beneath the base of the product — not a cast shadow.",
     ].join(" "),
   },
   {
@@ -376,10 +657,9 @@ export const CONSISTENCY_COMPOSITIONS: CompositionPreset[] = [
       "Clean, catalog-style product arrangement. NO creative staging, NO artistic tilts, NO dramatic angles, NO lifestyle flourishes. Think standard e-commerce SKU photo of two parts laid out for the customer to see both.",
       "The BOTTLE stands UPRIGHT, slightly LEFT of the frame's horizontal centre, with the CAP REMOVED so the fitment at the top of the neck is fully visible (match whatever fitment is implied by the master reference or the FITMENT variation — roller-ball applicator, sprayer actuator, lotion pump, etc.).",
       "The CAP stands UPRIGHT IN ITS NATURAL ORIENTATION to the RIGHT of the bottle — opening-side DOWN, resting on its circular opening rim exactly the way a cap naturally sits on a flat surface. Do NOT lay the cap on its side. Do NOT tilt the cap. Do NOT show the cap's inside cavity. Do NOT pose the cap creatively. The cap is simply standing beside the bottle as if someone unscrewed it and set it down.",
-      "Both the BOTTLE and the CAP share the same implied floor line with their own individual soft contact shadow directly beneath each — two separate contact shadows, not a merged shadow.",
+      "Both the BOTTLE and the CAP share the same implied floor line.",
       "Horizontal spacing: the cap is positioned approximately 25-30% of the frame width to the right of the bottle's vertical axis, at the same ground level as the bottle's base. The cap's top is roughly level with the bottle's shoulder (the cap is clearly smaller than the bottle).",
       "The bottle fills approximately 65-70% of the frame's vertical height; the cap is visibly smaller and to the right, consistent with its actual real-world size.",
-      "Camera: straight-on eye-level, no creative angles.",
       "IMPORTANT: There is exactly ONE bottle and exactly ONE cap in the frame — never duplicate the product.",
     ].join(" "),
   },
@@ -393,18 +673,22 @@ export function getComposition(id?: CompositionId | null): CompositionPreset {
 }
 
 /**
- * Build the full scene anchor for a given composition. Combines the
- * composition-specific framing with the universal rules that apply to every
- * shot in the set.
+ * Build the full scene anchor for a given composition + studio settings.
+ * Combines composition framing, studio brief (Google canonical template),
+ * and universal material + reference rules.
  */
-export function buildSceneAnchor(compositionId?: CompositionId | null): string {
+export function buildSceneAnchor(
+  compositionId?: CompositionId | null,
+  studio: StudioSettings = DEFAULT_STUDIO_SETTINGS,
+): string {
   const comp = getComposition(compositionId);
-  return `${comp.framing} ${UNIVERSAL_SCENE_RULES}`;
+  return `${comp.framing} ${buildStudioAnchor(studio)} ${UNIVERSAL_MATERIAL_RULES}`;
 }
 
 /**
  * Back-compat export — older callers that imported the legacy constant
- * still get the Assembled framing by default. Prefer `buildSceneAnchor()`.
+ * still get the Assembled framing with default studio settings.
+ * Prefer `buildSceneAnchor(compositionId, studio)`.
  */
 export const CONSISTENCY_SCENE_ANCHOR = buildSceneAnchor("assembled");
 
