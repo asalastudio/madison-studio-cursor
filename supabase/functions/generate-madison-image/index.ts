@@ -813,9 +813,9 @@ serve(async (req) => {
     // As of 2026-04-21, OpenAI's current flagship is gpt-image-2 (4× faster
     // than 1.5, better text rendering, better layout composition). The
     // OPENAI_IMAGE_MODEL secret overrides the default without a redeploy.
+    const openaiModelSecret = Deno.env.get("OPENAI_IMAGE_MODEL")?.trim();
     let effectiveOpenAIModel: OpenAIImageModel =
-      (Deno.env.get("OPENAI_IMAGE_MODEL") as OpenAIImageModel | undefined) ??
-      "gpt-image-2";
+      (openaiModelSecret || "gpt-image-2") as OpenAIImageModel;
     // Default to Gemini 3.1 Flash Image Preview (Nano Banana 2) — Google's
     // newest image model (Feb 2026). Per the official docs it has
     // "improved aspect ratio adherence" plus new 1:4/4:1/1:8/8:1 ratios
@@ -1514,8 +1514,8 @@ serve(async (req) => {
        * otherwise we hit /images/generations. Output is always returned as
        * base64 so the upload path mirrors the Gemini branch exactly.
        *
-       * Primary: gpt-image-1.5 (marketed as "Image 2.0"). Fallback on any
-       * failure is Gemini, same pattern as the Freepik branch.
+       * Default model is gpt-image-2 (Image API). Fallback on any failure is
+       * Gemini, same pattern as the Freepik branch.
        */
       console.log("🎨 Using OpenAI for image generation...", {
         model: effectiveOpenAIModel,

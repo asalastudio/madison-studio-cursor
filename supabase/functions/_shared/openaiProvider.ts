@@ -38,9 +38,10 @@ const OPENAI_API_BASE = "https://api.openai.com/v1";
  * OPENAI_IMAGE_MODEL secret lets us flip to a future model without a
  * redeploy.
  */
-const DEFAULT_OPENAI_IMAGE_MODEL =
-  (Deno.env.get("OPENAI_IMAGE_MODEL") as OpenAIImageModel | undefined) ??
-  "gpt-image-2";
+function resolveDefaultOpenAIImageModel(): OpenAIImageModel {
+  const raw = Deno.env.get("OPENAI_IMAGE_MODEL")?.trim();
+  return (raw || "gpt-image-2") as OpenAIImageModel;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -58,7 +59,14 @@ export type OpenAIImageSize =
   | "1536x1024"   // landscape (3:2 family)
   // dall-e-3 legacy sizes (kept for the dall-e-3 code path)
   | "1792x1024"
-  | "1024x1792";
+  | "1024x1792"
+  // gpt-image-2 — additional sizes (Image API; generations path). Edits stay on 1024-class.
+  | "1152x2048"
+  | "2048x1152"
+  | "2048x2048"
+  | "2160x3840"
+  | "2880x2880"
+  | "3840x2160";
 
 export type OpenAIImageQuality =
   | "auto"
@@ -130,6 +138,76 @@ function getApiKey(): string {
     throw new Error("OPENAI_API_KEY not configured");
   }
   return key;
+}
+
+/** Strip charset etc. from Content-Type so Blob types stay valid. */
+function sanitizeMimeType(mime: string | undefined): string {
+  if (!mime) return "image/png";
+  return mime.split(";")[0].trim().toLowerCase() || "image/png";
+}
+
+/**
+ * gpt-image-2 does not support transparent backgrounds (OpenAI docs).
+ * Coerce so /generations and /edits don't 400 and silently fall back to Gemini.
+ */
+function effectiveBackground(
+  model: OpenAIImageModel,
+  requested: OpenAIImageBackground | undefined,
+): OpenAIImageBackground {
+  const v = requested ?? "auto";
+  if (model === "gpt-image-2" && v === "transparent") {
+    console.warn(
+      "[OpenAI] gpt-image-2 does not support background=transparent — using opaque",
+    );
+    return "opaque";
+  }
+  return v;
+}
+
+/**
+ * gpt-image-2 accepts many output sizes; map Madison resolution + aspect to
+ * documented 2K/4K presets on the generations endpoint only.
+ */
+function mapGptImage2GenerationSize(
+  aspectRatio: string | undefined,
+  resolution: string | undefined,
+): OpenAIImageSize {
+  const tier = resolution === "4k"
+    ? "4k"
+    : resolution === "high"
+    ? "high"
+    : "standard";
+
+  if (tier === "standard") {
+    return mapAspectRatioToSize(aspectRatio, "gpt-image-2");
+  }
+
+  const r = (aspectRatio ?? "").trim().toLowerCase();
+  const isSquare = r === "1:1" || r === "square" || r === "square_1_1";
+  const isPortrait = (
+    r === "9:16" || r === "2:3" || r === "3:4" || r === "1:2" ||
+    r === "9:21" || r === "4:5" ||
+    r.includes("portrait") || r.includes("vertical") || r.includes("social_story")
+  );
+  const isLandscape = (
+    r === "16:9" || r === "3:2" || r === "4:3" || r === "2:1" ||
+    r === "21:9" ||
+    r.includes("widescreen") || r.includes("horizontal") || r.includes("landscape") ||
+    r.includes("standard") || r.includes("classic") || r.includes("film_horizontal")
+  );
+
+  if (tier === "high") {
+    if (isSquare) return "2048x2048";
+    if (isPortrait) return "1152x2048";
+    if (isLandscape) return "2048x1152";
+    return "2048x2048";
+  }
+
+  // 4K tier — sizes from OpenAI gpt-image-2 docs (within pixel budget)
+  if (isSquare) return "2880x2880";
+  if (isPortrait) return "2160x3840";
+  if (isLandscape) return "3840x2160";
+  return "2880x2880";
 }
 
 /**
@@ -211,8 +289,8 @@ async function downloadUrlAsBase64(
   }
   const buf = await res.arrayBuffer();
   return {
-    data: encode(new Uint8Array(buf)),
-    mimeType: res.headers.get("content-type") || "image/png",
+    data: encode(buf),
+    mimeType: sanitizeMimeType(res.headers.get("content-type") || undefined),
   };
 }
 
@@ -222,9 +300,13 @@ async function generateViaGenerations(
   params: OpenAIImageParams,
   model: OpenAIImageModel,
 ): Promise<OpenAIImageResult> {
-  const size = params.size ?? mapAspectRatioToSize(params.aspectRatio, model);
+  const size = params.size ??
+    (model === "gpt-image-2"
+      ? mapGptImage2GenerationSize(params.aspectRatio, params.resolution)
+      : mapAspectRatioToSize(params.aspectRatio, model));
   const quality = params.quality ?? mapResolutionToQuality(params.resolution, model);
   const outputFormat = params.outputFormat ?? "png";
+  const background = effectiveBackground(model, params.background);
 
   const body: Record<string, unknown> = {
     model,
@@ -241,7 +323,7 @@ async function generateViaGenerations(
     body.quality = quality === "auto" ? "standard" : quality;
   } else {
     body.quality = quality;
-    body.background = params.background ?? "auto";
+    body.background = background;
     body.output_format = outputFormat;
   }
 
@@ -315,6 +397,7 @@ async function generateViaEdits(
   const size = params.size ?? mapAspectRatioToSize(params.aspectRatio, model);
   const quality = params.quality ?? mapResolutionToQuality(params.resolution, model);
   const outputFormat = params.outputFormat ?? "png";
+  const background = effectiveBackground(model, params.background);
 
   const form = new FormData();
   form.append("model", model);
@@ -322,7 +405,7 @@ async function generateViaEdits(
   form.append("n", String(params.n ?? 1));
   form.append("size", size);
   form.append("quality", quality);
-  form.append("background", params.background ?? "auto");
+  form.append("background", background);
   form.append("output_format", outputFormat);
   if (params.user) form.append("user", params.user);
 
@@ -331,8 +414,9 @@ async function generateViaEdits(
   // style, so passing them through preserves that hierarchy.
   references.forEach((ref, idx) => {
     const bytes = Uint8Array.from(atob(ref.data), (c) => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: ref.mimeType || "image/png" });
-    const ext = (ref.mimeType?.split("/")[1] || "png").replace("jpeg", "jpg");
+    const mime = sanitizeMimeType(ref.mimeType);
+    const blob = new Blob([bytes], { type: mime });
+    const ext = (mime.split("/")[1] || "png").replace("jpeg", "jpg");
     form.append("image[]", blob, `reference-${idx}.${ext}`);
   });
 
@@ -354,15 +438,22 @@ async function generateViaEdits(
 
   const data = await res.json();
   const first = data?.data?.[0];
-  const imageBase64: string | undefined = first?.b64_json;
+  let imageBase64: string | undefined = first?.b64_json;
+  let outMime = pickMimeType(outputFormat);
+
+  if (!imageBase64 && first?.url) {
+    const downloaded = await downloadUrlAsBase64(first.url);
+    imageBase64 = downloaded.data;
+    outMime = downloaded.mimeType;
+  }
 
   if (!imageBase64) {
-    throw new Error(`OpenAI edits had no b64_json. Got: ${JSON.stringify(first)}`);
+    throw new Error(`OpenAI edits had no b64_json or url. Got: ${JSON.stringify(first)}`);
   }
 
   return {
     imageBase64,
-    mimeType: pickMimeType(outputFormat),
+    mimeType: outMime,
     model,
     endpoint: "edits",
     revisedPrompt: first.revised_prompt,
@@ -378,7 +469,7 @@ async function generateViaEdits(
 export async function generateImage(
   params: OpenAIImageParams,
 ): Promise<OpenAIImageResult> {
-  const model = params.model ?? DEFAULT_OPENAI_IMAGE_MODEL;
+  const model = params.model ?? resolveDefaultOpenAIImageModel();
   const refs = params.referenceImages ?? [];
 
   // /edits supports the entire gpt-image-* family. dall-e-3 is text-only.
