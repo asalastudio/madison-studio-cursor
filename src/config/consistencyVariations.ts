@@ -25,12 +25,22 @@ export interface VariationOption {
    * cylinder family catalog. Used to soft-gate invalid combinations in the
    * UI (a spray fitment has fewer cap colours than a roll-on). When empty
    * or omitted, the cap is treated as universally available.
+   *
+   * IDs mirror FITMENT_TYPES below and the Convex products.applicator enum.
    */
   compatibleFitments?: Array<
     | "fine-mist-metal"
     | "fine-mist-plastic"
+    | "perfume-spray-pump"
     | "lotion-pump"
     | "roller-ball"
+    | "roller-ball-plastic"
+    | "vintage-bulb-sprayer"
+    | "vintage-bulb-sprayer-tassel"
+    | "reducer"
+    | "dropper"
+    | "glass-stopper"
+    | "cap-closure"
     | "over-cap"
   >;
 }
@@ -125,7 +135,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "high-gloss black phenolic plastic cap with a very bright polished lacquered finish, deep jet-black, sharp specular highlights characteristic of premium moulded phenolic resin — NOT metal, but a glossy plastic cap with a near-piano-black sheen",
     swatch: "#0B0B0B",
-    compatibleFitments: ["roller-ball"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
   },
   {
     id: "white",
@@ -133,7 +143,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "soft-matte white phenolic plastic cap with a clean even moulded surface, neutral bright white, premium high-quality phenolic resin construction — NOT metal, a moulded plastic cap with a low-sheen finish",
     swatch: "#EFEDE8",
-    compatibleFitments: ["roller-ball"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
   },
   {
     id: "turquoise",
@@ -172,7 +182,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "high-gloss silver phenolic plastic cap with a bright mirror-like metallised finish, cool neutral silver tone, crisp but slightly softened highlights, premium high-quality moulded phenolic resin with a polished silver metallised coating — NOT metal; reads as polished silver in catalog photography but is moulded plastic, so the specular highlights are clean yet slightly diffused compared to true chrome",
     swatch: "#D1D4D9",
-    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "roller-ball"],
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "perfume-spray-pump", "roller-ball", "roller-ball-plastic"],
   },
   {
     id: "matte-silver",
@@ -180,7 +190,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "matte silver phenolic plastic cap with a muted non-reflective metallic silver appearance, cool muted silver-grey tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte metallised coating — NOT metal; reads as a brushed-matte silver metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
     swatch: "#8F9398",
-    compatibleFitments: ["roller-ball", "lotion-pump"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "lotion-pump"],
   },
   {
     id: "shiny-gold",
@@ -188,7 +198,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "high-gloss gold phenolic plastic cap with a bright polished metallised finish, warm yellow-gold tone, crisp but slightly softened highlights, premium high-quality moulded phenolic resin with a polished gold metallised coating — NOT metal; reads as polished gold in catalog photography but is moulded plastic, so the specular highlights are clean yet slightly diffused compared to true machined metal",
     swatch: "#C9A24B",
-    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "roller-ball", "lotion-pump"],
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "perfume-spray-pump", "roller-ball", "roller-ball-plastic", "lotion-pump"],
   },
   {
     id: "matte-gold",
@@ -196,7 +206,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "matte gold phenolic plastic cap with a muted non-reflective metallic gold appearance, warm muted gold tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte gold metallised coating — NOT metal; reads as a brushed-matte gold metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
     swatch: "#9E7E3D",
-    compatibleFitments: ["roller-ball"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
   },
   {
     id: "matte-copper",
@@ -204,28 +214,38 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "matte copper phenolic plastic cap with a muted non-reflective metallic copper appearance, warm orange-bronze tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte copper metallised coating — NOT metal; reads as a brushed-matte copper metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
     swatch: "#B26F44",
-    compatibleFitments: ["roller-ball"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
   },
-  // ─── Decorated caps — dot / pattern motifs (phenolic plastic base) ─────
+  // ─── Decorated caps — rhinestone-studded phenolic plastic ──────────────
   //
-  // Dots are a surface decoration (printed or applied) on a phenolic cap —
-  // NOT three-dimensional rhinestones. Prompts describe them as flat or
-  // slightly raised round dots rather than faceted crystals.
+  // The "dots" on Best Bottles' dotted caps are small silver-metallic
+  // rhinestones / studs physically embedded around the cap in a regular
+  // pattern — NOT flat printed dots. Each stud catches light as a tiny
+  // sharp sparkle against the cap's base colour. Three colourways:
+  // black base, silver base, pink base — all studded with silver.
   {
     id: "black-silver-dots",
     label: "Black with Silver Dots",
     prompt:
-      "glossy black phenolic plastic cap with an even pattern of small round silver dots applied across the surface, deep jet-black base with bright metallic-silver dot motif, premium high-quality moulded phenolic resin — NOT metal; dots are a surface decoration (flat or very slightly raised applied circles), not faceted rhinestones or embedded crystals",
+      "glossy black phenolic plastic cap studded with a regular pattern of small round silver-metallic rhinestones/studs physically embedded across the surface, arranged in neat evenly-spaced rows around the cap; the base is deep jet-black high-gloss moulded phenolic resin, and each tiny rhinestone catches light with a distinct bright pinpoint sparkle highlight. Premium high-quality moulded phenolic resin — NOT metal; the rhinestone studs are physical three-dimensional embellishments, not a flat printed pattern.",
     swatch: "#1A1A1A",
-    compatibleFitments: ["roller-ball"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
   },
   {
-    id: "pink-dots",
-    label: "Pink with Dots",
+    id: "silver-silver-dots",
+    label: "Silver with Silver Dots",
     prompt:
-      "soft muted-pink phenolic plastic cap with an even pattern of small round contrasting dots applied across the surface, warm rose-pink base with delicate dot motif, premium high-quality moulded phenolic resin with a satin finish — NOT metal; dots are a surface decoration (flat or very slightly raised applied circles), not faceted rhinestones or embedded crystals",
+      "satin silver phenolic plastic cap studded with a regular pattern of small round silver-metallic rhinestones/studs physically embedded across the surface, arranged in neat evenly-spaced rows around the cap; the base is a soft brushed-looking silver moulded phenolic resin with a metallised finish, and each tiny rhinestone catches light with a distinct bright pinpoint sparkle highlight that reads slightly brighter than the cap body. Premium high-quality moulded phenolic resin — NOT metal; the rhinestone studs are physical three-dimensional embellishments, not a flat printed pattern.",
+    swatch: "#C5C8CC",
+    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
+  },
+  {
+    id: "pink-silver-dots",
+    label: "Pink with Silver Dots",
+    prompt:
+      "soft muted-pink phenolic plastic cap studded with a regular pattern of small round silver-metallic rhinestones/studs physically embedded across the surface, arranged in neat evenly-spaced rows around the cap; the base is a warm rose-pink moulded phenolic resin with a satin finish, and each tiny rhinestone catches light with a distinct bright pinpoint sparkle highlight against the pink. Premium high-quality moulded phenolic resin — NOT metal; the rhinestone studs are physical three-dimensional embellishments, not a flat printed pattern.",
     swatch: "#D9A3B2",
-    compatibleFitments: ["roller-ball"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
   },
   // ─── Natural-material caps (kept for completeness across families) ─────
   {
@@ -239,6 +259,14 @@ export const CAP_COLORS: VariationOption[] = [
   },
 ];
 
+/**
+ * FITMENTS — Best Bottles canonical applicator list.
+ *
+ * Mirrors the `applicator` enum in the Convex products table so Madison
+ * Studio variations map 1:1 onto real SKUs in the catalog. Each prompt
+ * fragment describes the exposed fitment at the neck of the bottle when
+ * uncapped; in assembled composition the cap sits over it.
+ */
 export const FITMENT_TYPES: VariationOption[] = [
   {
     id: "fine-mist-metal",
@@ -253,6 +281,12 @@ export const FITMENT_TYPES: VariationOption[] = [
     swatch: "#D4D0C8",
   },
   {
+    id: "perfume-spray-pump",
+    label: "Perfume Spray Pump",
+    prompt: "perfume spray pump actuator with a crimped metal collar, slightly taller and heavier than a fine-mist sprayer, designed for larger-capacity cylinder bottles",
+    swatch: "#A8A8A8",
+  },
+  {
     id: "lotion-pump",
     label: "Lotion Pump",
     prompt: "disc-top lotion pump dispenser with smooth-action actuator, personal-care grade",
@@ -260,9 +294,53 @@ export const FITMENT_TYPES: VariationOption[] = [
   },
   {
     id: "roller-ball",
-    label: "Roller Ball",
-    prompt: "stainless-steel roller-ball applicator seated in the bottle neck, polished finish",
+    label: "Metal Roller Ball",
+    prompt:
+      "FITMENT is a polished stainless-steel roller-ball applicator seated in the bottle neck: the BALL is bright MIRROR-POLISHED STAINLESS STEEL — chrome-silver, reflective, metallic — and STAYS BRIGHT METALLIC STEEL REGARDLESS OF THE GLASS BODY COLOUR OR FINISH (even when the body is frosted, amber, cobalt, or swirl, the ball is NEVER dark, NEVER black, NEVER tinted, NEVER colour-matched to the body). Immediately below the steel ball, a small TRANSLUCENT CLEAR PLASTIC neck plug holds it in place; the plug is clear or very faintly frosted plastic, never dark, never coloured. Together the ball + plug form a classic perfume roll-on top.",
     swatch: "#B8BAB8",
+  },
+  {
+    id: "roller-ball-plastic",
+    label: "Plastic Roller Ball",
+    prompt:
+      "FITMENT is a plastic roller-ball applicator seated in the bottle neck: the BALL is MATTE WHITE PLASTIC — never dark, never tinted, never colour-matched to the glass body — with a colour-matched clear plastic neck plug below. Lightweight personal-care feel. Regardless of the bottle body material or colour, the ball stays matte white plastic.",
+    swatch: "#D8D5CF",
+  },
+  {
+    id: "vintage-bulb-sprayer",
+    label: "Vintage Bulb Sprayer",
+    prompt: "vintage-style squeeze-bulb atomizer fitment — a polished metal collar at the bottle neck with a braided hose leading to a small rubber/silk squeeze bulb; evokes classic apothecary perfumery",
+    swatch: "#9E8D74",
+  },
+  {
+    id: "vintage-bulb-sprayer-tassel",
+    label: "Vintage Bulb Sprayer w/ Tassel",
+    prompt: "vintage-style squeeze-bulb atomizer fitment with a decorative silk tassel attached at the metal collar — polished metal collar at the bottle neck, braided hose to the squeeze bulb, and a fine silk tassel adding a luxury apothecary accent",
+    swatch: "#94805E",
+  },
+  {
+    id: "reducer",
+    label: "Reducer",
+    prompt: "perfume reducer fitment — a small flow-limiting plastic insert seated inside the neck, producing a slow drip for splash application; visually a small translucent plastic reducer visible at the opening",
+    swatch: "#E1DDD4",
+  },
+  {
+    id: "dropper",
+    label: "Dropper",
+    prompt: "glass dropper fitment — a pipette-style glass tube with a rubber or silicone bulb on top, seated in the bottle neck via a threaded collar",
+    swatch: "#CFCAC1",
+  },
+  {
+    id: "glass-stopper",
+    label: "Glass Stopper",
+    prompt: "ground-glass stopper that plugs directly into the bottle neck with no external thread, apothecary-style, clear glass matching the body",
+    swatch: "#E8E6E0",
+  },
+  {
+    id: "cap-closure",
+    label: "Cap / Closure",
+    prompt: "plain screw-on closure cap with no spray/roller/pump mechanism; used for bottles sold for the customer to add their own fitment",
+    swatch: "#BEB9AF",
   },
   {
     id: "over-cap",
@@ -619,6 +697,11 @@ const UNIVERSAL_MATERIAL_RULES = [
   "The attached reference image is a SHAPE and PROPORTION guide only — use it to reproduce the bottle's silhouette, neck, shoulder, and overall geometry exactly. Do NOT copy the reference's colour or material literally; the final bottle material is determined by the VARIATION DETAILS below. The final image must always look like a freshly photographed studio shot, not a recoloured cut-out of the reference.",
   // Cap-protection rule
   "STRICT RULE: The cap's appearance is determined ONLY by the CAP description in the VARIATION DETAILS. Never apply the bottle-body material, pattern, colour, or finish to the cap. If no cap variation is specified, keep the cap identical to the reference image's cap.",
+  // Fitment-protection rule (mirrors cap-protection — prevents body-colour
+  // bleed onto the roller ball / sprayer / pump. Specifically addresses the
+  // frosted-body → dark-ball artefact where the model extends the body's
+  // muted/diffuse tone onto the metal ball.)
+  "STRICT RULE: The fitment's appearance — ball colour, sprayer collar, pump actuator, etc. — is determined ONLY by the FITMENT description in the VARIATION DETAILS. The bottle-body's material, colour, finish, or diffusion NEVER bleeds onto the fitment. A metal roller ball stays BRIGHT MIRROR-POLISHED STAINLESS STEEL (chrome-silver, reflective) even when the body is frosted, amber, cobalt, or any coloured/diffuse glass. A plastic roller ball stays matte white. A metal sprayer collar stays bright metal. If no fitment variation is specified, keep the fitment identical to the reference image's fitment.",
 ].join(" ");
 
 export interface CompositionPreset {
