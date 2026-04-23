@@ -127,7 +127,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "glossy black phenolic plastic cap with a smooth reflective moulded surface, deep neutral black, premium high-quality phenolic resin construction — the cap is NOT metal, it is moulded phenolic plastic with a polished lacquered finish; highlights are clean but slightly softer than true polished metal",
     swatch: "#1E1E1E",
-    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "lotion-pump"],
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "lotion-pump", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "shiny-black",
@@ -135,7 +135,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "high-gloss black phenolic plastic cap with a very bright polished lacquered finish, deep jet-black, sharp specular highlights characteristic of premium moulded phenolic resin — NOT metal, but a glossy plastic cap with a near-piano-black sheen",
     swatch: "#0B0B0B",
-    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "white",
@@ -143,7 +143,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "soft-matte white phenolic plastic cap with a clean even moulded surface, neutral bright white, premium high-quality phenolic resin construction — NOT metal, a moulded plastic cap with a low-sheen finish",
     swatch: "#EFEDE8",
-    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "turquoise",
@@ -151,7 +151,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "glossy turquoise phenolic plastic cap with a rich aqua-teal tone and smooth reflective lacquered surface, premium high-quality phenolic resin construction — NOT metal, a moulded plastic cap with a crisp jewel-tone finish",
     swatch: "#2EA3A6",
-    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic"],
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "red",
@@ -159,7 +159,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "glossy red phenolic plastic cap with a rich true-red tone and smooth reflective lacquered surface, premium high-quality phenolic resin construction — NOT metal, a moulded plastic cap with a lipstick-gloss finish",
     swatch: "#B52A26",
-    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic"],
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   // ─── Metallic-look caps (still phenolic plastic) ───────────────────────
   //
@@ -174,7 +174,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "satin silver phenolic plastic cap with a soft brushed-looking metallic silver appearance, cool neutral silver tone, a finish between fully matte and fully glossy, premium high-quality moulded phenolic resin with a metallised coating — NOT metal; the cap reads as a silver metallic cap in catalog photography but is in fact moulded plastic, so highlights are softly diffused rather than sharply specular",
     swatch: "#B6B9BC",
-    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic"],
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "shiny-silver",
@@ -182,7 +182,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "high-gloss silver phenolic plastic cap with a bright mirror-like metallised finish, cool neutral silver tone, crisp but slightly softened highlights, premium high-quality moulded phenolic resin with a polished silver metallised coating — NOT metal; reads as polished silver in catalog photography but is moulded plastic, so the specular highlights are clean yet slightly diffused compared to true chrome",
     swatch: "#D1D4D9",
-    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "perfume-spray-pump", "roller-ball", "roller-ball-plastic"],
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "perfume-spray-pump", "roller-ball", "roller-ball-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "matte-silver",
@@ -190,7 +190,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "matte silver phenolic plastic cap with a muted non-reflective metallic silver appearance, cool muted silver-grey tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte metallised coating — NOT metal; reads as a brushed-matte silver metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
     swatch: "#8F9398",
-    compatibleFitments: ["roller-ball", "roller-ball-plastic", "lotion-pump"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "lotion-pump", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "shiny-gold",
@@ -198,7 +198,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "high-gloss gold phenolic plastic cap with a bright polished metallised finish, warm yellow-gold tone, crisp but slightly softened highlights, premium high-quality moulded phenolic resin with a polished gold metallised coating — NOT metal; reads as polished gold in catalog photography but is moulded plastic, so the specular highlights are clean yet slightly diffused compared to true machined metal",
     swatch: "#C9A24B",
-    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "perfume-spray-pump", "roller-ball", "roller-ball-plastic", "lotion-pump"],
+    compatibleFitments: ["fine-mist-metal", "fine-mist-plastic", "perfume-spray-pump", "roller-ball", "roller-ball-plastic", "lotion-pump", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "matte-gold",
@@ -206,7 +206,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "matte gold phenolic plastic cap with a muted non-reflective metallic gold appearance, warm muted gold tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte gold metallised coating — NOT metal; reads as a brushed-matte gold metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
     swatch: "#9E7E3D",
-    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "matte-copper",
@@ -214,7 +214,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "matte copper phenolic plastic cap with a muted non-reflective metallic copper appearance, warm orange-bronze tone, soft-touch finish, premium high-quality moulded phenolic resin with a matte copper metallised coating — NOT metal; reads as a brushed-matte copper metallic cap but is moulded plastic, so highlights are very subtle and diffuse",
     swatch: "#B26F44",
-    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   // ─── Decorated caps — rhinestone-studded phenolic plastic ──────────────
   //
@@ -229,7 +229,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "glossy black phenolic plastic cap studded with a regular pattern of small round silver-metallic rhinestones/studs physically embedded across the surface, arranged in neat evenly-spaced rows around the cap; the base is deep jet-black high-gloss moulded phenolic resin, and each tiny rhinestone catches light with a distinct bright pinpoint sparkle highlight. Premium high-quality moulded phenolic resin — NOT metal; the rhinestone studs are physical three-dimensional embellishments, not a flat printed pattern.",
     swatch: "#1A1A1A",
-    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "silver-silver-dots",
@@ -237,7 +237,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "satin silver phenolic plastic cap studded with a regular pattern of small round silver-metallic rhinestones/studs physically embedded across the surface, arranged in neat evenly-spaced rows around the cap; the base is a soft brushed-looking silver moulded phenolic resin with a metallised finish, and each tiny rhinestone catches light with a distinct bright pinpoint sparkle highlight that reads slightly brighter than the cap body. Premium high-quality moulded phenolic resin — NOT metal; the rhinestone studs are physical three-dimensional embellishments, not a flat printed pattern.",
     swatch: "#C5C8CC",
-    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   {
     id: "pink-silver-dots",
@@ -245,7 +245,7 @@ export const CAP_COLORS: VariationOption[] = [
     prompt:
       "soft muted-pink phenolic plastic cap studded with a regular pattern of small round silver-metallic rhinestones/studs physically embedded across the surface, arranged in neat evenly-spaced rows around the cap; the base is a warm rose-pink moulded phenolic resin with a satin finish, and each tiny rhinestone catches light with a distinct bright pinpoint sparkle highlight against the pink. Premium high-quality moulded phenolic resin — NOT metal; the rhinestone studs are physical three-dimensional embellishments, not a flat printed pattern.",
     swatch: "#D9A3B2",
-    compatibleFitments: ["roller-ball", "roller-ball-plastic"],
+    compatibleFitments: ["roller-ball", "roller-ball-plastic", "vintage-bulb-sprayer", "vintage-bulb-sprayer-tassel"],
   },
   // ─── Natural-material caps (kept for completeness across families) ─────
   {
