@@ -19,6 +19,7 @@ import {
 import { MobileSettingsTile } from "./MobileSettingsTile";
 import { MobileSettingModal } from "./MobileSettingModal";
 import type { ProModeSettings } from "./ProSettings";
+import { AI_MODEL_OPTIONS as SHARED_AI_MODEL_OPTIONS, DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 
 // Option types for each setting
 interface SettingOption {
@@ -27,16 +28,11 @@ interface SettingOption {
   description?: string;
 }
 
-// AI Model options
-const AI_MODEL_OPTIONS: SettingOption[] = [
-  { value: "auto", label: "Auto", description: "AI picks the best model" },
-  { value: "gemini-3-pro-image", label: "Gemini 3.0 Pro", description: "Google's latest" },
-  { value: "openai-image-2", label: "GPT Image 2", description: "OpenAI flagship" },
-  { value: "freepik-flux-pro", label: "Flux Pro", description: "High quality" },
-  { value: "freepik-seedream-4", label: "Seedream 4", description: "Creative styles" },
-  { value: "freepik-hyperflux", label: "HyperFlux", description: "Fast generation" },
-  { value: "freepik-mystic", label: "Mystic", description: "Artistic style" },
-];
+const AI_MODEL_OPTIONS: SettingOption[] = SHARED_AI_MODEL_OPTIONS.map(({ value, label, description }) => ({
+  value,
+  label,
+  description,
+}));
 
 // Aspect ratio options
 const ASPECT_RATIO_OPTIONS: SettingOption[] = [
@@ -104,8 +100,8 @@ export function MobileSettingsGrid({
 
   // Get display values for each setting
   const getModelDisplay = () => {
-    const option = AI_MODEL_OPTIONS.find(o => o.value === proSettings.aiProvider);
-    return option?.label || "Auto";
+    const option = AI_MODEL_OPTIONS.find(o => o.value === (proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER));
+    return option?.label || "GPT Image 2";
   };
 
   const getSizeDisplay = () => {
@@ -214,7 +210,7 @@ export function MobileSettingsGrid({
         onClose={() => setActiveModal(null)}
         title="AI Model"
         options={AI_MODEL_OPTIONS}
-        selectedValue={proSettings.aiProvider || "auto"}
+        selectedValue={proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER}
         onSelect={handleModelChange}
       />
 
@@ -260,4 +256,3 @@ export function MobileSettingsGrid({
     </>
   );
 }
-

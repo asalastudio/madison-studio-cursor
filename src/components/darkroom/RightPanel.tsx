@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 import { toast } from "sonner";
 import type { ProModeSettings } from "./ProSettings";
 import {
@@ -626,14 +627,14 @@ export function RightPanel({
         <div className="camera-panel p-2.5 space-y-2">
           <div className="flex items-center gap-1.5">
             <LEDIndicator
-              state={proSettings.aiProvider && proSettings.aiProvider !== "auto" ? "active" : "ready"}
+              state={proSettings.aiProvider && proSettings.aiProvider !== DEFAULT_IMAGE_AI_PROVIDER ? "active" : "ready"}
               size="sm"
             />
             <Cpu className="w-3 h-3 text-[var(--darkroom-accent)]" />
             <span className="text-[11px] font-medium text-[var(--darkroom-text)]">AI Model</span>
           </div>
           <Select
-            value={proSettings.aiProvider || "auto"}
+            value={proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER}
             onValueChange={(v) => handleSettingChange("aiProvider", v)}
             disabled={isGenerating}
           >

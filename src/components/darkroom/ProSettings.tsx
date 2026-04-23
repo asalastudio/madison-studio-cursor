@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 import {
   getCameraOptions,
   getLightingOptions,
@@ -33,19 +34,14 @@ const ASPECT_RATIO_OPTIONS = [
 ];
 
 // AI Provider/Model options - Updated for Freepik's actual API offerings
-// Default/primary: Google Nano Banana 2 (Gemini 3.1 Flash Image Preview) —
-// selected automatically by the "Auto" option on the edge function side.
-// GPT Image 2 is selectable but never the default.
+// Default/primary: GPT Image 2. If OpenAI can't serve the request, the
+// edge function falls back to Gemini 3.1 Pro automatically.
 const AI_PROVIDER_OPTIONS = [
-  // Auto
-  { value: "auto", label: "Auto", description: "AI picks what's best (Nano Banana 2)", badge: "SUGGESTED", group: "auto" },
+  { value: "openai-image-2", label: "GPT Image 2", description: "Default — fallback to Gemini 3.1 Pro", badge: "DEFAULT", group: "openai" },
+  { value: "auto", label: "Auto", description: "Legacy path: GPT Image 2 -> Gemini 3.1 Pro", badge: null, group: "auto" },
   // Google Gemini Direct (Google's API) - MOVED TO TOP
-  { value: "gemini-3-pro-image", label: "Gemini 3.0 Pro", description: "Google's latest - Image gen & editing", badge: "BEST", group: "gemini" },
+  { value: "gemini-3-pro-image", label: "Gemini 3.1 Pro", description: "Latest Gemini image fallback", badge: "BEST", group: "gemini" },
   { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Fast & reliable", badge: "FREE", group: "gemini" },
-  // OpenAI — current flagship gpt-image-2 (April 2026). Older versions
-  // intentionally omitted from the UI; selectable via edge-function alias
-  // for anyone who needs to pin to 1.5 for legacy compatibility.
-  { value: "openai-image-2", label: "GPT Image 2", description: "OpenAI's flagship — 4× faster, better text + layout", badge: "NEW", group: "openai" },
   // Freepik Premium Models
   { value: "freepik-seedream-4", label: "Seedream 4", description: "Best quality, 4K capable", badge: "4K", group: "freepik" },
   { value: "freepik-flux-pro", label: "Flux Pro v1.1", description: "Premium Flux model", badge: "NEW", group: "freepik" },
@@ -354,7 +350,7 @@ export function ProSettings({ settings, onChange, disabled = false }: ProSetting
                   </TooltipProvider>
                 </div>
                 <Select
-                  value={settings.aiProvider || "auto"}
+                  value={settings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER}
                   onValueChange={handleAiProviderChange}
                   disabled={disabled}
                 >

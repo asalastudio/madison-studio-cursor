@@ -662,12 +662,12 @@ serve(async (req) => {
       product_id,
 
       // Provider selection (new)
-      provider = "auto", // "auto" | "gemini" | "freepik"
+      provider = "auto", // "auto" | "gemini" | "freepik" | "openai"
       freepikModel, // "mystic" | "flux-dev" | "flux-pro-v1-1"
       freepikResolution, // "1k" | "2k" | "4k"
       
       // Frontend-friendly aliases (Pro Settings)
-      aiProvider, // "auto" | "gemini" | "freepik-mystic" | "freepik-flux"
+      aiProvider, // "openai-image-2" | "auto" | "gemini" | "freepik-*"
       resolution, // "standard" | "high" | "4k"
       visualSquad, // "THE_MINIMALISTS" | "THE_STORYTELLERS" | "THE_DISRUPTORS"
 
@@ -816,14 +816,10 @@ serve(async (req) => {
     const openaiModelSecret = Deno.env.get("OPENAI_IMAGE_MODEL")?.trim();
     let effectiveOpenAIModel: OpenAIImageModel =
       (openaiModelSecret || "gpt-image-2") as OpenAIImageModel;
-    // Default to Gemini 3.1 Flash Image Preview (Nano Banana 2) — Google's
-    // newest image model (Feb 2026). Per the official docs it has
-    // "improved aspect ratio adherence" plus new 1:4/4:1/1:8/8:1 ratios
-    // and native 0.5K/1K/2K/4K output via imageConfig.imageSize.
-    // Users can explicitly pick Gemini 3 Pro (higher quality, slower) via
-    // the AI Model dropdown.
-    // See: https://ai.google.dev/gemini-api/docs/image-generation
-    let effectiveGeminiModel: string = "models/gemini-3.1-flash-image-preview";
+    // Default Gemini fallback is the highest-quality image model we currently
+    // expose in Madison: Gemini 3.1 Pro Image Preview. If that is unavailable,
+    // the Gemini execution path steps down to 3.1 Flash, then 2.5 Flash.
+    let effectiveGeminiModel: string = "models/gemini-3-pro-image-preview";
 
     if (aiProvider) {
       // Gemini image models (must support responseModalities: ["IMAGE"])
@@ -899,7 +895,7 @@ serve(async (req) => {
         effectiveOpenAIModel = "dall-e-3";
       } else if (aiProvider === "auto") {
         effectiveProvider = "auto";
-        effectiveGeminiModel = "models/gemini-3.1-flash-image-preview";
+        effectiveGeminiModel = "models/gemini-3-pro-image-preview";
       }
     }
     
@@ -1360,8 +1356,7 @@ serve(async (req) => {
 
     if (effectiveProvider === "auto") {
       console.log(
-        `ℹ️ Provider Auto → Gemini (default primary: models/gemini-3.1-flash-image-preview). ` +
-          `For OpenAI GPT Image 2, pick it in the app (sends aiProvider: "openai-image-2") and configure OPENAI_API_KEY on this function.`,
+        `ℹ️ Provider Auto → prefer OpenAI GPT Image 2, then fall back to Gemini 3.1 Pro if OpenAI is unavailable or fails.`,
       );
     }
 
@@ -1383,8 +1378,7 @@ serve(async (req) => {
     }
 
     // Determine which provider to use based on tier and request.
-    // Default remains Gemini (Nano Banana 2 / gemini-3.1-flash-image-preview)
-    // so the primary path is unchanged for every existing caller.
+    // Default path now prefers GPT Image 2; Gemini 3.1 Pro is the fallback.
     let selectedProvider: "gemini" | "freepik" | "openai" = "gemini";
     let tierRestrictionApplied = false;
 
@@ -1415,10 +1409,11 @@ serve(async (req) => {
         tierRestrictionApplied = true;
       }
     } else if (effectiveProvider === "auto") {
-      // Gemini 3.1 Flash / 3 Pro produce 2K and 4K natively via
-      // imageConfig.imageSize — no need to route high-res to Freepik.
-      // Only select Freepik when the user explicitly picks a Freepik
-      // model (handled by the branch above).
+      if (Deno.env.get("OPENAI_API_KEY")) {
+        selectedProvider = "openai";
+      } else {
+        console.warn("⚠️ Auto requested but OPENAI_API_KEY not set — defaulting to Gemini 3.1 Pro");
+      }
     }
     // effectiveProvider === "gemini" → stays as gemini
 
@@ -1603,11 +1598,13 @@ serve(async (req) => {
       // Preference order: user's pick → next-best Gemini 3-class model →
       // stable 2.5. If the requested preview isn't yet released to this
       // API key, we quietly step down and still generate an image.
-      const GEMINI_PRO_SECONDARY = "models/gemini-3-pro-image-preview";
+      const GEMINI_PRO_PRIMARY = "models/gemini-3-pro-image-preview";
+      const GEMINI_FLASH_SECONDARY = "models/gemini-3.1-flash-image-preview";
       const GEMINI_STABLE_FALLBACK = "models/gemini-2.5-flash-image";
       const rawChain: string[] = [
         effectiveGeminiModel,
-        GEMINI_PRO_SECONDARY,
+        GEMINI_PRO_PRIMARY,
+        GEMINI_FLASH_SECONDARY,
         GEMINI_STABLE_FALLBACK,
       ];
       const seen = new Set<string>();

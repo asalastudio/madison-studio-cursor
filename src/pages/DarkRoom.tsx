@@ -13,6 +13,7 @@ import { madison } from "@/lib/madisonToast";
 import { v4 as uuidv4 } from "uuid";
 import { Image, Wand2, BookOpen } from "lucide-react";
 import { LibrarianTrigger } from "@/components/librarian";
+import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 
 // Supabase & Auth
 import { supabase } from "@/integrations/supabase/client";
@@ -358,7 +359,7 @@ export default function DarkRoom() {
         product: selectedProduct?.name,
         organizationId: orgId,
         userId: user.id,
-        aiProvider: proSettings.aiProvider || "auto",
+        aiProvider: proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
         resolution: proSettings.resolution || "standard",
         visualSquad: proSettings.visualSquad || "auto",
       });
@@ -369,7 +370,7 @@ export default function DarkRoom() {
         sessionId,
         goalType: "product_photography",
         aspectRatio: proSettings.aspectRatio || "1:1",
-        aiProvider: proSettings.aiProvider || "auto",
+        aiProvider: proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
         resolution: proSettings.resolution || "standard",
         visualSquad: proSettings.visualSquad,
       }, null, 2));
@@ -388,7 +389,7 @@ export default function DarkRoom() {
           proModeControls: proModePayload,
           product_id: selectedProduct?.id,
           // AI Model settings
-          aiProvider: proSettings.aiProvider || "auto",
+          aiProvider: proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
           resolution: proSettings.resolution || "standard",
           // Visual Squad for style direction
           visualSquad: proSettings.visualSquad,
