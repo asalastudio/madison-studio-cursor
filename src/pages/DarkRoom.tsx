@@ -325,11 +325,14 @@ export default function DarkRoom() {
     // Count total products (main product image + product slots)
     const activeProductSlots = productSlots.filter(slot => slot.imageUrl);
     const totalProductCount = (productImage ? 1 : 0) + activeProductSlots.length;
+    let appliedBackgroundPrompt: string | null = null;
+    let appliedCompositionPrompt: string | null = null;
 
     // If a background preset is selected, add a random variation to the prompt
     if (selectedBackgroundPreset) {
       const backgroundVariation = getRandomBackgroundVariation(selectedBackgroundPreset);
       if (backgroundVariation) {
+        appliedBackgroundPrompt = backgroundVariation;
         // Append the background style to the user's prompt
         effectivePrompt = `${effectivePrompt}. Background: ${backgroundVariation}`;
         console.log("🎨 Background preset applied:", selectedBackgroundPreset, "→", backgroundVariation);
@@ -340,6 +343,7 @@ export default function DarkRoom() {
     if (selectedCompositionPreset && totalProductCount > 0) {
       const compositionPrompt = getCompositionPrompt(selectedCompositionPreset, totalProductCount);
       if (compositionPrompt) {
+        appliedCompositionPrompt = compositionPrompt;
         effectivePrompt = `${effectivePrompt}. Composition: ${compositionPrompt}`;
         console.log("📐 Composition preset applied:", selectedCompositionPreset, `(${totalProductCount} products)`);
       }
@@ -405,6 +409,8 @@ export default function DarkRoom() {
         aiProvider: proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
         resolution: proSettings.resolution || "standard",
         visualSquad: proSettings.visualSquad || "auto",
+        backgroundPreset: selectedBackgroundPreset,
+        compositionPreset: selectedCompositionPreset,
       });
       console.log("🌑 Full payload being sent:", JSON.stringify({
         prompt: effectivePrompt,
@@ -416,6 +422,10 @@ export default function DarkRoom() {
         aiProvider: proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
         resolution: proSettings.resolution || "standard",
         visualSquad: proSettings.visualSquad,
+        backgroundPresetId: selectedBackgroundPreset,
+        backgroundPrompt: appliedBackgroundPrompt,
+        compositionPresetId: selectedCompositionPreset,
+        compositionPrompt: appliedCompositionPrompt,
       }, null, 2));
 
       // Call the edge function
@@ -436,6 +446,10 @@ export default function DarkRoom() {
           resolution: proSettings.resolution || "standard",
           // Visual Squad for style direction
           visualSquad: proSettings.visualSquad,
+          backgroundPresetId: selectedBackgroundPreset,
+          backgroundPrompt: appliedBackgroundPrompt || undefined,
+          compositionPresetId: selectedCompositionPreset,
+          compositionPrompt: appliedCompositionPrompt || undefined,
           productContext: selectedProduct
             ? {
               name: selectedProduct.name,

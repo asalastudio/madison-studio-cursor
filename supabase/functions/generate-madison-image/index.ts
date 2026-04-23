@@ -180,7 +180,13 @@ function buildDirectorModePrompt(
   brandKnowledge: any,
   productData: any,
   aspectRatio?: string,
-  visualMasterContext?: string
+  visualMasterContext?: string,
+  artDirectionControls?: {
+    backgroundPresetId?: string;
+    backgroundPrompt?: string;
+    compositionPresetId?: string;
+    compositionPrompt?: string;
+  }
 ): string {
   let prompt = "";
 
@@ -350,6 +356,22 @@ function buildDirectorModePrompt(
   prompt += "=== CREATIVE DIRECTION ===\n";
   prompt += `${userPrompt}\n\n`;
 
+  if (artDirectionControls?.backgroundPrompt || artDirectionControls?.compositionPrompt) {
+    prompt += "=== DARK ROOM ART DIRECTION CONTROLS ===\n";
+
+    if (artDirectionControls.backgroundPrompt) {
+      prompt += `BACKGROUND STYLE${artDirectionControls.backgroundPresetId ? ` (${artDirectionControls.backgroundPresetId})` : ""}: ${artDirectionControls.backgroundPrompt}\n`;
+      prompt += "Treat this as a deliberate background/surface directive that should materially shape the scene.\n";
+    }
+
+    if (artDirectionControls.compositionPrompt) {
+      prompt += `ARRANGEMENT${artDirectionControls.compositionPresetId ? ` (${artDirectionControls.compositionPresetId})` : ""}: ${artDirectionControls.compositionPrompt}\n`;
+      prompt += "Treat this as the required product placement, grouping, and framing instruction.\n";
+    }
+
+    prompt += "\n";
+  }
+
   // === SECTION 3: VISUAL MASTER TRAINING ===
   if (visualMasterContext) {
     prompt += "=== VISUAL MASTER TRAINING ===\n";
@@ -391,15 +413,20 @@ function buildDirectorModePrompt(
     }
     
     // Add composition variety
-    const compositionStyles = [
-      "Rule of Thirds (classic, balanced)",
-      "Centered composition (symmetrical, bold)",
-      "Leading lines (dynamic, engaging)",
-      "Negative space (minimalist, elegant)",
-      "Diagonal composition (energetic, modern)",
-    ];
-    const compositionIndex = (Date.now() + 1) % compositionStyles.length;
-    prompt += `COMPOSITION: ${compositionStyles[compositionIndex]}\n`;
+    if (artDirectionControls?.compositionPrompt) {
+      prompt += `COMPOSITION: ${artDirectionControls.compositionPrompt}\n`;
+      prompt += "Honor this chosen arrangement over the default composition rotation.\n";
+    } else {
+      const compositionStyles = [
+        "Rule of Thirds (classic, balanced)",
+        "Centered composition (symmetrical, bold)",
+        "Leading lines (dynamic, engaging)",
+        "Negative space (minimalist, elegant)",
+        "Diagonal composition (energetic, modern)",
+      ];
+      const compositionIndex = (Date.now() + 1) % compositionStyles.length;
+      prompt += `COMPOSITION: ${compositionStyles[compositionIndex]}\n`;
+    }
     
     prompt += "LENS CHARACTER: Spherical (clean, modern commercial look)\n";
   }
@@ -670,6 +697,10 @@ serve(async (req) => {
       aiProvider, // "openai-image-2" | "auto" | "gemini" | "freepik-*"
       resolution, // "standard" | "high" | "4k"
       visualSquad, // "THE_MINIMALISTS" | "THE_STORYTELLERS" | "THE_DISRUPTORS"
+      backgroundPresetId,
+      backgroundPrompt,
+      compositionPresetId,
+      compositionPrompt,
 
       // Consistency Mode (bulk variation generation) — OPTIONAL.
       // When fixedSeed is provided, the edge function uses it instead of a
@@ -1128,7 +1159,13 @@ serve(async (req) => {
         brandKnowledge,
         productData,
         aspectRatio,
-        visualMasterContext
+        visualMasterContext,
+        {
+          backgroundPresetId,
+          backgroundPrompt,
+          compositionPresetId,
+          compositionPrompt,
+        }
       );
 
       // Add product visual DNA if available
