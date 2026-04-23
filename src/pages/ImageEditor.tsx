@@ -52,7 +52,7 @@ import { ReferenceUpload } from "@/components/image-editor/ReferenceUpload";
 import { ImageChainBreadcrumb } from "@/components/image-editor/ImageChainBreadcrumb";
 import { RefinementPanel } from "@/components/image-editor/RefinementPanel";
 import { ProModePanel, ProModeControls } from "@/components/image-editor/ProModePanel";
-import { AI_MODEL_OPTIONS, IMAGE_GEN_RESOLUTION_OPTIONS } from "@/config/imageSettings";
+import { AI_MODEL_OPTIONS, DEFAULT_IMAGE_AI_PROVIDER, IMAGE_GEN_RESOLUTION_OPTIONS } from "@/config/imageSettings";
 import { GeneratingLoader } from "@/components/forge/GeneratingLoader";
 import ThumbnailRibbon from "@/components/image-editor/ThumbnailRibbon";
 import MadisonPanel from "@/components/image-editor/MadisonPanel";
@@ -177,7 +177,7 @@ export default function ImageEditor() {
   const updateProAiProvider = useCallback((value: string) => {
     setProModeControls((prev) => ({
       ...prev,
-      aiProvider: value === "auto" ? undefined : value,
+      aiProvider: value === DEFAULT_IMAGE_AI_PROVIDER ? undefined : value,
     }));
   }, []);
 
@@ -590,7 +590,7 @@ export default function ImageEditor() {
               scent_family: selectedProduct.scentFamily || 'Unspecified',
               category: selectedProduct.category
             } : undefined,
-            aiProvider: proModeControls.aiProvider || "auto",
+            aiProvider: proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
             resolution: proModeControls.resolution || "standard",
           }
         }
@@ -900,7 +900,7 @@ export default function ImageEditor() {
             isRefinement: true,
             refinementInstruction,
             parentImageId: selectedForRefinement.id,
-            aiProvider: proModeControls.aiProvider || "auto",
+            aiProvider: proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
             resolution: proModeControls.resolution || "standard",
           }
         }
@@ -1136,7 +1136,7 @@ export default function ImageEditor() {
               isRefinement: true,
               refinementInstruction: defaultInstruction,
               parentImageId: latestImage.id,
-              aiProvider: proModeControls.aiProvider || "auto",
+              aiProvider: proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
               resolution: proModeControls.resolution || "standard",
             }
           }
@@ -1820,13 +1820,13 @@ export default function ImageEditor() {
 
           {/* Prompt Bar (Fixed Bottom) */}
           <footer className="border-t border-charcoal/50 bg-charcoal/30 backdrop-blur-sm sticky bottom-0 z-[15] overflow-hidden">
-            {/* AI backend (always visible — was only in Pro drawer, so requests defaulted to Auto → Gemini) */}
+            {/* AI backend (always visible — keeps GPT Image 2 as the default unless the user overrides it) */}
             <div className="px-6 py-2 border-b border-charcoal/50 flex flex-wrap items-center gap-3 bg-ink-black/20">
               <span className="text-xxs font-medium text-parchment-white/50 uppercase tracking-wide shrink-0">
                 Image AI
               </span>
               <Select
-                value={proModeControls.aiProvider || "auto"}
+                value={proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER}
                 onValueChange={updateProAiProvider}
                 disabled={isGenerating}
               >

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getCameraOptions, getLightingOptions, getEnvironmentOptions } from "@/utils/promptFormula";
 import { cn } from "@/lib/utils";
-import { AI_MODEL_OPTIONS, IMAGE_GEN_RESOLUTION_OPTIONS } from "@/config/imageSettings";
+import { AI_MODEL_OPTIONS, DEFAULT_IMAGE_AI_PROVIDER, IMAGE_GEN_RESOLUTION_OPTIONS } from "@/config/imageSettings";
 
 export interface ProModeControls {
   camera?: string;
@@ -101,14 +101,14 @@ export function ProModePanel({ onControlsChange, initialValues = {} }: ProModePa
       </div>
 
       <div className="space-y-3">
-        {/* AI model — must be sent on generate-madison-image body or requests stay on Auto → Gemini */}
+        {/* AI model — GPT Image 2 is the default, with Gemini 3.1 Pro as the backend fallback */}
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-[#A8A39E] flex items-center gap-1.5">
             <Cpu className="h-3.5 w-3.5" />
             AI model
           </Label>
           <Select
-            value={initialValues.aiProvider || "auto"}
+            value={initialValues.aiProvider || DEFAULT_IMAGE_AI_PROVIDER}
             onValueChange={handleAiProviderChange}
           >
             <SelectTrigger className="h-9 bg-[#252220] border-[#3D3935] text-[#FFFCF5] text-sm">

@@ -8,7 +8,7 @@ import { conformImageToAspectRatio } from "../_shared/imageAspectRatio.ts";
 import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, type OpenAIImageModel } from "../_shared/openaiProvider.ts";
-import { getVisualMasterContext, getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
+import { getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -662,12 +662,12 @@ serve(async (req) => {
       product_id,
 
       // Provider selection (new)
-      provider = "auto", // "auto" | "gemini" | "freepik"
+      provider = "auto", // "auto" | "gemini" | "freepik" | "openai"
       freepikModel, // "mystic" | "flux-dev" | "flux-pro-v1-1"
       freepikResolution, // "1k" | "2k" | "4k"
       
       // Frontend-friendly aliases (Pro Settings)
-      aiProvider, // "auto" | "gemini" | "freepik-mystic" | "freepik-flux"
+      aiProvider, // "openai-image-2" | "auto" | "gemini" | "freepik-*"
       resolution, // "standard" | "high" | "4k"
       visualSquad, // "THE_MINIMALISTS" | "THE_STORYTELLERS" | "THE_DISRUPTORS"
 
@@ -816,14 +816,10 @@ serve(async (req) => {
     const openaiModelSecret = Deno.env.get("OPENAI_IMAGE_MODEL")?.trim();
     let effectiveOpenAIModel: OpenAIImageModel =
       (openaiModelSecret || "gpt-image-2") as OpenAIImageModel;
-    // Default to Gemini 3.1 Flash Image Preview (Nano Banana 2) — Google's
-    // newest image model (Feb 2026). Per the official docs it has
-    // "improved aspect ratio adherence" plus new 1:4/4:1/1:8/8:1 ratios
-    // and native 0.5K/1K/2K/4K output via imageConfig.imageSize.
-    // Users can explicitly pick Gemini 3 Pro (higher quality, slower) via
-    // the AI Model dropdown.
-    // See: https://ai.google.dev/gemini-api/docs/image-generation
-    let effectiveGeminiModel: string = "models/gemini-3.1-flash-image-preview";
+    // Default Gemini fallback is the highest-quality image model we currently
+    // expose in Madison: Gemini 3.1 Pro Image Preview. If that is unavailable,
+    // the Gemini execution path steps down to 3.1 Flash, then 2.5 Flash.
+    let effectiveGeminiModel: string = "models/gemini-3-pro-image-preview";
 
     if (aiProvider) {
       // Gemini image models (must support responseModalities: ["IMAGE"])
@@ -899,7 +895,7 @@ serve(async (req) => {
         effectiveOpenAIModel = "dall-e-3";
       } else if (aiProvider === "auto") {
         effectiveProvider = "auto";
-        effectiveGeminiModel = "models/gemini-3.1-flash-image-preview";
+        effectiveGeminiModel = "models/gemini-3-pro-image-preview";
       }
     }
     
@@ -1083,39 +1079,36 @@ serve(async (req) => {
       categorizedRefs.product.length > 1;
 
     /**
-     * 7. Fetch Visual Master context if visualSquad is specified
+     * 7. Visual Master style directives — ONLY when the client sends a real squad.
+     *
+     * We intentionally do not auto-route from goalType/prompt here: heuristic routing
+     * surprised users (e.g. "shadow" matched a naive `includes("ad")` → DISRUPTORS).
+     * Pick Minimalist / Storyteller / Disruptor in Pro settings (Dark Room) to apply.
      */
     let visualMasterContext: string | undefined;
-    
-    // If user explicitly selected a Visual Squad, use the hardcoded directive (most reliable)
-    if (visualSquad) {
-      visualMasterContext = getVisualStyleDirective(visualSquad as VisualSquad);
-      console.log(`🎨 Visual Squad Selected: ${visualSquad}`, {
+
+    const SQUADS: VisualSquad[] = [
+      "THE_MINIMALISTS",
+      "THE_STORYTELLERS",
+      "THE_DISRUPTORS",
+    ];
+    const resolvedVisualSquad: VisualSquad | undefined =
+      typeof visualSquad === "string" &&
+      visualSquad !== "auto" &&
+      visualSquad.trim() !== "" &&
+      (SQUADS as string[]).includes(visualSquad)
+        ? (visualSquad as VisualSquad)
+        : undefined;
+
+    if (resolvedVisualSquad) {
+      visualMasterContext = getVisualStyleDirective(resolvedVisualSquad);
+      console.log(`🎨 Visual Squad (explicit): ${resolvedVisualSquad}`, {
         directiveLength: visualMasterContext?.length || 0,
-        usingHardcodedDirective: true,
       });
-    } else if (goalType) {
-      // Auto-route based on goal type
-      try {
-        const { strategy, masterContext } = await getVisualMasterContext(
-          supabase,
-          goalType || 'product_hero',
-          prompt,
-          undefined // brandTone - could be extracted from brandKnowledge
-        );
-        
-        // Use hardcoded directive for the auto-routed squad too
-        visualMasterContext = getVisualStyleDirective(strategy.visualSquad);
-        
-        console.log(`🎨 Visual Master Auto-Routed:`, {
-          autoSquad: strategy.visualSquad,
-          primaryMaster: strategy.primaryVisualMaster,
-          directiveLength: visualMasterContext?.length || 0,
-        });
-      } catch (vmError) {
-        console.warn("Could not fetch visual master context:", vmError);
-        // Continue without visual master context
-      }
+    } else {
+      console.log(
+        `🎨 Visual Squad: none — no style directive injected (set Pro → Visual Style in Dark Room if you want one)`,
+      );
     }
 
     /**
@@ -1354,10 +1347,18 @@ serve(async (req) => {
       isSuperAdmin,
       freepikAllowed,
       freepik4KAllowed,
+      aiProviderFromClient: aiProvider ?? "(none)",
       requestedProvider: effectiveProvider,
       requestedModel: effectiveFreepikModel,
       requestedResolution: effectiveFreepikResolution,
+      madisonResolution: resolution ?? "(default standard)",
     });
+
+    if (effectiveProvider === "auto") {
+      console.log(
+        `ℹ️ Provider Auto → prefer OpenAI GPT Image 2, then fall back to Gemini 3.1 Pro if OpenAI is unavailable or fails.`,
+      );
+    }
 
     // Seed selection. Default: random seed per call for variety. Consistency
     // Mode (bulk variation) overrides with a fixed seed shared by every
@@ -1377,8 +1378,7 @@ serve(async (req) => {
     }
 
     // Determine which provider to use based on tier and request.
-    // Default remains Gemini (Nano Banana 2 / gemini-3.1-flash-image-preview)
-    // so the primary path is unchanged for every existing caller.
+    // Default path now prefers GPT Image 2; Gemini 3.1 Pro is the fallback.
     let selectedProvider: "gemini" | "freepik" | "openai" = "gemini";
     let tierRestrictionApplied = false;
 
@@ -1409,10 +1409,11 @@ serve(async (req) => {
         tierRestrictionApplied = true;
       }
     } else if (effectiveProvider === "auto") {
-      // Gemini 3.1 Flash / 3 Pro produce 2K and 4K natively via
-      // imageConfig.imageSize — no need to route high-res to Freepik.
-      // Only select Freepik when the user explicitly picks a Freepik
-      // model (handled by the branch above).
+      if (Deno.env.get("OPENAI_API_KEY")) {
+        selectedProvider = "openai";
+      } else {
+        console.warn("⚠️ Auto requested but OPENAI_API_KEY not set — defaulting to Gemini 3.1 Pro");
+      }
     }
     // effectiveProvider === "gemini" → stays as gemini
 
@@ -1597,11 +1598,13 @@ serve(async (req) => {
       // Preference order: user's pick → next-best Gemini 3-class model →
       // stable 2.5. If the requested preview isn't yet released to this
       // API key, we quietly step down and still generate an image.
-      const GEMINI_PRO_SECONDARY = "models/gemini-3-pro-image-preview";
+      const GEMINI_PRO_PRIMARY = "models/gemini-3-pro-image-preview";
+      const GEMINI_FLASH_SECONDARY = "models/gemini-3.1-flash-image-preview";
       const GEMINI_STABLE_FALLBACK = "models/gemini-2.5-flash-image";
       const rawChain: string[] = [
         effectiveGeminiModel,
-        GEMINI_PRO_SECONDARY,
+        GEMINI_PRO_PRIMARY,
+        GEMINI_FLASH_SECONDARY,
         GEMINI_STABLE_FALLBACK,
       ];
       const seen = new Set<string>();
