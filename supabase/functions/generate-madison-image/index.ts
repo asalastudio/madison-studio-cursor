@@ -9,6 +9,7 @@ import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, type OpenAIImageModel } from "../_shared/openaiProvider.ts";
 import { getVisualMasterContext, getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
+import { getMadisonBrandImageContext } from "../_shared/madisonBrandConfig.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1179,6 +1180,30 @@ serve(async (req) => {
         " catalogue or editorial feature — not a commercial render, not" +
         " oversharpened HDR, not a stock-photo aesthetic. Natural specular" +
         " highlights, clean negative space, patient composition.";
+
+      // Brand-specific visual directives from Madison settings (populated
+      // via the Madison Training tab). If the user has pasted their brand
+      // brain into settings — editorial philosophy, voice spectrum, quality
+      // standards — pull those here so they actually reach the image model.
+      // Previously this text only flowed to generate-with-claude (copy),
+      // never to image generation.
+      //
+      // Fails silently + returns empty string if the table is empty or
+      // errors, so the request path never breaks on a missing config row.
+      try {
+        const brandImageCtx = await getMadisonBrandImageContext(supabase);
+        if (brandImageCtx.hasConfig && brandImageCtx.suffixLength > 0) {
+          enhancedPrompt += brandImageCtx.promptSuffix;
+          console.log(
+            `[brand-config] Injected ${brandImageCtx.suffixLength} chars of brand directive from madison_system_config`,
+          );
+        }
+      } catch (brandCtxErr) {
+        console.warn(
+          "[brand-config] Failed to fetch madison_system_config — proceeding without brand suffix:",
+          brandCtxErr instanceof Error ? brandCtxErr.message : String(brandCtxErr),
+        );
+      }
     }
 
     // Consistency Mode: append the rich variation prompt as the final line
