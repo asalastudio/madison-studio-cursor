@@ -300,15 +300,30 @@ const GEMINI_ASPECT_DIMENSIONS: Record<string, { width: number; height: number; 
 
 // Build a short, explicit aspect-ratio directive that we prepend to the
 // prompt. This is the safety net for API versions that ignore imageConfig.
-export function buildAspectRatioDirective(aspectRatio?: string): string {
+// Pixel counts scale with imageSize so we do not contradict imageConfig.imageSize
+// (e.g. prompt said 1024×1024 while API asked for 2K).
+export function buildAspectRatioDirective(
+  aspectRatio?: string,
+  imageSize?: "512" | "1K" | "2K" | "4K",
+): string {
   const resolved = normalizeGeminiAspectRatio(aspectRatio);
   if (!resolved) return "";
   const dims = GEMINI_ASPECT_DIMENSIONS[resolved];
   if (!dims) return "";
+
+  const tier = imageSize ?? "1K";
+  const mul = tier === "4K" ? 4 : tier === "2K" ? 2 : tier === "512" ? 0.5 : 1;
+  const w = Math.max(256, Math.round(dims.width * mul));
+  const h = Math.max(256, Math.round(dims.height * mul));
+
+  const shapeLine = resolved === "1:1"
+    ? `The final image MUST be perfectly square (1:1) at ${w}×${h}.`
+    : `The final image MUST preserve ${resolved} (${dims.label}) at ${w}×${h} — do not force a square crop.`;
+
   return (
-    `OUTPUT DIMENSIONS (CRITICAL): Generate the image at exactly ${dims.width}×${dims.height} pixels ` +
-    `(${resolved} aspect ratio, ${dims.label} orientation). ` +
-    `The final image MUST be ${resolved} — not square. Compose the scene to fill this ${dims.label} frame.`
+    `OUTPUT DIMENSIONS (CRITICAL): Generate the image at exactly ${w}×${h} pixels ` +
+    `(${resolved} aspect ratio, ${dims.label} orientation; output tier ${tier}). ` +
+    `${shapeLine} Compose edge-to-edge with no frame or letterboxing.`
   );
 }
 
@@ -348,7 +363,7 @@ export async function callGeminiImage(
   //   (c) used by the server-side center-crop in imageAspectRatio.ts
   //       (suspenders — guarantees correct shape even if both above fail)
   const resolvedAspectRatio = normalizeGeminiAspectRatio(request.aspectRatio);
-  const aspectDirective = buildAspectRatioDirective(request.aspectRatio);
+  const aspectDirective = buildAspectRatioDirective(request.aspectRatio, request.imageSize);
 
   // Prepend the dimensions directive so it's the first instruction Gemini
   // reads in the text prompt. This is the most reliable lever — the model

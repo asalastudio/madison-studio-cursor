@@ -239,6 +239,7 @@ export const PLATFORM_IMAGE_SPECS: Record<string, PlatformImageSpec> = {
 export const VISUAL_CONTENT_TO_SQUAD: Record<string, VisualSquad> = {
   // Product Photography
   'product_hero': 'THE_MINIMALISTS',
+  'product_photography': 'THE_MINIMALISTS',
   'product_detail': 'THE_MINIMALISTS',
   'product_lifestyle': 'THE_STORYTELLERS',
 
@@ -415,7 +416,16 @@ export function routeToVisualSquad(
     };
   }
 
-  if (briefLower.includes('bold') || briefLower.includes('scroll') || briefLower.includes('attention') || briefLower.includes('ad') || briefLower.includes('tiktok')) {
+  // Whole-word / phrase checks only. A naive `includes("ad")` matched "shadow", "gradient", etc.
+  const disruptorCue =
+    /\bbold\b/.test(briefLower) ||
+    /\bscroll(?:-stopping)?\b/.test(briefLower) ||
+    /\battention\b/.test(briefLower) ||
+    /\b(?:ad|ads)\b/.test(briefLower) ||
+    /\badvertisement\b/.test(briefLower) ||
+    /\bsocial\s+ad\b/.test(briefLower) ||
+    /\btiktok\b/.test(briefLower);
+  if (disruptorCue) {
     const isSymmetric = briefLower.includes('symmetr') || briefLower.includes('flat lay') || briefLower.includes('overhead');
     return {
       visualSquad: 'THE_DISRUPTORS',

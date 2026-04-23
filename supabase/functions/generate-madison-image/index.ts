@@ -8,7 +8,7 @@ import { conformImageToAspectRatio } from "../_shared/imageAspectRatio.ts";
 import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, type OpenAIImageModel } from "../_shared/openaiProvider.ts";
-import { getVisualMasterContext, getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
+import { getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1083,39 +1083,36 @@ serve(async (req) => {
       categorizedRefs.product.length > 1;
 
     /**
-     * 7. Fetch Visual Master context if visualSquad is specified
+     * 7. Visual Master style directives — ONLY when the client sends a real squad.
+     *
+     * We intentionally do not auto-route from goalType/prompt here: heuristic routing
+     * surprised users (e.g. "shadow" matched a naive `includes("ad")` → DISRUPTORS).
+     * Pick Minimalist / Storyteller / Disruptor in Pro settings (Dark Room) to apply.
      */
     let visualMasterContext: string | undefined;
-    
-    // If user explicitly selected a Visual Squad, use the hardcoded directive (most reliable)
-    if (visualSquad) {
-      visualMasterContext = getVisualStyleDirective(visualSquad as VisualSquad);
-      console.log(`🎨 Visual Squad Selected: ${visualSquad}`, {
+
+    const SQUADS: VisualSquad[] = [
+      "THE_MINIMALISTS",
+      "THE_STORYTELLERS",
+      "THE_DISRUPTORS",
+    ];
+    const resolvedVisualSquad: VisualSquad | undefined =
+      typeof visualSquad === "string" &&
+      visualSquad !== "auto" &&
+      visualSquad.trim() !== "" &&
+      (SQUADS as string[]).includes(visualSquad)
+        ? (visualSquad as VisualSquad)
+        : undefined;
+
+    if (resolvedVisualSquad) {
+      visualMasterContext = getVisualStyleDirective(resolvedVisualSquad);
+      console.log(`🎨 Visual Squad (explicit): ${resolvedVisualSquad}`, {
         directiveLength: visualMasterContext?.length || 0,
-        usingHardcodedDirective: true,
       });
-    } else if (goalType) {
-      // Auto-route based on goal type
-      try {
-        const { strategy, masterContext } = await getVisualMasterContext(
-          supabase,
-          goalType || 'product_hero',
-          prompt,
-          undefined // brandTone - could be extracted from brandKnowledge
-        );
-        
-        // Use hardcoded directive for the auto-routed squad too
-        visualMasterContext = getVisualStyleDirective(strategy.visualSquad);
-        
-        console.log(`🎨 Visual Master Auto-Routed:`, {
-          autoSquad: strategy.visualSquad,
-          primaryMaster: strategy.primaryVisualMaster,
-          directiveLength: visualMasterContext?.length || 0,
-        });
-      } catch (vmError) {
-        console.warn("Could not fetch visual master context:", vmError);
-        // Continue without visual master context
-      }
+    } else {
+      console.log(
+        `🎨 Visual Squad: none — no style directive injected (set Pro → Visual Style in Dark Room if you want one)`,
+      );
     }
 
     /**
@@ -1354,10 +1351,19 @@ serve(async (req) => {
       isSuperAdmin,
       freepikAllowed,
       freepik4KAllowed,
+      aiProviderFromClient: aiProvider ?? "(none)",
       requestedProvider: effectiveProvider,
       requestedModel: effectiveFreepikModel,
       requestedResolution: effectiveFreepikResolution,
+      madisonResolution: resolution ?? "(default standard)",
     });
+
+    if (effectiveProvider === "auto") {
+      console.log(
+        `ℹ️ Provider Auto → Gemini (default primary: models/gemini-3.1-flash-image-preview). ` +
+          `For OpenAI GPT Image 2, pick it in the app (sends aiProvider: "openai-image-2") and configure OPENAI_API_KEY on this function.`,
+      );
+    }
 
     // Seed selection. Default: random seed per call for variety. Consistency
     // Mode (bulk variation) overrides with a fixed seed shared by every
