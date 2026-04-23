@@ -1163,6 +1163,24 @@ serve(async (req) => {
        // Freepik aspect_ratio) — no need to stuff it into the prompt text.
     }
 
+    // Editorial-grade quality floor for every product-photography shot.
+    // Applied once, globally, so main Dark Room single-shots match the
+    // bar that Consistency Mode already enforces via its scene anchor.
+    // Scoped to product_photography so non-product goal types (e.g. lifestyle,
+    // illustration) aren't forced into a print-catalogue register.
+    // Placed before VARIATION DETAILS so the variation instruction still
+    // gets the final word in the prompt.
+    if (goalType === "product_photography") {
+      enhancedPrompt +=
+        "\n\nPRODUCTION STANDARD: Editorial-grade product photography at" +
+        " print-resolution quality. Magazine-ready composition, refined" +
+        " tonal range, tasteful restraint in lighting and colour. Every" +
+        " frame should read as a hero shot for a luxury brand's print" +
+        " catalogue or editorial feature — not a commercial render, not" +
+        " oversharpened HDR, not a stock-photo aesthetic. Natural specular" +
+        " highlights, clean negative space, patient composition.";
+    }
+
     // Consistency Mode: append the rich variation prompt as the final line
     // of the prompt. Placing it last gives the model the strongest "this is
     // the specific thing that changes" signal while all earlier framing —
