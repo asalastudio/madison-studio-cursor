@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { X, Bookmark, Sparkles, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { useCurrentOrganizationId } from "@/hooks/useIndustryConfig";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { contentTypeMapping, getContentTypeDisplayName } from "@/utils/contentTypeMapping";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -21,6 +23,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -45,8 +48,11 @@ export function SavePromptDialog({
   deliverableFormat,
 }: SavePromptDialogProps) {
   const { currentOrganizationId } = useOnboarding();
+  const { orgId: resolvedOrganizationId } = useCurrentOrganizationId();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const organizationId = currentOrganizationId || resolvedOrganizationId || null;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -97,7 +103,7 @@ useEffect(() => {
 useEffect(() => {
   if (open && deliverableFormat === 'image_prompt') {
     if (!selectedCategory) setSelectedCategory('visual');
-    if (!selectedContentType) setSelectedContentType('image');
+    if (!selectedContentType) setSelectedContentType('visual');
   }
 }, [open, deliverableFormat]);
 
@@ -111,6 +117,14 @@ useEffect(() => {
       setTags([]);
       setTagInput("");
       setIsTemplate(true);
+      setEnableFieldMapping(false);
+      setFieldMappings({
+        product: "",
+        format: "",
+        audience: "",
+        goal: "",
+        additionalContext: ""
+      });
       setEditedPromptText(promptText);
       setShowPlaceholderSuggestions(false);
     }
@@ -177,27 +191,59 @@ useEffect(() => {
       return;
     }
 
+    if (!organizationId) {
+      toast({
+        title: "Error",
+        description: "No organization found. Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
 setIsSaving(true);
 
 try {
+  const normalizedContentType = (
+    ["product", "email", "social", "visual", "blog"].includes(selectedCategory)
+      ? selectedCategory
+      : selectedContentType
+  ) as "product" | "email" | "social" | "visual" | "blog";
+
+  const trimmedDescription = description.trim();
+  const user = (await supabase.auth.getUser()).data.user;
+
   const { error } = await supabase.from("prompts").insert({
     title: title.trim(),
-    description: description.trim() || null,
     prompt_text: editedPromptText,
-    content_type: selectedContentType as any,
-    collection: "general" as any, // Default collection value for backward compatibility
+    content_type: normalizedContentType,
+    collection: "General",
+    category: selectedCategory,
     tags: tags.length > 0 ? tags : null,
     is_template: isTemplate,
+    additional_context: trimmedDescription
+      ? {
+          description: trimmedDescription,
+        }
+      : null,
     meta_instructions: {
       category: selectedCategory,
+      content_subtype: selectedContentType,
+      description: trimmedDescription || undefined,
       field_mappings: enableFieldMapping ? fieldMappings : undefined,
     },
-    organization_id: currentOrganizationId,
-    created_by: (await supabase.auth.getUser()).data.user?.id,
+    organization_id: organizationId,
+    created_by: user?.id,
     deliverable_format: deliverableFormat ?? null,
   });
 
       if (error) throw error;
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["saved-templates"] }),
+        queryClient.invalidateQueries({ queryKey: ["templates"] }),
+        queryClient.invalidateQueries({ queryKey: ["image-prompt-counts", organizationId] }),
+        queryClient.invalidateQueries({ queryKey: ["prompt-counts", organizationId] }),
+      ]);
 
       toast({
         title: "Success",
@@ -208,9 +254,10 @@ try {
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving prompt:", error);
+      const err = error as { message?: string; details?: string } | null;
       toast({
         title: "Error",
-        description: "Failed to save prompt template",
+        description: err?.message || err?.details || "Failed to save prompt template",
         variant: "destructive",
       });
     } finally {
@@ -254,6 +301,9 @@ try {
                     <SheetContent side="bottom" className="bg-brand-parchment h-[50vh]">
                     <SheetHeader>
                       <SheetTitle>Insert Placeholder</SheetTitle>
+                      <SheetDescription>
+                        Choose a placeholder token to insert into this prompt template.
+                      </SheetDescription>
                     </SheetHeader>
                     <div className="space-y-2 mt-4 overflow-y-auto max-h-[calc(50vh-80px)]">
                       {placeholderSuggestions.map((suggestion) => (

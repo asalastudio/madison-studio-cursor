@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { EditorialAssistantPanel } from "@/components/assistant/EditorialAssistantPanel";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { madison } from "@/lib/madisonToast";
 
 interface AssistantSessionContext {
@@ -28,6 +28,7 @@ interface AssistantSessionContext {
   isImageStudio: boolean;
   visualStandards?: unknown;
   brandName?: string;
+  organizationId?: string;
 }
 
 interface ReferenceAsset {
@@ -204,7 +205,7 @@ export function DarkRoomMadisonDrawer({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         <Button
           type="button"
           variant="ghost"
@@ -216,12 +217,12 @@ export function DarkRoomMadisonDrawer({
             )
           }
           disabled={pendingAction !== null}
-          className="h-auto items-start justify-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-white/[0.06]"
+          className="h-auto min-h-[84px] w-full overflow-hidden items-start justify-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-white/[0.06]"
         >
-          <Wand2 className="mr-2 mt-0.5 h-4 w-4 text-[var(--darkroom-accent)]" />
-          <span>
-            <span className="block text-[12px] font-medium">Write Hero Prompt</span>
-            <span className="mt-1 block text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
+          <Wand2 className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[var(--darkroom-accent)]" />
+          <span className="min-w-0 flex-1">
+            <span className="block whitespace-normal break-words text-[12px] font-medium leading-5">Write Hero Prompt</span>
+            <span className="mt-1 block whitespace-normal break-words text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
               Build a clean production-ready prompt from the current setup.
             </span>
           </span>
@@ -237,12 +238,12 @@ export function DarkRoomMadisonDrawer({
             )
           }
           disabled={!hasPrompt || pendingAction !== null}
-          className="h-auto items-start justify-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-white/[0.06]"
+          className="h-auto min-h-[84px] w-full overflow-hidden items-start justify-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-white/[0.06]"
         >
-          <Sparkles className="mr-2 mt-0.5 h-4 w-4 text-[var(--darkroom-accent)]" />
-          <span>
-            <span className="block text-[12px] font-medium">Improve My Prompt</span>
-            <span className="mt-1 block text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
+          <Sparkles className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[var(--darkroom-accent)]" />
+          <span className="min-w-0 flex-1">
+            <span className="block whitespace-normal break-words text-[12px] font-medium leading-5">Improve My Prompt</span>
+            <span className="mt-1 block whitespace-normal break-words text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
               Tighten lighting, composition, and product storytelling.
             </span>
           </span>
@@ -259,12 +260,12 @@ export function DarkRoomMadisonDrawer({
             )
           }
           disabled={!canAnalyzeReferences || pendingAction !== null}
-          className="h-auto items-start justify-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-white/[0.06]"
+          className="h-auto min-h-[84px] w-full overflow-hidden items-start justify-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-white/[0.06]"
         >
-          <ImageIcon className="mr-2 mt-0.5 h-4 w-4 text-[var(--darkroom-accent)]" />
-          <span>
-            <span className="block text-[12px] font-medium">Analyze References</span>
-            <span className="mt-1 block text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
+          <ImageIcon className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[var(--darkroom-accent)]" />
+          <span className="min-w-0 flex-1">
+            <span className="block whitespace-normal break-words text-[12px] font-medium leading-5">Analyze References</span>
+            <span className="mt-1 block whitespace-normal break-words text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
               Read the uploaded images and turn them into clearer direction.
             </span>
           </span>
@@ -281,12 +282,12 @@ export function DarkRoomMadisonDrawer({
             )
           }
           disabled={!canCritiqueHero || pendingAction !== null}
-          className="h-auto items-start justify-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-white/[0.06]"
+          className="h-auto min-h-[84px] w-full overflow-hidden items-start justify-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-white/[0.06]"
         >
-          <MessageSquareQuote className="mr-2 mt-0.5 h-4 w-4 text-[var(--darkroom-accent)]" />
-          <span>
-            <span className="block text-[12px] font-medium">Critique Latest Frame</span>
-            <span className="mt-1 block text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
+          <MessageSquareQuote className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-[var(--darkroom-accent)]" />
+          <span className="min-w-0 flex-1">
+            <span className="block whitespace-normal break-words text-[12px] font-medium leading-5">Critique Latest Frame</span>
+            <span className="mt-1 block whitespace-normal break-words text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
               Review the current hero image and recommend a stronger next prompt.
             </span>
           </span>
@@ -304,16 +305,16 @@ export function DarkRoomMadisonDrawer({
           )
         }
         disabled={pendingAction !== null}
-        className="h-auto w-full justify-start rounded-xl border border-white/[0.08] bg-[var(--darkroom-accent)]/10 px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-[var(--darkroom-accent)]/15"
+        className="h-auto min-h-[84px] w-full overflow-hidden justify-start rounded-xl border border-white/[0.08] bg-[var(--darkroom-accent)]/10 px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-[var(--darkroom-accent)]/15"
       >
         {pendingAction ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin text-[var(--darkroom-accent)]" />
+          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin text-[var(--darkroom-accent)]" />
         ) : (
-          <Sparkles className="mr-2 h-4 w-4 text-[var(--darkroom-accent)]" />
+          <Sparkles className="mr-2 h-4 w-4 shrink-0 text-[var(--darkroom-accent)]" />
         )}
-        <span>
-          <span className="block text-[12px] font-medium">Suggest 3 Better Variations</span>
-          <span className="mt-1 block text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
+        <span className="min-w-0 flex-1">
+          <span className="block whitespace-normal break-words text-[12px] font-medium leading-5">Suggest 3 Better Variations</span>
+          <span className="mt-1 block whitespace-normal break-words text-[11px] leading-relaxed text-[var(--darkroom-text-muted)]">
             Explore three stronger directions without leaving the Dark Room.
           </span>
         </span>
@@ -342,6 +343,12 @@ export function DarkRoomMadisonDrawer({
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="h-[92vh] border-[var(--darkroom-border)] bg-[var(--camera-body)] p-0">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Madison Dark Room Edition</DrawerTitle>
+            <DrawerDescription>
+              A creative direction drawer for building prompts, analyzing images, and saving prompt ideas.
+            </DrawerDescription>
+          </DrawerHeader>
           {assistant}
         </DrawerContent>
       </Drawer>
@@ -354,6 +361,12 @@ export function DarkRoomMadisonDrawer({
         side="right"
         className="[&>button]:hidden w-full max-w-none border-[var(--darkroom-border)] bg-[var(--camera-body)] p-0 sm:max-w-[560px]"
       >
+        <SheetHeader className="sr-only">
+          <SheetTitle>Madison Dark Room Edition</SheetTitle>
+          <SheetDescription>
+            A creative direction drawer for building prompts, analyzing images, and saving prompt ideas.
+          </SheetDescription>
+        </SheetHeader>
         {assistant}
       </SheetContent>
     </Sheet>

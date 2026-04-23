@@ -52,12 +52,33 @@ export interface PipelineGroup {
   legacy_has_hero_image: boolean;
   legacy_hero_image_url: string | null;
   /**
-   * Operator-pinned master-reference flag. At most one row per shape group
-   * (family + capacity + thread_size) may have this set — enforced by a
-   * partial unique index at the DB layer. When set, Pipeline Launch uses
-   * this row's legacy_hero_image_url as the Consistency Mode master.
+   * Operator-pinned hero master-reference flag for Lane B (Consistency
+   * Mode). At most one row per shape group (family + capacity + thread)
+   * may have this set — enforced by a partial unique index at the DB layer.
+   * When set, Pipeline Launch uses this row's legacy_hero_image_url as the
+   * Consistency Mode master. Independent of is_clear_master_reference,
+   * which governs Lane A (paper-doll).
+   *
+   * Renamed from `is_master_reference` in migration 20260423140000 when
+   * Lane A introduced its own clear-master pin.
    */
-  is_master_reference: boolean;
+  is_hero_reference: boolean;
+  /**
+   * Operator-pinned clear-glass body master for Lane A (paper-doll). At
+   * most one row per shape group may have this set — enforced by a
+   * separate partial unique index. When set, this row's ingested clear-
+   * body PNG is the reference image passed to gpt-image-2 when deriving
+   * cobalt / amber / frosted / swirl variants.
+   */
+  is_clear_master_reference: boolean;
+  /**
+   * Paper-doll canvas + physical-mm contract for the shape group. JSONB
+   * column; populated by the Paper-Doll Drawer at ingest time. NULL means
+   * this shape group has not been ingested for paper-doll yet. Shape
+   * documented in docs/product-image-system/schema.md and types in
+   * `src/lib/product-image/types.ts#GeometrySpec`.
+   */
+  geometry_spec: unknown | null;
 
   madison_status: PipelineStatus;
   madison_consistency_set_id: string | null;
@@ -494,15 +515,18 @@ export async function markShapeGroupGenerated(
 }
 
 /**
- * Pin a single row as the shape group's master reference. Unpins every
- * other row in the same shape group (same org + family + capacity_ml +
- * thread_size) in the same call so the partial unique index
- * `idx_best_bottles_pipeline_one_master_per_shape` is never violated.
+ * Pin a single row as the shape group's hero master reference (Lane B /
+ * Consistency Mode). Unpins every other row in the same shape group
+ * (same org + family + capacity_ml + thread_size) in the same call so
+ * the partial unique index `idx_best_bottles_pipeline_one_hero_per_shape`
+ * is never violated.
  *
  * Done as two sequential updates (unpin siblings, pin target) rather than
  * a single RPC because the client already has RLS-scoped update rights
  * and an RPC would add deployment friction for a two-query operation.
  * The UI optimistically re-queries after this resolves.
+ *
+ * For Lane A (paper-doll) the equivalent is `setClearMasterReference`.
  */
 export async function setShapeGroupMasterReference(params: {
   organizationId: string;
@@ -517,10 +541,10 @@ export async function setShapeGroupMasterReference(params: {
   // the exact same composite key the DB's partial unique index uses.
   let unpin = supabase
     .from("best_bottles_pipeline_groups")
-    .update({ is_master_reference: false })
+    .update({ is_hero_reference: false })
     .eq("organization_id", organizationId)
     .eq("family", family)
-    .eq("is_master_reference", true)
+    .eq("is_hero_reference", true)
     .neq("id", rowId);
   unpin = capacityMl == null
     ? unpin.is("capacity_ml", null)
@@ -533,21 +557,105 @@ export async function setShapeGroupMasterReference(params: {
 
   const { error: pinErr } = await supabase
     .from("best_bottles_pipeline_groups")
-    .update({ is_master_reference: true })
+    .update({ is_hero_reference: true })
     .eq("id", rowId);
   if (pinErr) throw pinErr;
 }
 
 /**
- * Clear the master-reference pin on a single row. Used when the operator
- * clicks the currently-pinned thumbnail to un-pin (toggle behaviour).
+ * Clear the hero master-reference pin on a single row. Used when the
+ * operator clicks the currently-pinned thumbnail to un-pin (toggle).
  */
 export async function clearShapeGroupMasterReference(
   rowId: string,
 ): Promise<void> {
   const { error } = await supabase
     .from("best_bottles_pipeline_groups")
-    .update({ is_master_reference: false })
+    .update({ is_hero_reference: false })
+    .eq("id", rowId);
+  if (error) throw error;
+}
+
+// ─── Paper-doll (Lane A) — clear master reference + geometry_spec ────────────
+
+/**
+ * Pin a single row as the shape group's paper-doll clear-master (Lane A).
+ * Same unpin-siblings-then-pin-target pattern as the hero reference above;
+ * enforced by `idx_best_bottles_pipeline_one_clear_master_per_shape`. Runs
+ * independently of the hero-reference pin — a row may be both.
+ */
+export async function setClearMasterReference(params: {
+  organizationId: string;
+  rowId: string;
+  family: string;
+  capacityMl: number | null;
+  threadSize: string | null;
+}): Promise<void> {
+  const { organizationId, rowId, family, capacityMl, threadSize } = params;
+
+  let unpin = supabase
+    .from("best_bottles_pipeline_groups")
+    .update({ is_clear_master_reference: false })
+    .eq("organization_id", organizationId)
+    .eq("family", family)
+    .eq("is_clear_master_reference", true)
+    .neq("id", rowId);
+  unpin =
+    capacityMl == null
+      ? unpin.is("capacity_ml", null)
+      : unpin.eq("capacity_ml", capacityMl);
+  unpin =
+    threadSize == null
+      ? unpin.is("thread_size", null)
+      : unpin.eq("thread_size", threadSize);
+  const { error: unpinErr } = await unpin;
+  if (unpinErr) throw unpinErr;
+
+  const { error: pinErr } = await supabase
+    .from("best_bottles_pipeline_groups")
+    .update({ is_clear_master_reference: true })
+    .eq("id", rowId);
+  if (pinErr) throw pinErr;
+}
+
+/**
+ * Clear the paper-doll clear-master pin on a single row.
+ */
+export async function clearClearMasterReference(rowId: string): Promise<void> {
+  const { error } = await supabase
+    .from("best_bottles_pipeline_groups")
+    .update({ is_clear_master_reference: false })
+    .eq("id", rowId);
+  if (error) throw error;
+}
+
+/**
+ * Read the paper-doll `geometry_spec` JSON blob for a row. Returns null
+ * when the shape group has not yet been ingested for paper-doll. Caller
+ * is responsible for runtime-validating against the `GeometrySpec` type.
+ */
+export async function getGeometrySpec(rowId: string): Promise<unknown | null> {
+  const { data, error } = await supabase
+    .from("best_bottles_pipeline_groups")
+    .select("geometry_spec")
+    .eq("id", rowId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.geometry_spec ?? null) as unknown | null;
+}
+
+/**
+ * Write the paper-doll `geometry_spec` JSON blob for a row. Overwrites
+ * any prior value — the Paper-Doll Drawer calls this on each successful
+ * ingest run so the most recent run wins.
+ */
+export async function setGeometrySpec(
+  rowId: string,
+  spec: unknown,
+): Promise<void> {
+  const { error } = await supabase
+    .from("best_bottles_pipeline_groups")
+    .update({ geometry_spec: spec })
     .eq("id", rowId);
   if (error) throw error;
 }

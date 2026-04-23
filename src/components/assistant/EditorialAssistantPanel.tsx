@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, X, FileText, Loader2, Copy, Check, Image as ImageIcon, Trash2 } from "lucide-react";
+import { Send, X, FileText, Loader2, Copy, Check, Trash2, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { useCurrentOrganizationId } from "@/hooks/useIndustryConfig";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
 
 interface Message {
   role: "user" | "assistant";
@@ -30,6 +32,7 @@ interface SessionContext {
   isImageStudio: boolean;
   visualStandards?: any;
   brandName?: string; // Added for brand-specific guidelines
+  organizationId?: string;
 }
 
 interface DraftRequest {
@@ -52,6 +55,86 @@ interface EditorialAssistantPanelProps {
   saveMessageLabel?: string;
 }
 
+const PROMPT_REQUEST_PATTERN =
+  /\b(create|write|generate|make|build|craft|compose|give me|send me|draft)\b[\s\S]{0,40}\b(prompt|image prompt|shot prompt|prompts)\b|\b(final prompt|actual prompt|production-ready prompt|prompt please)\b/i;
+const PROMPT_CONFIRMATION_PATTERN =
+  /^(ok|okay|go|yes|yep|yeah|sure|do it|do that|go ahead|let'?s go|proceed|make it|write it|generate it|send it|hit me)\b/i;
+
+function messageExplicitlyRequestsPrompt(text: string) {
+  return PROMPT_REQUEST_PATTERN.test(text.trim());
+}
+
+function messageConfirmsPromptCreation(text: string) {
+  return PROMPT_CONFIRMATION_PATTERN.test(text.trim());
+}
+
+function recentContextMentionsPrompt(messages: Message[]) {
+  return messages
+    .slice(-4)
+    .some((message) => /(?:final|actual|better|image|production-ready|hero|improved)?\s*prompt|create a prompt|write a prompt|generate a prompt|build a prompt/i.test(message.content));
+}
+
+function shouldForcePromptOutput(currentInput: string, messages: Message[]) {
+  if (messageExplicitlyRequestsPrompt(currentInput)) return true;
+  return messageConfirmsPromptCreation(currentInput) && recentContextMentionsPrompt(messages);
+}
+
+function responseContainsPromptBlock(content: string) {
+  return /```(?:prompt|text|md|markdown)?\n[\s\S]+?```/i.test(content) ||
+    /(?:final prompt|recommended prompt|production-ready prompt)\s*:/i.test(content);
+}
+
+function truncateForModel(value: string | undefined | null, maxChars: number) {
+  if (!value) return "";
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxChars) return normalized;
+  return `${normalized.slice(0, maxChars).trim()}...`;
+}
+
+function parseEdgeFunctionErrorBody(rawBody: unknown) {
+  if (!rawBody) return null;
+
+  if (typeof rawBody === "string") {
+    try {
+      return JSON.parse(rawBody);
+    } catch {
+      return { error: rawBody };
+    }
+  }
+
+  return rawBody;
+}
+
+async function imageUrlToDataUrl(url: string) {
+  if (url.startsWith("data:")) return url;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Unable to read image (${response.status})`);
+  }
+
+  const blob = await response.blob();
+
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("Unable to convert image"));
+    };
+    reader.onerror = () => reject(new Error("Unable to convert image"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function estimateDataUrlBytes(value: string) {
+  const matches = value.match(/^data:([^;]+);base64,(.+)$/);
+  if (!matches) return 0;
+  return Math.floor((matches[2].length * 3) / 4);
+}
+
 export function EditorialAssistantPanel({ 
   onClose, 
   initialContent, 
@@ -66,7 +149,9 @@ export function EditorialAssistantPanel({
 }: EditorialAssistantPanelProps) {
   const { toast } = useToast();
   const { currentOrganizationId } = useOnboarding();
+  const { orgId: resolvedOrganizationId } = useCurrentOrganizationId();
   const { userName } = useUserProfile();
+  const effectiveOrganizationId = sessionContext?.organizationId || currentOrganizationId || resolvedOrganizationId || null;
   
   // Context-specific storage key
   const STORAGE_KEY = sessionContext?.isImageStudio && sessionContext.sessionId
@@ -102,9 +187,9 @@ export function EditorialAssistantPanel({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [shouldAutoSubmit, setShouldAutoSubmit] = useState(false);
+  const [imageLibraryOpen, setImageLibraryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Persist messages to localStorage whenever they change
   useEffect(() => {
@@ -184,12 +269,12 @@ export function EditorialAssistantPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldAutoSubmit, input, isGenerating]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleLibraryImageSelect = async (image: { url: string; name?: string }) => {
+    try {
+      const dataUrl = await imageUrlToDataUrl(image.url);
+      const sizeBytes = estimateDataUrlBytes(dataUrl);
 
-    Array.from(files).forEach((file) => {
-      if (file.size > 5 * 1024 * 1024) {
+      if (sizeBytes > 5 * 1024 * 1024) {
         toast({
           title: "File too large",
           description: "Images must be under 5MB (Claude's limit)",
@@ -198,16 +283,20 @@ export function EditorialAssistantPanel({
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setUploadedImages((prev) => [...prev, base64]);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // Reset input
-    if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploadedImages((prev) => [...prev, dataUrl]);
+      setImageLibraryOpen(false);
+      toast({
+        title: "Image added",
+        description: image.name || "Library image added to Madison",
+      });
+    } catch (error) {
+      console.error("Failed to add library image:", error);
+      toast({
+        title: "Image unavailable",
+        description: "Unable to load that library image right now.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSend = async () => {
@@ -215,11 +304,15 @@ export function EditorialAssistantPanel({
       return;
     }
 
+    const currentInput = input.trim();
     const userMessage: Message = {
       role: "user",
-      content: input.trim() || "Please analyze these images",
+      content: currentInput || "Please analyze these images",
       timestamp: new Date(),
     };
+    const forcePromptOutput = sessionContext?.isImageStudio
+      ? shouldForcePromptOutput(userMessage.content, messages)
+      : false;
 
     setMessages((prev) => [...prev, userMessage]);
     const imagesToSend = [...uploadedImages];
@@ -232,12 +325,12 @@ export function EditorialAssistantPanel({
       let visualStandards = sessionContext?.visualStandards;
       let loadedBrandName = '';
       
-      if (sessionContext?.isImageStudio && !visualStandards && currentOrganizationId) {
+      if (sessionContext?.isImageStudio && !visualStandards && effectiveOrganizationId) {
         // Fetch all visual standards for the organization
         const { data: brandKnowledge } = await supabase
           .from('brand_knowledge')
           .select('content')
-          .eq('organization_id', currentOrganizationId)
+          .eq('organization_id', effectiveOrganizationId)
           .in('knowledge_type', ['visual_standards', 'image_guidelines'])
           .eq('is_active', true);
         
@@ -269,7 +362,7 @@ export function EditorialAssistantPanel({
           const { data: brandConfig } = await supabase
             .from('organizations')
             .select('brand_config')
-            .eq('id', currentOrganizationId)
+            .eq('id', effectiveOrganizationId)
             .single();
           
           if (brandConfig?.brand_config) {
@@ -284,6 +377,30 @@ export function EditorialAssistantPanel({
       }
 
       // Build studio context if in Image Studio
+      const recentPrompts = sessionContext?.allPrompts
+        ?.slice(-5)
+        .map((p, i) => `  ${i + 1}. "${truncateForModel(p, 220)}"`)
+        .join("\n");
+
+      const condensedVisualStandards = visualStandards ? `
+BRAND VISUAL STANDARDS${loadedBrandName ? ` (${loadedBrandName})` : ""}
+- Golden rule: ${truncateForModel(visualStandards.golden_rule, 260) || "Not provided"}
+- Color palette: ${
+  visualStandards.color_palette?.slice(0, 6).map((c: any) =>
+    `${c.name}${c.hex ? ` ${c.hex}` : ""}${c.usage ? ` (${truncateForModel(c.usage, 40)})` : ""}`
+  ).join("; ") || "Not provided"
+}
+- Lighting mandates: ${truncateForModel(visualStandards.lighting_mandates, 260) || "Not provided"}
+- Forbidden elements: ${visualStandards.forbidden_elements?.slice(0, 8).join(", ") || "None listed"}
+- Approved props: ${visualStandards.approved_props?.slice(0, 8).join(", ") || "None listed"}
+- Prompt templates: ${
+  visualStandards.templates?.slice(0, 3).map((t: any) =>
+    `${t.name}${t.aspectRatio ? ` (${t.aspectRatio})` : ""}: ${truncateForModel(t.prompt, 120)}`
+  ).join(" | ") || "None provided"
+}
+- Notes: ${truncateForModel(visualStandards.raw_document, 1200) || "No additional notes"}
+` : "";
+
       const studioContext = sessionContext?.isImageStudio ? `
 ━━━ MADISON IMAGE STUDIO CONTEXT ━━━
 You are Madison, the AI Creative Director assisting in the Image Studio for AI-powered product photography.
@@ -293,51 +410,16 @@ Progress: ${sessionContext.imagesGenerated}/${sessionContext.maxImages} images g
 Export Settings: ${sessionContext.aspectRatio} • ${sessionContext.outputFormat}
 
 ${sessionContext.heroImage ? 
-  `Current Hero Image: "${sessionContext.heroImage.prompt}"` : 
+  `Current Hero Image: "${truncateForModel(sessionContext.heroImage.prompt, 220)}"` :
   'No hero image selected yet'}
 
-${sessionContext.allPrompts.length > 0 ? `
+${recentPrompts ? `
 Previous Prompts in This Session:
-${sessionContext.allPrompts.map((p, i) => `  ${i + 1}. "${p}"`).join('\n')}
+${recentPrompts}
 ` : ''}
 
-${visualStandards ? `
-╔══════════════════════════════════════════════════════════════════╗
-║                    BRAND VISUAL STANDARDS                        ║
-║      ${loadedBrandName ? `(${loadedBrandName})` : ''}                                  ║
-║           (MANDATORY - Follow these rules exactly)               ║
-╚══════════════════════════════════════════════════════════════════╝
-
-━━━ GOLDEN RULE ━━━
-${visualStandards.golden_rule || 'No golden rule defined'}
-
-━━━ MANDATORY COLOR PALETTE ━━━
-${visualStandards.color_palette?.map((c: any) => 
-  `  • ${c.name} (${c.hex}): ${c.usage}`
-).join('\n') || 'No color palette defined'}
-
-━━━ LIGHTING MANDATES ━━━
-${visualStandards.lighting_mandates || 'No lighting mandates'}
-
-━━━ APPROVED PROMPT TEMPLATES ━━━
-${visualStandards.templates?.map((t: any, i: number) => 
-  `  ${i + 1}. ${t.name} (${t.aspectRatio})\n     Template: "${t.prompt}"`
-).join('\n\n') || 'No templates defined'}
-
-━━━ FORBIDDEN ELEMENTS ━━━
-${visualStandards.forbidden_elements?.map((e: string) => 
-  `  ✗ ${e}`
-).join('\n') || 'No forbidden elements'}
-
-━━━ APPROVED PROPS ━━━
-${visualStandards.approved_props?.map((p: string) => 
-  `  ✓ ${p}`
-).join('\n') || 'No approved props'}
-
-FULL VISUAL STANDARDS DOCUMENT:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${visualStandards.raw_document || ''}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${condensedVisualStandards ? `
+${condensedVisualStandards}
 
 CRITICAL MADISON INSTRUCTIONS:
 - Reference templates by name when suggesting prompts (e.g., "Use the Hero Product Shot template")
@@ -370,26 +452,63 @@ Be conversational, encouraging, and editorial in your tone.
 
       const prompt = `${studioContext}\n\n${conversationContext}\n\nUser: ${userMessage.content}\n\nMadison:`;
 
-      const { data, error } = await supabase.functions.invoke("generate-with-claude", {
-        body: {
-          prompt,
-          organizationId: currentOrganizationId,
-          mode: "consult",
-          userName: userName || undefined,
-          images: imagesToSend.length > 0 ? imagesToSend : undefined,
-        },
-      });
+      const invokeConsult = async (consultPrompt: string, consultImages: string[] = []) => {
+        return supabase.functions.invoke("generate-with-claude", {
+          body: {
+            prompt: consultPrompt,
+            organizationId: effectiveOrganizationId || undefined,
+            mode: "consult",
+            consultDomain: sessionContext?.isImageStudio ? "image_studio" : "editorial",
+            userName: userName || undefined,
+            images: consultImages.length > 0 ? consultImages : undefined,
+            forcePromptOutput,
+            imageStudioContext: sessionContext?.isImageStudio
+              ? {
+                  sessionId: sessionContext.sessionId,
+                  sessionName: sessionContext.sessionName,
+                  imagesGenerated: sessionContext.imagesGenerated,
+                  maxImages: sessionContext.maxImages,
+                  aspectRatio: sessionContext.aspectRatio,
+                  outputFormat: sessionContext.outputFormat,
+                  hasHeroImage: Boolean(sessionContext.heroImage),
+                  recentPromptCount: sessionContext.allPrompts?.length || 0,
+                  referenceImageCount: consultImages.length,
+                  brandName: sessionContext.brandName,
+                  proModeActive: false,
+                }
+              : undefined,
+          },
+        });
+      };
+
+      let { data, error } = await invokeConsult(prompt, imagesToSend);
+
+      if (
+        error &&
+        imagesToSend.length > 1 &&
+        ((error as any).context?.status === 500 || String(error.message || "").includes("500"))
+      ) {
+        const fallbackPrompt = `${truncateForModel(studioContext, 4000)}\n\nUser: ${userMessage.content}\n\nMadison: Focus on the single most representative attached image and keep the response concise.`;
+        ({ data, error } = await invokeConsult(fallbackPrompt, [imagesToSend[0]]));
+      }
 
       if (error) {
         // Parse specific backend errors
         let errorMessage = 'Unable to reach the Editorial Director. Please try again.';
         
         // Try to parse structured error from edge function
-        if (error.context?.body) {
+        if (typeof error.context?.json === "function") {
           try {
-            const parsed = typeof error.context.body === 'string' 
-              ? JSON.parse(error.context.body) 
-              : error.context.body;
+            const parsed = await error.context.json();
+            if (parsed?.error) {
+              errorMessage = parsed.error;
+            }
+          } catch (e) {
+            console.error("Error parsing backend error:", e);
+          }
+        } else if (error.context?.body) {
+          try {
+            const parsed = parseEdgeFunctionErrorBody(error.context.body);
             if (parsed.error) {
               errorMessage = parsed.error;
             }
@@ -408,6 +527,19 @@ Be conversational, encouraging, and editorial in your tone.
         }
         
         throw new Error(errorMessage);
+      }
+
+      if (
+        forcePromptOutput &&
+        data?.generatedContent &&
+        !responseContainsPromptBlock(data.generatedContent)
+      ) {
+        const strictPrompt = `${truncateForModel(studioContext, 4000)}\n\n${conversationContext}\n\nUser: ${userMessage.content}\n\nMadison: The user has explicitly asked for the actual prompt now. Return the prompt itself using exactly this structure:\nFinal Prompt:\n\`\`\`prompt\n<one production-ready image prompt>\n\`\`\`\n\nWhy It Works:\n- 2 to 4 concise bullets\n\nDo not describe the prompt. Do not say it is ready. Output the prompt itself.`;
+        ({ data, error } = await invokeConsult(strictPrompt, imagesToSend));
+
+        if (error) {
+          throw new Error('Madison could not format the final prompt correctly. Please try again.');
+        }
       }
 
       if (data?.generatedContent) {
@@ -665,24 +797,17 @@ Be conversational, encouraging, and editorial in your tone.
         )}
 
         <div className="flex gap-1.5 sm:gap-2 items-end w-full">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleImageUpload}
-            className="hidden"
-          />
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setImageLibraryOpen(true)}
             disabled={isGenerating}
             className="h-[52px] w-[52px] sm:h-[60px] sm:w-[60px] flex-shrink-0"
-            style={{ color: darkMode ? "#A1A1AA" : "#6B6560" }}
+            style={{ color: darkMode ? "#D6B68A" : "#8B6A44" }}
+            title="Add image from library"
           >
-            <ImageIcon className="w-5 h-5" />
+            <FolderOpen className="w-5 h-5" />
           </Button>
           <Textarea
             ref={textareaRef}
@@ -722,6 +847,13 @@ Be conversational, encouraging, and editorial in your tone.
           Press Enter to send • Shift + Enter for new line
         </p>
       </div>
+
+      <ImageLibraryModal
+        open={imageLibraryOpen}
+        onOpenChange={setImageLibraryOpen}
+        title="Add Context Image"
+        onSelectImage={handleLibraryImageSelect}
+      />
     </div>
   );
 }

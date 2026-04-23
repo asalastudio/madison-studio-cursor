@@ -7,7 +7,7 @@
  */
 
 import { useState, useRef, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -152,6 +152,9 @@ export function ImageLibraryModal({
                         <FolderOpen className="w-5 h-5 text-brand-brass" />
                         {title}
                     </DialogTitle>
+                    <DialogDescription className="text-sm text-[#888899]">
+                        Choose an existing library image or add a new one from desktop.
+                    </DialogDescription>
                 </DialogHeader>
 
                 {/* Upload Area */}

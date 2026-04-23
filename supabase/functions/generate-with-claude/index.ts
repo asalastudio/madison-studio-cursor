@@ -1123,7 +1123,30 @@ serve(async (req) => {
       );
     }
     
-    const { prompt, organizationId, mode = "generate", styleOverlay = "brand-voice", productData, contentType, userName, images, product_id } = requestBody;
+    const {
+      prompt,
+      organizationId,
+      mode = "generate",
+      styleOverlay = "brand-voice",
+      productData,
+      contentType,
+      userName,
+      images,
+      product_id,
+      consultDomain,
+      imageStudioContext,
+      productContext: imageProductContext,
+      forcePromptOutput = false,
+    } = requestBody;
+    const promptText = typeof prompt === 'string' ? prompt : '';
+    const normalizedConsultDomain = typeof consultDomain === 'string' ? consultDomain.toLowerCase() : '';
+    const isImageStudioConsult =
+      mode === "consult" &&
+      (
+        normalizedConsultDomain === "image_studio" ||
+        !!imageStudioContext ||
+        promptText.includes("MADISON IMAGE STUDIO CONTEXT")
+      );
     
     // Validate required fields
     if (!prompt) {
@@ -1173,12 +1196,15 @@ serve(async (req) => {
       promptLength: prompt?.length || 0,
       promptPreview: prompt?.substring(0, 100) || 'N/A',
       mode,
+      consultDomain: consultDomain || 'N/A',
+      isImageStudioConsult,
       styleOverlay,
       contentType,
       organizationId: organizationId || 'N/A',
       hasProductData: !!productData,
       productCategory: productData?.category || 'N/A',
-      hasAnthropicAPI
+      hasAnthropicAPI,
+      hasImageStudioContext: !!imageStudioContext,
     });
 
     // Fetch full product data from database if product_id is provided
@@ -1619,6 +1645,152 @@ DO NOT invent or reference specific products, SKUs, or product details.
     const productGuidance = enrichedProductData 
       ? `\n⚠️ PRODUCT-SPECIFIC COPY: This request is for a specific product. Reference product details naturally.`
       : `\n⚠️ BRAND-LEVEL COPY: No specific product selected. Write at the brand/organizational level. Focus on brand values, mission, or general offerings.`;
+
+    const imageStudioSessionLines: string[] = [];
+    if (isImageStudioConsult) {
+      const studioContext =
+        imageStudioContext && typeof imageStudioContext === 'object' && !Array.isArray(imageStudioContext)
+          ? imageStudioContext as Record<string, any>
+          : {};
+      const studioProduct =
+        imageProductContext && typeof imageProductContext === 'object' && !Array.isArray(imageProductContext)
+          ? imageProductContext as Record<string, any>
+          : {};
+
+      if (studioContext.sessionName) {
+        imageStudioSessionLines.push(`- Session: ${studioContext.sessionName}`);
+      }
+      if (
+        typeof studioContext.imagesGenerated === 'number' &&
+        typeof studioContext.maxImages === 'number'
+      ) {
+        imageStudioSessionLines.push(`- Progress: ${studioContext.imagesGenerated}/${studioContext.maxImages} images generated`);
+      }
+      if (studioContext.aspectRatio || studioContext.outputFormat) {
+        imageStudioSessionLines.push(`- Output: ${studioContext.aspectRatio || 'Unspecified'} • ${studioContext.outputFormat || 'Unspecified format'}`);
+      }
+      if (typeof studioContext.referenceImageCount === 'number') {
+        imageStudioSessionLines.push(`- Reference images in session: ${studioContext.referenceImageCount}`);
+      }
+      if (typeof images?.length === 'number' && images.length > 0) {
+        imageStudioSessionLines.push(`- Images attached to this request: ${images.length}`);
+      }
+      if (studioContext.hasHeroImage) {
+        imageStudioSessionLines.push(`- A hero image already exists in this session`);
+      }
+      if (typeof studioContext.recentPromptCount === 'number') {
+        imageStudioSessionLines.push(`- Previous prompts in session: ${studioContext.recentPromptCount}`);
+      }
+      if (studioContext.brandName) {
+        imageStudioSessionLines.push(`- Brand in focus: ${studioContext.brandName}`);
+      }
+      if (studioContext.proModeActive) {
+        imageStudioSessionLines.push(`- Pro mode is active`);
+      }
+      if (
+        studioContext.proModeSettings &&
+        typeof studioContext.proModeSettings === 'object' &&
+        !Array.isArray(studioContext.proModeSettings)
+      ) {
+        const activeSettings = Object.entries(studioContext.proModeSettings)
+          .filter(([, value]) => Boolean(value))
+          .map(([key, value]) => `${key}: ${value}`);
+        if (activeSettings.length > 0) {
+          imageStudioSessionLines.push(`- Pro mode settings: ${activeSettings.join(', ')}`);
+        }
+      }
+      if (studioProduct.name) {
+        imageStudioSessionLines.push(`- Product: ${studioProduct.name}`);
+      }
+      if (studioProduct.category) {
+        imageStudioSessionLines.push(`- Category: ${studioProduct.category}`);
+      }
+      if (studioProduct.collection) {
+        imageStudioSessionLines.push(`- Collection: ${studioProduct.collection}`);
+      }
+      if (studioProduct.scent_family) {
+        imageStudioSessionLines.push(`- Scent family: ${studioProduct.scent_family}`);
+      }
+    }
+
+    const imageStudioSessionContext = imageStudioSessionLines.length > 0
+      ? `\nIMAGE STUDIO SESSION CONTEXT:\n${imageStudioSessionLines.join('\n')}\n`
+      : '';
+
+    const buildImageStudioConsultSystemPrompt = (brandSection = '') => {
+      let imagePrompt = `${madisonSystemConfig}
+
+${brandSection ? `${brandSection}\n` : ''}
+${imageStudioSessionContext}
+YOU ARE MADISON, THE IMAGE STUDIO EDITORIAL DIRECTOR.
+
+You are not acting as a generic copy editor here. You are a creative director for AI product imagery inside Madison Studio.
+
+PRIMARY JOBS:
+- Analyze image prompts and make them stronger
+- Analyze attached images or reference images for composition, lighting, mood, materials, styling, realism, and brand fit
+- Suggest specific improvements for image generation inside Madison Studio
+- Create a full image prompt ONLY when the user explicitly asks for one
+
+DEFAULT BEHAVIOR:
+- If the user shares a prompt and asks for feedback, critique it first instead of rewriting it automatically
+- If the user shares images and asks for feedback, analyze the visuals and recommend what to keep, what to change, and what to try next
+- If the user asks for a better prompt, generate one polished production-ready prompt tailored to the brand, product, and requested scene
+- If the user asks for prompt options, provide distinct directions instead of minor variations
+
+IMAGE-DIRECTOR STANDARDS:
+- Be visually literate and specific about framing, lens feel, crop, perspective, lighting direction, reflections, materials, surfaces, styling, prop discipline, negative space, and realism
+- Use the supplied brand context and visual rules whenever they are available
+- Protect brand fit; if the request drifts from the brand guidance, explain the tension and redirect cleanly
+- Stay grounded in AI image generation. Do not suggest photographers, agencies, stock sites, or off-platform production fixes unless the user explicitly asks
+- Do not claim to see details that are not present. Make careful inferences and say when something is uncertain
+
+PROMPT-GENERATION RULES:
+- Generate a full image prompt only on explicit request
+- When generating a prompt, return exactly this structure:
+
+Final Prompt:
+\`\`\`prompt
+<one production-ready image prompt>
+\`\`\`
+
+Why It Works:
+- 2 to 4 concise bullets
+
+- Keep prompt outputs concrete, production-ready, and free of vague filler language
+- Include the right scene, composition, lighting, product handling, material realism, and brand cues
+
+CRITIQUE RULES:
+- For prompt critique, lead with a concise read on what is working
+- Then identify the biggest weaknesses or missing specifics
+- Then suggest the strongest next move
+- Do not automatically produce a replacement prompt unless the user asks for one
+
+RESPONSE STYLE:
+- Be concise, specific, and editorial
+- Prefer practical direction over generic encouragement
+- Markdown is allowed when it improves clarity
+- Use bullet lists sparingly and only when they help the user scan changes quickly
+- If the user is simply asking for feedback, answer the feedback request directly rather than greeting them or restating the interface context`;
+
+      if (forcePromptOutput) {
+        imagePrompt += `
+
+MANDATORY RESPONSE MODE:
+- The user is explicitly asking you to deliver the prompt now
+- Do not talk about what the prompt could be
+- Do not say the prompt is ready or that they can now use it
+- Output the actual prompt itself using the exact Final Prompt structure above
+- If any details are missing, make the best brand-safe inference and still produce the prompt
+- A response without the actual prompt is invalid`;
+      }
+
+      if (userName) {
+        imagePrompt += `\n\nYou are speaking with ${userName}. Use their name naturally when it adds warmth or emphasis, but do not overuse it.`;
+      }
+
+      return imagePrompt;
+    };
     
     // Fetch and inject brand context if organization ID provided
     if (organizationId) {
@@ -1861,8 +2033,11 @@ CRITICAL OUTPUT FORMATTING:
 
 FAILURE TO FOLLOW CODEX V2 PRINCIPLES OR BRAND GUIDELINES IS UNACCEPTABLE.`;
         } else if (mode === "consult") {
-          // CONSULT MODE: Curator role with Codex v2
-          systemPrompt = `${madisonSystemConfig}
+          if (isImageStudioConsult) {
+            systemPrompt = buildImageStudioConsultSystemPrompt(brandContext);
+          } else {
+            // CONSULT MODE: Curator role with Codex v2
+            systemPrompt = `${madisonSystemConfig}
 
 ${brandContext}
 
@@ -1988,17 +2163,20 @@ CRITICAL OUTPUT FORMATTING RULES:
 - Write in clean, conversational prose like a professional email
 - When emphasizing, use CAPITALS sparingly or rephrase naturally`;
         
-        // Add personalization if user name is provided
-        if (userName) {
-          systemPrompt += `\n\n(Note: You're speaking with ${userName}. Use their name naturally when appropriate—in greetings, when acknowledging good ideas, or when offering encouragement. Don't overuse it; once per conversation or when emphasizing a point is sufficient.)`;
-        }
+            // Add personalization if user name is provided
+            if (userName) {
+              systemPrompt += `\n\n(Note: You're speaking with ${userName}. Use their name naturally when appropriate—in greetings, when acknowledging good ideas, or when offering encouragement. Don't overuse it; once per conversation or when emphasizing a point is sufficient.)`;
+            }
+          }
         }
       } else {
       // No organization context - fallback prompts
       if (mode === "generate") {
         systemPrompt = 'You are a professional copywriter. Always return plain text responses with no Markdown formatting. Do not use asterisks, bold, italics, headers, or any special formatting characters. Output must be clean, copy-paste ready text.';
       } else {
-        systemPrompt = `You are the Editorial Director at Madison Studio—a seasoned professional in the tradition of David Ogilvy.
+        systemPrompt = isImageStudioConsult
+          ? buildImageStudioConsultSystemPrompt()
+          : `You are the Editorial Director at Madison Studio—a seasoned professional in the tradition of David Ogilvy.
 
 You guide marketers with precision, strategic rigor, and timeless craft principles.
 

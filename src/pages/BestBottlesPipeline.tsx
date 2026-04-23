@@ -239,7 +239,7 @@ export default function BestBottlesPipeline() {
   ): Promise<void> => {
     if (!organizationId) return;
     try {
-      if (row.is_master_reference) {
+      if (row.is_hero_reference) {
         await clearShapeGroupMasterReference(row.id);
         toast.info("Master reference cleared", {
           description: row.display_name,
@@ -297,13 +297,13 @@ export default function BestBottlesPipeline() {
       (group.threadSize ? ` · ${group.threadSize}` : "");
 
     // Pick a representative reference image for the shape group. Priority:
-    //   1. Operator-pinned master reference (is_master_reference === true)
+    //   1. Operator-pinned master reference (is_hero_reference === true)
     //   2. First row with a synced legacy_hero_image_url (back-compat)
     // Consistency Mode pre-loads the resolved URL as the master reference
     // so the operator skips the "find a PSD, flatten, screenshot, upload"
     // loop when a valid product-page image already covers the shape.
     const pinnedRow = group.rows.find(
-      (r) => r.is_master_reference && r.legacy_hero_image_url,
+      (r) => r.is_hero_reference && r.legacy_hero_image_url,
     );
     const rowWithReference =
       pinnedRow ?? group.rows.find((r) => r.legacy_hero_image_url);
@@ -549,9 +549,9 @@ function ShapeGroupCard({
   // always visible even if the group has more than 4 references.
   const rowsWithReference = group.rows.filter((r) => r.legacy_hero_image_url);
   const sortedReferenceRows = [...rowsWithReference].sort((a, b) =>
-    a.is_master_reference === b.is_master_reference
+    a.is_hero_reference === b.is_hero_reference
       ? 0
-      : a.is_master_reference
+      : a.is_hero_reference
         ? -1
         : 1,
   );
@@ -589,7 +589,7 @@ function ShapeGroupCard({
       {referenceThumbs.length > 0 && (
         <div className="flex items-center gap-1.5 -mx-0.5">
           {referenceThumbs.map((row) => {
-            const isPinned = row.is_master_reference;
+            const isPinned = row.is_hero_reference;
             return (
               <button
                 type="button"

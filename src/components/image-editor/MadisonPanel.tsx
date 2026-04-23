@@ -40,6 +40,20 @@ interface MadisonPanelProps {
   };
 }
 
+const PROMPT_REQUEST_PATTERN =
+  /\b(create|write|generate|make|build|craft|compose|give me|send me|draft)\b[\s\S]{0,40}\b(prompt|image prompt|shot prompt|prompts)\b|\b(final prompt|actual prompt|production-ready prompt|prompt please)\b/i;
+const PROMPT_CONFIRMATION_PATTERN =
+  /^(ok|okay|go|yes|yep|yeah|sure|do it|do that|go ahead|let'?s go|proceed|make it|write it|generate it|send it|hit me)\b/i;
+
+function shouldForcePromptOutput(currentInput: string, messages: Message[]) {
+  if (PROMPT_REQUEST_PATTERN.test(currentInput.trim())) return true;
+  if (!PROMPT_CONFIRMATION_PATTERN.test(currentInput.trim())) return false;
+
+  return messages
+    .slice(-4)
+    .some((message) => /(?:final|actual|better|image|production-ready|hero|improved)?\s*prompt|create a prompt|write a prompt|generate a prompt|build a prompt/i.test(message.content));
+}
+
 export default function MadisonPanel({
   sessionCount,
   maxImages,
@@ -91,16 +105,17 @@ export default function MadisonPanel({
 
   const handleSend = async () => {
     if (!inputValue.trim() || isSending) return;
+    const messageToSend = inputValue.trim();
+    const forcePromptOutput = shouldForcePromptOutput(messageToSend, messages);
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: inputValue.trim(),
+      content: messageToSend,
       timestamp: Date.now()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const messageToSend = inputValue.trim();
     setInputValue("");
     setIsSending(true);
 
@@ -140,12 +155,19 @@ export default function MadisonPanel({
           prompt,
           organizationId: currentOrganizationId,
           mode: "consult",
+          consultDomain: "image_studio",
+          forcePromptOutput,
           styleOverlay: "brand-voice",
           productContext: productContext || undefined,
           imageStudioContext: {
+            sessionName: `Session ${sessionCount}`,
+            imagesGenerated: sessionCount,
+            maxImages,
             referenceImageCount,
+            hasHeroImage: false,
+            recentPromptCount: messages.length,
             proModeActive,
-            proModeSettings: proModeActive ? proModeSettings : undefined
+            proModeSettings: proModeActive ? proModeSettings : undefined,
           }
         },
       });
