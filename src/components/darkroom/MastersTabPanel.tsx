@@ -299,6 +299,49 @@ export function MastersTabPanel({
   }, [selectedProduct, presetId, referenceFolder]);
 
   /**
+   * Coverage diagnostics — most "why isn't this matching" questions trace to
+   * filenames that aren't actually equal to a Convex graceSku. These memos
+   * surface both sides of the mismatch:
+   *   - orphanReferences: files dropped into the folder whose stem doesn't
+   *     correspond to any graceSku in the current family. Usually means the
+   *     rename pass didn't catch them (still websiteSku-style) or they're
+   *     for a different family.
+   *   - uncoveredSkus: SKUs in the current family that have no folder
+   *     reference (in any modifier variant). Generation for these will
+   *     fall back to no-reference output unless the operator drops a
+   *     single-image override.
+   */
+  const familyGraceSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const v of familyVariants ?? []) set.add(v.graceSku.toUpperCase());
+    return set;
+  }, [familyVariants]);
+
+  const orphanReferences = useMemo(() => {
+    if (referenceFolder.size === 0 || familyGraceSet.size === 0) return [];
+    const orphans: Array<{ key: string; name: string }> = [];
+    for (const [key, entry] of referenceFolder.entries()) {
+      // Strip "--modifier" suffix to compare against the bare graceSku.
+      const base = key.split("--")[0];
+      if (!familyGraceSet.has(base)) {
+        orphans.push({ key, name: entry.name });
+      }
+    }
+    return orphans;
+  }, [referenceFolder, familyGraceSet]);
+
+  const uncoveredSkus = useMemo(() => {
+    if (!familyVariants || familyVariants.length === 0) return [];
+    if (referenceFolder.size === 0) return [];
+    // A SKU is "covered" if ANY modifier variant of its graceSku exists.
+    const covered = new Set<string>();
+    for (const key of referenceFolder.keys()) {
+      covered.add(key.split("--")[0]);
+    }
+    return familyVariants.filter((v) => !covered.has(v.graceSku.toUpperCase()));
+  }, [familyVariants, referenceFolder]);
+
+  /**
    * UploadZone returns either a freshly-picked File (drag-drop or browse) or
    * a ready URL (library pick). For files, we upload to Supabase Storage so
    * OpenAI /edits can fetch the reference. For library URLs, we use as-is
@@ -715,6 +758,60 @@ export function MastersTabPanel({
                 <div key={`${f.name}-${i}`} className="text-[10px] font-mono" style={{ color: "#F87171" }}>
                   <span className="opacity-90">{f.name}</span>
                   <span className="opacity-60"> — {f.error}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {orphanReferences.length > 0 && (
+          <div
+            className="rounded border p-2 space-y-1"
+            style={{
+              borderColor: "rgba(245, 158, 11, 0.4)",
+              background: "rgba(245, 158, 11, 0.05)",
+            }}
+          >
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider" style={{ color: "#FBBF24" }}>
+              <AlertCircle className="w-3 h-3" />
+              {orphanReferences.length} file{orphanReferences.length === 1 ? "" : "s"} don't match any Grace SKU in this family
+            </div>
+            <div className="text-[10px] opacity-75" style={{ color: "#FBBF24" }}>
+              These filenames don't equal any <span className="font-mono">graceSku</span> for {familyName ?? "this family"}.
+              Likely cause: still in websiteSku style (e.g. <span className="font-mono">GBEmp50DrpSl</span> instead of{" "}
+              <span className="font-mono">GB-EMP-CLR-50ML-DRP-SL</span>) or the rename pass missed them.
+            </div>
+            <div className="space-y-0.5 max-h-40 overflow-auto pt-1">
+              {orphanReferences.map((o) => (
+                <div key={o.key} className="text-[10px] font-mono" style={{ color: "#FBBF24" }}>
+                  <span className="opacity-90">{o.name}</span>
+                  <span className="opacity-50"> → parsed as </span>
+                  <span className="opacity-70">{o.key}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {uncoveredSkus.length > 0 && referenceFolder.size > 0 && (
+          <div
+            className="rounded border p-2 space-y-1"
+            style={{
+              borderColor: "rgba(148, 163, 184, 0.3)",
+              background: "rgba(148, 163, 184, 0.05)",
+            }}
+          >
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--darkroom-text-dim)" }}>
+              <AlertCircle className="w-3 h-3" />
+              {uncoveredSkus.length} SKU{uncoveredSkus.length === 1 ? "" : "s"} in this family have no folder reference
+            </div>
+            <div className="text-[10px] opacity-75" style={{ color: "var(--darkroom-text-dim)" }}>
+              Generation for these will run prompt-only unless you drop a single-image override.
+            </div>
+            <div className="space-y-0.5 max-h-32 overflow-auto pt-1">
+              {uncoveredSkus.map((s) => (
+                <div key={s.graceSku} className="text-[10px] font-mono" style={{ color: "var(--darkroom-text-dim)" }}>
+                  {s.graceSku}
                 </div>
               ))}
             </div>
