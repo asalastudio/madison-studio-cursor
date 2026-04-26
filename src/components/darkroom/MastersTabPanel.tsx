@@ -213,8 +213,23 @@ export function MastersTabPanel({
       });
       return;
     }
-    const arr = Array.from(files);
-    if (arr.length === 0) return;
+    // Filter to image files only. PSD-export folders sometimes ship a
+    // `_RENAME_MANIFEST.json` or `.DS_Store` alongside the PNGs, and the
+    // <input accept="..."> attribute is bypassed when files arrive via
+    // drag-drop. Filtering here keeps non-image files out of the orphan
+    // panel so the operator can focus on real Grace SKU mismatches.
+    const ALLOWED_EXT = /\.(png|jpe?g|webp)$/i;
+    const arr = Array.from(files).filter((f) => ALLOWED_EXT.test(f.name));
+    const skippedNonImage = Array.from(files).length - arr.length;
+    if (arr.length === 0) {
+      if (skippedNonImage > 0) {
+        toast({
+          title: "No image files in folder",
+          description: `${skippedNonImage} non-image file(s) skipped (.json, .DS_Store, etc).`,
+        });
+      }
+      return;
+    }
     setIsFolderUploading(true);
 
     const newMap = new Map(referenceFolder);
