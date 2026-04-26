@@ -226,64 +226,87 @@ export function buildProductSpecBlock(
     lines.push(`- Silhouette: ${shapeDescriptor}`);
   }
 
+  // Every measurable field below is ALWAYS emitted (with a "[NOT IN
+  // CATALOG — flag in Convex]" marker for missing values) so the model
+  // never has to fill in a dimension by guessing. Missing values surface
+  // as data-quality issues in the wand-preview rather than being silently
+  // dropped, which previously let the model invent random sizes.
+  const MISSING = "[NOT IN CATALOG — flag in Convex]";
+
   if (bodyFields) {
-    if (product.capacityMl != null) {
-      const oz = product.capacityOz != null ? ` (${product.capacityOz} oz)` : "";
-      lines.push(`- Capacity: ${product.capacityMl} ml${oz}`);
-    } else if (product.capacity) {
-      lines.push(`- Capacity: ${product.capacity}`);
-    }
+    const oz = product.capacityOz != null ? ` (${product.capacityOz} oz)` : "";
+    const capacity =
+      product.capacityMl != null
+        ? `${product.capacityMl} ml${oz}`
+        : product.capacity ?? MISSING;
+    lines.push(`- Capacity: ${capacity}`);
   }
 
   const heightMm = parseDimensionMm(product.heightWithoutCap);
-  if (bodyFields && heightMm != null) {
-    lines.push(`- Height (body, without cap): ${heightMm} mm`);
+  if (bodyFields) {
+    lines.push(
+      `- Height (body, without cap): ${heightMm != null ? `${heightMm} mm` : MISSING}`,
+    );
   }
   const heightWithCapMm = parseDimensionMm(product.heightWithCap);
-  if (scope === "full" && heightWithCapMm != null) {
-    lines.push(`- Height (assembled, with cap): ${heightWithCapMm} mm`);
+  if (scope === "full") {
+    lines.push(
+      `- Height (assembled, with cap): ${heightWithCapMm != null ? `${heightWithCapMm} mm` : MISSING}`,
+    );
   }
 
   const diameterMm = parseDimensionMm(product.diameter);
   const familyIsCylindrical = isCylindricalFamily(product.family);
-  if (bodyFields && diameterMm != null) {
-    if (familyIsCylindrical) {
-      lines.push(`- Diameter: ${diameterMm} mm`);
+  if (bodyFields) {
+    if (diameterMm != null) {
+      if (familyIsCylindrical) {
+        lines.push(`- Diameter: ${diameterMm} mm`);
+      } else {
+        // For rectangular/faceted families the Convex "diameter" is the
+        // longer face-width or diagonal, not a true diameter. Surface it
+        // as cross-section width to keep the model from producing a
+        // cylindrical bottle.
+        lines.push(
+          `- Cross-section: rectangular / faceted (NOT cylindrical) — face dimension approximately ${diameterMm} mm`,
+        );
+      }
     } else {
-      // For rectangular/faceted families the Convex "diameter" is the
-      // longer face-width or diagonal, not a true diameter. Surface it
-      // as cross-section width to keep the model from producing a
-      // cylindrical bottle.
       lines.push(
-        `- Cross-section: rectangular / faceted (NOT cylindrical) — face dimension approximately ${diameterMm} mm`,
+        familyIsCylindrical
+          ? `- Diameter: ${MISSING}`
+          : `- Cross-section: rectangular / faceted (NOT cylindrical) — face dimension ${MISSING}`,
       );
     }
   }
 
   const wallMm = defaultWallThicknessMm(product.family);
-  if (bodyFields && wallMm != null) {
-    lines.push(`- Wall thickness: approximately ${wallMm} mm (family default)`);
+  if (bodyFields) {
+    lines.push(
+      `- Wall thickness: ${wallMm != null ? `approximately ${wallMm} mm (family default)` : MISSING}`,
+    );
   }
 
-  if (bodyFields && product.color) {
-    lines.push(`- Glass color: ${product.color}`);
+  if (bodyFields) {
+    lines.push(`- Glass color: ${product.color || MISSING}`);
   }
 
-  if (product.neckThreadSize) {
-    // Neck thread matters for both body (where fitment seats) and fitment
-    // (which must match the thread spec) — always include.
-    lines.push(`- Neck thread: ${product.neckThreadSize}`);
+  // Neck thread matters for both body (where fitment seats) and fitment
+  // (which must match the thread spec) — always include.
+  lines.push(`- Neck thread size: ${product.neckThreadSize || MISSING}`);
+
+  if (fitmentFields) {
+    lines.push(`- Applicator / fitment: ${product.applicator || MISSING}`);
   }
 
-  if (fitmentFields && product.applicator) {
-    lines.push(`- Applicator / fitment: ${product.applicator}`);
-  }
-
-  if (fitmentFields && (product.capStyle || product.capColor)) {
-    const style = product.capStyle ?? "";
-    const color = product.capColor ? ` in ${product.capColor}` : "";
-    const trim = product.trimColor ? ` with ${product.trimColor} trim` : "";
-    lines.push(`- Cap: ${style}${color}${trim}`.trim());
+  if (fitmentFields) {
+    if (product.capStyle || product.capColor) {
+      const style = product.capStyle ?? "";
+      const color = product.capColor ? ` in ${product.capColor}` : "";
+      const trim = product.trimColor ? ` with ${product.trimColor} trim` : "";
+      lines.push(`- Cap: ${style}${color}${trim}`.trim());
+    } else {
+      lines.push(`- Cap: ${MISSING}`);
+    }
   }
 
   if (fitmentFields && product.ballMaterial) {
@@ -329,31 +352,52 @@ export function buildProductSpecBlock(
       "- Background is the cream parchment plate specified in the PRESET section above; do NOT render on transparent or any other color",
     );
   } else {
-    lines.push("PHYSICAL CONSTRAINTS:");
+    lines.push("PHYSICAL CONSTRAINTS — MANDATORY DIMENSIONS:");
+    lines.push(
+      "These measurements come directly from Grace's catalog and are NOT approximations. The rendered bottle MUST match these dimensions exactly. Do not invent, scale, or interpolate.",
+    );
     if (heightMm != null && diameterMm != null) {
       if (familyIsCylindrical) {
         const ratio = (heightMm / diameterMm).toFixed(2);
         lines.push(
-          `- Maintain exact proportions: height-to-diameter ratio of ${ratio} (${heightMm} mm / ${diameterMm} mm)`,
+          `- BODY HEIGHT: ${heightMm} mm (without cap). DIAMETER: ${diameterMm} mm. Height-to-diameter ratio: ${ratio}:1. Render the body at exactly this proportion.`,
         );
       } else {
+        const ratio = (heightMm / diameterMm).toFixed(2);
         lines.push(
-          `- Maintain exact proportions per the silhouette descriptor in the SKU section above. Body height ${heightMm} mm. Cross-section is rectangular/faceted (NOT cylindrical) — do not produce a round-bottle silhouette.`,
+          `- BODY HEIGHT: ${heightMm} mm (without cap). FACE WIDTH: ${diameterMm} mm. Height-to-width ratio: ${ratio}:1. Cross-section is RECTANGULAR / FACETED — never cylindrical. Render the body at exactly this proportion.`,
         );
       }
+    } else if (heightMm != null) {
+      lines.push(`- BODY HEIGHT: ${heightMm} mm (without cap). Width missing from catalog — flag in Convex.`);
+    } else if (diameterMm != null) {
+      lines.push(`- WIDTH: ${diameterMm} mm. Body height missing from catalog — flag in Convex.`);
     } else {
-      lines.push("- Maintain exact proportions from the SKU's stated dimensions and silhouette descriptor");
+      lines.push(
+        "- ⚠ CATALOG DIMENSIONS MISSING. Without explicit body height + width, the model is filling in proportions by guess. Fix in Convex before generating.",
+      );
+    }
+    if (heightWithCapMm != null && heightMm != null) {
+      const capHeight = heightWithCapMm - heightMm;
+      lines.push(
+        `- ASSEMBLED HEIGHT (body + cap): ${heightWithCapMm} mm. Cap/closure adds approximately ${capHeight} mm above the bottle's neck. Do not exaggerate cap height.`,
+      );
+    } else if (heightWithCapMm != null) {
+      lines.push(`- ASSEMBLED HEIGHT (body + cap): ${heightWithCapMm} mm.`);
     }
     if (wallMm != null) {
       lines.push(
-        `- Glass thickness must be visually consistent with approximately ${wallMm} mm wall`,
+        `- WALL THICKNESS: approximately ${wallMm} mm. Glass body should visibly read as this thickness through the bottle's transparent walls — base reads thicker due to convex bottom.`,
       );
     }
     lines.push(
-      "- Bottle must appear structurally realistic at the stated dimensions; do not exaggerate curvature, neck, or base",
+      "- Bottle must appear structurally realistic at the stated dimensions; do NOT exaggerate curvature, neck taper, or base thickness beyond what these numbers imply.",
     );
     lines.push(
-      "- Internal tube length (for fitments with a dip tube) must match bottle height realistically",
+      "- Internal tube length (for fitments with a dip tube) must reach to within ~3 mm of the bottle's interior base, calculated from the body height above.",
+    );
+    lines.push(
+      "- 50ml and 100ml variants of the same family share cross-section width but DIFFER in body height. Do not render a 100ml SKU at 50ml proportions or vice versa — the height number above is authoritative.",
     );
   }
 
