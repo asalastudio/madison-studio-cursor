@@ -87,10 +87,34 @@ export function useAssembledPromptGeneration() {
     // on gif/webp, so we skip unsupported formats rather than ship a broken
     // reference. The SKU data block is rich enough to produce a good output
     // without a visual reference; future work can PNG-convert upstream.
+    //
+    // Reference shape: the edge function's `categorizeReferences` keys off
+    // `ref.url` and `ref.label`. Sending a bare URL string silently fails
+    // downstream (`processReferenceImage(undefined)`), so the model never
+    // actually sees the reference. Always pass objects.
     const rawRef = options.referenceImageUrl?.trim() || "";
     const refIsSupported =
       rawRef.length > 0 && !/\.(gif|webp|heic|bmp)(\?|$)/i.test(rawRef);
-    const referenceImages = refIsSupported ? [rawRef] : undefined;
+    const referenceImages = refIsSupported
+      ? [
+          {
+            url: rawRef,
+            label: "Product Reference",
+            description:
+              "Canonical bottle reference (PSD-rendered PNG). Preserve exact bottle geometry, cap texture, fitment, applicator, glass color, and all surface details. Do not redesign, restyle, or reinterpret the product.",
+          },
+        ]
+      : undefined;
+
+    // Trigger Director Mode in the edge function whenever a reference is
+    // attached. Essential Mode appends one weak sentence ("Use the uploaded
+    // product image as the exact subject"); Director Mode prepends a strict
+    // PRESERVE-EXACT-PRODUCT directive block that gpt-image-2 actually obeys.
+    // Without this, the assembled 4-layer prompt completely overrides the
+    // reference and the model regenerates the bottle from its own knowledge.
+    const proModeControls = referenceImages
+      ? { productAccuracy: "strict" as const }
+      : undefined;
 
     const baseTags = [
       "sku-preset",
@@ -114,6 +138,7 @@ export function useAssembledPromptGeneration() {
             aspectRatio: assembled.preset.aspectRatio,
             outputFormat: "png",
             referenceImages,
+            proModeControls,
             aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
             resolution: "standard",
             extraLibraryTags,
