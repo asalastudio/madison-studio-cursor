@@ -135,12 +135,16 @@ export function applicatorFramingOverride(
 }
 
 export const GRID_CARD_2000X2200: ImagePreset = {
+  // ID kept stable for Library tag continuity (`preset:grid-card-2000x2200`
+  // exists on prior generations). Canvas bumped to 2080×2288 so both edges
+  // are multiples of 16 per gpt-image-2's size constraint while preserving
+  // the exact 10:11 ratio.
   id: "grid-card-2000x2200",
-  label: "Grid Card · 2000 × 2200",
+  label: "Grid Card · 2080 × 2288",
   purpose:
     "Catalog grid tile for bestbottles.com. Matches the current image-gen pipeline output dimensions.",
   kind: "final_render",
-  canvas: { widthPx: 2000, heightPx: 2200 },
+  canvas: { widthPx: 2080, heightPx: 2288 },
   aspectRatio: "10:11",
   orientation: "portrait",
   backgroundHex: "#EEE6D4",
@@ -277,12 +281,16 @@ export const PAPER_DOLL_COMPONENT_1000X1300: ImagePreset = {
 };
 
 export const LANDSCAPE_HERO_2400X1350: ImagePreset = {
+  // Bumped to 2560×1440 — the canonical 2K 16:9 reference per the
+  // OpenAI gpt-image-2 size guide ("popular widescreen format and
+  // recommended upper reliability boundary"). Both edges multiples of 16.
+  // ID stable for tag continuity.
   id: "landscape-hero-2400x1350",
-  label: "Landscape Hero · 2400 × 1350",
+  label: "Landscape Hero · 2560 × 1440 (2K · 16:9)",
   purpose:
     "Product-detail hero banner, marketing surfaces, campaign imagery. 16:9 landscape for wide editorial framing.",
   kind: "final_render",
-  canvas: { widthPx: 2400, heightPx: 1350 },
+  canvas: { widthPx: 2560, heightPx: 1440 },
   aspectRatio: "16:9",
   orientation: "landscape",
   backgroundHex: "#EEE6D4",
@@ -309,12 +317,14 @@ export const LANDSCAPE_HERO_2400X1350: ImagePreset = {
  * with the standard Grid Card.
  */
 export const GRID_CARD_EXPLODED_2000X2200: ImagePreset = {
+  // Canvas bumped to 2080×2288 for gpt-image-2 multiple-of-16 compliance
+  // (see GRID_CARD_2000X2200 above). ID stable for tag continuity.
   id: "grid-card-exploded-2000x2200",
-  label: "Grid Card · Exploded (cap beside) · 2000 × 2200",
+  label: "Grid Card · Exploded (cap beside) · 2080 × 2288",
   purpose:
     "Catalog grid tile for SKUs where the over-cap is shown removed and standing beside the bottle (e.g. Lotion Pump · Clear Overcap, decorative stopper variants). Same canvas, lighting, and background as the standard Grid Card — composition is the only change.",
   kind: "final_render",
-  canvas: { widthPx: 2000, heightPx: 2200 },
+  canvas: { widthPx: 2080, heightPx: 2288 },
   aspectRatio: "10:11",
   orientation: "portrait",
   backgroundHex: "#EEE6D4",
@@ -352,12 +362,14 @@ export const GRID_CARD_EXPLODED_2000X2200: ImagePreset = {
  * preset's bottle-anchored block.
  */
 export const MASTER_SCENE_FLEXIBLE_2000X2200: ImagePreset = {
+  // Canvas bumped to 2080×2288 for gpt-image-2 multiple-of-16 compliance.
+  // ID stable for tag continuity.
   id: "master-scene-flexible-2000x2200",
-  label: "Master · Scene-Flexible · 2000 × 2200",
+  label: "Master · Scene-Flexible · 2080 × 2288",
   purpose:
     "Lifestyle / hero variants of an approved master. Preserves the canonical bottle (reference + product spec + physical constraints) while letting the operator swap the background, lighting environment, and aspect ratio per generation.",
   kind: "final_render",
-  canvas: { widthPx: 2000, heightPx: 2200 },
+  canvas: { widthPx: 2080, heightPx: 2288 },
   aspectRatio: "10:11",
   orientation: "portrait",
   backgroundHex: "#FFFFFF",
@@ -379,12 +391,14 @@ export const MASTER_SCENE_FLEXIBLE_2000X2200: ImagePreset = {
 };
 
 export const SQUARE_MARKETPLACE_1800X1800: ImagePreset = {
+  // Bumped to 1792×1792 — closest multiple-of-16 size to the original 1800
+  // for gpt-image-2 compliance. Still 1:1 square. ID stable for tag continuity.
   id: "square-marketplace-1800x1800",
-  label: "Square Marketplace · 1800 × 1800",
+  label: "Square Marketplace · 1792 × 1792",
   purpose:
     "Shopify / Amazon / Etsy square product tile. Derived from the same parchment lineage so it matches the Grid Card visually.",
   kind: "final_render",
-  canvas: { widthPx: 1800, heightPx: 1800 },
+  canvas: { widthPx: 1792, heightPx: 1792 },
   aspectRatio: "1:1",
   orientation: "square",
   backgroundHex: "#EEE6D4",

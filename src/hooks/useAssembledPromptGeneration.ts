@@ -161,8 +161,13 @@ export function useAssembledPromptGeneration() {
             aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
             // Resolution override is locked to standard|high — "4k" via
             // Gemini fallback OOMs the worker (see generate-madison-image
-            // memory ceiling).
-            resolution: options.sceneOverlay?.resolutionOverride ?? "standard",
+            // memory ceiling). Default raised from "standard" to "high"
+            // per the OpenAI gpt-image-2 prompting guide, which calls out
+            // "high" as the right setting for identity-sensitive edits and
+            // high-fidelity catalog output. Catalog masters qualify on
+            // both counts; the latency cost is acceptable for the quality
+            // lift on cap textures, glass refraction, and neck threads.
+            resolution: options.sceneOverlay?.resolutionOverride ?? "high",
             // Background overlay flows through the same fields Dark Room
             // uses; the edge function's Director Mode appends them as a
             // BACKGROUND STYLE block ahead of the bottle's product spec.

@@ -6,14 +6,20 @@
  * outputs are upstream artifacts (different stages).
  */
 
-/** Raw PNGs from pipeline image-gen (OpenAI path), e.g. `grid-images/output/openai/raw/*.png`. */
+/**
+ * Raw PNGs from pipeline image-gen (OpenAI path), e.g. `grid-images/output/openai/raw/*.png`.
+ *
+ * Bumped 2026-04-26 from 2000×2200 to 2080×2288 to comply with
+ * gpt-image-2's "both edges multiple of 16" constraint (2200/16=137.5
+ * is invalid). Ratio preserved exactly: 2080:2288 = 10:11.
+ */
 export const PIPELINE_OPENAI_RAW_PX = {
-  width: 2000,
-  height: 2200,
+  width: 2080,
+  height: 2288,
 } as const;
 
-/** Aspect width:height ≈ 10:11 */
-export const PIPELINE_OPENAI_RAW_RATIO = 2000 / 2200;
+/** Aspect width:height = 10:11 (exact) */
+export const PIPELINE_OPENAI_RAW_RATIO = 2080 / 2288;
 
 /**
  * Representative live Sanity CDN hero from a paper-doll group (sample; actual
