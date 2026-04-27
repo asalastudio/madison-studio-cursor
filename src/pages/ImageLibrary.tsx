@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,11 +20,14 @@ import {
   Package,
   Tags,
   Loader2,
+  Upload,
 } from "lucide-react";
 import { MagicWand02 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -129,6 +133,8 @@ export default function ImageLibrary() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { currentOrganizationId } = useOnboarding();
+  const { enabled: isBestBottlesOrg } = useGridPipelineFeatureFlag();
+  const publishLabel = isBestBottlesOrg ? "Publish to Best Bottles" : "Publish to website";
   const { toast } = useToast();
 
   // State
@@ -150,6 +156,15 @@ export default function ImageLibrary() {
   const [tagsEditImage, setTagsEditImage] = useState<GeneratedImage | null>(null);
   const [newLibraryTag, setNewLibraryTag] = useState("");
   const [tagActionLoading, setTagActionLoading] = useState(false);
+
+  // Publish live: Best Bottles grid (Convex) or Tarife mainImage (Sanity via push-product-to-sanity)
+  const [sanityPublishOpen, setSanityPublishOpen] = useState(false);
+  const [sanityPublishImage, setSanityPublishImage] = useState<GeneratedImage | null>(null);
+  const [sanityPublishProduct, setSanityPublishProduct] = useState<Product | null>(null);
+  const [sanityPublishLoading, setSanityPublishLoading] = useState(false);
+  /** Best Bottles: Convex productGroups.heroImageUrl (live site catalog grid). */
+  const [bestBottlesGridHero, setBestBottlesGridHero] = useState(false);
+  const [bestBottlesSlug, setBestBottlesSlug] = useState("");
 
   // Image editor modal
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -337,6 +352,71 @@ export default function ImageLibrary() {
     setTagsEditImage(image);
     setNewLibraryTag("");
     setTagsEditOpen(true);
+  };
+
+  const openSanityPublish = (image: GeneratedImage) => {
+    setSanityPublishImage(image);
+    setSanityPublishProduct(null);
+    setBestBottlesGridHero(false);
+    setBestBottlesSlug("");
+    setSanityPublishOpen(true);
+  };
+
+  const handleConfirmSanityPublish = async () => {
+    if (!sanityPublishImage) return;
+    if (bestBottlesGridHero) {
+      const slug = bestBottlesSlug.trim();
+      if (!slug) return;
+    } else if (!sanityPublishProduct) {
+      return;
+    }
+
+    setSanityPublishLoading(true);
+    try {
+      if (bestBottlesGridHero) {
+        const slug = bestBottlesSlug.trim();
+        const { data, error } = await supabase.functions.invoke("push-bestbottles-grid-hero", {
+          body: {
+            imageUrl: sanityPublishImage.image_url,
+            slug,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        toast({
+          title: "Website catalog updated",
+          description: `Live product group "${slug}" now uses this image on bestbottles.com (Convex).`,
+        });
+      } else {
+        const { data, error } = await supabase.functions.invoke("push-product-to-sanity", {
+          body: {
+            productId: sanityPublishProduct!.id,
+            publish: true,
+            libraryImageUrl: sanityPublishImage.image_url,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        toast({
+          title: "Published to Sanity",
+          description:
+            "This render was uploaded to Sanity and set as the product main image (when a matching Sanity product was found).",
+        });
+      }
+
+      setSanityPublishOpen(false);
+      setSanityPublishImage(null);
+      setSanityPublishProduct(null);
+      setBestBottlesGridHero(false);
+      setBestBottlesSlug("");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unable to publish";
+      toast({ title: "Publish failed", description: message, variant: "destructive" });
+    } finally {
+      setSanityPublishLoading(false);
+    }
   };
 
   const handleConfirmHeroAssign = () => {
@@ -653,6 +733,16 @@ export default function ImageLibrary() {
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
+                              openSanityPublish(image);
+                            }}
+                            className="text-[var(--darkroom-text)] focus:bg-[var(--darkroom-border)]"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            {publishLabel}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
                               openTagsEdit(image);
                             }}
                             className="text-[var(--darkroom-text)] focus:bg-[var(--darkroom-border)]"
@@ -774,6 +864,127 @@ export default function ImageLibrary() {
                 </>
               ) : (
                 "Apply thumbnail"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={sanityPublishOpen}
+        onOpenChange={(open) => {
+          setSanityPublishOpen(open);
+          if (!open) {
+            setSanityPublishImage(null);
+            setSanityPublishProduct(null);
+            setBestBottlesGridHero(false);
+            setBestBottlesSlug("");
+          }
+        }}
+      >
+        <DialogContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Publish live</DialogTitle>
+            <DialogDescription className="text-[var(--darkroom-text)]/70">
+              Send this render to the live Best Bottles catalog (Convex), or to Sanity as a Tarife
+              fragrance <span className="font-mono">mainImage</span> via Product Hub.
+            </DialogDescription>
+          </DialogHeader>
+          {sanityPublishImage && (
+            <div className="flex gap-3 items-center">
+              <img
+                src={sanityPublishImage.image_url}
+                alt=""
+                className="w-20 h-20 rounded-md object-cover border border-[var(--darkroom-border)] shrink-0"
+              />
+              <p className="text-xs text-[var(--darkroom-text)]/60 line-clamp-4">
+                Turn on <strong className="font-medium">Catalog grid thumbnail</strong> to update the
+                live site grid for a product-group slug. Leave it off to push a Tarife fragrance hero
+                to Sanity instead.
+              </p>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--darkroom-border)] px-3 py-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="bb-grid-hero" className="text-[var(--darkroom-text)] cursor-pointer">
+                Catalog grid thumbnail
+              </Label>
+              <p className="text-[11px] text-[var(--darkroom-text)]/55 leading-snug">
+                Updates the live storefront: Convex{" "}
+                <span className="font-mono">productGroups.heroImageUrl</span> for the slug below
+                (same URL as this library image).
+              </p>
+            </div>
+            <Switch
+              id="bb-grid-hero"
+              checked={bestBottlesGridHero}
+              onCheckedChange={(v) => {
+                setBestBottlesGridHero(v);
+                if (v) setSanityPublishProduct(null);
+              }}
+            />
+          </div>
+          {bestBottlesGridHero ? (
+            <div className="space-y-2">
+              <Label htmlFor="bb-slug" className="text-[var(--darkroom-text)]">
+                Product group slug
+              </Label>
+              <Input
+                id="bb-slug"
+                value={bestBottlesSlug}
+                onChange={(e) => setBestBottlesSlug(e.target.value)}
+                placeholder="e.g. empire-50ml-clear-18-415-lotionpump"
+                className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] font-mono text-sm"
+              />
+              <p className="text-[11px] text-[var(--darkroom-text)]/50">
+                Must match <span className="font-mono">productGroups.slug</span> in Convex exactly.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label className="text-[var(--darkroom-text)]">Product Hub (Tarife / fragrance)</Label>
+              <ProductSelector
+                value={sanityPublishProduct?.name ?? ""}
+                onSelect={setSanityPublishProduct}
+                showLabel={false}
+                buttonClassName="w-full justify-between bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+              />
+              <p className="text-[11px] text-[var(--darkroom-text)]/50">
+                Matched to Sanity by the same product title as this row.
+              </p>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+              onClick={() => {
+                setSanityPublishOpen(false);
+                setSanityPublishImage(null);
+                setSanityPublishProduct(null);
+                setBestBottlesGridHero(false);
+                setBestBottlesSlug("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent-hover)] text-[var(--darkroom-bg)]"
+              disabled={
+                sanityPublishLoading ||
+                (bestBottlesGridHero ? !bestBottlesSlug.trim() : !sanityPublishProduct)
+              }
+              onClick={() => void handleConfirmSanityPublish()}
+            >
+              {sanityPublishLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Publishing…
+                </>
+              ) : (
+                "Publish live"
               )}
             </Button>
           </DialogFooter>
