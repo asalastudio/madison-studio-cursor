@@ -919,62 +919,211 @@ export function MastersTabPanel({
         )}
       </div>
 
-      {/* SCENE OVERLAY — only renders when the Master · Scene-Flexible preset
-          is selected. Background chip is the quick-start, textarea is the
-          fine-tune override. Aspect ratio + resolution let one master
-          generate as a hero, marketplace tile, or banner without leaving
-          this panel. Catalog presets stay locked at 10:11 / standard. */}
-      {isSceneFlexible && (
+      {/* FLEXIBLE OVERLAY — surfaces for Scene-Flexible, Angle, and Marketing
+          presets. Each preset reuses the aspect/resolution dropdowns and adds
+          its own preset-specific controls (background chip, angle chip strip,
+          or marketing-copy fields). Catalog presets stay locked at the
+          preset's canonical ratio / standard resolution. */}
+      {hasFlexibleOverlay && (
         <div className="space-y-3 pt-1 border-t" style={{ borderColor: "var(--darkroom-border-subtle)" }}>
           <div className="pt-2 space-y-1">
             <Label className="text-xs uppercase tracking-wider" style={{ color: "var(--darkroom-text-dim)" }}>
-              Scene overlay
+              {isAngles ? "Angle overlay" : isMarketing ? "Marketing overlay" : "Scene overlay"}
             </Label>
             <p className="text-[10px]" style={{ color: "var(--darkroom-text-dim)" }}>
-              The bottle stays locked to the reference + product spec. Pick a background, override
-              aspect ratio, or bump resolution per generation.
+              {isAngles
+                ? "The bottle's identity stays locked. Pick a camera angle below; aspect ratio and resolution can be overridden per generation."
+                : isMarketing
+                  ? "Combine the canonical bottle with typeset copy. Pick a layout, type the copy, optionally swap the background, and pivot aspect ratio per ad surface."
+                  : "The bottle stays locked to the reference + product spec. Pick a background, override aspect ratio, or bump resolution per generation."}
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
-              Background chip
-            </Label>
-            <div className="flex flex-wrap gap-1.5">
-              {BACKGROUND_PRESETS.map((bg) => {
-                const selected = sceneBackgroundPresetId === bg.id;
-                return (
-                  <button
-                    key={bg.id}
-                    type="button"
-                    onClick={() => setSceneBackgroundPresetId(selected ? null : bg.id)}
-                    className="px-2 py-1 rounded border text-[11px] transition-colors"
-                    style={{
-                      borderColor: selected ? "var(--darkroom-accent)" : "rgba(255,255,255,0.12)",
-                      background: selected ? "rgba(184, 149, 106, 0.12)" : "rgba(255,255,255,0.02)",
-                      color: selected ? "var(--darkroom-accent)" : "var(--darkroom-text-dim)",
-                    }}
-                    title={bg.description}
-                  >
-                    <span className="mr-1">{bg.icon}</span>
-                    {bg.label}
-                  </button>
-                );
-              })}
+          {/* Background chip — Scene-Flexible and Marketing both allow scene
+              swaps. Angles inherits the canonical cream plate so the chip
+              isn't surfaced. */}
+          {(isSceneFlexible || isMarketing) && (
+            <div className="space-y-1.5">
+              <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                Background chip
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {BACKGROUND_PRESETS.map((bg) => {
+                  const selected = sceneBackgroundPresetId === bg.id;
+                  return (
+                    <button
+                      key={bg.id}
+                      type="button"
+                      onClick={() => setSceneBackgroundPresetId(selected ? null : bg.id)}
+                      className="px-2 py-1 rounded border text-[11px] transition-colors"
+                      style={{
+                        borderColor: selected ? "var(--darkroom-accent)" : "rgba(255,255,255,0.12)",
+                        background: selected ? "rgba(184, 149, 106, 0.12)" : "rgba(255,255,255,0.02)",
+                        color: selected ? "var(--darkroom-accent)" : "var(--darkroom-text-dim)",
+                      }}
+                      title={bg.description}
+                    >
+                      <span className="mr-1">{bg.icon}</span>
+                      {bg.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="space-y-1.5">
-            <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
-              Custom scene (overrides chip)
-            </Label>
-            <Textarea
-              value={sceneBackgroundPrompt}
-              onChange={(e) => setSceneBackgroundPrompt(e.target.value)}
-              placeholder="e.g. natural travertine surface, soft morning daylight from a north-facing window, gentle bounce-fill from cream walls"
-              className="min-h-[60px] text-xs bg-white/[0.03] border-white/10 text-white"
-            />
-          </div>
+          {/* Custom scene textarea — same scope as the background chip. */}
+          {(isSceneFlexible || isMarketing) && (
+            <div className="space-y-1.5">
+              <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                Custom scene (overrides chip)
+              </Label>
+              <Textarea
+                value={sceneBackgroundPrompt}
+                onChange={(e) => setSceneBackgroundPrompt(e.target.value)}
+                placeholder="e.g. natural travertine surface, soft morning daylight from a north-facing window, gentle bounce-fill from cream walls"
+                className="min-h-[60px] text-xs bg-white/[0.03] border-white/10 text-white"
+              />
+            </div>
+          )}
+
+          {/* Angle chip strip — Master · Angle only. Front is the default
+              and matches the front-facing reference exactly; other chips
+              inject a CAMERA ANGLE OVERRIDE block and (if a per-angle
+              reference PNG exists) prefer that PNG via filename suffix. */}
+          {isAngles && (
+            <div className="space-y-1.5">
+              <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                Camera angle
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {ANGLE_VARIANTS.map((angle) => {
+                  const selected = selectedAngleId === angle.id;
+                  return (
+                    <button
+                      key={angle.id}
+                      type="button"
+                      onClick={() => setSelectedAngleId(angle.id)}
+                      className="px-2 py-1 rounded border text-[11px] transition-colors"
+                      style={{
+                        borderColor: selected ? "var(--darkroom-accent)" : "rgba(255,255,255,0.12)",
+                        background: selected ? "rgba(184, 149, 106, 0.12)" : "rgba(255,255,255,0.02)",
+                        color: selected ? "var(--darkroom-accent)" : "var(--darkroom-text-dim)",
+                      }}
+                      title={
+                        angle.referenceModifier
+                          ? `Per-angle reference suffix: --${angle.referenceModifier}`
+                          : "Uses the front-facing reference"
+                      }
+                    >
+                      <span className="mr-1">{angle.icon}</span>
+                      {angle.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedAngleVariant.referenceModifier && (
+                <p className="text-[10px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                  For best fidelity, drop a per-angle reference PNG named{" "}
+                  <code>
+                    {selectedProduct?.graceSku ?? "GRACE-SKU"}--{selectedAngleVariant.referenceModifier}.png
+                  </code>{" "}
+                  into the reference folder above. Falls back to the front-facing reference if absent.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Marketing-copy fields — Master · Marketing only. Headline is
+              required to inject typeset copy; everything else is optional.
+              The TYPESET COPY block is omitted entirely when no headline
+              is set, so the operator can preview a clean layout first. */}
+          {isMarketing && (
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                  Layout
+                </Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MARKETING_LAYOUT_OPTIONS.map((layout) => {
+                    const selected = marketingLayoutId === layout.id;
+                    return (
+                      <button
+                        key={layout.id}
+                        type="button"
+                        onClick={() => setMarketingLayoutId(layout.id)}
+                        className="px-2 py-1 rounded border text-[11px] transition-colors"
+                        style={{
+                          borderColor: selected ? "var(--darkroom-accent)" : "rgba(255,255,255,0.12)",
+                          background: selected ? "rgba(184, 149, 106, 0.12)" : "rgba(255,255,255,0.02)",
+                          color: selected ? "var(--darkroom-accent)" : "var(--darkroom-text-dim)",
+                        }}
+                        title={layout.description}
+                      >
+                        <span className="mr-1">{layout.icon}</span>
+                        {layout.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                  Headline (typeset on canvas)
+                </Label>
+                <Textarea
+                  value={marketingHeadline}
+                  onChange={(e) => setMarketingHeadline(e.target.value)}
+                  placeholder="Beautifully Contained."
+                  className="min-h-[40px] text-xs bg-white/[0.03] border-white/10 text-white"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                  Subhead (optional)
+                </Label>
+                <Textarea
+                  value={marketingSubhead}
+                  onChange={(e) => setMarketingSubhead(e.target.value)}
+                  placeholder="Glass attar bottles for refined fragrance houses — refillable, customizable, traceable."
+                  className="min-h-[40px] text-xs bg-white/[0.03] border-white/10 text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                    CTA (optional)
+                  </Label>
+                  <Textarea
+                    value={marketingCta}
+                    onChange={(e) => setMarketingCta(e.target.value)}
+                    placeholder="EXPLORE THE COLLECTION"
+                    className="min-h-[40px] text-[11px] bg-white/[0.03] border-white/10 text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                    Voice cue
+                  </Label>
+                  <Textarea
+                    value={marketingVoiceCue}
+                    onChange={(e) => setMarketingVoiceCue(e.target.value)}
+                    placeholder="editorial luxury, restrained"
+                    className="min-h-[40px] text-[11px] bg-white/[0.03] border-white/10 text-white"
+                  />
+                </div>
+              </div>
+
+              {marketingHeadline.trim().length === 0 && (
+                <p className="text-[10px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                  Add a headline to render typeset copy on the canvas. Without it the bottle generates clean (no copy).
+                </p>
+              )}
+            </>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">

@@ -17,7 +17,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient as createSanityClient } from "https://esm.sh/@sanity/client@6.8.6";
 import { createClient as createSupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const VERSION = "3.0.0";
+const VERSION = "3.1.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,6 +35,8 @@ interface SanityConfig {
 interface PushProductRequest {
   productId: string;
   publish?: boolean;
+  /** When set (e.g. Image Library render URL), uploads to Sanity and sets `mainImage` on the product document. */
+  libraryImageUrl?: string;
 }
 
 /**
@@ -54,6 +56,29 @@ function getSanityConfig(): SanityConfig {
   }
 
   return { projectId, dataset, token, apiVersion };
+}
+
+/**
+ * Fetch a public image URL and upload it to Sanity assets; returns a Sanity image field value.
+ */
+async function imageUrlToSanityImageField(
+  sanityClient: any,
+  imageUrl: string,
+  filenameBase: string,
+): Promise<{ _type: "image"; asset: { _type: "reference"; _ref: string } }> {
+  const imageRes = await fetch(imageUrl);
+  if (!imageRes.ok) {
+    throw new Error(`Failed to fetch image (${imageRes.status}): ${imageRes.statusText}`);
+  }
+  const imageBlob = await imageRes.blob();
+  const safe = filenameBase.replace(/[^a-z0-9_-]+/gi, "-").slice(0, 48) || "madison-library";
+  const asset = await sanityClient.assets.upload("image", imageBlob, {
+    filename: `${safe}-library.png`,
+  });
+  return {
+    _type: "image",
+    asset: { _type: "reference", _ref: asset._id },
+  };
 }
 
 /**
@@ -440,7 +465,7 @@ serve(async (req) => {
   console.log(`[push-product-to-sanity v${VERSION}] Starting...`);
 
   try {
-    const { productId, publish = false }: PushProductRequest = await req.json();
+    const { productId, publish = false, libraryImageUrl }: PushProductRequest = await req.json();
 
     if (!productId) {
       return new Response(
@@ -510,6 +535,34 @@ serve(async (req) => {
       useCdn: false,
     });
 
+    let mainImageField: { _type: "image"; asset: { _type: "reference"; _ref: string } } | null = null;
+    if (libraryImageUrl && typeof libraryImageUrl === "string" && libraryImageUrl.trim()) {
+      const trimmed = libraryImageUrl.trim();
+      if (!trimmed.startsWith("https://") && !trimmed.startsWith("http://")) {
+        return new Response(
+          JSON.stringify({ error: "libraryImageUrl must be an http(s) URL" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      try {
+        console.log(`[push-product-to-sanity] Uploading library image to Sanity: ${trimmed}`);
+        mainImageField = await imageUrlToSanityImageField(
+          sanityClient,
+          trimmed,
+          product.name || "product",
+        );
+        console.log(`[push-product-to-sanity] Library image asset: ${mainImageField.asset._ref}`);
+      } catch (imgErr: any) {
+        console.error(`[push-product-to-sanity] Library image upload failed:`, imgErr);
+        return new Response(
+          JSON.stringify({
+            error: imgErr?.message || "Failed to upload library image to Sanity",
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════════
     // FIND EXISTING PRODUCT IN SANITY BY TITLE
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -532,6 +585,9 @@ serve(async (req) => {
       console.log(`[push-product-to-sanity] ⚠️ No existing product found with title "${product.name}"`);
       // Fall back to creating a new tarifeProduct document
       const sanityDoc = transformProductToSanity(product, formulation);
+      if (mainImageField) {
+        sanityDoc.mainImage = mainImageField;
+      }
       console.log(`[push-product-to-sanity] Creating new tarifeProduct: ${sanityDoc._id}`);
       const result = await sanityClient.createOrReplace(sanityDoc);
 
@@ -553,6 +609,7 @@ serve(async (req) => {
           message: `Product "${product.name}" created as new tarifeProduct (no existing product found)`,
           formulationIncluded: !!formulation,
           isNewDocument: true,
+          mainImageFromLibrary: !!mainImageField,
         }),
         {
           status: 200,
@@ -623,6 +680,11 @@ serve(async (req) => {
       console.log(`[push-product-to-sanity] Adding occasions: ${patchData.bestOccasions.join(', ')}`);
     }
 
+    if (mainImageField) {
+      patchData.mainImage = mainImageField;
+      console.log(`[push-product-to-sanity] Setting mainImage from library render`);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════════
     // APPLY PATCH TO EXISTING DOCUMENT
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -657,6 +719,7 @@ serve(async (req) => {
         formulationIncluded: !!formulation,
         fieldsUpdated: Object.keys(patchData),
         isNewDocument: false,
+        mainImageFromLibrary: !!mainImageField,
       }),
       {
         status: 200,

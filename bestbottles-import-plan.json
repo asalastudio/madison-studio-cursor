@@ -1,0 +1,323 @@
+{
+  "generated_at": "2026-04-27T19:16:33.783331+00:00",
+  "source_csv": "/sessions/ecstatic-dreamy-noether/mnt/Best-Bottles-Website-02-20-2026/Nemat_Product_Catalog.csv",
+  "organization_id": "4ab1ac72-cd7e-4faf-9152-5aa5f2862411",
+  "total_csv_rows": 2321,
+  "mappable_rows": 2321,
+  "skipped_rows": 0,
+  "by_category": {
+    "Glass Bottle": 2074,
+    "Component": 145,
+    "Packaging": 49,
+    "Metal Atomizer": 23,
+    "Glass Jar": 17,
+    "Aluminum Bottle": 6,
+    "Plastic Bottle": 4,
+    "Accessory": 3
+  },
+  "by_family": {
+    "Cylinder": 373,
+    "Elegant": 254,
+    "Circle": 214,
+    "Sleek": 186,
+    "Round": 178,
+    "Diva": 176,
+    "Slim": 123,
+    "Boston Round": 123,
+    "Empire": 91,
+    "Rectangle": 63,
+    "Tulip": 60,
+    "Sprayer": 45,
+    "Grace": 43,
+    "Diamond": 43,
+    "Roll-On Cap": 35,
+    "Cap/Closure": 32,
+    "Royal": 30,
+    "Flair": 30,
+    "Square": 29,
+    "Vial": 24
+  },
+  "by_status": {
+    "active": 2321
+  },
+  "by_applicator": {
+    "Reducer": 334,
+    "(none)": 321,
+    "Vintage Bulb Sprayer": 288,
+    "Plastic Roller Ball": 234,
+    "Metal Roller Ball": 230,
+    "Lotion Pump": 227,
+    "Vintage Bulb Sprayer with Tassel": 199,
+    "Perfume Spray Pump": 183,
+    "Fine Mist Sprayer": 160,
+    "Dropper": 79,
+    "Atomizer": 23,
+    "N/A": 18,
+    "Cap/Closure": 13,
+    "Glass Stopper": 11,
+    "Glass Rod": 1
+  },
+  "by_glass_color": {
+    "Clear": 1443,
+    "Frosted": 407,
+    "(none)": 220,
+    "Cobalt Blue": 108,
+    "Amber": 104,
+    "Swirl": 27,
+    "Black": 5,
+    "Green": 5,
+    "Pink": 2
+  },
+  "field_coverage": {
+    "name": "2321/2321 (100%)",
+    "long_description": "2321/2321 (100%)",
+    "family": "2321/2321 (100%)",
+    "glass_color": "2101/2321 (91%)",
+    "capacity_ml": "2305/2321 (99%)",
+    "neck_thread": "2261/2321 (97%)",
+    "applicator": "2000/2321 (86%)",
+    "cap_color": "25/2321 (1%)",
+    "case_quantity": "1/2321 (0%)",
+    "height_with_cap": "19/2321 (1%)",
+    "weight_g": "1/2321 (0%)",
+    "qb_price": "17/2321 (1%)",
+    "web_price_1pc": "2318/2321 (100%)",
+    "image_url": "2287/2321 (99%)",
+    "product_url": "2321/2321 (100%)"
+  },
+  "duplicate_grace_skus": [],
+  "duplicate_total": 0,
+  "sample_rows": [
+    {
+      "organization_id": "4ab1ac72-cd7e-4faf-9152-5aa5f2862411",
+      "name": "Black slim atomizer design 5 ml bottle. For use with perfumes, Colognes, eau de Parfum. Refillable, travel size atomizer. Can be laser engraved and customized. Great for gifts and promotion. Price each",
+      "slug": "gb-slm-blk-5ml-atm-blk-t",
+      "sku": "GB-SLM-BLK-5ML-ATM-BLK-T",
+      "short_description": "Black slim atomizer design 5 ml bottle. For use with perfumes, Colognes, eau de Parfum. Refillable, travel size atomizer. Can be laser engraved and customized. Great for gifts and promotion. Price each",
+      "long_description": "Black slim atomizer design 5 ml bottle. For use with perfumes, Colognes, eau de Parfum. Refillable, travel size atomizer. Can be laser engraved and customized. Great for gifts and promotion. Price each",
+      "category": "Metal Atomizer",
+      "product_type": "Atomizer",
+      "status": "active",
+      "visibility": "internal",
+      "tags": [
+        "5-ml-(0.17-oz)",
+        "atomizer",
+        "atomizer-collection",
+        "black",
+        "packaging"
+      ],
+      "collections": [
+        "Atomizer Collection"
+      ],
+      "metadata": {
+        "bottle_specs": {
+          "family": "Atomizer",
+          "shape": null,
+          "glass_color": "Black",
+          "capacity": {
+            "ml": 5.0,
+            "oz": 0.17,
+            "display": "5 ml (0.17 oz)"
+          },
+          "neck_thread": "10mm",
+          "applicator": "Atomizer",
+          "cap": {
+            "color": null,
+            "trim_color": null,
+            "style": null,
+            "height": null
+          },
+          "ball_material": null,
+          "physical": {
+            "height_with_cap_mm": null,
+            "height_without_cap_mm": null,
+            "diameter_mm": null,
+            "weight_g": null
+          },
+          "packaging": {
+            "case_quantity": null,
+            "assembly_type": "complete-set",
+            "component_group": null,
+            "bottle_collection": "Atomizer Collection",
+            "fitment_status": null
+          },
+          "external_refs": {
+            "grace_sku": "GB-SLM-BLK-5ML-ATM-BLK-T",
+            "website_sku": "GBAtom5SlimBlk",
+            "product_id": "BB-GB-005-0010",
+            "image_url": "https://www.bestbottles.com/images/store/enlarged_pics/GBAtom5SlimBlk.gif",
+            "product_url": "https://www.bestbottles.com/product/black-slim-atomizer-design-5-ml-bottle",
+            "data_grade": null,
+            "verified": false
+          }
+        },
+        "pricing_tiers": {
+          "qb_price": null,
+          "web_price_1pc": 2.25,
+          "web_price_10pc": null,
+          "web_price_12pc": 2.14
+        },
+        "import_source": {
+          "csv": "Nemat_Product_Catalog.csv",
+          "row_id": "BB-GB-005-0010",
+          "imported_at": "2026-04-27T19:16:33.456593+00:00"
+        }
+      }
+    },
+    {
+      "organization_id": "4ab1ac72-cd7e-4faf-9152-5aa5f2862411",
+      "name": "Royal design 13ml, 1/2oz Clear glass bottle with plastic roller ball plug and silver cap with dots. For use with perfume or fragrance oil, essential oils, aromatic oils and aromatherapy. Refillable, classic style bottle good for promotions and decants. Pr",
+      "slug": "gb-ryl-clr-13ml-rol-sldt",
+      "sku": "GB-RYL-CLR-13ML-ROL-SLDT",
+      "short_description": "Royal design 13ml, 1/2oz Clear glass bottle with plastic roller ball plug and silver cap with dots. For use with perfume or fragrance oil, essential oils, aromatic oils and aromatherapy. Refillable, classic style bottle good for promotions and decants. Pr",
+      "long_description": "Royal design 13ml, 1/2oz Clear glass bottle with plastic roller ball plug and silver cap with dots. For use with perfume or fragrance oil, essential oils, aromatic oils and aromatherapy. Refillable, classic style bottle good for promotions and decants. Pr",
+      "category": "Glass Bottle",
+      "product_type": "Royal",
+      "status": "active",
+      "visibility": "internal",
+      "tags": [
+        "13-ml-(0.44-oz)",
+        "bottle",
+        "clear",
+        "packaging",
+        "plastic-roller-ball",
+        "royal"
+      ],
+      "collections": [
+        "Royal"
+      ],
+      "metadata": {
+        "bottle_specs": {
+          "family": "Royal",
+          "shape": null,
+          "glass_color": "Clear",
+          "capacity": {
+            "ml": 13.0,
+            "oz": 0.44,
+            "display": "13 ml (0.44 oz)"
+          },
+          "neck_thread": "13-415",
+          "applicator": "Plastic Roller Ball",
+          "cap": {
+            "color": null,
+            "trim_color": null,
+            "style": null,
+            "height": null
+          },
+          "ball_material": null,
+          "physical": {
+            "height_with_cap_mm": null,
+            "height_without_cap_mm": null,
+            "diameter_mm": null,
+            "weight_g": null
+          },
+          "packaging": {
+            "case_quantity": null,
+            "assembly_type": "3-part",
+            "component_group": null,
+            "bottle_collection": "Royal",
+            "fitment_status": null
+          },
+          "external_refs": {
+            "grace_sku": "GB-RYL-CLR-13ML-ROL-SLDT",
+            "website_sku": "GBRoyal13RollSlDot",
+            "product_id": "BB-GB-013-0018",
+            "image_url": "https://www.bestbottles.com/images/store/enlarged_pics/GBRoyal13RollSlDot.gif",
+            "product_url": "https://www.bestbottles.com/product/royal-design-13-ml-glass-bottle-plastic-roller-ball-plug-silver-cap-with-dots",
+            "data_grade": null,
+            "verified": false
+          }
+        },
+        "pricing_tiers": {
+          "qb_price": null,
+          "web_price_1pc": 0.81,
+          "web_price_10pc": null,
+          "web_price_12pc": 0.77
+        },
+        "import_source": {
+          "csv": "Nemat_Product_Catalog.csv",
+          "row_id": "BB-GB-013-0018",
+          "imported_at": "2026-04-27T19:16:33.458281+00:00"
+        }
+      }
+    },
+    {
+      "organization_id": "4ab1ac72-cd7e-4faf-9152-5aa5f2862411",
+      "name": "Circle design 100 ml, 3 1/2oz clear glass bottle with with a matte silver collar treatment pump and clear overcap. For use with serums, light creams, moisturizers, facial oils or face oils, beard oils, body lotions, body wash, and hair products. Circle de",
+      "slug": "lb-cir-clr-100ml-lpm-cocp",
+      "sku": "LB-CIR-CLR-100ML-LPM-COCP",
+      "short_description": "Circle design 100 ml, 3 1/2oz clear glass bottle with with a matte silver collar treatment pump and clear overcap. For use with serums, light creams, moisturizers, facial oils or face oils, beard oils, body lotions, body wash, and hair products. Circle de",
+      "long_description": "Circle design 100 ml, 3 1/2oz clear glass bottle with with a matte silver collar treatment pump and clear overcap. For use with serums, light creams, moisturizers, facial oils or face oils, beard oils, body lotions, body wash, and hair products. Circle de",
+      "category": "Glass Bottle",
+      "product_type": "Circle",
+      "status": "active",
+      "visibility": "internal",
+      "tags": [
+        "100-ml-(3.38-oz)",
+        "bottle",
+        "circle",
+        "clear",
+        "lotion-pump",
+        "packaging"
+      ],
+      "collections": [
+        "Circle"
+      ],
+      "metadata": {
+        "bottle_specs": {
+          "family": "Circle",
+          "shape": null,
+          "glass_color": "Clear",
+          "capacity": {
+            "ml": 100.0,
+            "oz": 3.38,
+            "display": "100 ml (3.38 oz)"
+          },
+          "neck_thread": "18-415",
+          "applicator": "Lotion Pump",
+          "cap": {
+            "color": null,
+            "trim_color": null,
+            "style": null,
+            "height": null
+          },
+          "ball_material": null,
+          "physical": {
+            "height_with_cap_mm": null,
+            "height_without_cap_mm": null,
+            "diameter_mm": null,
+            "weight_g": null
+          },
+          "packaging": {
+            "case_quantity": null,
+            "assembly_type": "2-part",
+            "component_group": null,
+            "bottle_collection": "Circle",
+            "fitment_status": null
+          },
+          "external_refs": {
+            "grace_sku": "LB-CIR-CLR-100ML-LPM-COCP",
+            "website_sku": "LBCrcl100LtnClOvrCap",
+            "product_id": "BB-GB-100-0324",
+            "image_url": "https://www.bestbottles.com/images/store/enlarged_pics/LBCrcl100LtnClOvrCap.gif",
+            "product_url": "https://www.bestbottles.com/product/circle-design-100-ml-glass-bottle-clear-over-the-cap-lotion-pump-matte-silver-collar-cap",
+            "data_grade": null,
+            "verified": false
+          }
+        },
+        "pricing_tiers": {
+          "qb_price": null,
+          "web_price_1pc": 3.05,
+          "web_price_10pc": null,
+          "web_price_12pc": 2.9
+        },
+        "import_source": {
+          "csv": "Nemat_Product_Catalog.csv",
+          "row_id": "BB-GB-100-0324",
+          "imported_at": "2026-04-27T19:16:33.458333+00:00"
+        }
+      }
+    }
+  ],
+  "warnings": []
+}
