@@ -19,6 +19,8 @@ import {
   Package,
   Tags,
   Loader2,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 import { MagicWand02 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,9 @@ import { cn } from "@/lib/utils";
 import { ImageEditorModal, type ImageEditorImage } from "@/components/image-editor/ImageEditorModal";
 import { ProductSelector } from "@/components/forge/ProductSelector";
 import { useProducts, type Product } from "@/hooks/useProducts";
+import { usePublishMasterToBestBottles } from "@/hooks/usePublishMasterToBestBottles";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   addLibraryTag,
   removeLibraryTag,
@@ -125,6 +130,25 @@ function matchesEmptyPlateScope(image: GeneratedImage): boolean {
   return tags.includes(BACKGROUND_SCENE_TAG);
 }
 
+function extractGraceSku(image: GeneratedImage): string | null {
+  const tags = image.library_tags ?? [];
+  for (const t of tags) {
+    if (typeof t === "string" && t.startsWith("sku:")) {
+      const sku = t.slice("sku:".length).trim();
+      if (sku) return sku;
+    }
+  }
+  return null;
+}
+
+function getPublishedBestBottlesStamp(image: GeneratedImage): string | null {
+  const tags = image.library_tags ?? [];
+  const tag = tags.find(
+    (t) => typeof t === "string" && t.startsWith("published-to-bestbottles:"),
+  );
+  return tag ? tag.slice("published-to-bestbottles:".length) : null;
+}
+
 export default function ImageLibrary() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -150,6 +174,13 @@ export default function ImageLibrary() {
   const [tagsEditImage, setTagsEditImage] = useState<GeneratedImage | null>(null);
   const [newLibraryTag, setNewLibraryTag] = useState("");
   const [tagActionLoading, setTagActionLoading] = useState(false);
+
+  // Publish approved master → Best Bottles website (Sanity asset + Convex patch)
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishImage, setPublishImage] = useState<GeneratedImage | null>(null);
+  const [publishSetAsGroupHero, setPublishSetAsGroupHero] = useState(false);
+  const [publishGroupSlug, setPublishGroupSlug] = useState("");
+  const { publishOne, isPublishing } = usePublishMasterToBestBottles();
 
   // Image editor modal
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -337,6 +368,30 @@ export default function ImageLibrary() {
     setTagsEditImage(image);
     setNewLibraryTag("");
     setTagsEditOpen(true);
+  };
+
+  const openPublish = (image: GeneratedImage) => {
+    setPublishImage(image);
+    setPublishSetAsGroupHero(false);
+    setPublishGroupSlug("");
+    setPublishOpen(true);
+  };
+
+  const handleConfirmPublish = async () => {
+    if (!publishImage) return;
+    const graceSku = extractGraceSku(publishImage);
+    if (!graceSku) return;
+    const result = await publishOne({
+      imageId: publishImage.id,
+      graceSku,
+      setAsGroupHero: publishSetAsGroupHero,
+      groupSlug: publishSetAsGroupHero ? publishGroupSlug.trim() || null : null,
+    });
+    if (result?.ok) {
+      setPublishOpen(false);
+      setPublishImage(null);
+      await refetch();
+    }
   };
 
   const handleConfirmHeroAssign = () => {
@@ -661,6 +716,19 @@ export default function ImageLibrary() {
                             Edit library tags
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            disabled={!extractGraceSku(image)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (extractGraceSku(image)) openPublish(image);
+                            }}
+                            className="text-[var(--darkroom-text)] focus:bg-[var(--darkroom-border)]"
+                          >
+                            <Send className="w-4 h-4 mr-2" />
+                            {extractGraceSku(image)
+                              ? "Publish to Best Bottles"
+                              : "Publish to Best Bottles (add sku:… tag)"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
                               handleArchive(image.id);
@@ -700,6 +768,16 @@ export default function ImageLibrary() {
                           {t.replace(/^sku:/, "")}
                         </Badge>
                       ))}
+                    {getPublishedBestBottlesStamp(image) && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-emerald-500/40 text-emerald-400 gap-1"
+                        title={`Published to Best Bottles: ${getPublishedBestBottlesStamp(image)}`}
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        Live
+                      </Badge>
+                    )}
                     </div>
                   </div>
                 </motion.div>
@@ -849,6 +927,126 @@ export default function ImageLibrary() {
               {tagActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={publishOpen}
+        onOpenChange={(open) => {
+          if (isPublishing) return;
+          setPublishOpen(open);
+          if (!open) {
+            setPublishImage(null);
+            setPublishSetAsGroupHero(false);
+            setPublishGroupSlug("");
+          }
+        }}
+      >
+        <DialogContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Publish to Best Bottles</DialogTitle>
+            <DialogDescription className="text-[var(--darkroom-text)]/70">
+              Uploads this master to Best Bottles' Sanity CDN and patches the
+              Convex product so it goes live on bestbottles.com.
+            </DialogDescription>
+          </DialogHeader>
+          {publishImage && (
+            <div className="flex gap-3 items-start">
+              <img
+                src={publishImage.image_url}
+                alt=""
+                className="w-20 h-20 rounded-md object-cover border border-[var(--darkroom-border)] shrink-0"
+              />
+              <div className="flex flex-col gap-1 text-xs">
+                <span className="text-[var(--darkroom-text)]/60">Grace SKU</span>
+                <span className="font-mono text-[var(--darkroom-accent)] truncate">
+                  {extractGraceSku(publishImage) ?? "—"}
+                </span>
+                {getPublishedBestBottlesStamp(publishImage) && (
+                  <span className="text-[var(--darkroom-text)]/50 mt-1">
+                    Last published{" "}
+                    {new Date(
+                      getPublishedBestBottlesStamp(publishImage) as string,
+                    ).toLocaleString()}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--darkroom-border)] p-3">
+            <div className="flex flex-col gap-0.5">
+              <Label
+                htmlFor="publish-group-hero"
+                className="text-sm text-[var(--darkroom-text)]"
+              >
+                Also set as catalog hero
+              </Label>
+              <span className="text-xs text-[var(--darkroom-text)]/60">
+                Lifts to the productGroup so it shows on the catalog grid.
+              </span>
+            </div>
+            <Switch
+              id="publish-group-hero"
+              checked={publishSetAsGroupHero}
+              onCheckedChange={setPublishSetAsGroupHero}
+              disabled={isPublishing}
+            />
+          </div>
+          {publishSetAsGroupHero && (
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="publish-group-slug"
+                className="text-xs text-[var(--darkroom-text)]/70"
+              >
+                Product group slug
+              </Label>
+              <Input
+                id="publish-group-slug"
+                value={publishGroupSlug}
+                onChange={(e) => setPublishGroupSlug(e.target.value)}
+                placeholder="e.g. cylinder-9ml-clear"
+                className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] font-mono text-xs"
+                disabled={isPublishing}
+              />
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+              disabled={isPublishing}
+              onClick={() => {
+                setPublishOpen(false);
+                setPublishImage(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent-hover)] text-[var(--darkroom-bg)]"
+              disabled={
+                isPublishing ||
+                !publishImage ||
+                !extractGraceSku(publishImage) ||
+                (publishSetAsGroupHero && !publishGroupSlug.trim())
+              }
+              onClick={() => void handleConfirmPublish()}
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Publishing…
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Publish
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
