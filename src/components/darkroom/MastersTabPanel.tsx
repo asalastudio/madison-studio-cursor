@@ -162,7 +162,7 @@ export function MastersTabPanel({
   const [sceneBackgroundPresetId, setSceneBackgroundPresetId] = useState<string | null>(null);
   const [sceneBackgroundPrompt, setSceneBackgroundPrompt] = useState("");
   const [sceneAspectRatio, setSceneAspectRatio] = useState<string>("10:11");
-  const [sceneResolution, setSceneResolution] = useState<"standard" | "high">("high");
+  const [sceneResolution, setSceneResolution] = useState<"standard" | "high">("standard");
   const isSceneFlexible = presetId === SCENE_FLEXIBLE_PRESET_ID;
 
   // Manual reference image override — bypasses Convex's legacy .gif imageUrl

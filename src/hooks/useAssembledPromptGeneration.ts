@@ -159,15 +159,18 @@ export function useAssembledPromptGeneration() {
             referenceImages,
             proModeControls,
             aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
-            // Resolution override is locked to standard|high — "4k" via
-            // Gemini fallback OOMs the worker (see generate-madison-image
-            // memory ceiling). Default raised from "standard" to "high"
-            // per the OpenAI gpt-image-2 prompting guide, which calls out
-            // "high" as the right setting for identity-sensitive edits and
-            // high-fidelity catalog output. Catalog masters qualify on
-            // both counts; the latency cost is acceptable for the quality
-            // lift on cap textures, glass refraction, and neck threads.
-            resolution: options.sceneOverlay?.resolutionOverride ?? "high",
+            // Resolution override is locked to standard|high. "high" gives
+            // visibly better cap-texture / refraction / neck-thread detail
+            // per the OpenAI gpt-image-2 guide, BUT on the larger 2080×2288
+            // canvas it pushes past the Supabase gateway timeout (504 GW
+            // Timeout, observed 2026-04-26). Default reverted to "standard"
+            // so single-generate stays responsive; operator can opt into
+            // "high" per-generation via the Scene-Flexible preset's
+            // resolution dropdown when fidelity matters more than latency.
+            // Future fix: lengthen the edge function / gateway timeout, or
+            // stream the response so high-resolution returns aren't
+            // gated by wall-clock budget.
+            resolution: options.sceneOverlay?.resolutionOverride ?? "standard",
             // Background overlay flows through the same fields Dark Room
             // uses; the edge function's Director Mode appends them as a
             // BACKGROUND STYLE block ahead of the bottle's product spec.
