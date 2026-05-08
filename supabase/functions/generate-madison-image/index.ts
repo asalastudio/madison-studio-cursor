@@ -4,7 +4,6 @@ import { encode, decode } from "https://deno.land/std@0.168.0/encoding/base64.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { formatVisualContext } from "../_shared/productFieldFilters.ts";
 import { callGeminiImage } from "../_shared/aiProviders.ts";
-import { conformImageToAspectRatio, containImageOnCanvas } from "../_shared/imageAspectRatio.ts";
 import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, type OpenAIImageModel } from "../_shared/openaiProvider.ts";
@@ -16,12 +15,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const BEST_BOTTLES_BONE_CANVAS_RGBA = 0xF5F3EFFF;
+
 function getExactCanvasForAspectRatio(aspectRatio?: string): { width: number; height: number } | null {
   const normalized = aspectRatio?.trim().toLowerCase().replace(/\s+/g, "");
   if (normalized === "10:11" || normalized === "2080:2288" || normalized === "2080x2288") {
     return { width: 2080, height: 2288 };
   }
   return null;
+}
+
+async function conformGeneratedImage(
+  base64Image: string,
+  aspectRatio: string | undefined,
+  exactCanvas: { width: number; height: number } | null,
+  backgroundColor?: number,
+) {
+  const { conformImageToAspectRatio, containImageOnCanvas } = await import("../_shared/imageAspectRatio.ts");
+  return exactCanvas
+    ? containImageOnCanvas(base64Image, exactCanvas.width, exactCanvas.height, backgroundColor)
+    : conformImageToAspectRatio(base64Image, aspectRatio);
 }
 
 function buildReferenceLockedBestBottlesPrompt(
@@ -55,20 +68,20 @@ function buildReferenceLockedBestBottlesPrompt(
   return [
     "REFERENCE-LOCKED BEST BOTTLES LUXURY PRODUCT PHOTOGRAPHY V5.1.",
     "",
-    "Task: transform the uploaded real product reference into a photorealistic high-end editorial PDP master. The product geometry, proportions, colors, component shapes, camera angle, and material identity are locked. The source crop, flat white background, weak lighting, missing shadow, and extracted-PNG look are not locked.",
+    "Task: transform the uploaded real product reference into a photorealistic high-end editorial PDP master. The product geometry, proportions, colors, component shapes, camera angle, material identity, canvas placement, centerline, baseline, and scale are locked. The flat white source background, weak lighting, missing shadow, and extracted-PNG look are not locked.",
     "",
     "SOURCE OF TRUTH:",
     "- Use Image 1 only as the product reference: exact bottle body, bulb, hose, tassel, cap, trim, dip tube, glass thickness, silhouette, proportions, component relationships, colors, and material identity.",
-    "- Preserve the source camera angle and product component relationships. Do not redesign, redraw, recolor, rotate, stretch, simplify, or reinterpret the product.",
-    "- Do not preserve the reference image's tight crop, flat lighting, pure-white background, weak shadow, or low-end capture finish. Re-stage the same product as a luxury catalog photograph.",
+    "- Preserve the source camera angle, product component relationships, bounding-box footprint, centerline, baseline, and relative scale inside the 2080 x 2288 canvas. Do not redesign, redraw, recolor, rotate, stretch, simplify, recenter, zoom, crop, or reinterpret the product.",
+    "- Do not preserve the reference image's flat lighting, pure-white background, weak shadow, or low-end capture finish. Re-stage the same locked product as a luxury catalog photograph without moving it.",
     "- For perfume spray pump references, preserve the exact cap state: if the actuator/nozzle is exposed and a detached cap is visible beside the bottle, keep both exactly as photographed. Do not add, remove, close, or relocate the cap.",
     "- Keep the full product visible, including full bulb and full tassel.",
     "",
     "CANVAS AND COMPOSITION:",
     "- Canvas: exact 2080 x 2288, 10:11 portrait PDP master.",
-    "- Fit the full product assembly comfortably inside the frame with generous breathing room. No cap, bulb, hose, bottle base, tassel strands, or tassel end may touch or leave the canvas.",
-    "- Preserve the camera angle and component relationships, but allow refined catalog placement and scale so the product feels intentionally composed, not cropped from a source file.",
-    "- Bottle body should feel large and premium but not oversized; full applicator and tassel must remain visible.",
+    "- The uploaded reference canvas is the placement lock. Preserve the same product centerline, baseline, bounding-box footprint, side padding, top padding, and bottom padding.",
+    "- No cap, bulb, hose, bottle base, tassel strands, shadow, detached cap, or tassel end may touch or leave the canvas.",
+    "- Do not recompose or normalize the product to a new fill percentage. The image must read like the same product photo professionally retouched.",
     "",
     "PHOTOGRAPHIC STYLE:",
     "- Photorealistic luxury product photography, as if captured on a Hasselblad medium-format studio camera with a 100mm macro/product lens at f/8–f/11, ISO 100, tripod-stable capture, high dynamic range, controlled exposure, crisp edge acuity, and realistic optical compression.",
@@ -86,7 +99,7 @@ function buildReferenceLockedBestBottlesPrompt(
     "- Textile: sharper weave/thread detail in hose, bulb, and tassel; tactile dimensional softness; locked textile color remains accurate and rich, not crushed or gray.",
     "",
     "BACKGROUND AND SHADOW:",
-    "- Replace background with seamless warm parchment cream #EEE6D4. It must visibly read as warm cream, not white, with no horizon line, tabletop edge, vignette, props, labels, or decorative frame.",
+    "- Replace background with seamless Best Bottles Bone #F5F3EF. It must visibly read as warm cream, not white, with no horizon line, tabletop edge, vignette, props, labels, or decorative frame.",
     "- Add physically plausible grounding: visible soft contact shadow and ambient occlusion under bottle base, bulb, tassel, and hose contact points. Shadow should be elegant but present, about 18–28% opacity at contact points, feathering outward naturally.",
     "- Remove only dirt, low-quality capture artifacts, jagged edges, compression noise, and background contamination outside the product silhouette.",
     "",
@@ -1753,8 +1766,7 @@ serve(async (req) => {
           prompt: enhancedPrompt,
           model: effectiveOpenAIModel,
           aspectRatio,
-          resolution: isBestBottlesReferenceLocked ? "high" : resolution,
-          quality: isBestBottlesReferenceLocked ? "high" : undefined,
+          resolution,
           size: isBestBottlesReferenceLocked ? "auto" : undefined,
           referenceImages: referenceImagesPayload.length > 0
             ? referenceImagesPayload
@@ -1763,23 +1775,37 @@ serve(async (req) => {
         });
 
         const exactCanvas = getExactCanvasForAspectRatio(aspectRatio);
-        const openaiImage = exactCanvas
-          ? await containImageOnCanvas(
-              openaiResult.imageBase64,
-              exactCanvas.width,
-              exactCanvas.height,
-            )
-          : await conformImageToAspectRatio(openaiResult.imageBase64, aspectRatio);
-        const openaiImageBase64 = openaiImage.base64;
-        const openaiMimeType = openaiImage.wasModified ? "image/png" : openaiResult.mimeType;
+        let openaiImageBase64 = openaiResult.imageBase64;
+        let openaiMimeType = openaiResult.mimeType;
 
-        console.log("🖼️ OpenAI canvas conformance:", {
-          requested: aspectRatio,
-          exactCanvas: exactCanvas ? `${exactCanvas.width}×${exactCanvas.height}` : "(aspect only)",
-          originalDimensions: `${openaiImage.originalWidth}×${openaiImage.originalHeight}`,
-          finalDimensions: `${openaiImage.width}×${openaiImage.height}`,
-          modified: openaiImage.wasModified,
-        });
+        if (exactCanvas && isBestBottlesReferenceLocked) {
+          // A 2080×2288 decode + contain + PNG re-encode can exhaust Supabase
+          // Edge Function CPU/memory and return 546 before our catch block runs.
+          // Keep the function as a coordinator on this path; the prompt/provider
+          // carries the PDP canvas instruction.
+          console.log("🖼️ OpenAI canvas conformance skipped for Best Bottles reference-locked run", {
+            requested: aspectRatio,
+            targetCanvas: `${exactCanvas.width}×${exactCanvas.height}`,
+            reason: "avoid edge WORKER_LIMIT during ImageScript resize/re-encode",
+          });
+        } else {
+          const openaiImage = await conformGeneratedImage(
+            openaiResult.imageBase64,
+            aspectRatio,
+            exactCanvas,
+            isBestBottlesReferenceLocked ? BEST_BOTTLES_BONE_CANVAS_RGBA : undefined,
+          );
+          openaiImageBase64 = openaiImage.base64;
+          openaiMimeType = openaiImage.wasModified ? "image/png" : openaiResult.mimeType;
+
+          console.log("🖼️ OpenAI canvas conformance:", {
+            requested: aspectRatio,
+            exactCanvas: exactCanvas ? `${exactCanvas.width}×${exactCanvas.height}` : "(aspect only)",
+            originalDimensions: `${openaiImage.originalWidth}×${openaiImage.originalHeight}`,
+            finalDimensions: `${openaiImage.width}×${openaiImage.height}`,
+            modified: openaiImage.wasModified,
+          });
+        }
 
         // Write base64 bytes to Supabase Storage. Pipeline-aware filename
         // when launched from the Grid Pipeline; UUID path otherwise.
@@ -1921,18 +1947,31 @@ serve(async (req) => {
       // requested aspect ratio via native config. For Best Bottles catalog
       // product masters, conform all saved images to the canonical PDP canvas.
       const exactCanvas = getExactCanvasForAspectRatio(aspectRatio);
-      const conformed = exactCanvas
-        ? await containImageOnCanvas(rawBase64Image, exactCanvas.width, exactCanvas.height)
-        : await conformImageToAspectRatio(rawBase64Image, aspectRatio);
-      const base64Image = conformed.base64;
+      let base64Image = rawBase64Image;
 
-      console.log("🖼️ Gemini aspect-ratio conformance:", {
-        requested: aspectRatio,
-        exactCanvas: exactCanvas ? `${exactCanvas.width}×${exactCanvas.height}` : "(aspect only)",
-        originalDimensions: `${conformed.originalWidth}×${conformed.originalHeight}`,
-        finalDimensions: `${conformed.width}×${conformed.height}`,
-        cropped: conformed.wasModified,
-      });
+      if (exactCanvas && isBestBottlesReferenceLocked) {
+        console.log("🖼️ Gemini canvas conformance skipped for Best Bottles reference-locked run", {
+          requested: aspectRatio,
+          targetCanvas: `${exactCanvas.width}×${exactCanvas.height}`,
+          reason: "avoid edge WORKER_LIMIT during ImageScript resize/re-encode",
+        });
+      } else {
+        const conformed = await conformGeneratedImage(
+          rawBase64Image,
+          aspectRatio,
+          exactCanvas,
+          isBestBottlesReferenceLocked ? BEST_BOTTLES_BONE_CANVAS_RGBA : undefined,
+        );
+        base64Image = conformed.base64;
+
+        console.log("🖼️ Gemini aspect-ratio conformance:", {
+          requested: aspectRatio,
+          exactCanvas: exactCanvas ? `${exactCanvas.width}×${exactCanvas.height}` : "(aspect only)",
+          originalDimensions: `${conformed.originalWidth}×${conformed.originalHeight}`,
+          finalDimensions: `${conformed.width}×${conformed.height}`,
+          cropped: conformed.wasModified,
+        });
+      }
 
       // Upload Gemini's base64 image to Supabase Storage. Pipeline-aware
       // path when launched from the Grid Pipeline; UUID path otherwise.
