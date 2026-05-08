@@ -251,6 +251,42 @@ function buildBestBottlesApplicatorPromptRules(
   };
 }
 
+function buildBestBottlesGlassPackshotRules(
+  productContext?: Record<string, unknown> | null,
+): string[] {
+  const productText = [
+    productContext?.name,
+    productContext?.collection,
+    productContext?.category,
+    productContext?.sku,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  const rules = [
+    "LOCK GEOMETRY, RELIGHT MATERIAL: the reference locks silhouette, proportions, facets, cap shape, camera angle, and placement; it does not lock poor exposure, weak contrast, flat white fill, silhouetted glass, missing refraction, or low-end capture quality.",
+    "Do not perform a simple background cleanup or silhouette trace. Reconstruct the same bottle as a true luxury e-commerce pack shot inside the exact same outline.",
+    "Clear glass must not disappear into the Bone background. It needs visible optical structure: inner wall lines, back-wall refraction, rim thickness, shoulder thickness, base mass, bevel glints, small caustics, and subtle gray/cream tonal separation inside the glass.",
+    "Use product-photography cards: controlled black-card edge lines on left/right glass boundaries and inner facets, white-card specular highlights on bevels and shoulders, and transmitted warm backlight through the bottle. Reflections should describe shape, not become broad white glare.",
+    "The body should read as transparent glass with volume, not a white cutout, not a blank void, not a traced outline, and not milky plastic.",
+    "Retouching intensity target: premium commercial retouch, enough to visibly improve fidelity and polish while preserving every structural edge from Image 1.",
+  ];
+
+  if (
+    productText.includes("diamond") ||
+    productText.includes("faceted") ||
+    productText.includes("facet")
+  ) {
+    rules.push(
+      "DIAMOND/FACETED BOTTLE REQUIREMENT: preserve the exact central diamond panel and all diagonal bevel geometry from Image 1. The diagonal facet ridges, corner prisms, inner diamond edges, and thick base facets must remain readable through refraction and edge highlights.",
+      "The central diamond panel cannot be an empty white diamond. Add subtle refracted background bend, soft gray edge density, tiny bevel highlights, and shadowed internal facet lines so it reads as cut glass with depth.",
+    );
+  }
+
+  return rules;
+}
+
 function buildReferenceLockedBestBottlesPrompt(
   categorizedRefs: CategorizedReferences,
   aspectRatio?: string,
@@ -262,6 +298,7 @@ function buildReferenceLockedBestBottlesPrompt(
     .filter((line): line is string => Boolean(line))
     .join("\n");
   const applicatorRules = buildBestBottlesApplicatorPromptRules(productContext);
+  const glassPackshotRules = buildBestBottlesGlassPackshotRules(productContext);
   const expectedColor = [
     typeof productContext?.capColor === "string" ? `${applicatorRules.colorLabel}: ${productContext.capColor}` : null,
     typeof productContext?.trimColor === "string" ? `Trim metal: ${productContext.trimColor}` : null,
@@ -285,6 +322,9 @@ function buildReferenceLockedBestBottlesPrompt(
     "",
     "Task: transform the uploaded real product reference into a photorealistic high-end editorial PDP master. The product geometry, proportions, colors, component shapes, camera angle, material identity, canvas placement, centerline, baseline, and scale are locked. The flat white source background, weak lighting, missing shadow, and extracted-PNG look are not locked.",
     "",
+    "GEOMETRY LOCK VS PACK-SHOT UPGRADE:",
+    ...glassPackshotRules.map((rule) => `- ${rule}`),
+    "",
     "SOURCE OF TRUTH:",
     `- Use Image 1 only as the product reference: ${applicatorRules.sourceTruth}`,
     "- Preserve the source camera angle, product component relationships, bounding-box footprint, centerline, baseline, and relative scale inside the 2080 x 2288 canvas. Do not redesign, redraw, recolor, rotate, stretch, simplify, recenter, zoom, crop, or reinterpret the product.",
@@ -304,7 +344,8 @@ function buildReferenceLockedBestBottlesPrompt(
     "",
     "LIGHTING:",
     "- Use professional glass-product lighting, not flat front lighting.",
-    "- Soft warm key light from upper front-left, gentle negative fill, large diffused backlight through the glass, subtle side rim lights/strip reflections to define edges, black cards/flags creating controlled dark edge lines, and white reflection cards creating clean specular highlights.",
+    "- Soft warm key light from upper front-left, gentle negative fill, large diffused backlight through the glass, subtle side strip reflections to define edges, black cards/flags creating controlled dark edge lines, and white reflection cards creating clean specular highlights.",
+    "- Keep the Bone background flat and quiet; put the visual drama inside the product through reflections, refractions, edge density, base caustics, cap texture, and shadow.",
     "- The glass should be defined by transmitted light, rim light, refraction, and edge reflections.",
     "",
     "MATERIAL ENHANCEMENT:",
@@ -322,6 +363,7 @@ function buildReferenceLockedBestBottlesPrompt(
     ...applicatorRules.forbiddenLines,
     "- No heavy/long/hard shadow, dark smear, doubled shadow, horizon line, tabletop edge, or obvious floor plane.",
     "- No fake bevels, extra facets, broad central CGI stripe, softened/melted edges, or plastic-looking glass.",
+    "- No blank white glass body, no empty white central panel, no silhouette-only cutout, no line-art outline, no low-contrast glass that disappears into the background.",
     "- No label, text, badge, watermark, brand name, UI pill, card frame, rounded border, props, hands, flowers, spray mist, pure-white cutout look, tabletop edge, vignette, or decorative canvas treatment.",
     "",
     cleanOperatorRefinement
