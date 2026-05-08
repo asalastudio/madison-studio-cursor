@@ -114,10 +114,9 @@ export function useAssembledPromptGeneration() {
     const sessionId = options.sessionId ?? uuidv4();
 
     // Best Bottles Convex stores `imageUrl` as .gif (legacy bestbottles.com
-    // thumbnails). The reference-locked PDP flow expects PNG/JPEG product
-    // references, so we skip unsupported formats rather than ship a broken
-    // reference. The SKU data block is rich enough to produce a good output
-    // without a visual reference; future work can PNG-convert upstream.
+    // thumbnails). The reference-locked PDP flow needs a fetchable product
+    // reference. GPT image edits accepts PNG, JPG, and WebP inputs, so only
+    // skip formats the provider path cannot reliably pass through.
     //
     // Reference shape: the edge function's `categorizeReferences` keys off
     // `ref.url` and `ref.label`. Sending a bare URL string silently fails
@@ -125,7 +124,7 @@ export function useAssembledPromptGeneration() {
     // actually sees the reference. Always pass objects.
     const rawRef = options.referenceImageUrl?.trim() || "";
     const refIsSupported =
-      rawRef.length > 0 && !/\.(gif|webp|heic|bmp)(\?|$)/i.test(rawRef);
+      rawRef.length > 0 && !/\.(gif|heic|bmp)(\?|$)/i.test(rawRef);
     const referenceImages = refIsSupported
       ? [
           {

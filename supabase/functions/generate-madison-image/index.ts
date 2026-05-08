@@ -1255,11 +1255,14 @@ serve(async (req) => {
           : null,
       );
       if (measurementIssue) {
-        return new Response(
-          JSON.stringify({
-            error: `Best Bottles master generation blocked: ${measurementIssue}`,
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        console.warn(
+          "[generate-madison-image] Best Bottles measurement metadata incomplete; continuing with reference lock.",
+          {
+            measurementIssue,
+            sku: productContext && typeof productContext === "object"
+              ? (productContext as Record<string, unknown>).sku
+              : undefined,
+          },
         );
       }
     }
