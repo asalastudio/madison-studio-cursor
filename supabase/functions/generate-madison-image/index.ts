@@ -37,6 +37,220 @@ async function conformGeneratedImage(
     : conformImageToAspectRatio(base64Image, aspectRatio);
 }
 
+interface BestBottlesApplicatorPromptRules {
+  colorLabel: string;
+  sourceTruth: string;
+  fullVisibility: string;
+  canvasBounds: string;
+  glassMaterialLine: string;
+  fitmentMaterialLine: string;
+  textileMaterialLine?: string;
+  shadowContact: string;
+  forbiddenLines: string[];
+}
+
+function buildBestBottlesApplicatorPromptRules(
+  productContext?: Record<string, unknown> | null,
+): BestBottlesApplicatorPromptRules {
+  const applicator = typeof productContext?.applicator === "string"
+    ? productContext.applicator.trim()
+    : "";
+  const label = applicator || "the referenced closure/fitment";
+  const normalized = label.toLowerCase();
+
+  const hasTassel = normalized.includes("tassel");
+  const hasBulb = hasTassel || normalized.includes("bulb");
+  const isStopper =
+    normalized.includes("stopper") ||
+    normalized.includes("glass rod") ||
+    normalized.includes("ground glass");
+  const isDropper = normalized.includes("dropper");
+  const isRoller = normalized.includes("roller");
+  const isSprayer =
+    !hasBulb &&
+    (
+      normalized.includes("spray") ||
+      normalized.includes("sprayer") ||
+      normalized.includes("atomizer") ||
+      normalized.includes("mist") ||
+      normalized.includes("pump")
+    );
+  const isCapOrReducer =
+    normalized.includes("cap") ||
+    normalized.includes("closure") ||
+    normalized.includes("reducer");
+
+  const sharedNoAddedAtomizer =
+    "- No added bulb, hose, tassel, atomizer, spray actuator, pump, dip tube, or detached cap unless that exact component is visibly present in Image 1.";
+
+  if (hasTassel) {
+    return {
+      colorLabel: "Cap / hose / bulb / tassel color",
+      sourceTruth:
+        "exact bottle body, bulb, hose, tassel, cap/collar, trim, dip tube if visible, glass thickness, silhouette, proportions, component relationships, colors, and material identity.",
+      fullVisibility: "Keep the full product visible, including full bulb, hose, and tassel.",
+      canvasBounds:
+        "No cap, bulb, hose, bottle base, tassel strands, shadow, detached cap, or tassel end may touch or leave the canvas.",
+      glassMaterialLine:
+        "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, visible separation between front wall, back wall, and dip tube if present. No fake bevels or plastic glass.",
+      fitmentMaterialLine:
+        "- Cap/collar/metal: preserve the exact bulb-sprayer collar, connector rings, trim finish, and cap state from Image 1; polish metal with nuanced black/white reflection-card gradients, realistic depth, and no broad CGI stripe.",
+      textileMaterialLine:
+        "- Textile: sharper weave/thread detail in hose, bulb, and tassel; tactile dimensional softness; locked textile color remains accurate and rich, not crushed or gray.",
+      shadowContact: "bottle base, bulb, tassel, and hose contact points",
+      forbiddenLines: [
+        "- No new colors, color drift, substituted cap/tassel colors, changed textile color, changed metal finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
+        "- No zoomed-in crop, scale inflation, cropped tassel, cropped bulb, or product edge touching the canvas.",
+      ],
+    };
+  }
+
+  if (hasBulb) {
+    return {
+      colorLabel: "Cap / hose / bulb color",
+      sourceTruth:
+        "exact bottle body, bulb, hose, cap/collar, trim, dip tube if visible, glass thickness, silhouette, proportions, component relationships, colors, and material identity. No tassel may be added unless Image 1 shows one.",
+      fullVisibility: "Keep the full product visible, including full bulb and hose.",
+      canvasBounds:
+        "No cap, bulb, hose, bottle base, shadow, detached cap, or product edge may touch or leave the canvas.",
+      glassMaterialLine:
+        "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, visible separation between front wall, back wall, and dip tube if present. No fake bevels or plastic glass.",
+      fitmentMaterialLine:
+        "- Cap/collar/metal: preserve the exact bulb-sprayer collar, connector rings, trim finish, and cap state from Image 1; polish metal with nuanced black/white reflection-card gradients, realistic depth, and no broad CGI stripe.",
+      textileMaterialLine:
+        "- Textile: sharper weave/thread detail in hose and bulb; tactile dimensional softness; locked textile color remains accurate and rich, not crushed or gray. No tassel unless Image 1 shows one.",
+      shadowContact: "bottle base, bulb, and hose contact points",
+      forbiddenLines: [
+        "- No new colors, color drift, substituted cap/bulb colors, changed textile color, changed metal finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
+        "- No zoomed-in crop, scale inflation, cropped bulb, added tassel, or product edge touching the canvas.",
+      ],
+    };
+  }
+
+  if (isStopper) {
+    return {
+      colorLabel: "Glass stopper / closure color",
+      sourceTruth:
+        `exact bottle body, ${label}, glass thickness, silhouette, proportions, component relationships, colors, and material identity. Preserve the solid ground-glass stopper/plug form exactly; no bulb, hose, tassel, atomizer, pump, spray actuator, or dip tube may be added.`,
+      fullVisibility: `Keep the full product visible, including the full ${label} and bottle base.`,
+      canvasBounds:
+        `No ${label}, bottle base, shadow, or product edge may touch or leave the canvas.`,
+      glassMaterialLine:
+        "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip, stopper, and base, realistic base weight, and visible separation between front and back walls. No fake bevels, plastic glass, or invented dip tube.",
+      fitmentMaterialLine:
+        `- Stopper/closure: preserve the exact ${label} shape from Image 1: solid glass, tapered ground-glass plug seated in the neck, decorative finial top as photographed, no mechanism, no tube, no sprayer, no bulb, no hose, no tassel.`,
+      shadowContact: "bottle base and any stopper/closure contact points visible in the reference",
+      forbiddenLines: [
+        "- No new colors, color drift, substituted stopper/closure color, changed glass finish, new bottle shape, changed angle, changed stopper height, changed body width/depth, or changed product proportions.",
+        "- No zoomed-in crop, scale inflation, cropped stopper, cropped bottle base, or product edge touching the canvas.",
+        sharedNoAddedAtomizer,
+      ],
+    };
+  }
+
+  if (isDropper) {
+    return {
+      colorLabel: "Dropper / cap color",
+      sourceTruth:
+        "exact bottle body, dropper collar, rubber bulb, glass pipette, trim, glass thickness, silhouette, proportions, component relationships, colors, and material identity. No hose, tassel, atomizer, or sprayer may be added.",
+      fullVisibility: "Keep the full product visible, including the full dropper assembly and bottle base.",
+      canvasBounds:
+        "No dropper, pipette, bottle base, shadow, or product edge may touch or leave the canvas.",
+      glassMaterialLine:
+        "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, and exact pipette shape if visible. No fake bevels or plastic glass.",
+      fitmentMaterialLine:
+        "- Dropper: preserve the exact collar, rubber bulb, and glass pipette from Image 1; no sprayer, atomizer, hose, bulb sprayer, or tassel.",
+      shadowContact: "bottle base and dropper contact points visible in the reference",
+      forbiddenLines: [
+        "- No new colors, color drift, substituted dropper/cap colors, changed metal or rubber finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
+        "- No zoomed-in crop, scale inflation, cropped dropper, or product edge touching the canvas.",
+        sharedNoAddedAtomizer,
+      ],
+    };
+  }
+
+  if (isRoller) {
+    return {
+      colorLabel: "Roller / cap color",
+      sourceTruth:
+        "exact bottle body, roller ball plug, over-cap if present, trim, glass thickness, silhouette, proportions, component relationships, colors, and material identity. No hose, tassel, atomizer, pump, sprayer, or dip tube may be added.",
+      fullVisibility: "Keep the full product visible, including the roller/cap assembly and bottle base.",
+      canvasBounds:
+        "No roller/cap assembly, bottle base, shadow, or product edge may touch or leave the canvas.",
+      glassMaterialLine:
+        "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, and visible separation between front and back walls. No fake bevels or plastic glass.",
+      fitmentMaterialLine:
+        "- Roller/cap: preserve the exact roller ball plug, over-cap state, and closure color from Image 1; no sprayer, bulb, hose, tassel, or dip tube.",
+      shadowContact: "bottle base and roller/cap contact points visible in the reference",
+      forbiddenLines: [
+        "- No new colors, color drift, substituted roller/cap colors, changed finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
+        "- No zoomed-in crop, scale inflation, cropped roller/cap, or product edge touching the canvas.",
+        sharedNoAddedAtomizer,
+      ],
+    };
+  }
+
+  if (isSprayer) {
+    return {
+      colorLabel: "Sprayer / pump / cap color",
+      sourceTruth:
+        `exact bottle body, ${label}, actuator/nozzle/collar, trim, dip tube if visible, glass thickness, silhouette, proportions, component relationships, colors, and material identity. No bulb, hose, or tassel may be added unless Image 1 shows them.`,
+      fullVisibility: `Keep the full product visible, including the full ${label} and bottle base.`,
+      canvasBounds:
+        `No ${label}, actuator/nozzle, bottle base, shadow, detached cap, or product edge may touch or leave the canvas.`,
+      glassMaterialLine:
+        "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, visible separation between front wall, back wall, and dip tube if present. No fake bevels or plastic glass.",
+      fitmentMaterialLine:
+        `- Sprayer/pump: preserve the exact ${label}, actuator, nozzle, collar, cap state, and trim finish from Image 1; no bulb, hose, or tassel unless Image 1 shows them.`,
+      shadowContact: "bottle base and sprayer/pump contact points visible in the reference",
+      forbiddenLines: [
+        "- No new colors, color drift, substituted sprayer/cap colors, changed metal or plastic finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
+        "- No zoomed-in crop, scale inflation, cropped sprayer/pump, added bulb, added hose, added tassel, or product edge touching the canvas.",
+      ],
+    };
+  }
+
+  if (isCapOrReducer) {
+    return {
+      colorLabel: "Cap / closure color",
+      sourceTruth:
+        `exact bottle body, ${label}, trim, glass thickness, silhouette, proportions, component relationships, colors, and material identity. No mechanism, bulb, hose, tassel, sprayer, pump, or dip tube may be added unless Image 1 shows one.`,
+      fullVisibility: `Keep the full product visible, including the full ${label} and bottle base.`,
+      canvasBounds:
+        `No ${label}, bottle base, shadow, or product edge may touch or leave the canvas.`,
+      glassMaterialLine:
+        "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, and visible separation between front and back walls. No fake bevels, plastic glass, or invented dip tube.",
+      fitmentMaterialLine:
+        `- Closure: preserve the exact ${label} shape, finish, height, and cap state from Image 1; no added mechanism or ornamentation.`,
+      shadowContact: "bottle base and closure contact points visible in the reference",
+      forbiddenLines: [
+        "- No new colors, color drift, substituted closure color, changed finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
+        "- No zoomed-in crop, scale inflation, cropped closure, or product edge touching the canvas.",
+        sharedNoAddedAtomizer,
+      ],
+    };
+  }
+
+  return {
+    colorLabel: "Closure / fitment color",
+    sourceTruth:
+      `exact bottle body, ${label}, trim, glass thickness, silhouette, proportions, component relationships, colors, and material identity. Only render components that are visible in Image 1.`,
+    fullVisibility: "Keep the full referenced product visible, including every component that is visible in Image 1.",
+    canvasBounds:
+      "No referenced component, bottle base, shadow, or product edge may touch or leave the canvas.",
+    glassMaterialLine:
+      "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, and visible separation between front and back walls. No fake bevels or plastic glass.",
+    fitmentMaterialLine:
+      `- Closure/fitment: preserve the exact ${label} shape, finish, cap state, and placement from Image 1; do not invent missing components.`,
+    shadowContact: "bottle base and any referenced component contact points",
+    forbiddenLines: [
+      "- No new colors, color drift, substituted closure/fitment colors, changed finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
+      "- No zoomed-in crop, scale inflation, cropped closure/fitment, or product edge touching the canvas.",
+      sharedNoAddedAtomizer,
+    ],
+  };
+}
+
 function buildReferenceLockedBestBottlesPrompt(
   categorizedRefs: CategorizedReferences,
   aspectRatio?: string,
@@ -47,8 +261,9 @@ function buildReferenceLockedBestBottlesPrompt(
     .map((ref, idx) => ref.description ? `Reference ${idx + 1}: ${ref.description}` : null)
     .filter((line): line is string => Boolean(line))
     .join("\n");
+  const applicatorRules = buildBestBottlesApplicatorPromptRules(productContext);
   const expectedColor = [
-    typeof productContext?.capColor === "string" ? `Cap / hose / bulb / tassel color: ${productContext.capColor}` : null,
+    typeof productContext?.capColor === "string" ? `${applicatorRules.colorLabel}: ${productContext.capColor}` : null,
     typeof productContext?.trimColor === "string" ? `Trim metal: ${productContext.trimColor}` : null,
     typeof productContext?.applicator === "string" ? `Applicator: ${productContext.applicator}` : null,
   ].filter(Boolean).join("\n");
@@ -71,16 +286,16 @@ function buildReferenceLockedBestBottlesPrompt(
     "Task: transform the uploaded real product reference into a photorealistic high-end editorial PDP master. The product geometry, proportions, colors, component shapes, camera angle, material identity, canvas placement, centerline, baseline, and scale are locked. The flat white source background, weak lighting, missing shadow, and extracted-PNG look are not locked.",
     "",
     "SOURCE OF TRUTH:",
-    "- Use Image 1 only as the product reference: exact bottle body, bulb, hose, tassel, cap, trim, dip tube, glass thickness, silhouette, proportions, component relationships, colors, and material identity.",
+    `- Use Image 1 only as the product reference: ${applicatorRules.sourceTruth}`,
     "- Preserve the source camera angle, product component relationships, bounding-box footprint, centerline, baseline, and relative scale inside the 2080 x 2288 canvas. Do not redesign, redraw, recolor, rotate, stretch, simplify, recenter, zoom, crop, or reinterpret the product.",
     "- Do not preserve the reference image's flat lighting, pure-white background, weak shadow, or low-end capture finish. Re-stage the same locked product as a luxury catalog photograph without moving it.",
     "- For perfume spray pump references, preserve the exact cap state: if the actuator/nozzle is exposed and a detached cap is visible beside the bottle, keep both exactly as photographed. Do not add, remove, close, or relocate the cap.",
-    "- Keep the full product visible, including full bulb and full tassel.",
+    `- ${applicatorRules.fullVisibility}`,
     "",
     "CANVAS AND COMPOSITION:",
     "- Canvas: exact 2080 x 2288, 10:11 portrait PDP master.",
     "- The uploaded reference canvas is the placement lock. Preserve the same product centerline, baseline, bounding-box footprint, side padding, top padding, and bottom padding.",
-    "- No cap, bulb, hose, bottle base, tassel strands, shadow, detached cap, or tassel end may touch or leave the canvas.",
+    `- ${applicatorRules.canvasBounds}`,
     "- Do not recompose or normalize the product to a new fill percentage. The image must read like the same product photo professionally retouched.",
     "",
     "PHOTOGRAPHIC STYLE:",
@@ -94,18 +309,17 @@ function buildReferenceLockedBestBottlesPrompt(
     "",
     "MATERIAL ENHANCEMENT:",
     "- The result must show a clear visible quality lift over the reference, not a near-duplicate. Increase material separation, controlled contrast, micro-detail, and studio polish while preserving product truth.",
-    "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, visible separation between front wall, back wall, and dip tube. No fake bevels or plastic glass.",
-    "- Chrome/metal: polished Shiny Silver with nuanced black/white reflection-card gradients, clean specular gloss, realistic metal depth, no broad CGI stripe.",
-    "- Textile: sharper weave/thread detail in hose, bulb, and tassel; tactile dimensional softness; locked textile color remains accurate and rich, not crushed or gray.",
+    applicatorRules.glassMaterialLine,
+    applicatorRules.fitmentMaterialLine,
+    applicatorRules.textileMaterialLine || null,
     "",
     "BACKGROUND AND SHADOW:",
     "- Replace background with seamless Best Bottles Bone #F5F3EF. It must visibly read as warm cream, not white, with no horizon line, tabletop edge, vignette, props, labels, or decorative frame.",
-    "- Add physically plausible grounding: visible soft contact shadow and ambient occlusion under bottle base, bulb, tassel, and hose contact points. Shadow should be elegant but present, about 18–28% opacity at contact points, feathering outward naturally.",
+    `- Add physically plausible grounding: visible soft contact shadow and ambient occlusion under ${applicatorRules.shadowContact}. Shadow should be elegant but present, about 18-28% opacity at contact points, feathering outward naturally.`,
     "- Remove only dirt, low-quality capture artifacts, jagged edges, compression noise, and background contamination outside the product silhouette.",
     "",
     "FORBIDDEN:",
-    "- No new colors, color drift, substituted cap/tassel colors, changed textile color, changed metal finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
-    "- No zoomed-in crop, scale inflation, cropped tassel, cropped bulb, or product edge touching the canvas.",
+    ...applicatorRules.forbiddenLines,
     "- No heavy/long/hard shadow, dark smear, doubled shadow, horizon line, tabletop edge, or obvious floor plane.",
     "- No fake bevels, extra facets, broad central CGI stripe, softened/melted edges, or plastic-looking glass.",
     "- No label, text, badge, watermark, brand name, UI pill, card frame, rounded border, props, hands, flowers, spray mist, pure-white cutout look, tabletop edge, vignette, or decorative canvas treatment.",
