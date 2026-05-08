@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Upload,
+  Download,
   CheckCircle2,
   Circle,
   Loader2,
@@ -31,44 +32,14 @@ import {
 } from "@/lib/bestBottlesPipeline";
 import { writePipelinePrefill } from "@/lib/bestBottlesPipelineBridge";
 import {
+  APPLICATOR_TO_FITMENT,
+  GLASS_COLOR_TO_OPTION,
+  type PipelineRowDescriptor,
+} from "@/lib/bestBottlesPipelineMatching";
+import {
   syncReferenceImages,
   type ReferenceSyncProgress,
 } from "@/lib/bestBottlesReferenceSync";
-
-/**
- * Maps Best Bottles catalog glass-color names to Consistency Mode bottle-color
- * option ids. Kept here (not in the lib) because the string lineup is a
- * Pipeline-specific concern — the catalog uses "Cobalt Blue", the Consistency
- * Mode uses "blue". If the catalog grows a new color we add the mapping here
- * rather than renaming the stable option id.
- */
-const GLASS_COLOR_TO_OPTION: Record<string, string> = {
-  Clear: "clear",
-  Frosted: "frosted",
-  "Cobalt Blue": "blue",
-  Amber: "amber",
-  Swirl: "swirl",
-};
-
-/**
- * Maps the catalog's applicator-types free-text ("Metal Roller Ball, Plastic
- * Roller Ball") to Consistency Mode fitment option ids. Multiple applicators
- * in one cell are comma-split.
- */
-const APPLICATOR_TO_FITMENT: Record<string, string> = {
-  "Metal Roller Ball": "roller-ball",
-  "Plastic Roller Ball": "roller-ball-plastic",
-  "Fine Mist Sprayer": "fine-mist-metal",
-  "Perfume Spray Pump": "perfume-spray-pump",
-  Atomizer: "fine-mist-metal",
-  "Vintage Bulb Sprayer": "vintage-bulb-sprayer",
-  "Vintage Bulb Sprayer with Tassel": "vintage-bulb-sprayer-tassel",
-  "Lotion Pump": "lotion-pump",
-  Dropper: "dropper",
-  Reducer: "reducer",
-  "Glass Stopper": "glass-stopper",
-  "Cap/Closure": "cap-closure",
-};
 
 type StatusFilter = "all" | PipelineStatus | "has-hero" | "no-hero";
 
@@ -314,6 +285,7 @@ export default function BestBottlesPipeline() {
       shapeKey: group.key,
       shapeLabel,
       pipelineGroupIds: group.rows.map((r) => r.id),
+      pipelineRows: group.rows.map(toPipelineRowDescriptor),
       bottleColorIds: Array.from(colorIds),
       fitmentIds: Array.from(fitmentIds),
       family: group.family,
@@ -324,6 +296,65 @@ export default function BestBottlesPipeline() {
     });
 
     navigate("/darkroom?mode=consistency&from=pipeline");
+  };
+
+  const handleExportSnapshot = () => {
+    const headers = [
+      "row",
+      "family",
+      "capacity",
+      "thread",
+      "color",
+      "applicator",
+      "product_url",
+      "reference_status",
+      "madison_status",
+      "approved_image_id",
+      "approved_at",
+      "last_error",
+      "notes",
+    ];
+    const lines = [
+      headers.join(","),
+      ...rows.map((row) =>
+        [
+          row.tracker_row_number ?? "",
+          row.family,
+          row.capacity_ml ?? "",
+          row.thread_size ?? "",
+          row.glass_color ?? "",
+          row.applicator_types ?? "",
+          row.product_url ?? "",
+          row.is_hero_reference
+            ? "pinned-master-reference"
+            : row.legacy_hero_image_url
+              ? "synced-reference"
+              : row.product_url
+                ? "needs-reference-sync"
+                : "no-product-url",
+          row.madison_status,
+          row.madison_approved_image_id ?? "",
+          row.madison_approved_at ?? "",
+          row.madison_last_error ?? "",
+          row.madison_notes ?? "",
+        ]
+          .map(csvCell)
+          .join(","),
+      ),
+    ];
+
+    const blob = new Blob([lines.join("\n") + "\n"], {
+      type: "text/csv;charset=utf-8",
+    });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    anchor.href = href;
+    anchor.download = `best-bottles-madison-hero-tracking-${stamp}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(href);
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -381,6 +412,15 @@ export default function BestBottlesPipeline() {
               {syncing && syncProgress
                 ? `Syncing ${syncProgress.completed}/${syncProgress.total}`
                 : `Sync references${missingReferenceCount > 0 ? ` (${missingReferenceCount})` : ""}`}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportSnapshot}
+              disabled={rows.length === 0}
+              title="Export Madison hero tracking snapshot CSV"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export snapshot
             </Button>
             <Button
               variant="outline"
@@ -484,6 +524,31 @@ export default function BestBottlesPipeline() {
 }
 
 // ─── Subcomponents ───────────────────────────────────────────────────────────
+
+function csvCell(value: unknown): string {
+  const text = value == null ? "" : String(value);
+  if (!/[",\n\r]/.test(text)) return text;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function toPipelineRowDescriptor(row: PipelineGroup): PipelineRowDescriptor {
+  return {
+    id: row.id,
+    family: row.family,
+    capacityMl: row.capacity_ml,
+    threadSize: row.thread_size,
+    glassColor: row.glass_color,
+    applicatorTypes: row.applicator_types,
+    displayName: row.display_name,
+    convexSlug: row.convex_slug,
+    primaryGraceSku: row.primary_grace_sku,
+    primaryWebsiteSku: row.primary_website_sku,
+    productUrl: row.product_url,
+    legacyHasHeroImage: row.legacy_has_hero_image,
+    legacyHeroImageUrl: row.legacy_hero_image_url,
+    madisonStatus: row.madison_status,
+  };
+}
 
 function StatCard({
   label,

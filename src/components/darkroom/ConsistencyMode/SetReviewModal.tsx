@@ -4,6 +4,7 @@ import {
   X,
   Star,
   Heart,
+  CheckCircle2,
   Download,
   Maximize2,
   ChevronLeft,
@@ -35,6 +36,10 @@ interface SetReviewModalProps {
   onToggleHero: (item: VariationItem) => void;
   heroImageIds: Set<string>;
   onBulkMarkHeroes?: (items: VariationItem[]) => void;
+  /** Pipeline-only approval: writes selected generated image back to Madison tracker rows. */
+  onApprovePipeline?: (item: VariationItem) => void;
+  /** Saved image IDs already approved back to the Madison Pipeline in this session. */
+  pipelineApprovedImageIds?: Set<string>;
 }
 
 /**
@@ -65,6 +70,8 @@ export function SetReviewModal({
   onToggleHero,
   heroImageIds,
   onBulkMarkHeroes,
+  onApprovePipeline,
+  pipelineApprovedImageIds = new Set(),
 }: SetReviewModalProps) {
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
 
@@ -274,15 +281,21 @@ export function SetReviewModal({
                     item.savedImageId === activeMasterItemId;
                   const isHero =
                     !!item.savedImageId && heroImageIds.has(item.savedImageId);
+                  const isPipelineApproved =
+                    !!item.savedImageId && pipelineApprovedImageIds.has(item.savedImageId);
                   return (
                     <SetReviewTile
                       key={item.position}
                       item={item}
                       isMaster={isMaster}
                       isHero={isHero}
+                      isPipelineApproved={isPipelineApproved}
                       onZoom={() => setZoomedIndex(idx)}
                       onPromoteToMaster={() => onPromoteToMaster(item)}
                       onToggleHero={() => onToggleHero(item)}
+                      onApprovePipeline={
+                        onApprovePipeline ? () => onApprovePipeline(item) : undefined
+                      }
                       onDownload={() => handleDownload(item)}
                     />
                   );
@@ -416,6 +429,20 @@ export function SetReviewModal({
                     onClick={() => onToggleHero(zoomedItem)}
                     title="Toggle Hero (Space)"
                   />
+                  {onApprovePipeline && (
+                    <ZoomAction
+                      icon={CheckCircle2}
+                      label={
+                        pipelineApprovedImageIds.has(zoomedItem.savedImageId ?? "")
+                          ? "Approved ✓"
+                          : "Approve"
+                      }
+                      active={pipelineApprovedImageIds.has(zoomedItem.savedImageId ?? "")}
+                      activeClass="border-emerald-400/50 bg-emerald-400/15 text-emerald-300"
+                      onClick={() => onApprovePipeline(zoomedItem)}
+                      title="Approve this frame in Madison Pipeline"
+                    />
+                  )}
                   <ZoomAction
                     icon={Star}
                     label={
@@ -450,9 +477,11 @@ interface SetReviewTileProps {
   item: VariationItem;
   isMaster: boolean;
   isHero: boolean;
+  isPipelineApproved: boolean;
   onZoom: () => void;
   onPromoteToMaster: () => void;
   onToggleHero: () => void;
+  onApprovePipeline?: () => void;
   onDownload: () => void;
 }
 
@@ -460,9 +489,11 @@ function SetReviewTile({
   item,
   isMaster,
   isHero,
+  isPipelineApproved,
   onZoom,
   onPromoteToMaster,
   onToggleHero,
+  onApprovePipeline,
   onDownload,
 }: SetReviewTileProps) {
   return (
@@ -505,14 +536,43 @@ function SetReviewTile({
               Hero
             </span>
           )}
+          {isPipelineApproved && (
+            <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/40">
+              Approved
+            </span>
+          )}
         </div>
       </button>
 
       {/* Label + actions */}
       <div className="flex items-center gap-1 px-2 py-1.5 bg-[var(--camera-body)] border-t border-white/[0.04]">
-        <div className="flex-1 min-w-0 text-[10px] text-[var(--darkroom-text)] truncate font-medium">
-          {item.label}
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] text-[var(--darkroom-text)] truncate font-medium">
+            {item.label}
+          </div>
+          {item.pipelineMatchLabel && (
+            <div className="text-[8px] font-mono uppercase tracking-wider text-[var(--darkroom-text-dim)] truncate">
+              {item.pipelineMatchLabel}
+            </div>
+          )}
         </div>
+        {onApprovePipeline && (
+          <TileButton
+            icon={CheckCircle2}
+            active={isPipelineApproved}
+            activeClass="border-emerald-400/50 bg-emerald-400/15 text-emerald-300"
+            onClick={(e) => {
+              e.stopPropagation();
+              onApprovePipeline();
+            }}
+            title={
+              isPipelineApproved
+                ? "Approved in Madison Pipeline"
+                : "Approve this frame in Madison Pipeline"
+            }
+            fillWhenActive
+          />
+        )}
         <TileButton
           icon={Heart}
           active={isHero}

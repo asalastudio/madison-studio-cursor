@@ -35,6 +35,13 @@ export interface ImagePreset {
   negativeLanguage: string;
 }
 
+export const BEST_BOTTLES_HERO_GRID_CANVAS = {
+  widthPx: 2080,
+  heightPx: 2288,
+} as const;
+
+export const BEST_BOTTLES_HERO_GRID_ASPECT_RATIO = "10:11";
+
 const SHARED_LIGHTING_LANGUAGE =
   "single soft key light from upper-front-left at ~45° elevation (clock position 7:30–8:00 relative to the bottle base), " +
   "with gentle bounce-fill from the right at matched color temperature — no second hard source; " +
@@ -136,16 +143,16 @@ export function applicatorFramingOverride(
 
 export const GRID_CARD_2000X2200: ImagePreset = {
   // ID kept stable for Library tag continuity (`preset:grid-card-2000x2200`
-  // exists on prior generations). Canvas bumped to 2080×2288 so both edges
-  // are multiples of 16 per gpt-image-2's size constraint while preserving
-  // the exact 10:11 ratio.
+  // exists on prior generations). The production export canvas is 2080×2288;
+  // OpenAI can generate at a supported native size, then Madison re-canvases
+  // the returned image to this exact Best Bottles grid/hero contract.
   id: "grid-card-2000x2200",
   label: "Grid Card · 2080 × 2288",
   purpose:
     "Catalog grid tile for bestbottles.com. Matches the current image-gen pipeline output dimensions.",
   kind: "final_render",
-  canvas: { widthPx: 2080, heightPx: 2288 },
-  aspectRatio: "10:11",
+  canvas: BEST_BOTTLES_HERO_GRID_CANVAS,
+  aspectRatio: BEST_BOTTLES_HERO_GRID_ASPECT_RATIO,
   orientation: "portrait",
   backgroundHex: "#EEE6D4",
   backgroundDescription: PARCHMENT_BACKGROUND_DESCRIPTION,
@@ -317,15 +324,15 @@ export const LANDSCAPE_HERO_2400X1350: ImagePreset = {
  * with the standard Grid Card.
  */
 export const GRID_CARD_EXPLODED_2000X2200: ImagePreset = {
-  // Canvas bumped to 2080×2288 for gpt-image-2 multiple-of-16 compliance
-  // (see GRID_CARD_2000X2200 above). ID stable for tag continuity.
+  // ID stable for tag continuity; canvas follows the canonical 2080×2288
+  // Best Bottles grid/hero contract.
   id: "grid-card-exploded-2000x2200",
   label: "Grid Card · Exploded (cap beside) · 2080 × 2288",
   purpose:
     "Catalog grid tile for SKUs where the over-cap is shown removed and standing beside the bottle (e.g. Lotion Pump · Clear Overcap, decorative stopper variants). Same canvas, lighting, and background as the standard Grid Card — composition is the only change.",
   kind: "final_render",
-  canvas: { widthPx: 2080, heightPx: 2288 },
-  aspectRatio: "10:11",
+  canvas: BEST_BOTTLES_HERO_GRID_CANVAS,
+  aspectRatio: BEST_BOTTLES_HERO_GRID_ASPECT_RATIO,
   orientation: "portrait",
   backgroundHex: "#EEE6D4",
   backgroundDescription: PARCHMENT_BACKGROUND_DESCRIPTION,
@@ -362,15 +369,15 @@ export const GRID_CARD_EXPLODED_2000X2200: ImagePreset = {
  * preset's bottle-anchored block.
  */
 export const MASTER_SCENE_FLEXIBLE_2000X2200: ImagePreset = {
-  // Canvas bumped to 2080×2288 for gpt-image-2 multiple-of-16 compliance.
-  // ID stable for tag continuity.
+  // ID stable for tag continuity; canvas follows the canonical 2080×2288
+  // Best Bottles grid/hero contract.
   id: "master-scene-flexible-2000x2200",
   label: "Master · Scene-Flexible · 2080 × 2288",
   purpose:
     "Lifestyle / hero variants of an approved master. Preserves the canonical bottle (reference + product spec + physical constraints) while letting the operator swap the background, lighting environment, and aspect ratio per generation.",
   kind: "final_render",
-  canvas: { widthPx: 2080, heightPx: 2288 },
-  aspectRatio: "10:11",
+  canvas: BEST_BOTTLES_HERO_GRID_CANVAS,
+  aspectRatio: BEST_BOTTLES_HERO_GRID_ASPECT_RATIO,
   orientation: "portrait",
   backgroundHex: "#FFFFFF",
   backgroundDescription:
@@ -415,8 +422,8 @@ export const MASTER_ANGLE_2080X2288: ImagePreset = {
   purpose:
     "Per-angle variants of an approved master (3/4, side profile, low-hero, top-down). Preserves the canonical bottle identity while letting the operator pivot the camera per generation. Best paired with a per-angle reference PNG (filename suffix `--3qtr-left`, `--side-left`, etc.) when fidelity matters.",
   kind: "final_render",
-  canvas: { widthPx: 2080, heightPx: 2288 },
-  aspectRatio: "10:11",
+  canvas: BEST_BOTTLES_HERO_GRID_CANVAS,
+  aspectRatio: BEST_BOTTLES_HERO_GRID_ASPECT_RATIO,
   orientation: "portrait",
   backgroundHex: "#EEE6D4",
   backgroundDescription: PARCHMENT_BACKGROUND_DESCRIPTION,
@@ -455,8 +462,8 @@ export const MASTER_MARKETING_2080X2288: ImagePreset = {
   purpose:
     "Ad creatives, social posts, and editorial layouts that combine the canonical bottle with typeset copy (headline, subhead, optional CTA). Aspect ratio is meant to be overridden per generation so one master spawns a full social/ad set.",
   kind: "final_render",
-  canvas: { widthPx: 2080, heightPx: 2288 },
-  aspectRatio: "10:11",
+  canvas: BEST_BOTTLES_HERO_GRID_CANVAS,
+  aspectRatio: BEST_BOTTLES_HERO_GRID_ASPECT_RATIO,
   orientation: "portrait",
   backgroundHex: "#EEE6D4",
   backgroundDescription:

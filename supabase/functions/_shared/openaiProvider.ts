@@ -23,12 +23,9 @@ const OPENAI_API_BASE = "https://api.openai.com/v1";
 /**
  * Current OpenAI image model family (April 2026):
  *
- *   - gpt-image-2      → current flagship. 4x faster than 1.5, better text
- *                        rendering, better layout composition, improved
- *                        instruction following. Powers "ChatGPT Images 2.0".
- *                        API enum confirmed 2026-04-21.
- *   - gpt-image-1.5    → previous flagship, being deprecated as the default
- *                        but remains available for legacy support.
+ *   - gpt-image-2      → current flagship. High-fidelity image inputs,
+ *                        flexible sizes, and better instruction following.
+ *   - gpt-image-1.5    → previous high-fidelity GPT Image model.
  *   - gpt-image-1      → legacy.
  *   - gpt-image-1-mini → cheaper / faster tier of the 1-series.
  *   - dall-e-3         → legacy, text-only.
@@ -46,8 +43,8 @@ function resolveDefaultOpenAIImageModel(): OpenAIImageModel {
 // ─── Types ────────────────────────────────────────────────────────────
 
 export type OpenAIImageModel =
-  | "gpt-image-2"        // April 2026 flagship — 4x faster, better text + layout
-  | "gpt-image-1.5"      // previous flagship (being deprecated as default)
+  | "gpt-image-2"        // current flagship
+  | "gpt-image-1.5"      // previous high-fidelity GPT Image model
   | "gpt-image-1"        // legacy
   | "gpt-image-1-mini"   // smaller / faster tier of the 1-series
   | "dall-e-3";          // legacy text-only
@@ -86,6 +83,17 @@ export interface OpenAIReferenceImage {
   data: string;
   /** e.g. "image/png" or "image/jpeg". */
   mimeType: string;
+}
+
+function numericAspectRatio(aspectRatio: string | undefined): number | null {
+  const match = aspectRatio?.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return null;
+  }
+  return width / height;
 }
 
 export interface OpenAIImageParams {
@@ -183,17 +191,20 @@ function mapGptImage2GenerationSize(
   }
 
   const r = (aspectRatio ?? "").trim().toLowerCase();
+  const ratio = numericAspectRatio(r);
   const isSquare = r === "1:1" || r === "square" || r === "square_1_1";
   const isPortrait = (
     r === "9:16" || r === "2:3" || r === "3:4" || r === "1:2" ||
     r === "9:21" || r === "4:5" ||
-    r.includes("portrait") || r.includes("vertical") || r.includes("social_story")
+    r.includes("portrait") || r.includes("vertical") || r.includes("social_story") ||
+    (ratio !== null && ratio < 0.98)
   );
   const isLandscape = (
     r === "16:9" || r === "3:2" || r === "4:3" || r === "2:1" ||
     r === "21:9" ||
     r.includes("widescreen") || r.includes("horizontal") || r.includes("landscape") ||
-    r.includes("standard") || r.includes("classic") || r.includes("film_horizontal")
+    r.includes("standard") || r.includes("classic") || r.includes("film_horizontal") ||
+    (ratio !== null && ratio > 1.02)
   );
 
   if (tier === "high") {
@@ -224,6 +235,7 @@ export function mapAspectRatioToSize(
   if (!aspectRatio) return "1024x1024";
 
   const r = aspectRatio.trim().toLowerCase();
+  const ratio = numericAspectRatio(r);
 
   // 1:1 family
   if (r === "1:1" || r === "square" || r === "square_1_1") {
@@ -234,7 +246,8 @@ export function mapAspectRatioToSize(
   if (
     r === "9:16" || r === "2:3" || r === "3:4" || r === "1:2" ||
     r === "9:21" || r === "4:5" ||
-    r.includes("portrait") || r.includes("vertical") || r.includes("social_story")
+    r.includes("portrait") || r.includes("vertical") || r.includes("social_story") ||
+    (ratio !== null && ratio < 0.98)
   ) {
     return model === "dall-e-3" ? "1024x1792" : "1024x1536";
   }
@@ -244,7 +257,8 @@ export function mapAspectRatioToSize(
     r === "16:9" || r === "3:2" || r === "4:3" || r === "2:1" ||
     r === "21:9" ||
     r.includes("widescreen") || r.includes("horizontal") || r.includes("landscape") ||
-    r.includes("standard") || r.includes("classic") || r.includes("film_horizontal")
+    r.includes("standard") || r.includes("classic") || r.includes("film_horizontal") ||
+    (ratio !== null && ratio > 1.02)
   ) {
     return model === "dall-e-3" ? "1792x1024" : "1536x1024";
   }
@@ -486,14 +500,14 @@ export const OPENAI_IMAGE_MODELS = [
   {
     id: "gpt-image-2",
     name: "GPT Image 2",
-    description: "OpenAI's flagship — 4× faster, better text + layout",
-    badge: "NEW",
+    description: "OpenAI flagship with high-fidelity image inputs",
+    badge: "DEFAULT",
     supportsReferences: true,
   },
   {
     id: "gpt-image-1.5",
     name: "GPT Image 1.5",
-    description: "Previous flagship — being deprecated, still available",
+    description: "Previous high-fidelity GPT Image model",
     badge: "LEGACY",
     supportsReferences: true,
   },

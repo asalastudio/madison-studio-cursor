@@ -15,6 +15,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { LIBRARY_ROLE_PRODUCT } from "@/lib/imageLibraryTags";
 import {
+  describePipelineRows,
+  matchPipelineRowsForSelection,
+  type PipelineRowDescriptor,
+} from "@/lib/bestBottlesPipelineMatching";
+import {
   buildSceneAnchor,
   buildVariationDescriptor,
   buildVariationLabel,
@@ -49,6 +54,12 @@ export interface VariationItem {
   savedImageId?: string;
   /** Error message if status === "error". */
   error?: string;
+  /** Best Bottles Pipeline rows this variation updates. Empty outside pipeline runs. */
+  pipelineGroupIds?: string[];
+  /** Human-readable tracker match summary for review/approval UI. */
+  pipelineMatchLabel?: string;
+  /** Local UI state once the operator approves this frame back to Madison Pipeline. */
+  pipelineApproved?: boolean;
 }
 
 /**
@@ -70,6 +81,8 @@ export interface PipelineGenerationContext {
    * so we can join back from an image to the exact tracker rows it serves.
    */
   pipelineGroupIds?: string[];
+  /** Full row descriptors used to map each generated variation to exact tracker rows. */
+  pipelineRows?: PipelineRowDescriptor[];
 }
 
 export interface ConsistencySetPayload {
@@ -165,13 +178,23 @@ export function runConsistencySet(
     };
   }
 
-  const items: VariationItem[] = combinations.map((selection, index) => ({
-    position: index,
-    label: buildVariationLabel(selection),
-    descriptor: buildVariationDescriptor(selection),
-    selection,
-    status: "pending",
-  }));
+  const pipelineRows = payload.pipelineContext?.pipelineRows ?? [];
+  const items: VariationItem[] = combinations.map((selection, index) => {
+    const matchedRows = payload.pipelineContext
+      ? matchPipelineRowsForSelection(pipelineRows, selection)
+      : [];
+    return {
+      position: index,
+      label: buildVariationLabel(selection),
+      descriptor: buildVariationDescriptor(selection),
+      selection,
+      status: "pending",
+      pipelineGroupIds: matchedRows.map((row) => row.id),
+      pipelineMatchLabel: payload.pipelineContext
+        ? describePipelineRows(matchedRows)
+        : undefined,
+    };
+  });
 
   let cancelled = false;
 
@@ -291,7 +314,12 @@ export function runConsistencySet(
                 setPosition: item.position,
                 // Only present for pipeline-originated runs — drives
                 // library_tags + human-readable storage path server-side.
-                pipelineContext: payload.pipelineContext,
+                pipelineContext: payload.pipelineContext
+                  ? {
+                      ...payload.pipelineContext,
+                      pipelineGroupIds: item.pipelineGroupIds ?? [],
+                    }
+                  : undefined,
                 // Per-variation library_tags merged into library_tags on
                 // the server. Emitted for every run (not just pipeline)
                 // so Consistency Mode images outside the pipeline are

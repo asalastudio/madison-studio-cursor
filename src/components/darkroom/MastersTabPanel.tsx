@@ -33,15 +33,41 @@ import {
   DEFAULT_IMAGE_PRESET_ID,
   IMAGE_PRESET_LIST,
 } from "@/config/imagePresets";
+import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 import {
   BACKGROUND_PRESETS,
   getRandomBackgroundVariation,
 } from "@/components/darkroom/RightPanel";
-import { isSquareCrossSection } from "@/lib/product-image/skuInjector";
+import { isSquareCrossSection, parseDimensionMm } from "@/lib/product-image/skuInjector";
 
 const SCENE_FLEXIBLE_PRESET_ID = "master-scene-flexible-2000x2200";
 const ANGLE_PRESET_ID = "master-angle-2080x2288";
 const MARKETING_PRESET_ID = "master-marketing-2080x2288";
+
+const MASTER_IMAGE_MODEL_OPTIONS = [
+  {
+    value: "openai-image-2",
+    label: "GPT Image 2",
+    description: "Primary high-fidelity reference edit model",
+  },
+  {
+    value: "gemini-3-pro-image-preview",
+    label: "Gemini Pro Image",
+    description: "High-detail Gemini comparison model",
+  },
+  {
+    value: "gemini-3.1-flash-image-preview",
+    label: "Gemini Flash Image",
+    description: "Fast Gemini comparison model",
+  },
+  {
+    value: "gemini-2.5-flash-image",
+    label: "Gemini Flash stable",
+    description: "Stable Gemini fallback path",
+  },
+] as const;
+
+type MasterImageModelValue = (typeof MASTER_IMAGE_MODEL_OPTIONS)[number]["value"];
 
 const ASPECT_RATIO_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "10:11", label: "10:11 portrait (catalog default)" },
@@ -376,6 +402,21 @@ function folderKey(graceSku: string, modifier?: string): string {
   return modifier ? `${base}--${modifier.toLowerCase()}` : base;
 }
 
+function getMeasurementIssue(product: Product): string | null {
+  const heightMm = parseDimensionMm(product.heightWithoutCap);
+  const widthMm = parseDimensionMm(product.diameter);
+  if (heightMm == null && widthMm == null) {
+    return "Missing body height and face width/diameter.";
+  }
+  if (heightMm == null) {
+    return "Missing body height.";
+  }
+  if (widthMm == null) {
+    return "Missing face width/diameter.";
+  }
+  return null;
+}
+
 interface MastersTabPanelProps {
   /** Selected variant from the Studio's left rail. */
   selectedProduct: Product | null;
@@ -411,13 +452,16 @@ export function MastersTabPanel({
   const [liquidEnabled, setLiquidEnabled] = useState(false);
   const [liquidColor, setLiquidColor] = useState("warm amber perfume");
   const [liquidFill, setLiquidFill] = useState(75);
+  const [masterAiProvider, setMasterAiProvider] = useState<MasterImageModelValue>(
+    DEFAULT_IMAGE_AI_PROVIDER as MasterImageModelValue,
+  );
   const [showAssembledPrompt, setShowAssembledPrompt] = useState(false);
   const [assembledCache, setAssembledCache] = useState<AssembledPrompt | null>(null);
 
   // Scene overlay — only used when the Master · Scene-Flexible preset is
   // selected. The chip picker pre-fills the textarea with one of the
   // BACKGROUND_PRESETS' curated variations; the operator can then edit
-  // the text freely. Aspect ratio + resolution let them pivot a 10:11
+  // the text freely. Aspect ratio + resolution let them pivot the catalog
   // master into a 16:9 hero or 1:1 marketplace tile per generation.
   const [sceneBackgroundPresetId, setSceneBackgroundPresetId] = useState<string | null>(null);
   const [sceneBackgroundPrompt, setSceneBackgroundPrompt] = useState("");
@@ -547,7 +591,7 @@ export function MastersTabPanel({
     // <input accept="..."> attribute is bypassed when files arrive via
     // drag-drop. Filtering here keeps non-image files out of the orphan
     // panel so the operator can focus on real Grace SKU mismatches.
-    const ALLOWED_EXT = /\.(png|jpe?g|webp)$/i;
+    const ALLOWED_EXT = /\.(png|jpe?g)$/i;
     const arr = Array.from(files).filter((f) => ALLOWED_EXT.test(f.name));
     const skippedNonImage = Array.from(files).length - arr.length;
     if (arr.length === 0) {
@@ -777,6 +821,25 @@ export function MastersTabPanel({
     () => MASTERS_PRESETS.find((p) => p.id === presetId) ?? MASTERS_PRESETS[0],
     [presetId],
   );
+  const selectedImageModel = useMemo(
+    () => MASTER_IMAGE_MODEL_OPTIONS.find((model) => model.value === masterAiProvider) ?? MASTER_IMAGE_MODEL_OPTIONS[0],
+    [masterAiProvider],
+  );
+
+  const serverPromptPreview = selectedProduct
+    ? [
+        "REFERENCE-LOCKED BEST BOTTLES LUXURY PRODUCT PHOTOGRAPHY V5.1.",
+        "",
+        "This PDP master uses the Supabase Edge Function's server-side reference-locked prompt.",
+        "The uploaded/reference image is the source of truth. The old GLOBAL SYSTEM / PRESET / PRODUCT SPECIFICATIONS assembly is sent only as SKU/spec context and is replaced server-side before the selected image model runs.",
+        "",
+        "Expected server mode: best-bottles-reference-locked",
+        `Image model: ${selectedImageModel.label}`,
+        `SKU: ${selectedProduct.graceSku}`,
+        `Canvas: ${selectedPreset.canvas.widthPx} x ${selectedPreset.canvas.heightPx} (${selectedPreset.aspectRatio})`,
+        `Reference: ${customReference?.name ?? "required uploaded/folder match"}`,
+      ].join("\n")
+    : "";
 
   const handleAssemble = async (): Promise<AssembledPrompt | null> => {
     if (!selectedProduct) return null;
@@ -902,6 +965,7 @@ export function MastersTabPanel({
     }
 
     return generate(assembled, {
+      aiProvider: masterAiProvider,
       // Custom upload (PSD-rendered PNG) takes priority over Convex's
       // legacy .gif imageUrl — the latter is silently dropped by the
       // unsupported-format filter in useAssembledPromptGeneration.
@@ -910,6 +974,14 @@ export function MastersTabPanel({
         name: sku.itemName,
         collection: sku.bottleCollection ?? undefined,
         category: sku.category,
+        sku: sku.graceSku,
+        capacityMl: sku.capacityMl,
+        heightWithoutCap: sku.heightWithoutCap,
+        heightWithCap: sku.heightWithCap,
+        diameter: sku.diameter,
+        capColor: sku.capColor ?? null,
+        trimColor: sku.trimColor ?? null,
+        applicator: sku.applicator ?? null,
       },
       sceneOverlay,
       // Human-readable identifiers live on library tags. sessionId is a uuid
@@ -920,6 +992,7 @@ export function MastersTabPanel({
         familyName ? `family:${familyName.toLowerCase().replace(/\s+/g, "-")}` : null,
         `sku:${sku.graceSku}`,
         sku.websiteSku ? `websiteSku:${sku.websiteSku}` : null,
+        `model:${masterAiProvider}`,
         ...sceneTags,
       ].filter((t): t is string => Boolean(t)),
     });
@@ -927,7 +1000,24 @@ export function MastersTabPanel({
 
   const handleGenerate = async () => {
     if (!selectedProduct) return;
-    handleAssemble(); // populate assembledCache for the prompt-preview button
+    const measurementIssue = getMeasurementIssue(selectedProduct);
+    if (measurementIssue) {
+      toast({
+        title: "Missing measurements",
+        description: `${selectedProduct.graceSku}: ${measurementIssue} Add or measure dimensions before generating.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!customReference?.url) {
+      toast({
+        title: "Reference required",
+        description: "Best Bottles PDP masters must use an uploaded product reference image.",
+        variant: "destructive",
+      });
+      return;
+    }
+    await handleAssemble(); // populate assembledCache for the prompt-preview button
     await generateOne(selectedProduct, customReference?.url ?? null);
   };
 
@@ -947,9 +1037,16 @@ export function MastersTabPanel({
   /** Every variant in the family that has a folder reference for the current preset. */
   const matchedFamilyVariants = useMemo(() => {
     if (!familyVariants || referenceFolder.size === 0) return [];
-    return familyVariants.filter((v) => lookupFolderReference(v, presetId) !== null);
+    return familyVariants.filter((v) => lookupFolderReference(v, presetId) !== null && getMeasurementIssue(v) === null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyVariants, referenceFolder, presetId, selectedAngleId]);
+
+  const measurementBlockedSkus = useMemo(() => {
+    if (!familyVariants || familyVariants.length === 0) return [];
+    return familyVariants
+      .map((product) => ({ product, issue: getMeasurementIssue(product) }))
+      .filter((entry): entry is { product: Product; issue: string } => entry.issue !== null);
+  }, [familyVariants]);
 
   /**
    * Batch-generate masters for every SKU in the family that has a folder
@@ -1051,6 +1148,30 @@ export function MastersTabPanel({
           Canvas: <span className="font-mono">{selectedPreset.canvas.widthPx} × {selectedPreset.canvas.heightPx}</span>
           {" · "}{selectedPreset.aspectRatio} {selectedPreset.orientation}
           {" · "}Background: <span className="font-mono">{selectedPreset.backgroundHex}</span>
+        </p>
+      </div>
+
+      <div className="space-y-2 pt-1 border-t" style={{ borderColor: "var(--darkroom-border-subtle)" }}>
+        <Label className="text-xs uppercase tracking-wider" style={{ color: "var(--darkroom-text-dim)" }}>
+          Image model
+        </Label>
+        <Select
+          value={masterAiProvider}
+          onValueChange={(value) => setMasterAiProvider(value as MasterImageModelValue)}
+        >
+          <SelectTrigger className="bg-white/[0.03] border-white/10 text-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MASTER_IMAGE_MODEL_OPTIONS.map((model) => (
+              <SelectItem key={model.value} value={model.value}>
+                {model.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
+          {selectedImageModel.description}
         </p>
       </div>
 
@@ -1316,10 +1437,10 @@ export function MastersTabPanel({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="standard" className="text-[11px]">
-                    Standard (1024 × 1024)
+                    Standard (1K source · 2080 × 2288 export)
                   </SelectItem>
                   <SelectItem value="high" className="text-[11px]">
-                    High (1536 × 1024)
+                    High (2K source · 2080 × 2288 export)
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -1357,7 +1478,7 @@ export function MastersTabPanel({
         <input
           ref={folderInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg"
           multiple
           // @ts-expect-error — webkitdirectory is a non-standard attribute
           webkitdirectory=""
@@ -1372,7 +1493,7 @@ export function MastersTabPanel({
         />
         <input
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg"
           multiple
           className="hidden"
           id="masters-folder-files-fallback"
@@ -1427,6 +1548,7 @@ export function MastersTabPanel({
             <code>--modifier</code> suffix:{" "}
             <code>GB-EMP-CLR-100ML-BST-BLK--exploded.png</code>.
             Leading <code>"48. "</code> ordering prefixes from PSD exports are stripped automatically.
+            Use PNG/JPEG references for OpenAI edits.
           </p>
           <div className="flex items-center justify-center gap-2">
             <Button
@@ -1524,6 +1646,32 @@ export function MastersTabPanel({
               {uncoveredSkus.map((s) => (
                 <div key={s.graceSku} className="text-[10px] font-mono" style={{ color: "var(--darkroom-text-dim)" }}>
                   {s.graceSku}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {measurementBlockedSkus.length > 0 && (
+          <div
+            className="rounded border p-2 space-y-1"
+            style={{
+              borderColor: "rgba(239, 68, 68, 0.4)",
+              background: "rgba(239, 68, 68, 0.05)",
+            }}
+          >
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider" style={{ color: "#F87171" }}>
+              <AlertCircle className="w-3 h-3" />
+              {measurementBlockedSkus.length} SKU{measurementBlockedSkus.length === 1 ? "" : "s"} missing body measurements
+            </div>
+            <div className="text-[10px] opacity-80" style={{ color: "#F87171" }}>
+              These are blocked from generation until Grace catalog dimensions are added or measured manually.
+            </div>
+            <div className="space-y-0.5 max-h-32 overflow-auto pt-1">
+              {measurementBlockedSkus.map(({ product, issue }) => (
+                <div key={product.graceSku} className="text-[10px] font-mono" style={{ color: "#F87171" }}>
+                  <span>{product.graceSku}</span>
+                  <span className="opacity-60"> — {issue}</span>
                 </div>
               ))}
             </div>
@@ -1653,10 +1801,16 @@ export function MastersTabPanel({
         </Button>
       )}
 
+      {familyVariants && referenceFolder.size > 0 && measurementBlockedSkus.length > 0 && (
+        <div className="text-[10px] leading-snug" style={{ color: "#F87171" }}>
+          {measurementBlockedSkus.length} SKU{measurementBlockedSkus.length === 1 ? "" : "s"} omitted from batch until measured.
+        </div>
+      )}
+
       <div className="flex gap-2">
         <Button
           onClick={handleGenerate}
-          disabled={isGenerating || batchProgress !== null}
+          disabled={isGenerating || batchProgress !== null || !customReference?.url}
           className="flex-1 bg-[var(--darkroom-accent,#B8956A)] text-black hover:bg-[var(--darkroom-accent,#B8956A)]/90"
         >
           {isGenerating ? (
@@ -1667,18 +1821,18 @@ export function MastersTabPanel({
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              {customReference ? "Generate master" : "Generate without reference"}
+              Generate master
             </>
           )}
         </Button>
         <Button
           variant="outline"
-          onClick={() => {
-            const a = handleAssemble();
+          onClick={async () => {
+            const a = await handleAssemble();
             setShowAssembledPrompt(Boolean(a));
           }}
           className="border-white/15 bg-white/[0.02] text-white hover:bg-white/[0.06] hover:text-white"
-          title="Preview the assembled 4-layer prompt without generating"
+          title="Preview the reference-locked server prompt mode"
         >
           <Wand2 className="w-4 h-4" />
         </Button>
@@ -1688,7 +1842,7 @@ export function MastersTabPanel({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs uppercase tracking-wider" style={{ color: "var(--darkroom-text-dim)" }}>
-              Assembled prompt
+              {result ? "Actual server prompt" : "Reference-locked server mode"}
             </Label>
             <Button
               variant="ghost"
@@ -1699,8 +1853,13 @@ export function MastersTabPanel({
               Hide
             </Button>
           </div>
+          <p className="text-[11px] leading-relaxed" style={{ color: "var(--darkroom-text-dim)" }}>
+            {result
+              ? "This is the final prompt returned by the Edge Function for the generated image."
+              : "Best Bottles master generations replace the old assembled prompt with a server-side reference-locked prompt. The GLOBAL SYSTEM context is only SKU/spec data and is not the OpenAI prompt."}
+          </p>
           <Textarea
-            value={assembledCache.prompt}
+            value={result?.prompt ?? serverPromptPreview}
             readOnly
             className="min-h-[180px] font-mono text-[10px] bg-white/[0.03] border-white/10 text-white/80"
           />
@@ -1773,6 +1932,15 @@ export function MastersTabPanel({
             >
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
               Try again
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAssembledPrompt(true)}
+              className="text-white/70 hover:text-white"
+            >
+              <Wand2 className="w-3.5 h-3.5 mr-1.5" />
+              View prompt
             </Button>
           </div>
           <p className="text-[10px] leading-tight pt-1" style={{ color: "var(--darkroom-text-dim)" }}>

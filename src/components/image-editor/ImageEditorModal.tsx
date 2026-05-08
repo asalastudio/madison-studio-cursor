@@ -78,6 +78,7 @@ export interface ImageEditorImage {
   aspectRatio?: string;
   createdAt?: string;
   sessionName?: string;
+  libraryTags?: string[];
 }
 
 export interface ImageEditorModalProps {
@@ -93,6 +94,21 @@ interface Variation {
   id: string;
   imageUrl: string;
   isGenerating: boolean;
+}
+
+const REFINE_PROMPT_MAX_CHARS = 900;
+
+function isLikelyPromptBlock(value: string): boolean {
+  const text = value.trim();
+  if (text.length > REFINE_PROMPT_MAX_CHARS) return true;
+  return [
+    "REFERENCE-LOCKED BEST BOTTLES",
+    "=== REFERENCE IMAGE DIRECTIVES ===",
+    "=== CREATIVE DIRECTION ===",
+    "MEASUREMENT LOCK:",
+    "SKU/spec context",
+    "```",
+  ].some((marker) => text.includes(marker));
 }
 
 export function ImageEditorModal({
@@ -140,7 +156,7 @@ export function ImageEditorModal({
   // Reset state when image changes
   useEffect(() => {
     if (image) {
-      setRefinementPrompt(image.prompt || "");
+      setRefinementPrompt("");
       setVariations([]);
       setSelectedVariationId(null);
       setActiveTab("refine");
@@ -152,7 +168,7 @@ export function ImageEditorModal({
         ctaText: "",
       });
     }
-  }, [image?.id]);
+  }, [image]);
 
   // Ad overlay handlers
   const handleSelectAdPreset = useCallback((preset: AdLayoutPreset) => {
@@ -222,8 +238,13 @@ export function ImageEditorModal({
       toast.error("Please enter a refinement prompt");
       return;
     }
+    if (isLikelyPromptBlock(refinementPrompt)) {
+      toast.error("Use a short edit instruction, not a full prompt block.");
+      return;
+    }
 
     setIsGenerating(true);
+    const inheritedTags = Array.isArray(image.libraryTags) ? image.libraryTags : [];
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-madison-image", {
@@ -243,7 +264,7 @@ export function ImageEditorModal({
           isRefinement: true,
           refinementInstruction: refinementPrompt,
           parentPrompt: image.prompt,
-          extraLibraryTags: [LIBRARY_ROLE_PRODUCT],
+          extraLibraryTags: Array.from(new Set([LIBRARY_ROLE_PRODUCT, ...inheritedTags])),
         },
       });
 
@@ -255,6 +276,8 @@ export function ImageEditorModal({
           imageUrl: data.imageUrl,
           prompt: refinementPrompt,
           isSaved: true,
+          aspectRatio: image.aspectRatio,
+          libraryTags: inheritedTags,
         };
 
         // Add to variations
@@ -283,6 +306,7 @@ export function ImageEditorModal({
     if (!image || !user || !orgId) return;
 
     setIsGenerating(true);
+    const inheritedTags = Array.isArray(image.libraryTags) ? image.libraryTags : [];
 
     // Create placeholder variations
     const placeholders: Variation[] = Array(3)
@@ -319,7 +343,7 @@ export function ImageEditorModal({
               goalType: "variation",
               aspectRatio: image.aspectRatio || "1:1",
               parentImageId: image.id,
-              extraLibraryTags: [LIBRARY_ROLE_PRODUCT],
+              extraLibraryTags: Array.from(new Set([LIBRARY_ROLE_PRODUCT, ...inheritedTags])),
             },
           });
 
@@ -427,6 +451,8 @@ export function ImageEditorModal({
     : image?.imageUrl;
 
   // Always render Dialog for proper state management, but only open when image exists
+  const refinePromptLooksBlocked =
+    refinementPrompt.trim().length > 0 && isLikelyPromptBlock(refinementPrompt);
   const shouldOpen = isOpen && !!image;
 
   return (
@@ -652,14 +678,19 @@ export function ImageEditorModal({
                   <Textarea
                     value={refinementPrompt}
                     onChange={(e) => setRefinementPrompt(e.target.value)}
-                    placeholder="e.g., Make the lighting warmer, add more shadows, zoom in on the product..."
+                    placeholder="Short edit only, e.g. soften the contact shadow and clean the cream background"
                       className="bg-[rgba(26,24,22,0.8)] border-[rgba(184,149,106,0.2)] text-[var(--darkroom-text)] placeholder:text-[rgba(245,240,230,0.4)] focus:border-[var(--darkroom-accent)] focus:ring-1 focus:ring-[rgba(184,149,106,0.2)] resize-none"
                     rows={4}
                   />
+                  {refinePromptLooksBlocked && (
+                    <p className="text-xs text-amber-300">
+                      Refine expects a short edit instruction. Full generated prompts and code blocks are blocked here.
+                    </p>
+                  )}
                   <Button
                     variant="brass"
                     onClick={handleRefine}
-                    disabled={isGenerating || !refinementPrompt.trim()}
+                    disabled={isGenerating || !refinementPrompt.trim() || refinePromptLooksBlocked}
                       className="w-full"
                   >
                     {isGenerating ? (

@@ -78,6 +78,21 @@ interface Variation {
   isGenerating: boolean;
 }
 
+const REFINE_PROMPT_MAX_CHARS = 900;
+
+function isLikelyPromptBlock(value: string): boolean {
+  const text = value.trim();
+  if (text.length > REFINE_PROMPT_MAX_CHARS) return true;
+  return [
+    "REFERENCE-LOCKED BEST BOTTLES",
+    "=== REFERENCE IMAGE DIRECTIVES ===",
+    "=== CREATIVE DIRECTION ===",
+    "MEASUREMENT LOCK:",
+    "SKU/spec context",
+    "```",
+  ].some((marker) => text.includes(marker));
+}
+
 interface LocationState {
   selectedImageId?: string;
   sessionImages?: SessionImage[];
@@ -268,7 +283,7 @@ export default function LightTable() {
   // Update refinement prompt when image changes
   useEffect(() => {
     if (selectedImage) {
-      setRefinementPrompt(selectedImage.prompt);
+      setRefinementPrompt("");
     }
   }, [selectedImage?.id]);
 
@@ -309,6 +324,10 @@ export default function LightTable() {
 
     if (!refinementPrompt.trim()) {
       toast.error("Please enter a refinement prompt");
+      return;
+    }
+    if (isLikelyPromptBlock(refinementPrompt)) {
+      toast.error("Use a short edit instruction, not a full prompt block.");
       return;
     }
 
@@ -396,6 +415,9 @@ export default function LightTable() {
     },
     [handleRefine, isGenerating, refinementPrompt]
   );
+
+  const refinePromptLooksBlocked =
+    refinementPrompt.trim().length > 0 && isLikelyPromptBlock(refinementPrompt);
 
   // Generate variations
   const handleGenerateVariations = useCallback(async () => {
@@ -960,7 +982,7 @@ Generate a polished, publication-ready advertisement image where the product and
                   if (selectedImage) {
                     setImageEditorImage({
                       id: selectedImage.id,
-                      url: selectedImage.imageUrl,
+                      imageUrl: selectedImage.imageUrl,
                       prompt: selectedImage.prompt,
                     });
                     setImageEditorOpen(true);
@@ -1047,14 +1069,19 @@ Generate a polished, publication-ready advertisement image where the product and
                     value={refinementPrompt}
                     onChange={(e) => setRefinementPrompt(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="e.g., Make the lighting warmer, add shadows..."
+                    placeholder="Short edit only, e.g. soften the contact shadow and clean the cream background"
                     className="light-table-textarea"
                     rows={3}
                   />
+                  {refinePromptLooksBlocked && (
+                    <p className="text-xs text-amber-300">
+                      Refine expects a short edit instruction. Full generated prompts and code blocks are blocked here.
+                    </p>
+                  )}
                   <Button
                     variant="brass"
                     onClick={handleRefine}
-                    disabled={isGenerating || !refinementPrompt.trim()}
+                    disabled={isGenerating || !refinementPrompt.trim() || refinePromptLooksBlocked}
                     className="light-table-generate-btn"
                   >
                     {isGenerating ? (

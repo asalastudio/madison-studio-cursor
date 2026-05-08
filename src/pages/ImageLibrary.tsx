@@ -477,6 +477,7 @@ export default function ImageLibrary() {
       aspectRatio: image.aspect_ratio || undefined,
       createdAt: image.created_at,
       sessionName: image.session_name || undefined,
+      libraryTags: image.library_tags ?? [],
     });
     setImageEditorOpen(true);
   };

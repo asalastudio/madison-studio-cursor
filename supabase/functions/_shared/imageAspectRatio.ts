@@ -27,6 +27,10 @@ function parseAspectRatio(raw?: string): number | null {
   return w / h;
 }
 
+function encodeBytes(bytes: Uint8Array): string {
+  return encodeBase64(new Uint8Array(bytes).buffer);
+}
+
 export interface ConformResult {
   base64: string;
   width: number;
@@ -34,6 +38,89 @@ export interface ConformResult {
   wasModified: boolean;
   originalWidth: number;
   originalHeight: number;
+}
+
+export async function conformImageToCanvas(
+  base64Image: string,
+  targetWidth: number,
+  targetHeight: number,
+): Promise<ConformResult> {
+  const bytes = decodeBase64(base64Image);
+  const decoded = await Image.decode(bytes);
+  const image = decoded as unknown as Image;
+  const originalWidth = image.width;
+  const originalHeight = image.height;
+
+  if (originalWidth === targetWidth && originalHeight === targetHeight) {
+    return {
+      base64: base64Image,
+      width: originalWidth,
+      height: originalHeight,
+      wasModified: false,
+      originalWidth,
+      originalHeight,
+    };
+  }
+
+  image.cover(targetWidth, targetHeight);
+  const encoded = await image.encode();
+
+  return {
+    base64: encodeBytes(encoded),
+    width: targetWidth,
+    height: targetHeight,
+    wasModified: true,
+    originalWidth,
+    originalHeight,
+  };
+}
+
+export async function containImageOnCanvas(
+  base64Image: string,
+  targetWidth: number,
+  targetHeight: number,
+  backgroundColor = 0xEEE6D4FF,
+): Promise<ConformResult> {
+  const bytes = decodeBase64(base64Image);
+  const decoded = await Image.decode(bytes);
+  const image = decoded as unknown as Image;
+  const originalWidth = image.width;
+  const originalHeight = image.height;
+
+  if (originalWidth === targetWidth && originalHeight === targetHeight) {
+    return {
+      base64: base64Image,
+      width: originalWidth,
+      height: originalHeight,
+      wasModified: false,
+      originalWidth,
+      originalHeight,
+    };
+  }
+
+  const scale = Math.min(targetWidth / originalWidth, targetHeight / originalHeight);
+  const containedWidth = Math.max(1, Math.round(originalWidth * scale));
+  const containedHeight = Math.max(1, Math.round(originalHeight * scale));
+  image.resize(containedWidth, containedHeight);
+
+  const canvas = new Image(targetWidth, targetHeight);
+  canvas.fill(backgroundColor);
+  canvas.composite(
+    image,
+    Math.round((targetWidth - containedWidth) / 2),
+    Math.round((targetHeight - containedHeight) / 2),
+  );
+
+  const encoded = await canvas.encode();
+
+  return {
+    base64: encodeBytes(encoded),
+    width: targetWidth,
+    height: targetHeight,
+    wasModified: true,
+    originalWidth,
+    originalHeight,
+  };
 }
 
 /**
@@ -103,7 +190,7 @@ export async function conformImageToAspectRatio(
   image.crop(x, y, cropWidth, cropHeight);
 
   const encoded = await image.encode();
-  const re = encodeBase64(encoded);
+  const re = encodeBytes(encoded);
 
   return {
     base64: re,

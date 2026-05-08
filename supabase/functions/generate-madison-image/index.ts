@@ -4,7 +4,7 @@ import { encode, decode } from "https://deno.land/std@0.168.0/encoding/base64.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { formatVisualContext } from "../_shared/productFieldFilters.ts";
 import { callGeminiImage } from "../_shared/aiProviders.ts";
-import { conformImageToAspectRatio } from "../_shared/imageAspectRatio.ts";
+import { conformImageToAspectRatio, containImageOnCanvas } from "../_shared/imageAspectRatio.ts";
 import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, type OpenAIImageModel } from "../_shared/openaiProvider.ts";
@@ -15,6 +15,117 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+function getExactCanvasForAspectRatio(aspectRatio?: string): { width: number; height: number } | null {
+  const normalized = aspectRatio?.trim().toLowerCase().replace(/\s+/g, "");
+  if (normalized === "10:11" || normalized === "2080:2288" || normalized === "2080x2288") {
+    return { width: 2080, height: 2288 };
+  }
+  return null;
+}
+
+function buildReferenceLockedBestBottlesPrompt(
+  categorizedRefs: CategorizedReferences,
+  aspectRatio?: string,
+  productContext?: Record<string, unknown> | null,
+  operatorRefinement?: string,
+): string {
+  const refNote = categorizedRefs.product
+    .map((ref, idx) => ref.description ? `Reference ${idx + 1}: ${ref.description}` : null)
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+  const expectedColor = [
+    typeof productContext?.capColor === "string" ? `Cap / hose / bulb / tassel color: ${productContext.capColor}` : null,
+    typeof productContext?.trimColor === "string" ? `Trim metal: ${productContext.trimColor}` : null,
+    typeof productContext?.applicator === "string" ? `Applicator: ${productContext.applicator}` : null,
+  ].filter(Boolean).join("\n");
+  const measurementLock = [
+    typeof productContext?.sku === "string" ? `SKU: ${productContext.sku}` : null,
+    typeof productContext?.capacityMl === "number" ? `Capacity: ${productContext.capacityMl} ml` : null,
+    typeof productContext?.heightWithoutCap === "string" ? `Body height without cap: ${productContext.heightWithoutCap}` : null,
+    typeof productContext?.heightWithCap === "string" ? `Assembled height with cap/applicator: ${productContext.heightWithCap}` : null,
+    typeof productContext?.diameter === "string" ? `Face width / diameter: ${productContext.diameter}` : null,
+    "The rendered body height-to-width relationship must match these measurements. 50 ml and 100 ml variants must share the family width/depth system but differ in body height according to their measured catalog rows.",
+  ].filter(Boolean).join("\n");
+  const cleanOperatorRefinement =
+    typeof operatorRefinement === "string" && operatorRefinement.trim()
+      ? operatorRefinement.trim().slice(0, 900)
+      : "";
+
+  return [
+    "REFERENCE-LOCKED BEST BOTTLES LUXURY PRODUCT PHOTOGRAPHY V5.1.",
+    "",
+    "Task: transform the uploaded real product reference into a photorealistic high-end editorial PDP master. The product geometry, proportions, colors, component shapes, camera angle, and material identity are locked. The source crop, flat white background, weak lighting, missing shadow, and extracted-PNG look are not locked.",
+    "",
+    "SOURCE OF TRUTH:",
+    "- Use Image 1 only as the product reference: exact bottle body, bulb, hose, tassel, cap, trim, dip tube, glass thickness, silhouette, proportions, component relationships, colors, and material identity.",
+    "- Preserve the source camera angle and product component relationships. Do not redesign, redraw, recolor, rotate, stretch, simplify, or reinterpret the product.",
+    "- Do not preserve the reference image's tight crop, flat lighting, pure-white background, weak shadow, or low-end capture finish. Re-stage the same product as a luxury catalog photograph.",
+    "- For perfume spray pump references, preserve the exact cap state: if the actuator/nozzle is exposed and a detached cap is visible beside the bottle, keep both exactly as photographed. Do not add, remove, close, or relocate the cap.",
+    "- Keep the full product visible, including full bulb and full tassel.",
+    "",
+    "CANVAS AND COMPOSITION:",
+    "- Canvas: exact 2080 x 2288, 10:11 portrait PDP master.",
+    "- Fit the full product assembly comfortably inside the frame with generous breathing room. No cap, bulb, hose, bottle base, tassel strands, or tassel end may touch or leave the canvas.",
+    "- Preserve the camera angle and component relationships, but allow refined catalog placement and scale so the product feels intentionally composed, not cropped from a source file.",
+    "- Bottle body should feel large and premium but not oversized; full applicator and tassel must remain visible.",
+    "",
+    "PHOTOGRAPHIC STYLE:",
+    "- Photorealistic luxury product photography, as if captured on a Hasselblad medium-format studio camera with a 100mm macro/product lens at f/8–f/11, ISO 100, tripod-stable capture, high dynamic range, controlled exposure, crisp edge acuity, and realistic optical compression.",
+    "- Quiet luxury editorial restraint: Kinfolk-like negative space and warmth, Aesop-like minimal product staging and material honesty. Match only the mood, restraint, warm neutrals, and premium photographic discipline. Do not imitate Aesop products, labels, packaging, typography, or brand assets.",
+    "",
+    "LIGHTING:",
+    "- Use professional glass-product lighting, not flat front lighting.",
+    "- Soft warm key light from upper front-left, gentle negative fill, large diffused backlight through the glass, subtle side rim lights/strip reflections to define edges, black cards/flags creating controlled dark edge lines, and white reflection cards creating clean specular highlights.",
+    "- The glass should be defined by transmitted light, rim light, refraction, and edge reflections.",
+    "",
+    "MATERIAL ENHANCEMENT:",
+    "- The result must show a clear visible quality lift over the reference, not a near-duplicate. Increase material separation, controlled contrast, micro-detail, and studio polish while preserving product truth.",
+    "- Glass: clearer transparency, visible wall thickness, refined refraction, crisp vertical edge glints, tiny rim sparkles on lip and base, realistic base weight, visible separation between front wall, back wall, and dip tube. No fake bevels or plastic glass.",
+    "- Chrome/metal: polished Shiny Silver with nuanced black/white reflection-card gradients, clean specular gloss, realistic metal depth, no broad CGI stripe.",
+    "- Textile: sharper weave/thread detail in hose, bulb, and tassel; tactile dimensional softness; locked textile color remains accurate and rich, not crushed or gray.",
+    "",
+    "BACKGROUND AND SHADOW:",
+    "- Replace background with seamless warm parchment cream #EEE6D4. It must visibly read as warm cream, not white, with no horizon line, tabletop edge, vignette, props, labels, or decorative frame.",
+    "- Add physically plausible grounding: visible soft contact shadow and ambient occlusion under bottle base, bulb, tassel, and hose contact points. Shadow should be elegant but present, about 18–28% opacity at contact points, feathering outward naturally.",
+    "- Remove only dirt, low-quality capture artifacts, jagged edges, compression noise, and background contamination outside the product silhouette.",
+    "",
+    "FORBIDDEN:",
+    "- No new colors, color drift, substituted cap/tassel colors, changed textile color, changed metal finish, new bottle shape, changed angle, changed cap height, changed body width/depth, or changed product proportions.",
+    "- No zoomed-in crop, scale inflation, cropped tassel, cropped bulb, or product edge touching the canvas.",
+    "- No heavy/long/hard shadow, dark smear, doubled shadow, horizon line, tabletop edge, or obvious floor plane.",
+    "- No fake bevels, extra facets, broad central CGI stripe, softened/melted edges, or plastic-looking glass.",
+    "- No label, text, badge, watermark, brand name, UI pill, card frame, rounded border, props, hands, flowers, spray mist, pure-white cutout look, tabletop edge, vignette, or decorative canvas treatment.",
+    "",
+    cleanOperatorRefinement
+      ? `OPERATOR RETOUCH REQUEST — apply only if it does not conflict with the reference lock:\n${cleanOperatorRefinement}`
+      : null,
+    expectedColor ? `SKU COLOR LOCK:\n${expectedColor}` : null,
+    measurementLock ? `MEASUREMENT LOCK:\n${measurementLock}` : null,
+    refNote || null,
+    aspectRatio ? `OUTPUT: ${aspectRatio} aspect ratio, exact 2080 x 2288 PDP canvas when available.` : null,
+  ].filter((section): section is string => Boolean(section)).join("\n\n");
+}
+
+function parseMeasurementMm(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+  if (typeof raw !== "string") return null;
+  const match = raw.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function getBestBottlesMeasurementIssue(productContext?: Record<string, unknown> | null): string | null {
+  const heightMm = parseMeasurementMm(productContext?.heightWithoutCap);
+  const widthMm = parseMeasurementMm(productContext?.diameter);
+  if (heightMm == null && widthMm == null) {
+    return "Missing body height and face width/diameter.";
+  }
+  if (heightMm == null) return "Missing body height.";
+  if (widthMm == null) return "Missing face width/diameter.";
+  return null;
+}
 
 /**
  * ------------------------------
@@ -731,6 +842,7 @@ serve(async (req) => {
       // identifiers aren't part of pipelineContext. Merged into
       // library_tags alongside the group-level pipelineMeta tags below.
       extraLibraryTags,
+      productContext,
     } = body;
 
     // Resolve the two separate roles from whatever fields the client sent.
@@ -746,6 +858,16 @@ serve(async (req) => {
         : typeof variationDescriptor === "string" && variationDescriptor.trim()
           ? variationDescriptor.trim()
           : undefined;
+    const callerExtraTagsEarly = Array.isArray(extraLibraryTags)
+      ? (extraLibraryTags as unknown[]).filter(
+          (tag): tag is string => typeof tag === "string" && tag.trim().length > 0,
+        )
+      : [];
+    const isBestBottlesStudioMasterRequest =
+      callerExtraTagsEarly.includes("brand:best-bottles") &&
+      callerExtraTagsEarly.includes("studio-master") &&
+      Array.isArray(referenceImages) &&
+      referenceImages.length > 0;
 
     // ─── Best Bottles Pipeline meta ───────────────────────────────────
     // When this run was launched from the Grid Pipeline, compute a
@@ -841,9 +963,9 @@ serve(async (req) => {
     let effectiveFreepikModel = freepikModel;
     let effectiveFreepikResolution = freepikResolution;
     // Default OpenAI model when user picks the "OpenAI" group from the UI.
-    // As of 2026-04-21, OpenAI's current flagship is gpt-image-2 (4× faster
-    // than 1.5, better text rendering, better layout composition). The
-    // OPENAI_IMAGE_MODEL secret overrides the default without a redeploy.
+    // As of 2026-05, GPT Image 2 supports Image API generations/edits and
+    // high-fidelity image inputs. The OPENAI_IMAGE_MODEL secret overrides
+    // the default without a redeploy.
     const openaiModelSecret = Deno.env.get("OPENAI_IMAGE_MODEL")?.trim();
     let effectiveOpenAIModel: OpenAIImageModel =
       (openaiModelSecret || "gpt-image-2") as OpenAIImageModel;
@@ -871,7 +993,12 @@ serve(async (req) => {
       ) {
         effectiveProvider = "gemini";
         effectiveGeminiModel = "models/gemini-3-pro-image-preview";
-      } else if (aiProvider === "gemini" || aiProvider === "gemini-2.0-flash" || aiProvider === "gemini-2.0-flash-exp") {
+      } else if (
+        aiProvider === "gemini" ||
+        aiProvider === "gemini-2.5-flash-image" ||
+        aiProvider === "gemini-2.0-flash" ||
+        aiProvider === "gemini-2.0-flash-exp"
+      ) {
         effectiveProvider = "gemini";
         effectiveGeminiModel = "models/gemini-2.5-flash-image";
       }
@@ -898,10 +1025,7 @@ serve(async (req) => {
         effectiveProvider = "freepik";
         effectiveFreepikModel = "classic-fast";
       }
-      // OpenAI image models (gpt-image-* family + dall-e-3)
-      // "openai-image-2" is the UI label — as of 2026-04-21 it maps to the
-      // real gpt-image-2 API enum (previously it temporarily mapped to 1.5
-      // while gpt-image-2 wasn't yet exposed on the enum).
+      // OpenAI image models (gpt-image-* family + dall-e-3).
       else if (
         aiProvider === "openai-image-2" ||
         aiProvider === "openai-gpt-image-2" ||
@@ -1078,16 +1202,20 @@ serve(async (req) => {
      * 6. Categorize and prepare reference images
      */
     let actualReferenceImages = referenceImages || [];
+    let parentImageTags: string[] = [];
 
     // Auto-include parent image for refinements
     if (isRefinement && parentImageId) {
       const { data: parent } = await supabase
         .from("generated_images")
-        .select("image_url, final_prompt, chain_depth")
+        .select("image_url, final_prompt, chain_depth, library_tags")
         .eq("id", parentImageId)
         .single();
 
       if (parent) {
+        parentImageTags = Array.isArray(parent.library_tags)
+          ? parent.library_tags.filter((tag): tag is string => typeof tag === "string")
+          : [];
         actualReferenceImages = [
           {
             url: parent.image_url,
@@ -1101,6 +1229,40 @@ serve(async (req) => {
 
     // Categorize references by type
     const categorizedRefs = categorizeReferences(actualReferenceImages);
+    const bestBottlesTagSet = new Set([...callerExtraTagsEarly, ...parentImageTags]);
+    const isBestBottlesReferenceLocked =
+      bestBottlesTagSet.has("brand:best-bottles") &&
+      bestBottlesTagSet.has("studio-master") &&
+      categorizedRefs.product.length > 0;
+
+    if (!isRefinement && isBestBottlesStudioMasterRequest) {
+      const measurementIssue = getBestBottlesMeasurementIssue(
+        productContext && typeof productContext === "object"
+          ? productContext as Record<string, unknown>
+          : null,
+      );
+      if (measurementIssue) {
+        return new Response(
+          JSON.stringify({
+            error: `Best Bottles master generation blocked: ${measurementIssue}`,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
+    if (
+      bestBottlesTagSet.has("brand:best-bottles") &&
+      bestBottlesTagSet.has("studio-master") &&
+      categorizedRefs.product.length === 0
+    ) {
+      return new Response(
+        JSON.stringify({
+          error: "Best Bottles master generation requires an uploaded product reference image.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Determine mode: "Essential" (simple) vs "Director" (pro)
     const isDirectorMode = 
@@ -1147,9 +1309,32 @@ serve(async (req) => {
      */
     let enhancedPrompt: string;
 
-    if (isRefinement && refinementInstruction) {
+    if (isBestBottlesReferenceLocked) {
+      // Best Bottles PDP masters and their Image Editor refinements are
+      // retouch passes over real references. Never chain the old assembled
+      // art-directed prompt back into this path.
+      enhancedPrompt = buildReferenceLockedBestBottlesPrompt(
+        categorizedRefs,
+        aspectRatio,
+        productContext && typeof productContext === "object"
+          ? productContext as Record<string, unknown>
+          : null,
+        isRefinement ? refinementInstruction || prompt : undefined,
+      );
+    } else if (isRefinement && refinementInstruction) {
       // Refinements use chain logic
       enhancedPrompt = buildChainPrompt(parentPrompt || prompt, refinementInstruction, 0);
+    } else if (isBestBottlesStudioMasterRequest) {
+      // Best Bottles PDP masters are fidelity-enhancement passes over real
+      // PSD/camera references. Keep the product locked and make the model
+      // polish/stage the reference instead of re-art-directing it.
+      enhancedPrompt = buildReferenceLockedBestBottlesPrompt(
+        categorizedRefs,
+        aspectRatio,
+        productContext && typeof productContext === "object"
+          ? productContext as Record<string, unknown>
+          : null,
+      );
     } else if (isDirectorMode) {
       // DIRECTOR MODE: Full "Virtual Art Director" treatment
       enhancedPrompt = buildDirectorModePrompt(
@@ -1552,8 +1737,9 @@ serve(async (req) => {
        * otherwise we hit /images/generations. Output is always returned as
        * base64 so the upload path mirrors the Gemini branch exactly.
        *
-       * Default model is gpt-image-2 (Image API). Fallback on any failure is
-       * Gemini, same pattern as the Freepik branch.
+       * Default model is gpt-image-2 (Image API). For reference-locked Best
+       * Bottles retouches, OpenAI errors bubble instead of silently falling
+       * back to a different model.
        */
       console.log("🎨 Using OpenAI for image generation...", {
         model: effectiveOpenAIModel,
@@ -1567,11 +1753,32 @@ serve(async (req) => {
           prompt: enhancedPrompt,
           model: effectiveOpenAIModel,
           aspectRatio,
-          resolution,
+          resolution: isBestBottlesReferenceLocked ? "high" : resolution,
+          quality: isBestBottlesReferenceLocked ? "high" : undefined,
+          size: isBestBottlesReferenceLocked ? "auto" : undefined,
           referenceImages: referenceImagesPayload.length > 0
             ? referenceImagesPayload
             : undefined,
           user: userId ?? undefined,
+        });
+
+        const exactCanvas = getExactCanvasForAspectRatio(aspectRatio);
+        const openaiImage = exactCanvas
+          ? await containImageOnCanvas(
+              openaiResult.imageBase64,
+              exactCanvas.width,
+              exactCanvas.height,
+            )
+          : await conformImageToAspectRatio(openaiResult.imageBase64, aspectRatio);
+        const openaiImageBase64 = openaiImage.base64;
+        const openaiMimeType = openaiImage.wasModified ? "image/png" : openaiResult.mimeType;
+
+        console.log("🖼️ OpenAI canvas conformance:", {
+          requested: aspectRatio,
+          exactCanvas: exactCanvas ? `${exactCanvas.width}×${exactCanvas.height}` : "(aspect only)",
+          originalDimensions: `${openaiImage.originalWidth}×${openaiImage.originalHeight}`,
+          finalDimensions: `${openaiImage.width}×${openaiImage.height}`,
+          modified: openaiImage.wasModified,
         });
 
         // Write base64 bytes to Supabase Storage. Pipeline-aware filename
@@ -1581,8 +1788,8 @@ serve(async (req) => {
           typeof setPosition === "number" && Number.isFinite(setPosition)
             ? Math.max(0, Math.floor(setPosition))
             : 0;
-        const ext = openaiResult.mimeType === "image/jpeg" ? "jpg"
-          : openaiResult.mimeType === "image/webp" ? "webp"
+        const ext = openaiMimeType === "image/jpeg" ? "jpg"
+          : openaiMimeType === "image/webp" ? "webp"
           : "png";
         const openaiFilename = pipelineMeta
           ? `${resolvedOrgId}/${pipelineMeta.storagePathPrefix}/${pipelineMeta.variationSlug}-pos${openaiPosition}-${openaiShortId}.${ext}`
@@ -1590,8 +1797,8 @@ serve(async (req) => {
 
         const { error: openaiUploadErr } = await supabase.storage
           .from("generated-images")
-          .upload(openaiFilename, decode(openaiResult.imageBase64), {
-            contentType: openaiResult.mimeType,
+          .upload(openaiFilename, decode(openaiImageBase64), {
+            contentType: openaiMimeType,
           });
 
         if (openaiUploadErr) {
@@ -1613,6 +1820,10 @@ serve(async (req) => {
           storedUrl: imageUrl,
         });
       } catch (openaiError) {
+        if (isBestBottlesReferenceLocked) {
+          console.error("❌ OpenAI reference-locked Best Bottles generation failed:", openaiError);
+          throw openaiError;
+        }
         console.error("❌ OpenAI generation failed, falling back to Gemini:", openaiError);
         selectedProvider = "gemini";
         didFallback = true;
@@ -1706,15 +1917,18 @@ serve(async (req) => {
         throw new Error("Gemini returned no image. Check prompt and reference images.");
       }
 
-      // Gemini Nano Banana biases toward square output even when we pass the
-      // requested aspect ratio via imageConfig. Center-crop the returned
-      // image server-side to guarantee the user sees the shape they asked
-      // for, regardless of what the model actually produced.
-      const conformed = await conformImageToAspectRatio(rawBase64Image, aspectRatio);
+      // Image providers can bias toward square output even when we pass the
+      // requested aspect ratio via native config. For Best Bottles catalog
+      // product masters, conform all saved images to the canonical PDP canvas.
+      const exactCanvas = getExactCanvasForAspectRatio(aspectRatio);
+      const conformed = exactCanvas
+        ? await containImageOnCanvas(rawBase64Image, exactCanvas.width, exactCanvas.height)
+        : await conformImageToAspectRatio(rawBase64Image, aspectRatio);
       const base64Image = conformed.base64;
 
       console.log("🖼️ Gemini aspect-ratio conformance:", {
         requested: aspectRatio,
+        exactCanvas: exactCanvas ? `${exactCanvas.width}×${exactCanvas.height}` : "(aspect only)",
         originalDimensions: `${conformed.originalWidth}×${conformed.originalHeight}`,
         finalDimensions: `${conformed.width}×${conformed.height}`,
         cropped: conformed.wasModified,
@@ -1883,7 +2097,14 @@ serve(async (req) => {
       JSON.stringify({
         imageUrl,
         savedImageId: savedImage?.id,
-        description: "Generated via Gemini",
+        finalPrompt: enhancedPrompt,
+        usedProvider,
+        promptMode: isBestBottlesReferenceLocked
+          ? "best-bottles-reference-locked"
+          : isDirectorMode
+            ? "director"
+            : "essential",
+        description: `Generated via ${usedProvider}`,
       }),
       {
         headers: {

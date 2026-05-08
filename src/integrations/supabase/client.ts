@@ -4,6 +4,7 @@ import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const LOCAL_FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL?.replace(/\/$/, "");
 
 // Validate environment variables to prevent crashes
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
@@ -34,7 +35,43 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+const fetchWithLocalFunctionOverride: typeof fetch = async (input, init) => {
+  if (!LOCAL_FUNCTIONS_URL) {
+    return fetch(input, init);
+  }
+
+  const originalUrl =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+
+  if (!originalUrl.includes("/functions/v1/generate-madison-image")) {
+    return fetch(input, init);
+  }
+
+  const rewrittenUrl = originalUrl.replace(
+    `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1`,
+    LOCAL_FUNCTIONS_URL,
+  );
+
+  console.info("[Supabase] Routing generate-madison-image to local Edge Function", {
+    from: originalUrl,
+    to: rewrittenUrl,
+  });
+
+  if (input instanceof Request) {
+    return fetch(new Request(rewrittenUrl, input), init);
+  }
+
+  return fetch(rewrittenUrl, init);
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  global: {
+    fetch: fetchWithLocalFunctionOverride,
+  },
   auth: {
     storage: localStorage,
     persistSession: true,

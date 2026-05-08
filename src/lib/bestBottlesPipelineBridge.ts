@@ -10,6 +10,8 @@
  * link is a one-shot handoff, not a shareable URL.
  */
 
+import type { PipelineRowDescriptor } from "@/lib/bestBottlesPipelineMatching";
+
 const STORAGE_KEY = "best-bottles-pipeline-prefill";
 
 export interface PipelinePrefill {
@@ -19,6 +21,12 @@ export interface PipelinePrefill {
   shapeLabel: string;
   /** pipeline_groups.id values this run covers — tagged to the set for status sync. */
   pipelineGroupIds: string[];
+  /**
+   * Full tracker row descriptors for row-level status sync. Generation maps
+   * each variation back to these rows by glass color + fitment instead of
+   * marking the whole shape group.
+   */
+  pipelineRows: PipelineRowDescriptor[];
   /**
    * Bottle-color option ids the user should see pre-ticked. Ids from
    * consistencyVariations.BOTTLE_COLORS (e.g. "clear", "amber").

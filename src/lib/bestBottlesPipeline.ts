@@ -501,6 +501,79 @@ export async function updatePipelineGroupStatus(
   if (error) throw error;
 }
 
+async function updatePipelineGroupsByIds(
+  rowIds: string[],
+  patch: Partial<
+    Pick<
+      PipelineGroup,
+      | "madison_status"
+      | "madison_consistency_set_id"
+      | "madison_approved_image_id"
+      | "madison_approved_at"
+      | "madison_approved_by"
+      | "madison_notes"
+      | "madison_last_error"
+    >
+  >,
+): Promise<void> {
+  if (rowIds.length === 0) return;
+  const { error } = await supabase
+    .from("best_bottles_pipeline_groups")
+    .update(patch)
+    .in("id", rowIds);
+  if (error) throw error;
+}
+
+export async function markPipelineRowsQueued(
+  rowIds: string[],
+  consistencySetId: string,
+): Promise<void> {
+  await updatePipelineGroupsByIds(rowIds, {
+    madison_status: "queued",
+    madison_consistency_set_id: consistencySetId,
+    madison_last_error: null,
+  });
+}
+
+export async function markPipelineRowsQaPending(
+  rowIds: string[],
+  consistencySetId: string,
+): Promise<void> {
+  await updatePipelineGroupsByIds(rowIds, {
+    madison_status: "qa-pending",
+    madison_consistency_set_id: consistencySetId,
+    madison_last_error: null,
+  });
+}
+
+export async function markPipelineRowsGenerationFailed(
+  rowIds: string[],
+  consistencySetId: string,
+  errorMessage: string,
+): Promise<void> {
+  await updatePipelineGroupsByIds(rowIds, {
+    madison_status: "rejected",
+    madison_consistency_set_id: consistencySetId,
+    madison_last_error: errorMessage,
+  });
+}
+
+export async function markPipelineRowsApproved(params: {
+  rowIds: string[];
+  imageId: string;
+  userId: string | null;
+  notes?: string | null;
+}): Promise<void> {
+  await updatePipelineGroupsByIds(params.rowIds, {
+    madison_status: "approved",
+    madison_approved_image_id: params.imageId,
+    madison_approved_at: new Date().toISOString(),
+    madison_approved_by: params.userId,
+    madison_notes: params.notes ?? null,
+    madison_last_error: null,
+  });
+}
+
 /**
  * Mark all rows in a shape group as queued + tag them to a consistency set.
  * Called when the operator launches a shape-group run from the Pipeline UI.

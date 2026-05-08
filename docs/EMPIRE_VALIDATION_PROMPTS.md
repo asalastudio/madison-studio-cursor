@@ -98,7 +98,7 @@ OUTPUT RULES:
 ```
 PRESET:
 - Purpose: Catalog grid tile for bestbottles.com. Matches the current image-gen pipeline output dimensions.
-- Canvas: 2000 × 2200 px, 10:11 portrait
+- Canvas: 2080 × 2288 px, 10:11 portrait
 - Background: seamless parchment-cream backdrop (#EEE6D4) with a subtle paper grain, completely uncluttered, no gradient, no texture pattern, no vignette
 - Lighting: single soft key light from upper-front-left at ~45° elevation (clock position 7:30–8:00 relative to the bottle base), with gentle bounce-fill from the right at matched color temperature — no second hard source; multiple small specular highlights scattered along the shoulder and curves — broken and irregular, never a single broad CGI light stripe; one subtle specular kicker on glass edges where geometry suggests it; single soft window-light feel, not multi-strobe drama; Hasselblad-grade color accuracy, neutral white balance
 - Shadow: soft contact shadow casting BACK-RIGHT at the 2:00–2:30 clock position (opposite the upper-front-left key light), extending approximately 30–40% of the bottle's height past the base on the back-right diagonal; 25–30% opacity at the densest point closest to the bottle base, fading to ~5% at the tip; soft penumbra throughout (single soft source = soft edge), never crisp; consistent direction across every component in a family so paper-doll layers composite as one lit scene; no shadow directly underneath the bottle (would suggest overhead light, off-brand), no dramatic long cast, no double shadow, no harsh edge
@@ -329,7 +329,7 @@ Once these 9 grid card images validate, the hero image is a separate preset (`LA
 
 ## QA checklist (apply to every output)
 
-- [ ] Canvas is exactly 2000 × 2200 px
+- [ ] Canvas is exactly 2080 × 2288 px
 - [ ] Background is parchment-cream `#EEE6D4` — sample 4 corner pixels
 - [ ] Bottle is horizontally centered (cx within ±20 px of canvas midline)
 - [ ] Bottle fills 72–78% of vertical canvas height

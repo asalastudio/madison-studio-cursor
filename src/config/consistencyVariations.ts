@@ -105,6 +105,13 @@ export const BOTTLE_COLORS: VariationOption[] = [
     swatch: "#9A5A1C",
   },
   {
+    id: "green",
+    label: "Green",
+    prompt:
+      "The BOTTLE BODY is deep emerald green glass — forest-green tint integrated throughout the glass, transparent with visible depth-of-tint and darker saturation where the glass thickens at the shoulder and base. Render true glass volume: crisp warm edge-rim-highlights, visible light refraction through the coloured glass, and a subtle green caustic cast on the cream backdrop where the key light bends through the bottle. Keep the tone olivine to forest-green, never neon, never blue-leaning. Include a faint mould seam and base tooling marks. NOT metallic. The CAP remains exactly as specified in the CAP section below; the cap is NOT green.",
+    swatch: "#2F5F3A",
+  },
+  {
     id: "swirl",
     label: "Swirl",
     prompt:

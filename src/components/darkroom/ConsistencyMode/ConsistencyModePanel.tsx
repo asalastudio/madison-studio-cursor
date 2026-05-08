@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Layers, Aperture, Loader2, XCircle, Trash2, Camera, Package, Maximize2, ChevronDown, Sliders, Info } from "lucide-react";
+import { Layers, Aperture, Loader2, XCircle, Trash2, Camera, Package, Maximize2, ChevronDown, Sliders, Info, AlertCircle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,9 +31,12 @@ import {
   type PipelinePrefill,
 } from "@/lib/bestBottlesPipelineBridge";
 import {
-  markShapeGroupQueued,
-  markShapeGroupGenerated,
+  markPipelineRowsApproved,
+  markPipelineRowsGenerationFailed,
+  markPipelineRowsQaPending,
+  markPipelineRowsQueued,
 } from "@/lib/bestBottlesPipeline";
+import { matchPipelineRowsForSelection } from "@/lib/bestBottlesPipelineMatching";
 import {
   CONSISTENCY_COMPOSITIONS,
   DEFAULT_COMPOSITION_ID,
@@ -109,6 +113,7 @@ export function ConsistencyModePanel({
   userId,
   proSettings,
 }: ConsistencyModePanelProps) {
+  const queryClient = useQueryClient();
   const [masterImage, setMasterImage] = useState<UploadedImage | null>(null);
   /**
    * When the user promotes a rendered variation to become the new master,
@@ -142,6 +147,7 @@ export function ConsistencyModePanel({
    * runs in the background.
    */
   const [heroImageIds, setHeroImageIds] = useState<Set<string>>(new Set());
+  const [pipelineApprovedImageIds, setPipelineApprovedImageIds] = useState<Set<string>>(new Set());
   /** Set Review full-screen modal. Auto-opens when a run completes. */
   const [showReview, setShowReview] = useState(false);
   /** Tracks the last status we saw so we only auto-open on edge. */
@@ -226,35 +232,50 @@ export function ConsistencyModePanel({
     });
   }, []);
 
-  // When a pipeline-launched run starts, tag the pipeline_groups rows
-  // as queued + link them to the consistency set id. Runs once per new
-  // setId while a pipelinePrefill is active.
+  // When a pipeline-launched run starts, tag the selected pipeline rows as
+  // queued + link them to the consistency set id. Per-variation completion
+  // below narrows the next status write to exact matched rows.
   const lastQueuedSetIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (status !== "running") return;
     if (!setId || !pipelinePrefill) return;
     if (lastQueuedSetIdRef.current === setId) return;
     lastQueuedSetIdRef.current = setId;
-    void markShapeGroupQueued(pipelinePrefill.pipelineGroupIds, setId).catch(
+    void markPipelineRowsQueued(pipelinePrefill.pipelineGroupIds, setId).catch(
       (err) => {
         console.warn("[pipeline] Failed to mark shape group queued", err);
       },
     );
   }, [status, setId, pipelinePrefill]);
 
-  // When a pipeline-launched run completes, flip all tagged pipeline_groups
-  // rows to "generated" so the Pipeline page reflects real-time status.
-  // Runs once per setId transition to avoid double-writes on re-renders.
-  const lastTrackedSetIdRef = useRef<string | null>(null);
+  // Track each variation back to only its matched rows. A generated frame
+  // becomes qa-pending until the operator explicitly approves it in Set Review.
+  const trackedPipelineItemKeysRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (status !== "complete") return;
     if (!setId || !pipelinePrefill) return;
-    if (lastTrackedSetIdRef.current === setId) return;
-    lastTrackedSetIdRef.current = setId;
-    void markShapeGroupGenerated(setId).catch((err) => {
-      console.warn("[pipeline] Failed to mark shape group generated", err);
-    });
-  }, [status, setId, pipelinePrefill]);
+    for (const item of items) {
+      if (item.status !== "complete" && item.status !== "error") continue;
+      const rowIds = item.pipelineGroupIds ?? [];
+      if (rowIds.length === 0) continue;
+      const key = `${setId}:${item.position}:${item.status}`;
+      if (trackedPipelineItemKeysRef.current.has(key)) continue;
+      trackedPipelineItemKeysRef.current.add(key);
+
+      if (item.status === "complete") {
+        void markPipelineRowsQaPending(rowIds, setId).catch((err) => {
+          console.warn("[pipeline] Failed to mark rows qa-pending", err);
+        });
+      } else {
+        void markPipelineRowsGenerationFailed(
+          rowIds,
+          setId,
+          item.error ?? "Generation failed.",
+        ).catch((err) => {
+          console.warn("[pipeline] Failed to mark rows rejected", err);
+        });
+      }
+    }
+  }, [items, setId, pipelinePrefill]);
 
   const hasCompletedFrame = useMemo(
     () => items.some((i) => i.status === "complete" && !!i.imageUrl),
@@ -270,6 +291,32 @@ export function ConsistencyModePanel({
     selection.bottleColor.length +
     selection.capColor.length +
     selection.fitmentType.length;
+
+  const pipelineRowsForCurrentSelection = useMemo(() => {
+    if (!pipelinePrefill) return [];
+    const map = new Map<string, (typeof pipelinePrefill.pipelineRows)[number]>();
+    for (const combo of combinations) {
+      for (const row of matchPipelineRowsForSelection(
+        pipelinePrefill.pipelineRows ?? [],
+        combo,
+      )) {
+        map.set(row.id, row);
+      }
+    }
+    return Array.from(map.values());
+  }, [pipelinePrefill, combinations]);
+
+  const pipelineRowsMissingProductContext = useMemo(() => {
+    return pipelineRowsForCurrentSelection.filter(
+      (row) =>
+        !row.convexSlug &&
+        !row.primaryGraceSku &&
+        !row.primaryWebsiteSku,
+    );
+  }, [pipelineRowsForCurrentSelection]);
+
+  const pipelinePreflightBlocksGenerate =
+    !!pipelinePrefill && pipelineRowsMissingProductContext.length > 0;
 
   // Whether the Advanced drawer holds any non-default values — used to auto-
   // expand it on mount if the operator had previously deviated from defaults,
@@ -299,6 +346,7 @@ export function ConsistencyModePanel({
     !!userId &&
     combinations.length > 0 &&
     combinations.length <= MAX_VARIATION_SET_SIZE &&
+    !pipelinePreflightBlocksGenerate &&
     status !== "running";
 
   const ledState =
@@ -428,6 +476,42 @@ export function ConsistencyModePanel({
     }
   };
 
+  const handleApprovePipelineFrame = async (item: VariationItem) => {
+    const imageId = item.savedImageId;
+    const rowIds = item.pipelineGroupIds ?? [];
+    if (!pipelinePrefill || !imageId || rowIds.length === 0) {
+      toast.error("Cannot approve to Pipeline", {
+        description: "This frame is not linked to any Madison tracker rows.",
+      });
+      return;
+    }
+
+    setPipelineApprovedImageIds((prev) => new Set(prev).add(imageId));
+    try {
+      await markPipelineRowsApproved({
+        rowIds,
+        imageId,
+        userId,
+        notes: `Approved from Consistency Set${setId ? ` ${setId.slice(0, 8)}` : ""}: ${item.label}`,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["best-bottles-pipeline-groups"],
+      });
+      toast.success("Approved in Madison Pipeline", {
+        description: item.pipelineMatchLabel ?? item.label,
+      });
+    } catch (err) {
+      setPipelineApprovedImageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(imageId);
+        return next;
+      });
+      toast.error("Pipeline approval failed", {
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
+    }
+  };
+
   const attachMaterialReference = (
     optionId: string,
     ref: { url: string; name?: string },
@@ -445,6 +529,13 @@ export function ConsistencyModePanel({
 
   const handleGenerate = () => {
     if (!masterImage || !organizationId || !userId) return;
+    if (pipelinePreflightBlocksGenerate) {
+      toast.error("Pipeline preflight blocked generation", {
+        description:
+          "One or more matched rows are missing a Convex/Product Hub anchor.",
+      });
+      return;
+    }
     run({
       masterImageUrl: masterImage.url,
       userPrompt,
@@ -453,7 +544,7 @@ export function ConsistencyModePanel({
       sessionId,
       aspectRatio: proSettings.aspectRatio ?? "1:1",
       resolution: (proSettings.resolution as "standard" | "high" | "4k") ?? "high",
-      aiProvider: proSettings.aiProvider,
+      aiProvider: pipelinePrefill ? "openai-image-2" : proSettings.aiProvider,
       proModeControls: {
         camera: proSettings.camera,
         lighting: proSettings.lighting,
@@ -471,6 +562,7 @@ export function ConsistencyModePanel({
             threadSize: pipelinePrefill.threadSize,
             shapeKey: pipelinePrefill.shapeKey,
             pipelineGroupIds: pipelinePrefill.pipelineGroupIds,
+            pipelineRows: pipelinePrefill.pipelineRows ?? [],
           }
         : undefined,
     });
@@ -495,9 +587,23 @@ export function ConsistencyModePanel({
               </div>
             </div>
             <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--darkroom-text-dim)]">
-              status auto-syncs
+              GPT Image 2 · status auto-syncs
             </span>
           </div>
+          {pipelineRowsMissingProductContext.length > 0 && (
+            <div className="mt-2 flex items-start gap-2 rounded border border-[var(--led-error)]/25 bg-[var(--led-error)]/5 p-2">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[var(--led-error)]" />
+              <div className="min-w-0 text-[10px] leading-relaxed text-[var(--darkroom-text-muted)]">
+                <span className="font-mono uppercase tracking-wider text-[var(--led-error)]">
+                  Preflight blocked:
+                </span>{" "}
+                {pipelineRowsMissingProductContext.length} matched row
+                {pipelineRowsMissingProductContext.length === 1 ? "" : "s"} missing
+                Convex/Product Hub anchors. Add a slug or SKU before generating
+                so Madison does not create placeholder-driven renders.
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -899,6 +1005,8 @@ export function ConsistencyModePanel({
         onToggleHero={handleToggleHero}
         heroImageIds={heroImageIds}
         onBulkMarkHeroes={handleBulkMarkHeroes}
+        onApprovePipeline={pipelinePrefill ? handleApprovePipelineFrame : undefined}
+        pipelineApprovedImageIds={pipelineApprovedImageIds}
       />
     </div>
     </TooltipProvider>

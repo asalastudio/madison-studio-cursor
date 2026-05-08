@@ -29,6 +29,8 @@ export interface AssembledGenerationResult {
 }
 
 export interface AssembledGenerateOptions {
+  /** Image provider/model id sent through to generate-madison-image. */
+  aiProvider?: string;
   /** Optional geometry reference image (e.g. product.imageUrl from Convex). */
   referenceImageUrl?: string | null;
   /**
@@ -40,6 +42,14 @@ export interface AssembledGenerateOptions {
     collection?: string;
     category?: string;
     scent_family?: string;
+    sku?: string;
+    capacityMl?: number | null;
+    heightWithoutCap?: string | null;
+    heightWithCap?: string | null;
+    diameter?: string | null;
+    capColor?: string | null;
+    trimColor?: string | null;
+    applicator?: string | null;
   };
   /** Extra tags merged into `extraLibraryTags` alongside preset/canvas tags. */
   extraLibraryTags?: string[];
@@ -62,6 +72,13 @@ export interface AssembledGenerateOptions {
     aspectRatioOverride?: string | null;
     resolutionOverride?: "standard" | "high" | null;
   };
+}
+
+function getExactCanvasForAspectRatio(aspectRatio: string): { widthPx: number; heightPx: number } | null {
+  const normalized = aspectRatio.trim().toLowerCase().replace(/\s+/g, "");
+  return normalized === "10:11" || normalized === "2080:2288" || normalized === "2080x2288"
+    ? { widthPx: 2080, heightPx: 2288 }
+    : null;
 }
 
 export function useAssembledPromptGeneration() {
@@ -97,8 +114,8 @@ export function useAssembledPromptGeneration() {
     const sessionId = options.sessionId ?? uuidv4();
 
     // Best Bottles Convex stores `imageUrl` as .gif (legacy bestbottles.com
-    // thumbnails). OpenAI /images/edits only accepts PNG references and 500s
-    // on gif/webp, so we skip unsupported formats rather than ship a broken
+    // thumbnails). The reference-locked PDP flow expects PNG/JPEG product
+    // references, so we skip unsupported formats rather than ship a broken
     // reference. The SKU data block is rich enough to produce a good output
     // without a visual reference; future work can PNG-convert upstream.
     //
@@ -115,17 +132,20 @@ export function useAssembledPromptGeneration() {
             url: rawRef,
             label: "Product Reference",
             description:
-              "Canonical bottle reference (PSD-rendered PNG). Preserve exact bottle geometry, cap texture, fitment, applicator, glass color, and all surface details. Do not redesign, restyle, or reinterpret the product.",
+              [
+                "Canonical bottle reference (PSD-rendered PNG).",
+                "Use this image as an exact product-identity lock: preserve the bottle geometry, camera angle, scale relationships, cap texture, fitment, applicator, glass color, hose/bulb/tassel color, trim metal, and all surface details.",
+                "Do not redesign, restyle, recolor, rotate, or reinterpret the product components.",
+                "Do allow luxury catalog staging, lighting, background replacement, shadow, and refined PDP canvas placement as instructed by the server prompt.",
+              ].join(" "),
           },
         ]
       : undefined;
 
-    // Trigger Director Mode in the edge function whenever a reference is
-    // attached. Essential Mode appends one weak sentence ("Use the uploaded
-    // product image as the exact subject"); Director Mode prepends a strict
-    // PRESERVE-EXACT-PRODUCT directive block that gpt-image-2 actually obeys.
-    // Without this, the assembled 4-layer prompt completely overrides the
-    // reference and the model regenerates the bottle from its own knowledge.
+    // Keep this hook compatible with the general Dark Room generator, but
+    // Best Bottles masters are now recognized server-side by their tags and
+    // routed to the short reference-locked retouch prompt instead of this
+    // assembled art-direction prompt.
     const proModeControls = referenceImages
       ? { productAccuracy: "strict" as const }
       : undefined;
@@ -138,13 +158,24 @@ export function useAssembledPromptGeneration() {
     const extraLibraryTags = options.extraLibraryTags
       ? Array.from(new Set([...baseTags, ...options.extraLibraryTags]))
       : baseTags;
+    const isBestBottlesStudioMaster =
+      Boolean(referenceImages) &&
+      extraLibraryTags.includes("brand:best-bottles") &&
+      extraLibraryTags.includes("studio-master");
+    const requestPrompt = isBestBottlesStudioMaster
+      ? [
+          "REFERENCE-LOCKED BEST BOTTLES LUXURY PRODUCT PHOTOGRAPHY V5.1.",
+          "Use the uploaded product reference as the source of truth.",
+          "Server will build the full locked prompt from productContext, measurements, and reference metadata.",
+        ].join("\n")
+      : assembled.prompt;
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke(
         "generate-madison-image",
         {
           body: {
-            prompt: assembled.prompt,
+            prompt: requestPrompt,
             userId: user.id,
             organizationId: currentOrganizationId,
             sessionId,
@@ -158,7 +189,7 @@ export function useAssembledPromptGeneration() {
             outputFormat: "png",
             referenceImages,
             proModeControls,
-            aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
+            aiProvider: options.aiProvider ?? DEFAULT_IMAGE_AI_PROVIDER,
             // Resolution override is locked to standard|high. "high" gives
             // visibly better cap-texture / refraction / neck-thread detail
             // per the OpenAI gpt-image-2 guide, BUT on the larger 2080×2288
@@ -272,19 +303,25 @@ export function useAssembledPromptGeneration() {
         return null;
       }
 
+      const resolvedAspectRatio =
+        options.sceneOverlay?.aspectRatioOverride ?? assembled.preset.aspectRatio;
+      const resolvedCanvas =
+        getExactCanvasForAspectRatio(resolvedAspectRatio) ?? assembled.canvas;
       const generated: AssembledGenerationResult = {
         imageUrl: data.imageUrl,
         savedImageId: data.savedImageId ?? null,
-        prompt: assembled.prompt,
-        aspectRatio: assembled.preset.aspectRatio,
-        canvas: assembled.canvas,
+        prompt: typeof data.finalPrompt === "string" && data.finalPrompt.trim()
+          ? data.finalPrompt
+          : assembled.prompt,
+        aspectRatio: resolvedAspectRatio,
+        canvas: resolvedCanvas,
         presetId: assembled.preset.id,
         sessionId,
       };
       setResult(generated);
       toast({
         title: "Image generated",
-        description: `${assembled.preset.label} · ${assembled.canvas.widthPx} × ${assembled.canvas.heightPx}`,
+        description: `${assembled.preset.label} · ${resolvedCanvas.widthPx} × ${resolvedCanvas.heightPx}`,
       });
       return generated;
     } catch (e) {
