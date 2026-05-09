@@ -42,12 +42,23 @@ export const BEST_BOTTLES_HERO_GRID_CANVAS = {
 
 export const BEST_BOTTLES_HERO_GRID_ASPECT_RATIO = "10:11";
 
+export const BEST_BOTTLES_GRID_BONE_BACKGROUND_HEX = "#F5F3EF";
+
 const SHARED_LIGHTING_LANGUAGE =
   "single soft key light from upper-front-left at ~45° elevation (clock position 7:30–8:00 relative to the bottle base), " +
   "with gentle bounce-fill from the right at matched color temperature — no second hard source; " +
   "multiple small specular highlights scattered along the shoulder and curves — broken and irregular, " +
   "never a single broad CGI light stripe; one subtle specular kicker on glass edges where geometry suggests it; " +
   "single soft window-light feel, not multi-strobe drama; Hasselblad-grade color accuracy, neutral white balance";
+
+const GRID_CHIAROSCURO_LIGHTING_LANGUAGE =
+  "restrained controlled chiaroscuro lighting while keeping the Bone background exact: stronger but not overexposed single soft key light from upper-front-left " +
+  "at ~45° elevation (clock position 7:30–8:00 relative to the bottle base), with restrained right-side bounce-fill and subtle negative fill on the far/right glass edge; " +
+  "protect highlight detail with no clipped whites, no blown-out glare, no broad white reflection patches, and no milky white glass body; " +
+  "create warm low-angle directional drama like premium fragrance still life: quiet amber-cream highlights, soft shadow falloff, controlled dark-card edge lines, " +
+  "thin white-card glints that describe the shoulder, neck, facets, base, and cap geometry, and restrained vertical reflection bands translated onto the glass only; " +
+  "create crisp-but-realistic specular edge definition on clear glass, darker refractive side lines, visible base thickness, and controlled highlight rolloff across metal/plastic caps; " +
+  "the background color must remain flat Best Bottles Bone with no vignette, no darkening, and no green/sage/olive cast — drama comes from product highlights, edge contrast, and the grounding shadow only";
 
 const SHARED_SHADOW_LANGUAGE =
   "soft contact shadow casting BACK-RIGHT at the 2:00–2:30 clock position (opposite the upper-front-left key light), " +
@@ -57,35 +68,51 @@ const SHARED_SHADOW_LANGUAGE =
   "consistent direction across every component in a family so paper-doll layers composite as one lit scene; " +
   "no shadow directly underneath the bottle (would suggest overhead light, off-brand), no dramatic long cast, no double shadow, no harsh edge";
 
+const GRID_CHIAROSCURO_SHADOW_LANGUAGE =
+  "controlled chiaroscuro product shadow: single directional key light from upper-front-left with a richer sculptural shadow falling back-right; " +
+  "shadow is slightly dramatic but still elegant and e-commerce clean — 40–50% opacity at the densest contact point, " +
+  "soft penumbra, feathered falloff, no harsh cut edge, no double shadow, no overhead-flat shadow directly beneath the bottle; " +
+  "the shadow may darken only the contact-shadow region on the Bone surface; the rest of the background stays exact Bone; " +
+  "shadow direction and intensity must stay identical across every grid image in the family";
+
 const SHARED_QUALITY_LANGUAGE =
   "photo-realistic editorial luxury product photography in the style of Aesop e-commerce hero photography crossed with Kinfolk magazine still-life — " +
-  "warm cream backdrop, single soft directional key light, single-subject composition, gallery-like restraint, slow editorial pace, considered and contemplative; " +
+  "brand-approved solid backdrop, single soft directional key light, single-subject composition, gallery-like restraint, slow editorial pace, considered and contemplative; " +
   "MATCH THE PHOTOGRAPHIC STYLE ONLY — the subject is the Best Bottles glass bottle from the reference image; do not invent or substitute product designs from those brands; " +
   "enhanced glass clarity with realistic refraction; believable base thickness visible through the bottom of the glass; crisp readable neck threads where exposed; " +
+  "glass must have premium fragrance-campaign realism: visible internal wall separation, back-wall distortion, optical thickness, refracted Bone background, tiny bevel flashes, base caustics, " +
+  "subtle surface waviness, dust-free but organic micro-texture, and tonal density inside transparent areas so the bottle never reads as a silhouette or blank cut-out; " +
   "faint mould seam and subtle tooling marks at the base allowed — real pressed-glass micro-imperfections, not CGI-perfect";
 
 const SHARED_NEGATIVE_LANGUAGE =
   "no label, no text, no badge, no watermark, no brand name, no props, no secondary product, " +
   "no hands, no spray mist, no flowers; no chrome-CGI sheen on plastic caps; " +
   "no transparent or checkerboard background; no broad central reflection stripe on the glass body; " +
+  "no blown-out highlights, no washed-out glass, no milky white glass body, no broad white glare patch; " +
   "no surface texture, no stone, no wood, no fabric, no horizon line, no implied tabletop edge; " +
   "no overhead-flat shadow directly beneath the bottle, no shadow cast to the left or back-left; " +
   "no cool/blue light, no daylight-noon flat lighting, no rim light, no backlight haze; " +
+  "no copied reference-scene props, no curtain backdrop, no window-frame shadows on the background, no wood tabletop, no flowers, no reflective tabletop, no fashion-fragrance logo treatment; " +
   "no Aesop bottles, no Aesop labels, no Aesop product silhouettes — Aesop is a STYLE reference only; " +
   "no Kinfolk magazine page chrome (no titles, captions, page edges, fold lines, magazine bindings) — Kinfolk is a STYLE reference only; " +
   "no other brand's bottle shapes — the subject is the Best Bottles bottle from the reference image only";
 
 const PARCHMENT_BACKGROUND_DESCRIPTION =
-  "seamless parchment-cream backdrop (#EEE6D4) with a subtle paper grain, completely uncluttered, " +
-  "no gradient, no texture pattern, no vignette";
+  "flat seamless parchment-cream backdrop (#EEE6D4), completely uncluttered, " +
+  "no gradient, no paper grain, no texture pattern, no vignette, no banding";
+
+const GRID_BONE_BACKGROUND_DESCRIPTION =
+  `flat seamless Best Bottles Bone backdrop (${BEST_BOTTLES_GRID_BONE_BACKGROUND_HEX}), completely uncluttered, ` +
+  "single consistent solid cream color across the entire canvas; no green cast, no sage undertone, no olive tint, " +
+  "no gradient, no paper grain, no texture pattern, no vignette, no banding";
 
 function framingLanguage(productHeightPercent: [number, number]): string {
   const [lo, hi] = productHeightPercent;
   return (
-    `product perfectly centered horizontally; base resting at the canonical anchor line with a natural contact shadow; ` +
+    `product perfectly centered horizontally on the fixed grid centerline; base resting at the canonical anchor line with a natural contact shadow; ` +
     `product fills approximately ${lo}–${hi}% of the vertical canvas height; generous padding on all sides so nothing ` +
     `feels cramped and the full product assembly (including any bulb, tassel, or sprayer extending beyond the body) ` +
-    `remains visible inside the frame`
+    `remains visible inside the frame; do not drift, zoom, crop, or re-place the product after the canvas is set`
   );
 }
 
@@ -154,10 +181,10 @@ export const GRID_CARD_2000X2200: ImagePreset = {
   canvas: BEST_BOTTLES_HERO_GRID_CANVAS,
   aspectRatio: BEST_BOTTLES_HERO_GRID_ASPECT_RATIO,
   orientation: "portrait",
-  backgroundHex: "#EEE6D4",
-  backgroundDescription: PARCHMENT_BACKGROUND_DESCRIPTION,
-  lightingLanguage: SHARED_LIGHTING_LANGUAGE,
-  shadowLanguage: SHARED_SHADOW_LANGUAGE,
+  backgroundHex: BEST_BOTTLES_GRID_BONE_BACKGROUND_HEX,
+  backgroundDescription: GRID_BONE_BACKGROUND_DESCRIPTION,
+  lightingLanguage: GRID_CHIAROSCURO_LIGHTING_LANGUAGE,
+  shadowLanguage: GRID_CHIAROSCURO_SHADOW_LANGUAGE,
   compositionLanguage: framingLanguage([72, 78]),
   qualityLanguage: SHARED_QUALITY_LANGUAGE,
   negativeLanguage: SHARED_NEGATIVE_LANGUAGE,
@@ -174,7 +201,7 @@ export const SANITY_HERO_928X1152: ImagePreset = {
   orientation: "portrait",
   backgroundHex: "#EEE6D4",
   backgroundDescription: PARCHMENT_BACKGROUND_DESCRIPTION,
-  lightingLanguage: SHARED_LIGHTING_LANGUAGE,
+  lightingLanguage: GRID_CHIAROSCURO_LIGHTING_LANGUAGE,
   shadowLanguage: SHARED_SHADOW_LANGUAGE,
   compositionLanguage: framingLanguage([74, 80]),
   qualityLanguage: SHARED_QUALITY_LANGUAGE,
@@ -334,10 +361,10 @@ export const GRID_CARD_EXPLODED_2000X2200: ImagePreset = {
   canvas: BEST_BOTTLES_HERO_GRID_CANVAS,
   aspectRatio: BEST_BOTTLES_HERO_GRID_ASPECT_RATIO,
   orientation: "portrait",
-  backgroundHex: "#EEE6D4",
-  backgroundDescription: PARCHMENT_BACKGROUND_DESCRIPTION,
+  backgroundHex: BEST_BOTTLES_GRID_BONE_BACKGROUND_HEX,
+  backgroundDescription: GRID_BONE_BACKGROUND_DESCRIPTION,
   lightingLanguage: SHARED_LIGHTING_LANGUAGE,
-  shadowLanguage: SHARED_SHADOW_LANGUAGE,
+  shadowLanguage: GRID_CHIAROSCURO_SHADOW_LANGUAGE,
   compositionLanguage:
     "EXPLODED PRODUCT LAYOUT — clean catalog-style two-element arrangement, NO creative staging, NO artistic tilts, NO dramatic angles. " +
     "The BOTTLE stands UPRIGHT, slightly LEFT of the frame's horizontal centre, with its cap or over-cap REMOVED so the fitment / pump / dropper / sprayer assembly at the top of the neck is fully visible. " +

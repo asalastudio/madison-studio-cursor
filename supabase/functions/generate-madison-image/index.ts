@@ -267,8 +267,10 @@ function buildBestBottlesGlassPackshotRules(
   const rules = [
     "LOCK GEOMETRY, RELIGHT MATERIAL: the reference locks silhouette, proportions, facets, cap shape, camera angle, and placement; it does not lock poor exposure, weak contrast, flat white fill, silhouetted glass, missing refraction, or low-end capture quality.",
     "Do not perform a simple background cleanup or silhouette trace. Reconstruct the same bottle as a true luxury e-commerce pack shot inside the exact same outline.",
+    "Lighting/material inspiration is allowed only as a photographic quality target: warm quiet drama, controlled sunlight-like directionality, dense but soft shadows, premium fragrance-glass realism, and tactile optical texture. Never copy another bottle shape, label, cap design, scene, prop, tabletop, flower, curtain, or brand mark.",
     "Clear glass must not disappear into the Bone background. It needs visible optical structure: inner wall lines, back-wall refraction, rim thickness, shoulder thickness, base mass, bevel glints, small caustics, and subtle gray/cream tonal separation inside the glass.",
     "Use product-photography cards: controlled black-card edge lines on left/right glass boundaries and inner facets, white-card specular highlights on bevels and shoulders, and transmitted warm backlight through the bottle. Reflections should describe shape, not become broad white glare.",
+    "Glass texture target: dust-free luxury retouch with real optical irregularity, subtle surface waviness, faint molded-glass micro-imperfections, edge density, internal shadowing, refracted background bends, and base-caustic glow. It should feel photographed, not rendered.",
     "The body should read as transparent glass with volume, not a white cutout, not a blank void, not a traced outline, and not milky plastic.",
     "Retouching intensity target: premium commercial retouch, enough to visibly improve fidelity and polish while preserving every structural edge from Image 1.",
   ];
@@ -341,10 +343,12 @@ function buildReferenceLockedBestBottlesPrompt(
     "PHOTOGRAPHIC STYLE:",
     "- Photorealistic luxury product photography, as if captured on a Hasselblad medium-format studio camera with a 100mm macro/product lens at f/8–f/11, ISO 100, tripod-stable capture, high dynamic range, controlled exposure, crisp edge acuity, and realistic optical compression.",
     "- Quiet luxury editorial restraint: Kinfolk-like negative space and warmth, Aesop-like minimal product staging and material honesty. Match only the mood, restraint, warm neutrals, and premium photographic discipline. Do not imitate Aesop products, labels, packaging, typography, or brand assets.",
+    "- Reference-image influence is lighting and glass realism only: warm directional sunlight-like drama, soft elongated shadow behavior, amber-cream tonal warmth, vertical reflection rhythm, tactile glass thickness, and premium fragrance-campaign polish. The Best Bottles product shape remains the only product shape.",
     "",
     "LIGHTING:",
     "- Use professional glass-product lighting, not flat front lighting.",
     "- Soft warm key light from upper front-left, gentle negative fill, large diffused backlight through the glass, subtle side strip reflections to define edges, black cards/flags creating controlled dark edge lines, and white reflection cards creating clean specular highlights.",
+    "- Translate window/curtain-like inspiration into abstract reflection-card behavior on the product: slender warm vertical highlights, dark edge density, and soft luminous bands inside the glass. Do not generate actual curtains, window frames, fabric, wood, flowers, or scene props.",
     "- Keep the Bone background flat and quiet; put the visual drama inside the product through reflections, refractions, edge density, base caustics, cap texture, and shadow.",
     "- The glass should be defined by transmitted light, rim light, refraction, and edge reflections.",
     "",
@@ -364,6 +368,7 @@ function buildReferenceLockedBestBottlesPrompt(
     "- No heavy/long/hard shadow, dark smear, doubled shadow, horizon line, tabletop edge, or obvious floor plane.",
     "- No fake bevels, extra facets, broad central CGI stripe, softened/melted edges, or plastic-looking glass.",
     "- No blank white glass body, no empty white central panel, no silhouette-only cutout, no line-art outline, no low-contrast glass that disappears into the background.",
+    "- No copied reference bottle shape, designer perfume logo, label typography, decorative cap, curtain scene, flower prop, wood surface, mirror tabletop, or lifestyle room setup.",
     "- No label, text, badge, watermark, brand name, UI pill, card frame, rounded border, props, hands, flowers, spray mist, pure-white cutout look, tabletop edge, vignette, or decorative canvas treatment.",
     "",
     cleanOperatorRefinement

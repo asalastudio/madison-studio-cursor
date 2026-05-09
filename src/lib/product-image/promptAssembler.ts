@@ -69,6 +69,41 @@ export const GLOBAL_SYSTEM_BLOCK = [
   "If a request conflicts with realism or geometry, prioritize realism and product accuracy.",
 ].join("\n");
 
+export const REFERENCE_LOCK_BLOCK = [
+  "REFERENCE IMAGE CONTRACT:",
+  "When a reference image is attached, treat it as immutable product truth.",
+  "",
+  "This is product-locked visual enhancement, not creative product generation.",
+  "",
+  "PRESERVE FROM THE REFERENCE EXACTLY:",
+  "- product geometry",
+  "- silhouette and outline",
+  "- height-to-width ratio",
+  "- cap, closure, fitment, and applicator shape",
+  "- cap-on versus cap-off state",
+  "- number of visible components",
+  "- component placement and spacing",
+  "- crop, scale, and framing relationship inside the canvas",
+  "- camera angle, rotation, and perspective",
+  "",
+  "ENHANCE ONLY:",
+  "- background cleanliness and approved active-preset color",
+  "- lighting quality",
+  "- glass clarity",
+  "- metallic, leather, fabric, or plastic material rendering",
+  "- dust/noise cleanup",
+  "- subtle realistic grounding shadow",
+  "",
+  "BACKGROUND REQUIREMENTS:",
+  "- flat, seamless product-page background using the exact color specified by the active preset",
+  "- no paper texture, canvas texture, fabric texture, grain pattern, vertical banding, border artifacts, or decorative backdrop",
+  "- no visible seams, blocks, gradients, vignettes, or generated background patterning",
+  "",
+  "Do not normalize the product to fill a target percentage of the canvas when that conflicts with the reference image.",
+  "Do not zoom in, zoom out, recenter, rotate, straighten, redesign, simplify, beautify, add components, remove components, or invent a better-looking version.",
+  "The final image must read as the SAME product photo professionally retouched.",
+].join("\n");
+
 export const CONSTRAINT_BLOCK = [
   "CONSTRAINT LAYER:",
   "- Do not modify bottle proportions under any circumstances",
@@ -87,6 +122,34 @@ export const CONSTRAINT_BLOCK = [
   "- Never add hands, props, spray mist, flowers, or secondary objects",
   "- Never render a transparent or checkerboard background unless the preset is a paper-doll component layer",
 ].join("\n");
+
+function isBestBottlesGridHeroPreset(preset: ImagePreset): boolean {
+  return preset.id === "grid-card-2000x2200" || preset.id === "grid-card-exploded-2000x2200";
+}
+
+export function buildGridHeroFixedFrameBlock(preset: ImagePreset): string {
+  const { widthPx, heightPx } = preset.canvas;
+  const isExploded = preset.id === "grid-card-exploded-2000x2200";
+  const placementRule = isExploded
+    ? "Preserve the reference's exact bottle/cap relative placement: bottle left-of-center, cap to the right, both sharing the same baseline."
+    : "The single product item is perfectly centered horizontally on the fixed canvas centerline.";
+
+  return [
+    "BEST BOTTLES GRID HERO FIXED-FRAME CONTRACT:",
+    `- Final canvas is fixed at exactly ${widthPx} × ${heightPx} px. Do not change aspect ratio, crop, trim, extend, or create a different canvas.`,
+    `- ${placementRule}`,
+    "- Product placement is locked once the reference is attached: preserve the same centerline, baseline, bounding-box footprint, side padding, top padding, and bottom padding from the reference.",
+    "- Fixed-frame QA target: centerline drift <= 10 px, baseline drift <= 20 px, and product-height drift <= 3% compared with the attached reference. Do not exceed these tolerances.",
+    "- Background color changes happen behind the product only. Do not let the Bone plate change product scale, crop, camera distance, camera angle, or placement.",
+    "- Chiaroscuro is allowed only through product lighting, glass edge contrast, cap/specular definition, and the grounding shadow; do not add background gradients, vignettes, spotlights, or color shifts.",
+    "- Any attached lighting/style reference may influence only the photographic treatment: warm directional light, glass refraction quality, edge density, caustics, and quiet dramatic shadow. It may not influence product shape, cap design, label, props, surface, room, or background scene.",
+    "- Exposure must be protected: clear glass should retain visible edge lines, inner-wall refraction, and base thickness. Do not blow the glass out to white.",
+    "- The full product assembly must remain constrained inside the canvas with no cropped cap, sprayer, bulb, tassel, tube, bottle base, shadow, or detached component.",
+    "- Do not zoom, recenter, enlarge, shrink, rotate, tilt, straighten, shift upward, shift downward, move left, move right, or re-compose the product to make the image feel more editorial.",
+    "- The only allowed changes are surface-level photographic improvements: background color consistency, lighting quality, material realism, cleanup, and the approved chiaroscuro shadow.",
+    "- If a style instruction conflicts with fixed placement, fixed canvas, or product geometry, ignore the style instruction.",
+  ].join("\n");
+}
 
 export interface ChipOverrides {
   /** Maps onto BOTTLE_COLORS ids in src/config/consistencyVariations.ts. */
@@ -480,9 +543,14 @@ export function assemblePrompt(input: AssemblePromptInput): AssembledPrompt {
   const marketingCopyBlock = input.marketingCopy
     ? buildMarketingCopyBlock(input.marketingCopy)
     : null;
+  const fixedFrameBlock = isBestBottlesGridHeroPreset(preset)
+    ? buildGridHeroFixedFrameBlock(preset)
+    : null;
 
   const sections = [
     GLOBAL_SYSTEM_BLOCK,
+    REFERENCE_LOCK_BLOCK,
+    fixedFrameBlock,
     brandBlock,
     presetBlock,
     cameraAngleBlock,
