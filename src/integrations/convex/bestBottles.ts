@@ -109,6 +109,11 @@ export async function getProductsByFamily(family: string): Promise<Product[]> {
   return result ?? [];
 }
 
+export async function getBestBottlesCatalogProducts(limit = 3000): Promise<Product[]> {
+  const result = await invoke<Product[] | null>("products:getCatalogProducts", { limit });
+  return result ?? [];
+}
+
 export interface ApplicatorBucket {
   applicator: string;
   count: number;

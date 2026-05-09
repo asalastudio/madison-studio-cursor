@@ -49,6 +49,7 @@ import { ImageEditorModal, type ImageEditorImage } from "@/components/image-edit
 import { ProductSelector } from "@/components/forge/ProductSelector";
 import { useProducts, type Product } from "@/hooks/useProducts";
 import {
+  getBestBottlesCatalogProducts,
   getProductsByFamily,
   type Product as BestBottlesProduct,
 } from "@/integrations/convex/bestBottles";
@@ -139,29 +140,34 @@ function isEmpireVintageBulbSprayerSku(
 function detectWebsiteSku(image: GeneratedImage): string {
   const tags = image.library_tags ?? [];
   for (const tag of tags) {
-    const raw = tag.replace(/^(websiteSku|website-sku|sku):/i, "").trim();
-    const match = raw.match(/\b(?:GB|LB)Emp[A-Za-z0-9]+\b/);
+    const explicit = tag.match(/^(?:websiteSku|website-sku):(.+)$/i);
+    if (explicit?.[1]?.trim()) return explicit[1].trim();
+  }
+
+  for (const tag of tags) {
+    const raw = tag.replace(/^sku:/i, "").trim();
+    const match = raw.match(/\b(?:GB|LB)(?!-)[A-Za-z0-9]+\b/);
     if (match) return match[0];
   }
 
   const searchable = [image.session_name, image.final_prompt, image.library_category, ...tags]
     .filter(Boolean)
     .join(" ");
-  return searchable.match(/\b(?:GB|LB)Emp[A-Za-z0-9]+\b/)?.[0] ?? "";
+  return searchable.match(/\b(?:GB|LB)(?!-)[A-Za-z0-9]+\b/)?.[0] ?? "";
 }
 
 function detectGraceSku(image: GeneratedImage): string {
   const tags = image.library_tags ?? [];
   for (const tag of tags) {
     const raw = tag.replace(/^sku:/i, "").trim();
-    const match = raw.match(/\b(?:GB|LB)-EMP-[A-Z0-9-]+\b/i);
+    const match = raw.match(/\b(?:GB|LB)-[A-Z0-9][A-Z0-9-]*\b/i);
     if (match) return match[0].toUpperCase();
   }
 
   const searchable = [image.session_name, image.final_prompt, image.library_category, ...tags]
     .filter(Boolean)
     .join(" ");
-  return searchable.match(/\b(?:GB|LB)-EMP-[A-Z0-9-]+\b/i)?.[0].toUpperCase() ?? "";
+  return searchable.match(/\b(?:GB|LB)-[A-Z0-9][A-Z0-9-]*\b/i)?.[0].toUpperCase() ?? "";
 }
 
 async function extractFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
@@ -331,8 +337,16 @@ export default function ImageLibrary() {
   });
 
   const { data: bestBottlesProducts = [], isLoading: bestBottlesProductsLoading } = useQuery({
-    queryKey: ["best-bottles-products", "Empire"],
-    queryFn: () => getProductsByFamily("Empire"),
+    queryKey: ["best-bottles-products", "catalog"],
+    queryFn: async () => {
+      try {
+        const products = await getBestBottlesCatalogProducts();
+        if (products.length > 0) return products;
+      } catch (error) {
+        console.warn("Best Bottles catalog query failed; falling back to Empire products.", error);
+      }
+      return getProductsByFamily("Empire");
+    },
     enabled:
       isBestBottlesOrg &&
       ((sanityPublishOpen && publishDestination === "best-bottles-pdp") || bulkBestBottlesOpen),
@@ -1193,8 +1207,9 @@ export default function ImageLibrary() {
           <DialogHeader>
             <DialogTitle>Push selected images to Best Bottles</DialogTitle>
             <DialogDescription className="text-[var(--darkroom-text)]/70">
-              Confirm the Website SKU for each selected Library image. Each image will upload to
-              Best Bottles Sanity, then update the matching product image field.
+              Confirm the Best Bottles SKU or group slug for each selected Library image. Each
+              image will upload to Best Bottles Sanity, then update the matching product image
+              field.
             </DialogDescription>
           </DialogHeader>
 
@@ -1253,7 +1268,7 @@ export default function ImageLibrary() {
                     htmlFor={`bulk-bb-sku-${row.imageId}`}
                     className="text-[11px] text-[var(--darkroom-text)]/70"
                   >
-                    Website SKU
+                    Best Bottles SKU / slug
                   </Label>
                   <Input
                     id={`bulk-bb-sku-${row.imageId}`}
@@ -1268,7 +1283,7 @@ export default function ImageLibrary() {
           </div>
 
           <p className="text-[11px] text-[var(--darkroom-text)]/50">
-            Rows without a Website SKU are skipped. Different top colors should each use their own
+            Rows without a SKU or slug are skipped. Different top colors should each use their own
             matching image and SKU.
           </p>
 
@@ -1400,7 +1415,7 @@ export default function ImageLibrary() {
                       aria-expanded={bestBottlesSkuPickerOpen}
                       className="w-full justify-between bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
                     >
-                      {bestBottlesWebsiteSku || "Select an Empire SKU..."}
+                      {bestBottlesWebsiteSku || "Select a Best Bottles SKU..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -1419,7 +1434,7 @@ export default function ImageLibrary() {
                         <CommandEmpty className="text-studio-text-muted">
                           {bestBottlesProductsLoading
                             ? "Loading Best Bottles SKUs..."
-                            : "No matching Empire SKUs found. Use manual entry below."}
+                            : "No matching Best Bottles SKUs found. Use manual entry below."}
                         </CommandEmpty>
                         <CommandGroup>
                           {filteredBestBottlesProducts.map((product) => (
@@ -1453,13 +1468,15 @@ export default function ImageLibrary() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bb-website-sku" className="text-[var(--darkroom-text)]">
-                  Website SKU manual override
+                  Website SKU / Grace SKU / group slug
                 </Label>
                 <Textarea
                   id="bb-website-sku"
                   value={bestBottlesWebsiteSku}
                   onChange={(e) => setBestBottlesWebsiteSku(e.target.value)}
-                  placeholder={"e.g. GBEmp50RdcrShnGl\nOptional: one SKU per line for a batch"}
+                  placeholder={
+                    "e.g. GBEmp50RdcrShnGl\nGB-EMP-CLR-50ML-RDCR-SHNGL\nOptional: one per line"
+                  }
                   className="min-h-20 bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] font-mono text-sm"
                 />
                 <p className="text-[11px] text-[var(--darkroom-text)]/50">

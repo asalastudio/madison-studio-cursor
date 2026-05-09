@@ -57,17 +57,29 @@ type PushBody = {
 
 type ConvexProductLookup = {
   value?: {
+    websiteSku?: unknown;
+    graceSku?: unknown;
     applicator?: unknown;
   } | null;
+};
+
+type ResolvedWebsiteSku = {
+  inputSku: string;
+  websiteSku: string;
+  product: ConvexProductLookup["value"];
+  resolvedVia: "websiteSku" | "graceSku" | "productGroup";
+};
+
+type ConvexSetVariantImagesResult = {
+  success?: boolean;
+  error?: string;
+  [key: string]: unknown;
 };
 
 type ConvexMutationBody = {
   status?: string;
   errorMessage?: string;
-  value?: {
-    success?: boolean;
-    error?: string;
-  } | Record<string, unknown> | null;
+  value?: ConvexSetVariantImagesResult | null;
 };
 
 function cleanSecret(value: string | undefined | null) {
@@ -140,6 +152,116 @@ function safeFilenameBase(websiteSku: string, mode: "cap-on" | "cap-off") {
   return `${websiteSku}-${mode}`.replace(/[^a-z0-9_-]+/gi, "-").slice(0, 80);
 }
 
+async function callConvex(
+  bbConvexUrl: string,
+  endpoint: "query" | "mutation",
+  path: string,
+  args: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; body: any }> {
+  const res = await fetch(`${bbConvexUrl}/api/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, args, format: "json" }),
+  });
+
+  let body: any = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+
+  return {
+    ok: res.ok && body?.status !== "error",
+    status: res.status,
+    body,
+  };
+}
+
+function getString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function looksLikeProductGroupSlug(value: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(value.trim()) && /\b\d+ml\b/i.test(value);
+}
+
+function pickProductFromGroup(groupValue: any): ConvexProductLookup["value"] {
+  if (!groupValue || typeof groupValue !== "object") return null;
+
+  const group = groupValue.group && typeof groupValue.group === "object"
+    ? groupValue.group
+    : groupValue;
+  const variants = Array.isArray(groupValue.variants) ? groupValue.variants : [];
+  const primaryWebsiteSku = getString(group?.primaryWebsiteSku);
+  const primaryGraceSku = getString(group?.primaryGraceSku);
+
+  if (primaryWebsiteSku) {
+    const byWebsite = variants.find((variant: any) =>
+      getString(variant?.websiteSku).toLowerCase() === primaryWebsiteSku.toLowerCase()
+    );
+    return byWebsite ?? { websiteSku: primaryWebsiteSku };
+  }
+
+  if (primaryGraceSku) {
+    const byGrace = variants.find((variant: any) =>
+      getString(variant?.graceSku).toLowerCase() === primaryGraceSku.toLowerCase()
+    );
+    if (byGrace) return byGrace;
+  }
+
+  if (variants.length === 1) return variants[0];
+  return variants.find((variant: any) => getString(variant?.websiteSku)) ?? null;
+}
+
+async function resolveWebsiteSku(
+  bbConvexUrl: string,
+  rawSku: string,
+): Promise<ResolvedWebsiteSku | null> {
+  const inputSku = rawSku.trim();
+  if (!inputSku) return null;
+
+  const byWebsite = await callConvex(
+    bbConvexUrl,
+    "query",
+    "products:getByWebsiteSku",
+    { websiteSku: inputSku },
+  );
+  if (byWebsite.ok && byWebsite.body?.value) {
+    const product = byWebsite.body.value as ConvexProductLookup["value"];
+    const websiteSku = getString(product?.websiteSku) || inputSku;
+    return { inputSku, websiteSku, product, resolvedVia: "websiteSku" };
+  }
+
+  const byGrace = await callConvex(
+    bbConvexUrl,
+    "query",
+    "products:getBySku",
+    { graceSku: inputSku },
+  );
+  if (byGrace.ok && byGrace.body?.value) {
+    const product = byGrace.body.value as ConvexProductLookup["value"];
+    const websiteSku = getString(product?.websiteSku);
+    if (websiteSku) return { inputSku, websiteSku, product, resolvedVia: "graceSku" };
+  }
+
+  const byGroup = await callConvex(
+    bbConvexUrl,
+    "query",
+    "products:getProductGroup",
+    { slug: inputSku },
+  );
+  if (byGroup.ok && byGroup.body?.value) {
+    const product = pickProductFromGroup(byGroup.body.value);
+    const websiteSku = getString(product?.websiteSku);
+    if (websiteSku) return { inputSku, websiteSku, product, resolvedVia: "productGroup" };
+  }
+
+  if (looksLikeProductGroupSlug(inputSku) || byWebsite.ok) return null;
+
+  return { inputSku, websiteSku: inputSku, product: null, resolvedVia: "websiteSku" };
+}
+
 async function uploadImageToBestBottlesSanity(params: {
   imageUrl: string;
   websiteSku: string;
@@ -198,11 +320,11 @@ Deno.serve(async (req) => {
   }
 
   const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
-  const websiteSku = typeof body.websiteSku === "string" ? body.websiteSku.trim() : "";
+  const requestedWebsiteSku = typeof body.websiteSku === "string" ? body.websiteSku.trim() : "";
   const mode = body.mode === "cap-on" || body.mode === "cap-off" ? body.mode : null;
 
   if (!imageUrl) return jsonResponse(400, { error: "Missing imageUrl" });
-  if (!websiteSku) return jsonResponse(400, { error: "Missing websiteSku" });
+  if (!requestedWebsiteSku) return jsonResponse(400, { error: "Missing websiteSku" });
   if (!mode) return jsonResponse(400, { error: "Missing or invalid mode (must be cap-on or cap-off)" });
   if (!imageUrl.startsWith("https://") && !imageUrl.startsWith("http://")) {
     return jsonResponse(400, { error: "imageUrl must be http(s)" });
@@ -216,39 +338,38 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── 1. Look up the product to validate applicator + cap-off compatibility
-  let productLookup: ConvexProductLookup | null;
+  // ── 1. Resolve the caller input into the real Convex websiteSku.
+  // Madison Library tags historically held a mix of values:
+  //   - true websiteSku, e.g. GBEmp50RdcrBlkLthr
+  //   - Grace SKU, e.g. GB-EMP-CLR-50ML-RDCR-BLK
+  //   - productGroup slug, e.g. diamond-60ml-clear-18-415-reducer
+  // The Convex mutation only accepts websiteSku, so normalize before upload.
+  let resolved: ResolvedWebsiteSku | null = null;
   try {
-    const lookupRes = await fetch(`${bbConvexUrl}/api/query`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: "products:getByWebsiteSku", // assumes this query exists; falls back below
-        args: { websiteSku },
-        format: "json",
-      }),
-    });
-
-    if (!lookupRes.ok) {
-      // Fallback: try via getBySku with graceSku-style lookup not possible here.
-      // We'll just trust the websiteSku and skip the applicator check.
-      productLookup = null;
-    } else {
-      productLookup = await lookupRes.json();
-    }
+    resolved = await resolveWebsiteSku(bbConvexUrl, requestedWebsiteSku);
   } catch (e) {
-    productLookup = null;
+    console.warn("[push-bestbottles-pdp-image] SKU resolution failed", e);
+    resolved = null;
+  }
+
+  if (!resolved) {
+    return jsonResponse(404, {
+      error:
+        `Website SKU, Grace SKU, or product group slug "${requestedWebsiteSku}" was not found in Best Bottles Convex.`,
+      websiteSku: requestedWebsiteSku,
+    });
   }
 
   // ── 2. Validate cap-off is allowed for this applicator
-  if (mode === "cap-off" && typeof productLookup?.value?.applicator === "string") {
-    const applicator = productLookup.value.applicator;
+  if (mode === "cap-off" && typeof resolved.product?.applicator === "string") {
+    const applicator = resolved.product.applicator;
     if (!NEEDS_CAP_OFF.has(applicator)) {
       return jsonResponse(400, {
         error: `cap-off mode is not used for applicator "${applicator}". ` +
                `Only sprayers, atomizers, roll-ons, and lotion pumps need cap-off images.`,
         applicator,
-        websiteSku,
+        websiteSku: resolved.websiteSku,
+        requestedWebsiteSku,
       });
     }
   }
@@ -256,12 +377,17 @@ Deno.serve(async (req) => {
   // ── 3. Upload Madison image into the Best Bottles Sanity project
   let sanityUpload: { sanityImageUrl: string; sanityAssetId: string };
   try {
-    sanityUpload = await uploadImageToBestBottlesSanity({ imageUrl, websiteSku, mode });
+    sanityUpload = await uploadImageToBestBottlesSanity({
+      imageUrl,
+      websiteSku: resolved.websiteSku,
+      mode,
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     return jsonResponse(500, {
       error: `Best Bottles Sanity upload failed: ${message}`,
-      websiteSku,
+      websiteSku: resolved.websiteSku,
+      requestedWebsiteSku,
       mode,
     });
   }
@@ -270,23 +396,21 @@ Deno.serve(async (req) => {
   const field = mode === "cap-on" ? "imageUrl" : "imageUrlCapOff";
 
   // ── 5. Call the Convex mutation with the Sanity CDN URL
-  let mutationResult: ConvexMutationBody["value"] | ConvexMutationBody;
+  let mutationResult: ConvexSetVariantImagesResult | null | undefined;
   try {
-    const mutRes = await fetch(`${bbConvexUrl}/api/mutation`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: "products:setVariantImages",
-        args: { websiteSku, [field]: sanityUpload.sanityImageUrl },
-        format: "json",
-      }),
-    });
+    const mutation = await callConvex(
+      bbConvexUrl,
+      "mutation",
+      "products:setVariantImages",
+      { websiteSku: resolved.websiteSku, [field]: sanityUpload.sanityImageUrl },
+    );
 
-    const mutBody = await mutRes.json() as ConvexMutationBody;
-    if (!mutRes.ok || mutBody?.status === "error") {
-      return jsonResponse(mutRes.status === 404 ? 404 : 500, {
+    const mutBody = mutation.body as ConvexMutationBody;
+    if (!mutation.ok) {
+      return jsonResponse(mutation.status === 404 ? 404 : 500, {
         error: mutBody?.errorMessage || "Convex mutation failed",
-        websiteSku,
+        websiteSku: resolved.websiteSku,
+        requestedWebsiteSku,
         mode,
         field,
         details: mutBody,
@@ -297,9 +421,10 @@ Deno.serve(async (req) => {
       return jsonResponse(mutationResult.error === "not_found" ? 404 : 400, {
         error:
           mutationResult.error === "not_found"
-            ? `Website SKU "${websiteSku}" was not found in Best Bottles Convex.`
+            ? `Website SKU "${resolved.websiteSku}" was not found in Best Bottles Convex.`
             : mutationResult.error || "Best Bottles Convex did not update the product image.",
-        websiteSku,
+        websiteSku: resolved.websiteSku,
+        requestedWebsiteSku,
         mode,
         field,
         details: mutationResult,
@@ -309,7 +434,8 @@ Deno.serve(async (req) => {
     const message = e instanceof Error ? e.message : String(e);
     return jsonResponse(500, {
       error: `Convex mutation request failed: ${message}`,
-      websiteSku,
+      websiteSku: resolved.websiteSku,
+      requestedWebsiteSku,
       mode,
       field,
     });
@@ -317,7 +443,9 @@ Deno.serve(async (req) => {
 
   return jsonResponse(200, {
     ok: true,
-    websiteSku,
+    websiteSku: resolved.websiteSku,
+    requestedWebsiteSku,
+    resolvedVia: resolved.resolvedVia,
     mode,
     field,
     sourceImageUrl: imageUrl,
