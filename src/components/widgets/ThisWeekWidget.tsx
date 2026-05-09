@@ -44,18 +44,20 @@ export function ThisWeekWidget() {
           .from('scheduled_content')
           .select(`
             id,
-            scheduled_for,
+            scheduled_date,
+            scheduled_time,
             status,
             platform,
             content_type,
-            master_content (title),
-            derivative_assets (asset_type, platform_specs)
+            master_content:content_id (title),
+            derivative_assets:derivative_id (asset_type, platform_specs)
           `)
           .eq('organization_id', organizationId)
-          .eq('status', 'pending')
-          .gte('scheduled_for', weekStart.toISOString())
-          .lte('scheduled_for', weekEnd.toISOString())
-          .order('scheduled_for', { ascending: true })
+          .eq('status', 'scheduled')
+          .gte('scheduled_date', format(weekStart, 'yyyy-MM-dd'))
+          .lte('scheduled_date', format(weekEnd, 'yyyy-MM-dd'))
+          .order('scheduled_date', { ascending: true })
+          .order('scheduled_time', { ascending: true })
           .limit(10);
 
         if (data) {
@@ -64,7 +66,7 @@ export function ThisWeekWidget() {
             title: item.master_content?.title || 
                    (item.derivative_assets?.platform_specs as any)?.title || 
                    'Scheduled Content',
-            scheduledFor: new Date(item.scheduled_for),
+            scheduledFor: new Date(`${item.scheduled_date}T${item.scheduled_time ?? '00:00:00'}`),
             platform: item.platform || item.derivative_assets?.asset_type || 'Content',
             type: item.content_type || 'Post',
           }));
@@ -184,4 +186,3 @@ export function ThisWeekWidget() {
     </Card>
   );
 }
-

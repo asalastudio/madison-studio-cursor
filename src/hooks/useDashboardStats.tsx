@@ -136,7 +136,7 @@ export function useDashboardStats() {
         // Fetch scheduled content with dates for calendar
         const { data: scheduled } = await supabase
           .from("scheduled_content")
-          .select("id, scheduled_for")
+          .select("id, scheduled_date, scheduled_time")
           .eq("organization_id", organizationId)
           .eq("status", "scheduled");
 
@@ -266,8 +266,8 @@ export function useDashboardStats() {
         // NEW: Calculate scheduledDays (group scheduled content by date)
         const scheduledDays: Record<string, number> = {};
         (scheduled || []).forEach(item => {
-          if (item.scheduled_for) {
-            const dateKey = new Date(item.scheduled_for).toISOString().split('T')[0];
+          if (item.scheduled_date) {
+            const dateKey = item.scheduled_date;
             scheduledDays[dateKey] = (scheduledDays[dateKey] || 0) + 1;
           }
         });

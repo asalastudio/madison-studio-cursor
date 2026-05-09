@@ -48,9 +48,9 @@ export function ContentPipelineWidget() {
         // Get scheduled content
         const { data: scheduledContent } = await supabase
           .from('scheduled_content')
-          .select('id, scheduled_for, status, master_content_id')
+          .select('id, scheduled_date, scheduled_time, status, content_id')
           .eq('organization_id', organizationId)
-          .eq('status', 'pending')
+          .eq('status', 'scheduled')
           .limit(5);
 
         const pipelineItems: PipelineItem[] = [];
@@ -192,4 +192,3 @@ export function ContentPipelineWidget() {
     </Card>
   );
 }
-

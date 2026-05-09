@@ -93,10 +93,10 @@ export function GettingStartedChecklist({ onDismiss, compact = false }: GettingS
                     .eq("organization_id", organizationId)
                         .limit(1),
                     supabase
-                    .from("outputs")
+                    .from("scheduled_content")
                     .select("id")
                     .eq("organization_id", organizationId)
-                    .not("scheduled_for", "is", null)
+                    .eq("status", "scheduled")
                         .limit(1),
                     supabase
                     .from("derivative_content")
