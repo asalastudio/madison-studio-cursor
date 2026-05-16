@@ -218,6 +218,16 @@ function emptyToNull(v: string | undefined): string | null {
   return t.length === 0 ? null : t;
 }
 
+function normalizeThreadSize(v: string | undefined): string | null {
+  const t = emptyToNull(v);
+  if (!t) return null;
+  const numericThread = t.match(/^(\d{1,2})[\s._/-]+(\d{3})$/);
+  if (numericThread) return `${numericThread[1]}-${numericThread[2]}`;
+  if (/^press[-_\s]?fit$/i.test(t)) return "Press-Fit";
+  if (/^snap[-_\s]?on$/i.test(t)) return "Snap-On";
+  return t;
+}
+
 /**
  * Map a raw CSV row (keyed by the xlsx header names) to an upsert payload.
  * Returns null if the row is missing required fields and should be skipped.
@@ -238,19 +248,24 @@ function csvRowToImport(
     capacity_label: emptyToNull(row["Capacity"] ?? row["capacity_label"]),
     glass_color: emptyToNull(row["Glass Color"] ?? row["glass_color"]),
     applicator_types: emptyToNull(
-      row["Applicator Types"] ?? row["Applicator Type"] ?? row["applicator_types"],
+      row["Applicator Types"] ??
+        row["Applicator Type"] ??
+        row["applicator_types"] ??
+        row["applicator"],
     ),
-    thread_size: emptyToNull(row["Thread Size"] ?? row["thread_size"]),
+    thread_size: normalizeThreadSize(
+      row["Thread Size"] ?? row["thread_size"] ?? row["neck_thread_size"],
+    ),
     display_name: displayName,
     category: emptyToNull(row["Category"] ?? row["category"]),
     collection: emptyToNull(row["Collection"] ?? row["collection"]),
     convex_slug: emptyToNull(row["Convex Slug"] ?? row["convex_slug"]),
     convex_id: emptyToNull(row["Convex ID"] ?? row["convex_id"]),
     primary_grace_sku: emptyToNull(
-      row["Primary Grace SKU"] ?? row["primary_grace_sku"],
+      row["Primary Grace SKU"] ?? row["primary_grace_sku"] ?? row["grace_sku"],
     ),
     primary_website_sku: emptyToNull(
-      row["Primary Website SKU"] ?? row["primary_website_sku"],
+      row["Primary Website SKU"] ?? row["primary_website_sku"] ?? row["website_sku"],
     ),
     all_legacy_skus: emptyToNull(
       row["All Legacy SKUs"] ?? row["all_legacy_skus"],

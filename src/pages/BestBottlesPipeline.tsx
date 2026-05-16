@@ -300,19 +300,33 @@ export default function BestBottlesPipeline() {
 
   const handleExportSnapshot = () => {
     const headers = [
-      "row",
-      "family",
-      "capacity",
-      "thread",
-      "color",
-      "applicator",
-      "product_url",
-      "reference_status",
-      "madison_status",
-      "approved_image_id",
-      "approved_at",
-      "last_error",
-      "notes",
+      "Row #",
+      "Family",
+      "Capacity (ml)",
+      "Capacity",
+      "Glass Color",
+      "Applicator Types",
+      "Thread Size",
+      "Display Name",
+      "Category",
+      "Collection",
+      "Convex Slug",
+      "Convex ID",
+      "Primary Grace SKU",
+      "Primary Website SKU",
+      "All Legacy SKUs",
+      "Product URL",
+      "Has Hero Image?",
+      "Hero Image URL",
+      "Variant Count",
+      "Price Min ($)",
+      "Price Max ($)",
+      "Reference Status",
+      "Madison Status",
+      "Approved Image ID",
+      "Approved At",
+      "Last Error",
+      "Notes",
     ];
     const lines = [
       headers.join(","),
@@ -321,10 +335,24 @@ export default function BestBottlesPipeline() {
           row.tracker_row_number ?? "",
           row.family,
           row.capacity_ml ?? "",
-          row.thread_size ?? "",
+          row.capacity_label ?? "",
           row.glass_color ?? "",
           row.applicator_types ?? "",
+          row.thread_size ?? "",
+          row.display_name,
+          row.category ?? "",
+          row.collection ?? "",
+          row.convex_slug ?? "",
+          row.convex_id ?? "",
+          row.primary_grace_sku ?? "",
+          row.primary_website_sku ?? "",
+          row.all_legacy_skus ?? "",
           row.product_url ?? "",
+          row.legacy_has_hero_image ? "Yes" : "No",
+          row.legacy_hero_image_url ?? "",
+          row.variant_count ?? "",
+          row.price_min_cents != null ? (row.price_min_cents / 100).toFixed(2) : "",
+          row.price_max_cents != null ? (row.price_max_cents / 100).toFixed(2) : "",
           row.is_hero_reference
             ? "pinned-master-reference"
             : row.legacy_hero_image_url
@@ -641,10 +669,10 @@ function ShapeGroupCard({
     (group.capacityMl != null ? ` · ${group.capacityMl}ml` : "") +
     (group.threadSize ? ` · ${group.threadSize}` : "");
 
-  // Reference thumbnails synced from bestbottles.com product pages. Cap to
-  // 4 so the strip stays compact; the full SKU list below still shows all.
+  // Reference thumbnails synced from bestbottles.com product pages. Show the
+  // whole reference set so 5-option sizes do not hide the final SKU.
   // Pinned row is sorted to position 0 so the operator's chosen master is
-  // always visible even if the group has more than 4 references.
+  // always visible.
   const rowsWithReference = group.rows.filter((r) => r.legacy_hero_image_url);
   const sortedReferenceRows = [...rowsWithReference].sort((a, b) =>
     a.is_hero_reference === b.is_hero_reference
@@ -653,8 +681,7 @@ function ShapeGroupCard({
         ? -1
         : 1,
   );
-  const referenceThumbs = sortedReferenceRows.slice(0, 4);
-  const totalWithReference = rowsWithReference.length;
+  const referenceThumbs = sortedReferenceRows;
 
   return (
     <Card className="p-4 border-white/[0.06] bg-white/[0.02] text-white space-y-3">
@@ -699,7 +726,7 @@ function ShapeGroupCard({
           (click again to un-pin). The pinned thumbnail gets an amber ring
           + star badge and is preferred by the Launch button. */}
       {referenceThumbs.length > 0 && (
-        <div className="flex items-center gap-1.5 -mx-0.5">
+        <div className="flex flex-wrap items-center gap-1.5 -mx-0.5">
           {referenceThumbs.map((row) => {
             const isPinned = row.is_hero_reference;
             return (
@@ -742,11 +769,6 @@ function ShapeGroupCard({
               </button>
             );
           })}
-          {totalWithReference > referenceThumbs.length && (
-            <span className="text-[10px] font-mono uppercase tracking-wider text-white/40">
-              +{totalWithReference - referenceThumbs.length} more
-            </span>
-          )}
         </div>
       )}
 

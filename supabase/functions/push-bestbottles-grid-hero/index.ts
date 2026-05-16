@@ -25,6 +25,20 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function cleanSecret(value: string | undefined | null) {
+  return value?.trim().replace(/^['"]|['"]$/g, "") || "";
+}
+
+function normalizeProductGroupSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -58,7 +72,8 @@ Deno.serve(async (req) => {
   }
 
   const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
-  const slug = typeof body.slug === "string" ? body.slug.trim() : "";
+  const inputSlug = typeof body.slug === "string" ? body.slug.trim() : "";
+  const slug = normalizeProductGroupSlug(inputSlug);
 
   if (!imageUrl || !slug) {
     return json({ error: "imageUrl and slug are required" }, 400);
@@ -67,7 +82,9 @@ Deno.serve(async (req) => {
     return json({ error: "imageUrl must be http(s)" }, 400);
   }
 
-  const convexUrl = Deno.env.get("BESTBOTTLES_CONVEX_URL");
+  const convexUrl =
+    cleanSecret(Deno.env.get("BB_CONVEX_URL")) ||
+    cleanSecret(Deno.env.get("BESTBOTTLES_CONVEX_URL"));
   if (!convexUrl) {
     return json(
       { error: "BESTBOTTLES_CONVEX_URL is not configured for this deployment." },
@@ -115,10 +132,14 @@ Deno.serve(async (req) => {
     if (parsed?.status === "error") {
       return json(
         {
-          error: parsed.errorMessage || "Convex mutation failed",
+          error:
+            parsed.errorMessage ||
+            "Convex mutation failed. Confirm productGroups:setHeroImageUrl is deployed in Best Bottles Convex.",
+          inputSlug,
+          slug,
           heroImageUrl,
         },
-        400,
+        502,
       );
     }
 
@@ -129,6 +150,7 @@ Deno.serve(async (req) => {
       return json(
         {
           error: `No product group found in Convex for slug "${slug}". Check the slug matches productGroups.slug.`,
+          inputSlug,
           heroImageUrl,
           convex: value,
         },
@@ -139,6 +161,7 @@ Deno.serve(async (req) => {
     return json({
       success: true,
       slug,
+      inputSlug,
       heroImageUrl,
       convex: value ?? null,
     });

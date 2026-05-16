@@ -259,7 +259,32 @@ interface FolderReferenceEntry {
   matchKey: string;
 }
 
+type UploadedReferenceImage = { url: string; file?: File; name?: string };
+
 type ParsedReferenceFilename = { graceSku: string; modifier?: string };
+
+type ReferenceApplicatorIntent = "sprayer" | "roll-on" | "metal-roll-on" | "plastic-roll-on";
+type GlassColorIntent =
+  | "clear"
+  | "blue"
+  | "amber"
+  | "frosted"
+  | "black"
+  | "green"
+  | "pink"
+  | "swirl";
+
+interface HumanReferenceIntent {
+  capacityMl: number | null;
+  neckThreadSize: string | null;
+  skuPrefix: string | null;
+  family: "cylinder" | null;
+  bottleColor: GlassColorIntent | null;
+  applicator: ReferenceApplicatorIntent | null;
+  capColors: Set<string>;
+  capFinish: "matte" | "shiny" | null;
+  dotCap: boolean;
+}
 
 /**
  * Presets that swap the canonical bottle composition (e.g. exploded cap-beside
@@ -306,8 +331,254 @@ function normalizeReferenceStem(filename: string): string {
 }
 
 function inferCapacityMlFromStem(stem: string): number | null {
-  const match = stem.match(/(?:^|-)(\d{1,3})ml(?:-|$)/);
+  const match = stem.match(/(?:^|-)(\d{1,3})-?ml(?:-|$)/);
   return match ? Number(match[1]) : null;
+}
+
+function inferNeckThreadFromStem(stem: string): string | null {
+  const match = stem.match(/(?:^|-)(\d{1,2})-(\d{3})(?:-|$)/);
+  return match ? `${match[1]}-${match[2]}` : null;
+}
+
+function normalizeNeckThread(value: string | null | undefined): string | null {
+  return value?.trim().toLowerCase().replace(/[.\s_/]+/g, "-") ?? null;
+}
+
+const SKU_GLASS_COLOR_CODES: Record<string, GlassColorIntent> = {
+  CLR: "clear",
+  BLU: "blue",
+  CBL: "blue",
+  AMB: "amber",
+  FRS: "frosted",
+  FRO: "frosted",
+  BLK: "black",
+  GRN: "green",
+  PNK: "pink",
+  SWR: "swirl",
+};
+
+const SKU_GLASS_COLOR_TEXT: Record<GlassColorIntent, string[]> = {
+  clear: ["clear"],
+  blue: ["blue", "cobalt"],
+  amber: ["amber"],
+  frosted: ["frosted", "frost"],
+  black: ["black"],
+  green: ["green"],
+  pink: ["pink"],
+  swirl: ["swirl"],
+};
+
+function inferHumanReferenceIntent(filename: string): HumanReferenceIntent {
+  const stem = normalizeReferenceStem(filename);
+  const tokens = new Set(stem.split("-").filter(Boolean));
+  const prefixMatch = stem.match(/(?:^|-)(gb|lb)-([a-z0-9]+)-([a-z]{3})(?:-|$)/);
+  const glassCode = prefixMatch?.[3]?.toUpperCase() ?? "";
+  const bottleColorFromPrefix = SKU_GLASS_COLOR_CODES[glassCode] ?? null;
+  const skuPrefix = prefixMatch
+    ? `${prefixMatch[1].toUpperCase()}-${prefixMatch[2].toUpperCase()}-${prefixMatch[3].toUpperCase()}`
+    : null;
+  const has = (token: string) => tokens.has(token);
+  const hasAny = (aliases: string[]) => aliases.some((alias) => has(alias));
+
+  let applicator: ReferenceApplicatorIntent | null = null;
+  if (hasAny(["spr", "spray", "sprayer", "mist", "pump", "atomizer"])) {
+    applicator = "sprayer";
+  } else if (hasAny(["mrl"]) || (has("metal") && hasAny(["roll", "roller", "rollon"]))) {
+    applicator = "metal-roll-on";
+  } else if (has("plastic") && hasAny(["roll", "roller", "rollon"])) {
+    applicator = "plastic-roll-on";
+  } else if (hasAny(["rol", "roll", "roller", "rollon"])) {
+    applicator = "roll-on";
+  }
+
+  const capColors = new Set<string>();
+  const colorAliases: Array<[string, string[]]> = [
+    ["black", ["black", "blk", "bk", "mblk", "sblk"]],
+    ["white", ["white", "wht", "wh"]],
+    ["gold", ["gold", "gld", "gl", "mgld", "sgld"]],
+    ["silver", ["silver", "slv", "sl", "mslv", "sslv"]],
+    ["copper", ["copper", "cpr", "cu", "mcpr"]],
+    ["blue", ["blue", "blu", "mblu"]],
+    ["pink", ["pink", "pnk", "pk"]],
+    ["red", ["red"]],
+    ["turquoise", ["turquoise", "turq", "trq"]],
+    ["ivory", ["ivory", "iv"]],
+  ];
+  colorAliases.forEach(([color, aliases]) => {
+    if (hasAny(aliases)) capColors.add(color);
+  });
+
+  return {
+    capacityMl: inferCapacityMlFromStem(stem),
+    neckThreadSize: inferNeckThreadFromStem(stem),
+    skuPrefix,
+    family: has("cylinder") || skuPrefix?.startsWith("GB-CYL-") ? "cylinder" : null,
+    bottleColor:
+      bottleColorFromPrefix ??
+      (has("clear") || has("clr")
+        ? "clear"
+        : has("cobalt") || has("blue")
+          ? "blue"
+          : has("amber")
+            ? "amber"
+            : has("frosted") || has("frost")
+              ? "frosted"
+              : has("swirl")
+                ? "swirl"
+                : null),
+    applicator,
+    capColors,
+    capFinish: hasAny(["matte", "matt", "mblk", "mslv", "mblu", "mcpr", "mgld"])
+      ? "matte"
+      : hasAny(["shiny", "shine", "gloss", "sblk", "sgld", "sslv"])
+        ? "shiny"
+        : null,
+    dotCap: hasAny(["dot", "dots"]),
+  };
+}
+
+function searchableProductText(product: Product): string {
+  return [
+    product.graceSku,
+    product.websiteSku,
+    product.family,
+    product.color,
+    product.applicator,
+    product.capStyle,
+    product.capColor,
+    product.trimColor,
+    product.bottleCollection,
+    product.itemName,
+    product.itemDescription,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function productHasCapColor(product: Product, color: string): boolean {
+  const sku = product.graceSku.toUpperCase();
+  const text = searchableProductText(product);
+  const suffixes: Record<string, string[]> = {
+    black: ["BLK", "SBLK", "MBLK", "BKDT"],
+    white: ["WHT", "WH"],
+    gold: ["GLD", "SGLD", "MGLD"],
+    silver: ["SLV", "SSLV", "MSLV", "SLDT"],
+    copper: ["CPR", "MCPR"],
+    blue: ["BLU", "MBLU"],
+    pink: ["PNK", "PKDT"],
+    red: ["RED"],
+    turquoise: ["TRQ", "TUR"],
+    ivory: ["IV", "IVGD", "IVSL"],
+  };
+  return text.includes(color) || (suffixes[color] ?? []).some((suffix) => sku.includes(suffix));
+}
+
+function productMatchesApplicator(product: Product, applicator: ReferenceApplicatorIntent): boolean {
+  const sku = product.graceSku.toUpperCase();
+  const text = searchableProductText(product);
+  if (applicator === "sprayer") {
+    return sku.includes("-SPR-") || text.includes("spray") || text.includes("sprayer") || text.includes("mist");
+  }
+  if (applicator === "metal-roll-on") {
+    return sku.includes("-MRL-") || (text.includes("metal") && (text.includes("roll") || text.includes("roller")));
+  }
+  if (applicator === "plastic-roll-on") {
+    return sku.includes("-ROL-") || (text.includes("plastic") && (text.includes("roll") || text.includes("roller")));
+  }
+  return sku.includes("-ROL-") || sku.includes("-MRL-") || text.includes("roll") || text.includes("roller");
+}
+
+function scoreHumanReferenceMatch(
+  product: Product,
+  intent: HumanReferenceIntent,
+  preferredProducts: Product[],
+): number | null {
+  const sku = product.graceSku.toUpperCase();
+  const text = searchableProductText(product);
+  let score = preferredProducts.some((preferred) => preferred.graceSku === product.graceSku) ? 6 : 0;
+
+  if (intent.skuPrefix) {
+    if (!sku.startsWith(intent.skuPrefix)) return null;
+    score += 24;
+  }
+  if (intent.capacityMl !== null) {
+    if (product.capacityMl !== null && product.capacityMl !== intent.capacityMl) return null;
+    score += 10;
+  }
+  if (intent.neckThreadSize) {
+    const productThread = normalizeNeckThread(product.neckThreadSize);
+    const intentThread = normalizeNeckThread(intent.neckThreadSize);
+    if (productThread && intentThread && productThread !== intentThread) return null;
+    score += 6;
+  }
+  if (intent.family) {
+    if (product.family?.toLowerCase() !== intent.family) return null;
+    score += 5;
+  }
+  if (intent.bottleColor) {
+    const colorAliases = SKU_GLASS_COLOR_TEXT[intent.bottleColor] ?? [intent.bottleColor];
+    const skuCodes = Object.entries(SKU_GLASS_COLOR_CODES)
+      .filter(([, color]) => color === intent.bottleColor)
+      .map(([code]) => code);
+    const colorMatches =
+      colorAliases.some((alias) => text.includes(alias)) ||
+      skuCodes.some((code) => sku.includes(`-${code}-`));
+    if (!colorMatches) return null;
+    score += 5;
+  }
+  if (intent.applicator) {
+    if (!productMatchesApplicator(product, intent.applicator)) return null;
+    score += intent.applicator === "metal-roll-on" || intent.applicator === "plastic-roll-on" ? 10 : 8;
+  }
+  for (const color of intent.capColors) {
+    if (!productHasCapColor(product, color)) return null;
+    score += 8;
+  }
+  if (intent.capFinish) {
+    const isMatte = text.includes("matte") || /-M[A-Z]+$/.test(sku);
+    const isShiny = text.includes("shiny") || /-S[A-Z]+$/.test(sku);
+    if (intent.capFinish === "matte" && !isMatte) return null;
+    if (intent.capFinish === "shiny" && !isShiny) return null;
+    score += 4;
+  }
+  if (intent.dotCap) {
+    if (!text.includes("dot") && !sku.includes("DT")) return null;
+    score += 4;
+  } else if (text.includes("dot") || sku.includes("DT")) {
+    score -= 3;
+  }
+
+  const hasSpecificIntent =
+    intent.skuPrefix ||
+    intent.capacityMl !== null ||
+    intent.neckThreadSize ||
+    intent.family ||
+    intent.bottleColor ||
+    intent.applicator ||
+    intent.capColors.size > 0 ||
+    intent.capFinish ||
+    intent.dotCap;
+  return hasSpecificIntent && score >= 14 ? score : null;
+}
+
+function inferHumanReferenceMatch(
+  filename: string,
+  preferredProducts: Product[],
+  familyProducts: Product[],
+): Product | null {
+  const intent = inferHumanReferenceIntent(filename);
+  const candidates = uniqueProductsByGraceSku([...preferredProducts, ...familyProducts])
+    .map((product) => ({
+      product,
+      score: scoreHumanReferenceMatch(product, intent, preferredProducts),
+    }))
+    .filter((entry): entry is { product: Product; score: number } => entry.score !== null)
+    .sort((a, b) => b.score - a.score);
+  if (candidates.length === 0) return null;
+  const [best, second] = candidates;
+  if (second && second.score === best.score) return null;
+  return best.product;
 }
 
 function inferBulbTasselSuffix(filename: string): { suffix: string; capacityMl: number | null } | null {
@@ -371,6 +642,10 @@ function uniqueProductsByGraceSku(products: Product[]): Product[] {
   });
 }
 
+function baseSkuKey(value: string): string {
+  return value.toUpperCase().replace(/-\d{2}$/i, "");
+}
+
 function resolveReferenceFilenameMatch(
   filename: string,
   parsed: ParsedReferenceFilename | null,
@@ -382,14 +657,50 @@ function resolveReferenceFilenameMatch(
     return parsed;
   }
 
+  if (parsed) {
+    const websiteSkuMatch = allProducts.find(
+      (product) => product.websiteSku.toUpperCase() === parsed.graceSku,
+    );
+    if (websiteSkuMatch) {
+      return {
+        graceSku: websiteSkuMatch.graceSku.toUpperCase(),
+        modifier: parsed.modifier,
+      };
+    }
+
+    const parsedBase = baseSkuKey(parsed.graceSku);
+    const aliasMatch = allProducts.find(
+      (product) => baseSkuKey(product.graceSku) === parsedBase,
+    );
+    if (aliasMatch) {
+      return {
+        graceSku: aliasMatch.graceSku.toUpperCase(),
+        modifier: parsed.modifier,
+      };
+    }
+  }
+
   const tassel = inferBulbTasselSuffix(filename);
-  if (!tassel) return parsed;
+  if (!tassel) {
+    const humanReadableMatch = inferHumanReferenceMatch(
+      filename,
+      preferredProducts,
+      familyProducts,
+    );
+    if (humanReadableMatch) {
+      return {
+        graceSku: humanReadableMatch.graceSku.toUpperCase(),
+        modifier: parsed?.modifier,
+      };
+    }
+    return null;
+  }
 
   const matched =
     findBulbTasselMatch(preferredProducts, tassel.suffix, tassel.capacityMl) ??
     findBulbTasselMatch(familyProducts, tassel.suffix, tassel.capacityMl);
 
-  if (!matched) return parsed;
+  if (!matched) return null;
   return {
     graceSku: matched.graceSku.toUpperCase(),
     modifier: parsed?.modifier,
@@ -495,11 +806,13 @@ export function MastersTabPanel({
   // (which OpenAI /edits rejects). Drop a PSD-rendered PNG here to anchor
   // the gpt-image-2 generation to the actual studio photography.
   // Format: { url: <usable URL>, file?: File (only when freshly uploaded), name }
-  const [customReference, setCustomReference] = useState<
-    { url: string; file?: File; name?: string } | null
-  >(null);
+  const [customReference, setCustomReference] = useState<UploadedReferenceImage | null>(null);
+  const [glassSpecularityReference, setGlassSpecularityReference] =
+    useState<UploadedReferenceImage | null>(null);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
+  const [isUploadingGlassRef, setIsUploadingGlassRef] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isGlassLibraryOpen, setIsGlassLibraryOpen] = useState(false);
 
   // Reference folder — operator drops a folder of PSD-rendered PNGs whose
   // filenames either match the Convex Grace SKU exactly (e.g.
@@ -538,6 +851,7 @@ export function MastersTabPanel({
     preset: string,
   ): FolderReferenceEntry | null => {
     const baseKey = folderKey(sku.graceSku);
+    const aliasKey = baseSkuKey(sku.graceSku);
     let modifier = PRESET_MODIFIER[preset];
     if (preset === ANGLE_PRESET_ID && selectedAngleVariant.referenceModifier) {
       modifier = selectedAngleVariant.referenceModifier;
@@ -545,8 +859,24 @@ export function MastersTabPanel({
     if (modifier) {
       const variant = referenceFolder.get(folderKey(sku.graceSku, modifier));
       if (variant) return variant;
+      if (aliasKey !== baseKey) {
+        const aliasVariant = referenceFolder.get(folderKey(aliasKey, modifier));
+        if (aliasVariant) return aliasVariant;
+      }
     }
-    return referenceFolder.get(baseKey) ?? null;
+    const direct = referenceFolder.get(baseKey);
+    if (direct) return direct;
+    if (aliasKey !== baseKey) {
+      const alias = referenceFolder.get(aliasKey);
+      if (alias) return alias;
+    }
+
+    for (const [key, entry] of referenceFolder.entries()) {
+      const [entryBase, entryModifier] = key.split("--");
+      if (modifier && entryModifier !== modifier.toLowerCase()) continue;
+      if (baseSkuKey(entryBase) === aliasKey) return entry;
+    }
+    return null;
   };
 
   /**
@@ -716,7 +1046,10 @@ export function MastersTabPanel({
   const familyGraceSet = useMemo(() => {
     const set = new Set<string>();
     const source = allFamilyProducts ?? familyVariants ?? [];
-    for (const v of source) set.add(v.graceSku.toUpperCase());
+    for (const v of source) {
+      set.add(v.graceSku.toUpperCase());
+      set.add(baseSkuKey(v.graceSku));
+    }
     return set;
   }, [allFamilyProducts, familyVariants]);
 
@@ -736,13 +1069,28 @@ export function MastersTabPanel({
   const uncoveredSkus = useMemo(() => {
     if (!familyVariants || familyVariants.length === 0) return [];
     if (referenceFolder.size === 0) return [];
-    // A SKU is "covered" if ANY modifier variant of its graceSku exists.
-    const covered = new Set<string>();
-    for (const key of referenceFolder.keys()) {
-      covered.add(key.split("--")[0]);
-    }
-    return familyVariants.filter((v) => !covered.has(v.graceSku.toUpperCase()));
-  }, [familyVariants, referenceFolder]);
+    return familyVariants.filter((v) => lookupFolderReference(v, presetId) === null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familyVariants, referenceFolder, presetId, selectedAngleId]);
+
+  const allFolderMatchedVariants = useMemo(() => {
+    if (referenceFolder.size === 0) return [];
+    const source = uniqueProductsByGraceSku(allFamilyProducts ?? familyVariants ?? []);
+    return source.filter(
+      (v) => lookupFolderReference(v, presetId) !== null && getMeasurementIssue(v) === null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFamilyProducts, familyVariants, referenceFolder, presetId, selectedAngleId]);
+
+  const allFolderMeasurementBlockedSkus = useMemo(() => {
+    if (referenceFolder.size === 0) return [];
+    const source = uniqueProductsByGraceSku(allFamilyProducts ?? familyVariants ?? []);
+    return source
+      .filter((v) => lookupFolderReference(v, presetId) !== null)
+      .map((product) => ({ product, issue: getMeasurementIssue(product) }))
+      .filter((entry): entry is { product: Product; issue: string } => entry.issue !== null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFamilyProducts, familyVariants, referenceFolder, presetId, selectedAngleId]);
 
   /**
    * UploadZone returns either a freshly-picked File (drag-drop or browse) or
@@ -750,15 +1098,13 @@ export function MastersTabPanel({
    * OpenAI /edits can fetch the reference. For library URLs, we use as-is
    * since they're already in our generated-images bucket.
    */
-  const handleReferencePicked = async (img: { url: string; file?: File; name?: string }) => {
-    // Manual single-image upload takes precedence over folder auto-match.
-    // Mark the override so SKU navigation doesn't silently overwrite this
-    // user-chosen reference.
-    setFolderUserOverride(true);
+  const uploadReferenceToStorage = async (
+    img: UploadedReferenceImage,
+    storageDir: "studio-references" | "studio-glass-specularity-references",
+  ): Promise<UploadedReferenceImage | null> => {
     // Library pick — already a fetchable URL
     if (!img.file) {
-      setCustomReference(img);
-      return;
+      return img;
     }
     // Fresh upload — push to Supabase Storage to get a public URL
     if (!user || !currentOrganizationId) {
@@ -767,31 +1113,42 @@ export function MastersTabPanel({
         description: "You must be signed in with an organization to upload a reference.",
         variant: "destructive",
       });
-      return;
+      return null;
     }
+    const ts = Date.now();
+    const rand = Math.random().toString(36).slice(2, 8);
+    const ext = (img.file.name.split(".").pop() || "png").toLowerCase();
+    const path = `${currentOrganizationId}/${user.id}/${storageDir}/${ts}_${rand}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("generated-images")
+      .upload(path, img.file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: img.file.type || "image/png",
+      });
+    if (uploadError) throw uploadError;
+    const { data: urlData } = supabase.storage
+      .from("generated-images")
+      .getPublicUrl(path);
+    if (!urlData?.publicUrl) throw new Error("No public URL returned");
+    return { url: urlData.publicUrl, name: img.file.name };
+  };
+
+  const handleReferencePicked = async (img: UploadedReferenceImage) => {
+    // Manual single-image upload takes precedence over folder auto-match.
+    // Mark the override so SKU navigation doesn't silently overwrite this
+    // user-chosen reference.
+    setFolderUserOverride(true);
     setIsUploadingRef(true);
     try {
-      const ts = Date.now();
-      const rand = Math.random().toString(36).slice(2, 8);
-      const ext = (img.file.name.split(".").pop() || "png").toLowerCase();
-      const path = `${currentOrganizationId}/${user.id}/studio-references/${ts}_${rand}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("generated-images")
-        .upload(path, img.file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: img.file.type || "image/png",
+      const uploaded = await uploadReferenceToStorage(img, "studio-references");
+      if (uploaded) {
+        setCustomReference(uploaded);
+        toast({
+          title: "Reference uploaded",
+          description: "Will anchor gpt-image-2 generation for this SKU.",
         });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage
-        .from("generated-images")
-        .getPublicUrl(path);
-      if (!urlData?.publicUrl) throw new Error("No public URL returned");
-      setCustomReference({ url: urlData.publicUrl, name: img.file.name });
-      toast({
-        title: "Reference uploaded",
-        description: "Will anchor gpt-image-2 generation for this SKU.",
-      });
+      }
     } catch (e: unknown) {
       console.error("[MastersTabPanel] reference upload failed", e);
       const message = e instanceof Error ? e.message : String(e);
@@ -802,6 +1159,33 @@ export function MastersTabPanel({
       });
     } finally {
       setIsUploadingRef(false);
+    }
+  };
+
+  const handleGlassSpecularityReferencePicked = async (img: UploadedReferenceImage) => {
+    setIsUploadingGlassRef(true);
+    try {
+      const uploaded = await uploadReferenceToStorage(
+        img,
+        "studio-glass-specularity-references",
+      );
+      if (uploaded) {
+        setGlassSpecularityReference(uploaded);
+        toast({
+          title: "Glass reference uploaded",
+          description: "Will guide glass, specularity, and shadow only.",
+        });
+      }
+    } catch (e: unknown) {
+      console.error("[MastersTabPanel] glass specularity upload failed", e);
+      const message = e instanceof Error ? e.message : String(e);
+      toast({
+        title: "Glass reference upload failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingGlassRef(false);
     }
   };
 
@@ -970,6 +1354,7 @@ export function MastersTabPanel({
       // legacy .gif imageUrl — the latter is silently dropped by the
       // unsupported-format filter in useAssembledPromptGeneration.
       referenceImageUrl: referenceUrl ?? sku.imageUrl,
+      glassSpecularityReferenceImageUrl: glassSpecularityReference?.url ?? null,
       productContext: {
         name: sku.itemName,
         collection: sku.bottleCollection ?? undefined,
@@ -992,6 +1377,7 @@ export function MastersTabPanel({
         familyName ? `family:${familyName.toLowerCase().replace(/\s+/g, "-")}` : null,
         `sku:${sku.graceSku}`,
         sku.websiteSku ? `websiteSku:${sku.websiteSku}` : null,
+        glassSpecularityReference?.url ? "glass-specularity-ref" : null,
         `model:${masterAiProvider}`,
         ...sceneTags,
       ].filter((t): t is string => Boolean(t)),
@@ -1049,20 +1435,20 @@ export function MastersTabPanel({
   }, [familyVariants]);
 
   /**
-   * Batch-generate masters for every SKU in the family that has a folder
-   * reference. Sequential rather than parallel so we don't hammer the
-   * generate-madison-image edge function or OpenAI rate limits, and so
-   * the operator can watch each output land in the result panel.
+   * Batch-generate masters for every SKU in the requested set that has a
+   * folder reference. Sequential rather than parallel so we don't hammer the
+   * generate-madison-image edge function or OpenAI rate limits, and so the
+   * operator can watch each output land in the result panel.
    */
-  const handleGenerateAll = async () => {
-    if (matchedFamilyVariants.length === 0) return;
+  const handleGenerateBatch = async (variantsToGenerate: Product[]) => {
+    if (variantsToGenerate.length === 0) return;
     const failures: Array<{ graceSku: string; error: string }> = [];
-    for (let i = 0; i < matchedFamilyVariants.length; i++) {
-      const sku = matchedFamilyVariants[i];
+    for (let i = 0; i < variantsToGenerate.length; i++) {
+      const sku = variantsToGenerate[i];
       const ref = lookupFolderReference(sku, presetId);
       setBatchProgress({
         current: i + 1,
-        total: matchedFamilyVariants.length,
+        total: variantsToGenerate.length,
         currentSku: sku.graceSku,
         failures,
       });
@@ -1077,7 +1463,7 @@ export function MastersTabPanel({
       }
     }
     setBatchProgress(null);
-    const okCount = matchedFamilyVariants.length - failures.length;
+    const okCount = variantsToGenerate.length - failures.length;
     toast({
       title: failures.length > 0 ? "Batch finished with errors" : "Batch complete",
       description:
@@ -1086,6 +1472,14 @@ export function MastersTabPanel({
           : `Generated ${okCount} masters. Review and approve in the Library.`,
       variant: failures.length > 0 ? "destructive" : "default",
     });
+  };
+
+  const handleGenerateAll = async () => {
+    await handleGenerateBatch(matchedFamilyVariants);
+  };
+
+  const handleGenerateWholeFolder = async () => {
+    await handleGenerateBatch(allFolderMatchedVariants);
   };
 
   const handleApprove = () => {
@@ -1550,6 +1944,25 @@ export function MastersTabPanel({
             Leading <code>"48. "</code> ordering prefixes from PSD exports are stripped automatically.
             Use PNG/JPEG references for OpenAI edits.
           </p>
+          {referenceFolder.size > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-2 text-[10px]" style={{ color: "var(--darkroom-text-dim)" }}>
+              <span>
+                {matchedFamilyVariants.length} current-cohort batch match{matchedFamilyVariants.length === 1 ? "" : "es"}
+              </span>
+              <span className="opacity-50">·</span>
+              <span>
+                {allFolderMatchedVariants.length} full-folder batch match{allFolderMatchedVariants.length === 1 ? "" : "es"}
+              </span>
+              {allFolderMeasurementBlockedSkus.length > 0 && (
+                <>
+                  <span className="opacity-50">·</span>
+                  <span style={{ color: "#F87171" }}>
+                    {allFolderMeasurementBlockedSkus.length} blocked by missing measurements
+                  </span>
+                </>
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-center gap-2">
             <Button
               type="button"
@@ -1733,6 +2146,40 @@ export function MastersTabPanel({
           title="Select reference image"
           libraryTagContainsAny={["brand:best-bottles", "studio-master", "paper-doll-component"]}
         />
+
+        <div className="space-y-2 pt-3 border-t" style={{ borderColor: "var(--darkroom-border-subtle)" }}>
+          <Label className="text-xs uppercase tracking-wider" style={{ color: "var(--darkroom-text-dim)" }}>
+            Glass specularity reference
+          </Label>
+          <UploadZone
+            type="style"
+            label="Drop secondary glass reference"
+            description="Optional style-only guide for glass, highlights, and contact shadow. Product identity stays locked to the reference above."
+            image={glassSpecularityReference}
+            onUpload={handleGlassSpecularityReferencePicked}
+            onRemove={() => setGlassSpecularityReference(null)}
+            onLibraryOpen={() => setIsGlassLibraryOpen(true)}
+            disabled={isUploadingGlassRef}
+          />
+
+          {isUploadingGlassRef && (
+            <div className="flex items-center gap-2 text-[11px]" style={{ color: "var(--darkroom-text-muted)" }}>
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Uploading secondary glass reference to Supabase…
+            </div>
+          )}
+
+          <ImageLibraryModal
+            open={isGlassLibraryOpen}
+            onOpenChange={setIsGlassLibraryOpen}
+            onSelectImage={(img) => {
+              handleGlassSpecularityReferencePicked(img);
+              setIsGlassLibraryOpen(false);
+            }}
+            title="Select glass specularity reference"
+            libraryTagContainsAny={["glass-specularity-ref", "brand:best-bottles", "studio-master"]}
+          />
+        </div>
       </div>
 
       {!customReference && (
@@ -1779,31 +2226,65 @@ export function MastersTabPanel({
         </div>
       )}
 
-      {familyVariants && referenceFolder.size > 0 && matchedFamilyVariants.length > 1 && (
-        <Button
-          onClick={handleGenerateAll}
-          disabled={isGenerating || batchProgress !== null}
-          variant="outline"
-          className="w-full border-white/15 bg-white/[0.02] text-white hover:bg-white/[0.06] hover:text-white"
-          title={`Generate masters for every SKU in this family that has a matched reference (${matchedFamilyVariants.length} variants).`}
-        >
-          {batchProgress ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Generating batch…
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Generate all matched ({matchedFamilyVariants.length})
-            </>
-          )}
-        </Button>
+      {referenceFolder.size > 0 &&
+        (matchedFamilyVariants.length > 1 ||
+          allFolderMatchedVariants.length > matchedFamilyVariants.length) && (
+          <div className="space-y-2">
+            {allFolderMatchedVariants.length > matchedFamilyVariants.length && (
+              <Button
+                onClick={handleGenerateWholeFolder}
+                disabled={isGenerating || batchProgress !== null}
+                variant="outline"
+                className="w-full border-white/15 bg-white/[0.02] text-white hover:bg-white/[0.06] hover:text-white"
+                title={`Generate masters for every matched reference in the uploaded folder (${allFolderMatchedVariants.length} variants).`}
+              >
+                {batchProgress ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating batch…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate all folder matches ({allFolderMatchedVariants.length})
+                  </>
+                )}
+              </Button>
+            )}
+            {matchedFamilyVariants.length > 1 && (
+              <Button
+                onClick={handleGenerateAll}
+                disabled={isGenerating || batchProgress !== null}
+                variant="outline"
+                className="w-full border-white/15 bg-white/[0.02] text-white hover:bg-white/[0.06] hover:text-white"
+                title={`Generate masters for every SKU in this current product-group cohort that has a matched reference (${matchedFamilyVariants.length} variants).`}
+              >
+                {batchProgress ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating batch…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {allFolderMatchedVariants.length > matchedFamilyVariants.length
+                      ? `Generate current cohort (${matchedFamilyVariants.length})`
+                      : `Generate all matched (${matchedFamilyVariants.length})`}
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
       )}
 
       {familyVariants && referenceFolder.size > 0 && measurementBlockedSkus.length > 0 && (
         <div className="text-[10px] leading-snug" style={{ color: "#F87171" }}>
           {measurementBlockedSkus.length} SKU{measurementBlockedSkus.length === 1 ? "" : "s"} omitted from batch until measured.
+        </div>
+      )}
+      {referenceFolder.size > 0 && allFolderMeasurementBlockedSkus.length > measurementBlockedSkus.length && (
+        <div className="text-[10px] leading-snug" style={{ color: "#F87171" }}>
+          {allFolderMeasurementBlockedSkus.length} full-folder SKU{allFolderMeasurementBlockedSkus.length === 1 ? "" : "s"} omitted from batch until measured.
         </div>
       )}
 

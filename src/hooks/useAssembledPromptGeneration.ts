@@ -33,6 +33,8 @@ export interface AssembledGenerateOptions {
   aiProvider?: string;
   /** Optional geometry reference image (e.g. product.imageUrl from Convex). */
   referenceImageUrl?: string | null;
+  /** Optional style-only reference for realistic glass, specularity, and shadow behavior. */
+  glassSpecularityReferenceImageUrl?: string | null;
   /**
    * Extra SKU metadata for the `productContext` field in the edge function
    * — drives per-product prompt tuning and visual-DNA enrichment.
@@ -123,29 +125,46 @@ export function useAssembledPromptGeneration() {
     // downstream (`processReferenceImage(undefined)`), so the model never
     // actually sees the reference. Always pass objects.
     const rawRef = options.referenceImageUrl?.trim() || "";
+    const rawGlassRef = options.glassSpecularityReferenceImageUrl?.trim() || "";
     const refIsSupported =
       rawRef.length > 0 && !/\.(gif|heic|bmp)(\?|$)/i.test(rawRef);
-    const referenceImages = refIsSupported
-      ? [
-          {
-            url: rawRef,
-            label: "Product Reference",
-            description:
-              [
-                "Canonical bottle reference (PSD-rendered PNG).",
-                "Use this image as an exact product-identity lock: preserve the bottle geometry, camera angle, scale relationships, cap texture, fitment, applicator, glass color, hose/bulb/tassel color, trim metal, and all surface details.",
-                "Do not redesign, restyle, recolor, rotate, or reinterpret the product components.",
-                "Do allow luxury catalog staging, lighting, background replacement, shadow, and refined PDP canvas placement as instructed by the server prompt.",
-              ].join(" "),
-          },
-        ]
-      : undefined;
+    const glassRefIsSupported =
+      rawGlassRef.length > 0 && !/\.(gif|heic|bmp)(\?|$)/i.test(rawGlassRef);
+    const referenceImagesList: Array<{ url: string; label: string; description: string }> = [];
+    if (refIsSupported) {
+      referenceImagesList.push({
+        url: rawRef,
+        label: "Product Reference",
+        description:
+          [
+            "Canonical bottle reference (PSD-rendered PNG).",
+            "Use this image as an exact product-identity lock: preserve the bottle geometry, camera angle, scale relationships, cap texture, fitment, applicator, glass color, hose/bulb/tassel color, trim metal, and all surface details.",
+            "Do not redesign, restyle, recolor, rotate, or reinterpret the product components.",
+            "Do allow luxury catalog staging, lighting, background replacement, shadow, and refined PDP canvas placement as instructed by the server prompt.",
+          ].join(" "),
+      });
+    }
+    if (glassRefIsSupported) {
+      referenceImagesList.push({
+        url: rawGlassRef,
+        label: "Glass Specularity Style Reference",
+        description:
+          [
+            "Secondary style-only reference.",
+            "Use only for realistic glass transparency, refraction, edge glints, specular highlight rhythm, contact shadow, ambient occlusion, and premium studio polish.",
+            "Do not copy or infer this reference's product silhouette, cap, label, colors, geometry, camera angle, composition, background, props, brand, or scene.",
+            "Image 1 Product Reference remains the only product identity and placement source.",
+          ].join(" "),
+      });
+    }
+    const referenceImages = referenceImagesList.length > 0 ? referenceImagesList : undefined;
+    const hasProductReference = refIsSupported;
 
     // Keep this hook compatible with the general Dark Room generator, but
     // Best Bottles masters are now recognized server-side by their tags and
     // routed to the short reference-locked retouch prompt instead of this
     // assembled art-direction prompt.
-    const proModeControls = referenceImages
+    const proModeControls = hasProductReference
       ? { productAccuracy: "strict" as const }
       : undefined;
 
@@ -158,7 +177,7 @@ export function useAssembledPromptGeneration() {
       ? Array.from(new Set([...baseTags, ...options.extraLibraryTags]))
       : baseTags;
     const isBestBottlesStudioMaster =
-      Boolean(referenceImages) &&
+      hasProductReference &&
       extraLibraryTags.includes("brand:best-bottles") &&
       extraLibraryTags.includes("studio-master");
     const requestPrompt = isBestBottlesStudioMaster

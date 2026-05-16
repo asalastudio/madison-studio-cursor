@@ -46,6 +46,7 @@ import {
   colorCorrectToTarget,
   dataUrlToBlob,
 } from "@/lib/product-image/colorCorrect";
+import { classifyReferenceFilename } from "@/lib/product-image/classifyReferenceFilename";
 import {
   upsertApprovedAsset,
   listApprovedAssetsForCohort,
@@ -96,101 +97,11 @@ interface SlotResult {
   originalUploadUrl?: string;
 }
 
-/**
- * Classify a Photoshop export filename into (kind, applicator, capColor) so
- * the file lands in the right slot automatically. Matching is case-insensitive
- * and tolerant of separators (-/_/spaces). Unmatched files are surfaced to
- * the operator as "unclassified" for manual assignment.
- */
-function classifyFilename(
-  filename: string,
-): { kind: "body" | "fitment"; applicator?: string; capColor?: string } | null {
-  const s = filename.toLowerCase().replace(/\.[a-z]+$/, "");
-  const normalized = s.replace(/[-_.]/g, " ");
-
-  const hasBody = /\b(body|bottle)\b/.test(normalized);
-  const hasCap = /\bcap\b/.test(normalized);
-  if (hasBody && !hasCap) {
-    return { kind: "body" };
-  }
-
-  // Applicator detection — order matters (more-specific first).
-  let applicator: string | undefined;
-  if (/\btassel\b/.test(normalized) && /\bbulb\b/.test(normalized)) {
-    applicator = "Vintage Bulb Sprayer with Tassel";
-  } else if (/\bbulb\b/.test(normalized) || /\bantique\b/.test(normalized)) {
-    applicator = "Vintage Bulb Sprayer";
-  } else if (/\breducer\b/.test(normalized)) {
-    applicator = "Reducer";
-  } else if (/\blotion\b/.test(normalized)) {
-    applicator = "Lotion Pump";
-  } else if (/\bperfume\b.*\bpump\b|\bpump\b.*\bperfume\b|\bspray\b.*\bpump\b|\bpump\b.*\bspray\b/.test(normalized)) {
-    applicator = "Perfume Spray Pump";
-  } else if (/\bmist\b|\bfine\b/.test(normalized)) {
-    applicator = "Fine Mist Sprayer";
-  } else if (/\bdropper\b/.test(normalized)) {
-    applicator = "Dropper";
-  } else if (/\bmetal\b.*\broller\b|\broller\b.*\bmetal\b/.test(normalized)) {
-    applicator = "Metal Roller Ball";
-  } else if (/\bplastic\b.*\broller\b|\broller\b.*\bplastic\b|\broller\b/.test(normalized)) {
-    applicator = "Plastic Roller Ball";
-  } else if (/\bstopper\b/.test(normalized)) {
-    applicator = "Glass Stopper";
-  } else if (/\bovercap\b/.test(normalized)) {
-    applicator = "Cap/Closure";
-  }
-
-  if (!applicator) return null;
-
-  // Cap color detection — pick the most explicit one present.
-  //
-  // IMPORTANT precedence rules for compound filenames:
-  // 1. Light-brown-leather BEFORE brown-leather (longer match first).
-  // 2. Compound bulb colorways like "ivory-shiny-gold" / "ivory-shiny-silver"
-  //    mean "ivory bulb with shiny-gold (or shiny-silver) collar". In the
-  //    Best Bottles catalog both map to capColor: "Ivory" with the collar
-  //    metal carried on a separate trimColor field — so the cap color must
-  //    resolve to "Ivory", not the trailing collar token. These compound
-  //    patterns run BEFORE the generic shiny-gold / shiny-silver checks.
-  const colorTokens: Array<{ match: RegExp; label: string }> = [
-    // Compound ivory-with-trim patterns — must beat shiny-gold/shiny-silver
-    { match: /\bivory\s+shiny\s+gold\b/, label: "Ivory" },
-    { match: /\bivory\s+shiny\s+silver\b/, label: "Ivory" },
-    // Longest-first leather variants
-    { match: /\blight\s*brown\s*leather\b/, label: "Light Brown Leather" },
-    { match: /\bblack\s*leather\b/, label: "Black Leather" },
-    { match: /\bbrown\s*leather\b/, label: "Brown Leather" },
-    { match: /\bivory\s*leather\b/, label: "Ivory Leather" },
-    { match: /\bpink\s*leather\b/, label: "Pink Leather" },
-    { match: /\bclear\s*overcap\b/, label: "Clear Overcap" },
-    // Metallic modifiers
-    { match: /\bmatte\s*silver\b/, label: "Matte Silver" },
-    { match: /\bshiny\s*silver\b/, label: "Shiny Silver" },
-    { match: /\bmatte\s*gold\b/, label: "Matte Gold" },
-    { match: /\bshiny\s*gold\b/, label: "Shiny Gold" },
-    { match: /\bmatte\s*copper\b/, label: "Matte Copper" },
-    { match: /\bshiny\s*black\b/, label: "Shiny Black" },
-    // Bare colors — last resort
-    { match: /\blavender\b/, label: "Lavender" },
-    { match: /\bivory\b/, label: "Ivory" },
-    { match: /\bblack\b/, label: "Black" },
-    { match: /\bred\b/, label: "Red" },
-    { match: /\bwhite\b/, label: "White" },
-    { match: /\bgold\b/, label: "Gold" },
-    { match: /\bsilver\b/, label: "Silver" },
-    { match: /\bcopper\b/, label: "Copper" },
-    { match: /\bpink\b/, label: "Pink" },
-  ];
-  let capColor: string | undefined;
-  for (const { match, label } of colorTokens) {
-    if (match.test(normalized)) {
-      capColor = label;
-      break;
-    }
-  }
-
-  return { kind: "fitment", applicator, capColor };
-}
+type UnclassifiedFile = {
+  name: string;
+  url: string;
+  reason: string;
+};
 
 interface ComponentsTabPanelProps {
   applicatorBuckets: ApplicatorBucket[];
@@ -527,9 +438,7 @@ export function ComponentsTabPanel({
   const [generatingSlot, setGeneratingSlot] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [isIngesting, setIsIngesting] = useState(false);
-  const [unclassifiedFiles, setUnclassifiedFiles] = useState<
-    Array<{ name: string; url: string }>
-  >([]);
+  const [unclassifiedFiles, setUnclassifiedFiles] = useState<UnclassifiedFile[]>([]);
 
   const { user } = useAuth();
   const { currentOrganizationId } = useOnboarding();
@@ -652,10 +561,16 @@ export function ComponentsTabPanel({
     setIsIngesting(true);
     setGlobalError(null);
 
-    let matched = 0;
-    let unclassified = 0;
+    let placed = 0;
+    let skipped = 0;
     const newResults: Record<string, SlotResult> = {};
-    const newUnclassified: Array<{ name: string; url: string }> = [];
+    const newUnclassified: UnclassifiedFile[] = [];
+    const batchSlotNames = new Map<string, string>();
+
+    const skipFile = (file: File, url: string, reason: string) => {
+      skipped++;
+      newUnclassified.push({ name: file.name, url, reason });
+    };
 
     for (const file of arr) {
       try {
@@ -674,17 +589,22 @@ export function ComponentsTabPanel({
           .getPublicUrl(path);
         const publicUrl = urlData.publicUrl;
 
-        const classification = classifyFilename(file.name);
+        const classification = classifyReferenceFilename(file.name);
         if (!classification) {
-          unclassified++;
-          newUnclassified.push({ name: file.name, url: publicUrl });
+          skipFile(
+            file,
+            publicUrl,
+            "No recognizable body/applicator token. Add a SKU-style code like SPR-MBLK, or words like fine-mist matte-black.",
+          );
           continue;
         }
 
         // Match to a slot.
         let targetSlot: Slot | undefined;
+        let unmatchedReason = "No matching slot in this cohort.";
         if (classification.kind === "body") {
-          targetSlot = bodySlot ?? undefined;
+          targetSlot = bodySlots[0] ?? undefined;
+          unmatchedReason = "Classified as a body file, but this cohort has no body slot.";
         } else if (classification.kind === "fitment") {
           const matchingApp = fitmentSections.find(
             (s) =>
@@ -692,22 +612,40 @@ export function ComponentsTabPanel({
               (classification.applicator ?? "").toLowerCase(),
           );
           if (matchingApp) {
-            targetSlot =
-              matchingApp.slots.find(
+            targetSlot = classification.capColor
+              ? matchingApp.slots.find(
                 (slot) =>
                   (slot.capColor ?? "").toLowerCase() ===
                   (classification.capColor ?? "").toLowerCase(),
-              ) ?? matchingApp.slots[0];
+                )
+              : matchingApp.slots.length === 1
+                ? matchingApp.slots[0]
+                : undefined;
+            unmatchedReason = classification.capColor
+              ? `Classified as ${classification.applicator} / ${classification.capColor}, but this cohort only has: ${matchingApp.slots.map((s) => s.capColor ?? "Unspecified").join(", ")}.`
+              : `Classified as ${classification.applicator}, but no cap color was found and this cohort has ${matchingApp.slots.length} colorways. Include a color token like MBLK, MSLV, MBLU, MCPR, MGLD, SBLK, SGLD, or SSLV.`;
+          } else {
+            unmatchedReason = `Classified as ${classification.applicator}, but this cohort has no ${classification.applicator} section.`;
           }
         }
 
         if (!targetSlot) {
-          unclassified++;
-          newUnclassified.push({ name: file.name, url: publicUrl });
+          skipFile(file, publicUrl, unmatchedReason);
           continue;
         }
 
-        matched++;
+        const batchDuplicate = batchSlotNames.get(targetSlot.id);
+        if (batchDuplicate) {
+          skipFile(
+            file,
+            publicUrl,
+            `Duplicate for ${targetSlot.label} / ${targetSlot.sublabel ?? targetSlot.kind}; ${batchDuplicate} already filled that slot in this upload.`,
+          );
+          continue;
+        }
+
+        batchSlotNames.set(targetSlot.id, file.name);
+        placed++;
         newResults[targetSlot.id] = {
           imageUrl: publicUrl,
           savedImageId: null,
@@ -724,7 +662,7 @@ export function ComponentsTabPanel({
     setIsIngesting(false);
     toast({
       title: "Upload complete",
-      description: `${matched} classified · ${unclassified} unclassified · ${arr.length} total`,
+      description: `${placed} placed · ${skipped} skipped · ${arr.length} total`,
     });
   };
 
@@ -1063,7 +1001,7 @@ export function ComponentsTabPanel({
         </div>
         <p className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
           Files are classified by filename. Use patterns like{" "}
-          <code>empire-body.png</code>, <code>empire-bulb-tassel-black.png</code>,{" "}
+          <code>GB-CYL-CLR-5ML-SPR-MBLK.png</code>, <code>cylinder-5ml-13-415-fine-mist-matte-blue.png</code>,{" "}
           <code>empire-reducer-matte-silver.png</code>.
         </p>
         <Button
@@ -1089,7 +1027,7 @@ export function ComponentsTabPanel({
           <div className="flex items-center gap-2">
             <AlertCircle className="w-3.5 h-3.5" style={{ color: "#F59E0B" }} />
             <span className="text-[11px] uppercase tracking-wider" style={{ color: "#F59E0B" }}>
-              {unclassifiedFiles.length} unclassified — rename or manually assign later
+              {unclassifiedFiles.length} skipped — rename, switch cohort, or upload the missing slot
             </span>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -1101,8 +1039,9 @@ export function ComponentsTabPanel({
                   borderColor: "rgba(245, 158, 11, 0.3)",
                   color: "#FBBF24",
                 }}
+                title={f.reason}
               >
-                {f.name}
+                {f.name} — {f.reason}
               </span>
             ))}
           </div>

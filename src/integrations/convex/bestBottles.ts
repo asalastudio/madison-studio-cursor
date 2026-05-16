@@ -109,6 +109,16 @@ export async function getProductsByFamily(family: string): Promise<Product[]> {
   return result ?? [];
 }
 
+export async function getProductGroupsByFamily(family: string): Promise<ProductGroup[]> {
+  const result = await invoke<ProductGroup[] | null>("products:getProductGroupsByFamily", { family });
+  return result ?? [];
+}
+
+export async function getBestBottlesCatalogGroups(limit = 1000): Promise<ProductGroup[]> {
+  const result = await invoke<ProductGroup[] | null>("products:getCatalogGroups", { limit });
+  return result ?? [];
+}
+
 export async function getBestBottlesCatalogProducts(limit = 3000): Promise<Product[]> {
   const result = await invoke<Product[] | null>("products:getCatalogProducts", { limit });
   return result ?? [];
@@ -137,6 +147,36 @@ export interface ExpandedProductGroupResult {
   allFamilyProducts: Product[];
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const current = nextIndex++;
+      results[current] = await mapper(items[current]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+function normalizeThread(value: string | null | undefined) {
+  return value?.trim().toLowerCase().replace(/[.\s_/]+/g, "-") ?? null;
+}
+
+function sameThread(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  const l = normalizeThread(left);
+  const r = normalizeThread(right);
+  return !l || !r || l === r;
+}
+
 /**
  * Fetch a productGroup plus every variant across its applicator siblings.
  *
@@ -146,8 +186,10 @@ export interface ExpandedProductGroupResult {
  * reducer). Operators need to see ALL of them in one Studio session.
  *
  * Implementation: 2 parallel Convex calls (primary group + family-wide
- * products), then filter the family list client-side to (capacityMl + color)
- * matching the primary group. Simpler and faster than N+1 per-sibling fetches.
+ * productGroups), then fetch each lightweight sibling group by slug. We do
+ * not use `products:getByFamily` here because Best Bottles caps that query at
+ * 100 rows to avoid Convex read limits; Cylinder alone is 300+ SKUs, so that
+ * cap silently drops valid 9ml/13-415/color variants from Madison Studio.
  */
 export async function getProductGroupWithApplicatorSiblings(
   slug: string,
@@ -156,14 +198,48 @@ export async function getProductGroupWithApplicatorSiblings(
   if (!primary) return null;
 
   const { group } = primary;
-  const familyProducts = await getProductsByFamily(group.family);
+  let familyGroups: ProductGroup[] = [];
+  try {
+    familyGroups = await getProductGroupsByFamily(group.family);
+  } catch (error) {
+    console.warn(
+      "[bestBottles] products:getProductGroupsByFamily unavailable; falling back to capped products:getByFamily",
+      error,
+    );
+    const familyProducts = await getProductsByFamily(group.family);
+    const allVariants = familyProducts.filter(
+      (p) =>
+        p.capacityMl === group.capacityMl &&
+        (p.color ?? null) === (group.color ?? null) &&
+        sameThread(p.neckThreadSize, group.neckThreadSize),
+    );
+    return buildExpandedProductGroupResult(group, allVariants, familyProducts);
+  }
+  const groupsToLoad = familyGroups.length > 0 ? familyGroups : [group];
+  const groupResults = await mapWithConcurrency(groupsToLoad, 8, async (familyGroup) => {
+    if (familyGroup.slug === group.slug) return primary;
+    return getProductGroup(familyGroup.slug);
+  });
+  const familyProducts = groupResults.flatMap((result) => result?.variants ?? []);
 
-  const allVariants = familyProducts.filter(
-    (p) =>
-      p.capacityMl === group.capacityMl &&
-      (p.color ?? null) === (group.color ?? null),
-  );
+  const allVariants = groupResults
+    .filter((result): result is ProductGroupResult => Boolean(result))
+    .filter(
+      (result) =>
+        result.group.capacityMl === group.capacityMl &&
+        (result.group.color ?? null) === (group.color ?? null) &&
+        sameThread(result.group.neckThreadSize, group.neckThreadSize),
+    )
+    .flatMap((result) => result.variants);
 
+  return buildExpandedProductGroupResult(group, allVariants, familyProducts);
+}
+
+function buildExpandedProductGroupResult(
+  group: ProductGroup,
+  allVariants: Product[],
+  familyProducts: Product[],
+): ExpandedProductGroupResult {
   // Bucket by applicator, preserving deterministic ordering by descending count.
   const byApp = new Map<string, Product[]>();
   for (const v of allVariants) {

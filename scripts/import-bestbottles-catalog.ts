@@ -142,7 +142,7 @@ function parseCsv(text: string): CatalogRow[] {
   return rows.slice(1).map((r) => {
     const obj: Record<string, string> = {};
     header.forEach((c, i) => { obj[c.trim()] = (r[i] ?? "").trim(); });
-    return obj as unknown as CatalogRow;
+    return normalizeCatalogRow(obj);
   });
 }
 
@@ -161,6 +161,67 @@ const nonEmpty = (s: string | undefined | null): string | null => {
   const t = s.trim();
   return t.length > 0 ? t : null;
 };
+
+function pick(row: Record<string, string>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = row[key];
+    if (value != null && value.trim() !== "") return value.trim();
+  }
+  return "";
+}
+
+function normalizeThreadSize(value: string): string {
+  const raw = value.trim();
+  const numericThread = raw.match(/^(\d{1,2})[\s._/-]+(\d{3})$/);
+  if (numericThread) return `${numericThread[1]}-${numericThread[2]}`;
+  if (/^press[-_\s]?fit$/i.test(raw)) return "Press-Fit";
+  if (/^snap[-_\s]?on$/i.test(raw)) return "Snap-On";
+  return raw;
+}
+
+function normalizeCatalogRow(row: Record<string, string>): CatalogRow {
+  return {
+    productId: pick(row, "productId", "product_id"),
+    websiteSku: pick(row, "websiteSku", "website_sku"),
+    graceSku: pick(row, "graceSku", "grace_sku", "sku"),
+    category: pick(row, "category"),
+    family: pick(row, "family"),
+    shape: pick(row, "shape"),
+    color: pick(row, "color", "glass_color"),
+    capacity: pick(row, "capacity"),
+    capacityMl: pick(row, "capacityMl", "capacity_ml"),
+    capacityOz: pick(row, "capacityOz", "capacity_oz"),
+    applicator: pick(row, "applicator"),
+    capColor: pick(row, "capColor", "cap_color"),
+    trimColor: pick(row, "trimColor", "trim_color"),
+    capStyle: pick(row, "capStyle", "cap_style"),
+    capHeight: pick(row, "capHeight", "cap_height", "cap_height_mm"),
+    ballMaterial: pick(row, "ballMaterial", "ball_material"),
+    neckThreadSize: normalizeThreadSize(pick(row, "neckThreadSize", "neck_thread_size")),
+    heightWithCap: pick(row, "heightWithCap", "height_with_cap_mm"),
+    heightWithoutCap: pick(row, "heightWithoutCap", "height_without_cap_mm", "prompt_height_mm"),
+    diameter: pick(row, "diameter", "diameter_mm", "width_mm", "prompt_width_mm"),
+    bottleWeightG: pick(row, "bottleWeightG", "bottle_weight_g"),
+    caseQuantity: pick(row, "caseQuantity", "case_quantity"),
+    qbPrice: pick(row, "qbPrice", "qb_price"),
+    webPrice1pc: pick(row, "webPrice1pc", "web_price_1pc"),
+    webPrice10pc: pick(row, "webPrice10pc", "web_price_10pc"),
+    webPrice12pc: pick(row, "webPrice12pc", "web_price_12pc"),
+    stockStatus: pick(row, "stockStatus", "stock_status"),
+    itemName: pick(row, "itemName", "item_name", "title", "product_name"),
+    itemDescription: pick(row, "itemDescription", "item_description", "description"),
+    imageUrl: pick(row, "imageUrl", "image_url"),
+    productUrl: pick(row, "productUrl", "product_url"),
+    dataGrade: pick(row, "dataGrade", "data_grade", "canonical_readiness_status"),
+    bottleCollection: pick(row, "bottleCollection", "bottle_collection", "collection"),
+    fitmentStatus: pick(row, "fitmentStatus", "fitment_status"),
+    graceDescription: pick(row, "graceDescription", "grace_description"),
+    assemblyType: pick(row, "assemblyType", "assembly_type"),
+    componentGroup: pick(row, "componentGroup", "component_group"),
+    verified: pick(row, "verified", "prompt_ready"),
+    importSource: pick(row, "importSource", "import_source", "source_presence"),
+  };
+}
 
 const slugify = (s: string): string => s.toLowerCase().replace(/[\s/]+/g, "-").replace(/[^a-z0-9-]/g, "");
 

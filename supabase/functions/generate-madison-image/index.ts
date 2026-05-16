@@ -299,6 +299,17 @@ function buildReferenceLockedBestBottlesPrompt(
     .map((ref, idx) => ref.description ? `Reference ${idx + 1}: ${ref.description}` : null)
     .filter((line): line is string => Boolean(line))
     .join("\n");
+  const secondaryStyleScope = categorizedRefs.style.length > 0
+    ? [
+        "SECONDARY STYLE REFERENCE SCOPE:",
+        "- Image 1 remains the only product identity, geometry, placement, color, cap, applicator, and camera-angle source.",
+        "- Use any secondary style/specularity reference only for realistic glass transparency, refraction, rim glints, specular highlight rhythm, contact shadow, ambient occlusion, and premium studio polish.",
+        "- Do not copy the secondary reference's product silhouette, cap, label, typography, brand, colorway, camera angle, composition, background, props, tabletop, flowers, curtains, or scene.",
+        ...categorizedRefs.style
+          .map((ref, idx) => ref.description ? `Style Reference ${idx + 1}: ${ref.description}` : null)
+          .filter((line): line is string => Boolean(line)),
+      ].join("\n")
+    : "";
   const applicatorRules = buildBestBottlesApplicatorPromptRules(productContext);
   const glassPackshotRules = buildBestBottlesGlassPackshotRules(productContext);
   const expectedColor = [
@@ -329,6 +340,7 @@ function buildReferenceLockedBestBottlesPrompt(
     "",
     "SOURCE OF TRUTH:",
     `- Use Image 1 only as the product reference: ${applicatorRules.sourceTruth}`,
+    secondaryStyleScope || null,
     "- Preserve the source camera angle, product component relationships, bounding-box footprint, centerline, baseline, and relative scale inside the 2080 x 2288 canvas. Do not redesign, redraw, recolor, rotate, stretch, simplify, recenter, zoom, crop, or reinterpret the product.",
     "- Do not preserve the reference image's flat lighting, pure-white background, weak shadow, or low-end capture finish. Re-stage the same locked product as a luxury catalog photograph without moving it.",
     "- For perfume spray pump references, preserve the exact cap state: if the actuator/nozzle is exposed and a detached cap is visible beside the bottle, keep both exactly as photographed. Do not add, remove, close, or relocate the cap.",
@@ -343,7 +355,7 @@ function buildReferenceLockedBestBottlesPrompt(
     "PHOTOGRAPHIC STYLE:",
     "- Photorealistic luxury product photography, as if captured on a Hasselblad medium-format studio camera with a 100mm macro/product lens at f/8–f/11, ISO 100, tripod-stable capture, high dynamic range, controlled exposure, crisp edge acuity, and realistic optical compression.",
     "- Quiet luxury editorial restraint: Kinfolk-like negative space and warmth, Aesop-like minimal product staging and material honesty. Match only the mood, restraint, warm neutrals, and premium photographic discipline. Do not imitate Aesop products, labels, packaging, typography, or brand assets.",
-    "- Reference-image influence is lighting and glass realism only: warm directional sunlight-like drama, soft elongated shadow behavior, amber-cream tonal warmth, vertical reflection rhythm, tactile glass thickness, and premium fragrance-campaign polish. The Best Bottles product shape remains the only product shape.",
+    "- Secondary glass/specularity reference influence, if provided, is lighting and glass realism only: warm directional sunlight-like drama, soft elongated shadow behavior, amber-cream tonal warmth, vertical reflection rhythm, tactile glass thickness, and premium fragrance-campaign polish. The Best Bottles product shape remains the only product shape.",
     "",
     "LIGHTING:",
     "- Use professional glass-product lighting, not flat front lighting.",
