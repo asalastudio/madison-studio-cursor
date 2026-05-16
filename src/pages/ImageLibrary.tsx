@@ -602,10 +602,7 @@ export default function ImageLibrary() {
       if (resolved) return resolved;
     }
 
-    // PDP publish accepts a product group slug too. This is less precise than
-    // a website SKU, but it is still a valid publish target and avoids forcing
-    // manual entry when the generation was tagged at group level only.
-    return detectProductGroupSlug(image);
+    return "";
   }, [bestBottlesWebsiteSkuByGraceSku]);
 
   const resolveShopifySku = useCallback((image: GeneratedImage) => {
@@ -1665,7 +1662,7 @@ export default function ImageLibrary() {
                     htmlFor={`bulk-bb-sku-${row.imageId}`}
                     className="text-[11px] text-[var(--darkroom-text)]/70"
                   >
-                    Best Bottles SKU / slug
+                    Website SKU or Grace SKU
                   </Label>
                   <Input
                     id={`bulk-bb-sku-${row.imageId}`}
@@ -1680,8 +1677,8 @@ export default function ImageLibrary() {
           </div>
 
           <p className="text-[11px] text-[var(--darkroom-text)]/50">
-            Rows without a SKU or slug are skipped. Different top colors should each use their own
-            matching image and SKU.
+            Rows without a variant SKU are skipped. Hero and thumbnail pushes use group slugs;
+            PDP product images must target the exact variant SKU.
           </p>
 
           <DialogFooter className="gap-2 sm:gap-0">
@@ -2033,7 +2030,7 @@ export default function ImageLibrary() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bb-website-sku" className="text-[var(--darkroom-text)]">
-                  Website SKU / Grace SKU / group slug
+                  Website SKU or Grace SKU
                 </Label>
                 <Textarea
                   id="bb-website-sku"

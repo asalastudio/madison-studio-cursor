@@ -67,7 +67,7 @@ type ResolvedWebsiteSku = {
   inputSku: string;
   websiteSku: string;
   product: ConvexProductLookup["value"];
-  resolvedVia: "websiteSku" | "graceSku" | "productGroup";
+  resolvedVia: "websiteSku" | "graceSku";
 };
 
 type ConvexSetVariantImagesResult = {
@@ -186,34 +186,6 @@ function looksLikeProductGroupSlug(value: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(value.trim()) && /\b\d+ml\b/i.test(value);
 }
 
-function pickProductFromGroup(groupValue: any): ConvexProductLookup["value"] {
-  if (!groupValue || typeof groupValue !== "object") return null;
-
-  const group = groupValue.group && typeof groupValue.group === "object"
-    ? groupValue.group
-    : groupValue;
-  const variants = Array.isArray(groupValue.variants) ? groupValue.variants : [];
-  const primaryWebsiteSku = getString(group?.primaryWebsiteSku);
-  const primaryGraceSku = getString(group?.primaryGraceSku);
-
-  if (primaryWebsiteSku) {
-    const byWebsite = variants.find((variant: any) =>
-      getString(variant?.websiteSku).toLowerCase() === primaryWebsiteSku.toLowerCase()
-    );
-    return byWebsite ?? { websiteSku: primaryWebsiteSku };
-  }
-
-  if (primaryGraceSku) {
-    const byGrace = variants.find((variant: any) =>
-      getString(variant?.graceSku).toLowerCase() === primaryGraceSku.toLowerCase()
-    );
-    if (byGrace) return byGrace;
-  }
-
-  if (variants.length === 1) return variants[0];
-  return variants.find((variant: any) => getString(variant?.websiteSku)) ?? null;
-}
-
 async function resolveWebsiteSku(
   bbConvexUrl: string,
   rawSku: string,
@@ -243,18 +215,6 @@ async function resolveWebsiteSku(
     const product = byGrace.body.value as ConvexProductLookup["value"];
     const websiteSku = getString(product?.websiteSku);
     if (websiteSku) return { inputSku, websiteSku, product, resolvedVia: "graceSku" };
-  }
-
-  const byGroup = await callConvex(
-    bbConvexUrl,
-    "query",
-    "products:getProductGroup",
-    { slug: inputSku },
-  );
-  if (byGroup.ok && byGroup.body?.value) {
-    const product = pickProductFromGroup(byGroup.body.value);
-    const websiteSku = getString(product?.websiteSku);
-    if (websiteSku) return { inputSku, websiteSku, product, resolvedVia: "productGroup" };
   }
 
   if (looksLikeProductGroupSlug(inputSku) || byWebsite.ok) return null;
@@ -342,8 +302,9 @@ Deno.serve(async (req) => {
   // Madison Library tags historically held a mix of values:
   //   - true websiteSku, e.g. GBEmp50RdcrBlkLthr
   //   - Grace SKU, e.g. GB-EMP-CLR-50ML-RDCR-BLK
-  //   - productGroup slug, e.g. diamond-60ml-clear-18-415-reducer
   // The Convex mutation only accepts websiteSku, so normalize before upload.
+  // Product-group slugs are reserved for group-level hero/thumbnail updates;
+  // PDP product images must target one exact variant SKU.
   let resolved: ResolvedWebsiteSku | null = null;
   try {
     resolved = await resolveWebsiteSku(bbConvexUrl, requestedWebsiteSku);
@@ -355,7 +316,7 @@ Deno.serve(async (req) => {
   if (!resolved) {
     return jsonResponse(404, {
       error:
-        `Website SKU, Grace SKU, or product group slug "${requestedWebsiteSku}" was not found in Best Bottles Convex.`,
+        `Website SKU or Grace SKU "${requestedWebsiteSku}" was not found in Best Bottles Convex.`,
       websiteSku: requestedWebsiteSku,
     });
   }
