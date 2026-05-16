@@ -32,8 +32,10 @@ interface CatalogProduct {
 }
 
 interface CliArgs {
-  products?: string;
   master?: string;
+  convex?: string;
+  enrichment?: string;
+  products?: string;
   groups?: string;
   out?: string;
   report?: string;
@@ -43,7 +45,21 @@ const ROOT = process.cwd();
 const PROJECTS_ROOT = path.resolve(ROOT, "../..");
 const CLIENTS_ROOT = path.join(PROJECTS_ROOT, "Clients");
 
-const DEFAULT_PRODUCTS_CANDIDATES = [
+const DEFAULT_MASTER_CANDIDATES = [
+  path.join(ROOT, "tmp/best-bottles-master-measurements.csv"),
+  "/Users/jordanrichter/Downloads/best-bottles-master-measurements (1).csv",
+  "/Users/jordanrichter/Downloads/best-bottles-master-measurements.csv",
+  "/Users/jordanrichter/Downloads/best-bottles-production-catalog-live-confirmed.csv",
+  path.join(CLIENTS_ROOT, "Nemat-International/Best-Bottles-Website-02-20-2026-pr34/Nemat_Product_Catalog.csv"),
+  path.join(CLIENTS_ROOT, "Nemat-International/Best-Bottles-Website-02-20-2026/Nemat_Product_Catalog.csv"),
+];
+
+const DEFAULT_CONVEX_CANDIDATES = [
+  path.join(ROOT, "tmp/best-bottles-convex-live-products.csv"),
+  path.join(ROOT, "tmp/best-bottles-convex-products.csv"),
+];
+
+const DEFAULT_ENRICHMENT_CANDIDATES = [
   path.join(
     CLIENTS_ROOT,
     "Nemat-International/Best-Bottles-Website-02-20-2026-pr34/outputs/product-knowledge-2026-05-14/best_bottles_product_knowledge_products_2026-05-14.csv",
@@ -52,11 +68,8 @@ const DEFAULT_PRODUCTS_CANDIDATES = [
     CLIENTS_ROOT,
     "Nemat-International/Best-Bottles-Website-02-20-2026-pr34/outputs/product-knowledge-2026-05-14/Best_Bottles_Product_Knowledge_2026-05-14/best_bottles_product_knowledge_products_2026-05-14.csv",
   ),
-];
-
-const DEFAULT_MASTER_CANDIDATES = [
-  path.join(CLIENTS_ROOT, "Nemat-International/Best-Bottles-Website-02-20-2026-pr34/Nemat_Product_Catalog.csv"),
-  path.join(CLIENTS_ROOT, "Nemat-International/Best-Bottles-Website-02-20-2026/Nemat_Product_Catalog.csv"),
+  path.join(ROOT, "tmp/best-bottles-convex-live-products.csv"),
+  path.join(CLIENTS_ROOT, "best-bottles-website/data/convex_products_export_20260228.csv"),
 ];
 
 const DEFAULT_GROUPS_CANDIDATES = [
@@ -83,8 +96,10 @@ function parseArgs(argv: string[]): CliArgs {
       throw new Error(`Missing value for ${arg}`);
     }
     i += 1;
-    if (arg === "--products") args.products = next;
-    else if (arg === "--master") args.master = next;
+    if (arg === "--master") args.master = next;
+    else if (arg === "--convex") args.convex = next;
+    else if (arg === "--enrichment") args.enrichment = next;
+    else if (arg === "--products") args.products = next;
     else if (arg === "--groups") args.groups = next;
     else if (arg === "--out") args.out = next;
     else if (arg === "--report") args.report = next;
@@ -184,8 +199,10 @@ function numberOrNull(value: string | null | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function bool(value: string | null | undefined): boolean {
-  return value?.trim().toLowerCase() === "true";
+function bool(value: string | null | undefined, fallback = false): boolean {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return fallback;
+  return normalized === "true" || normalized === "yes" || normalized === "1";
 }
 
 function skuKey(value: string | null | undefined): string {
@@ -196,7 +213,7 @@ function duplicateSkus(rows: Record<string, string>[], skuField = "graceSku"): s
   const seen = new Set<string>();
   const duplicates = new Set<string>();
   for (const row of rows) {
-    const key = skuKey(row[skuField]);
+    const key = skuKey(pick(row, skuField, "grace_sku", "sku"));
     if (!key) continue;
     if (seen.has(key)) duplicates.add(key);
     seen.add(key);
@@ -205,11 +222,20 @@ function duplicateSkus(rows: Record<string, string>[], skuField = "graceSku"): s
 }
 
 function skuSet(rows: Record<string, string>[], skuField = "graceSku"): Set<string> {
-  return new Set(rows.map((row) => skuKey(row[skuField])).filter(Boolean));
+  return new Set(rows.map((row) => skuKey(pick(row, skuField, "grace_sku", "sku"))).filter(Boolean));
 }
 
 function difference(left: Set<string>, right: Set<string>): string[] {
   return [...left].filter((value) => !right.has(value)).sort();
+}
+
+function rowsBySku(rows: Record<string, string>[]): Map<string, Record<string, string>> {
+  const map = new Map<string, Record<string, string>>();
+  for (const row of rows) {
+    const key = skuKey(pick(row, "graceSku", "grace_sku", "sku"));
+    if (key && !map.has(key)) map.set(key, row);
+  }
+  return map;
 }
 
 function topCounts(products: CatalogProduct[], field: keyof CatalogProduct, limit = 12): Array<[string, number]> {
@@ -221,42 +247,63 @@ function topCounts(products: CatalogProduct[], field: keyof CatalogProduct, limi
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit);
 }
 
-function mapProduct(row: Record<string, string>): CatalogProduct {
+function mapProduct(row: Record<string, string>, convexRow?: Record<string, string>): CatalogProduct {
   const graceSku = pick(row, "graceSku", "grace_sku", "sku");
+  const fallback = convexRow ?? {};
   return {
-    _id: stringOrNull(pick(row, "sourceId", "_id")) ?? graceSku,
-    websiteSku: pick(row, "websiteSku", "website_sku"),
+    _id: stringOrNull(pick(fallback, "sourceId", "_id")) ?? stringOrNull(pick(row, "sourceId", "_id")) ?? graceSku,
+    websiteSku: pick(row, "websiteSku", "website_sku") || pick(fallback, "websiteSku", "website_sku"),
     graceSku,
-    productId: stringOrNull(pick(row, "productId")),
-    category: pick(row, "category"),
-    family: stringOrNull(pick(row, "family")),
+    productId: stringOrNull(pick(row, "productId", "product_id")) ?? stringOrNull(pick(fallback, "productId", "product_id")),
+    category: pick(row, "category") || pick(fallback, "category"),
+    family: stringOrNull(pick(row, "family")) ?? stringOrNull(pick(fallback, "family")),
     color:
       stringOrNull(pick(row, "canonicalColor")) ??
       stringOrNull(pick(row, "rawColor")) ??
       stringOrNull(pick(row, "groupCanonicalColor")) ??
-      stringOrNull(pick(row, "color")),
+      stringOrNull(pick(row, "color")) ??
+      stringOrNull(pick(fallback, "canonicalColor")) ??
+      stringOrNull(pick(fallback, "rawColor")) ??
+      stringOrNull(pick(fallback, "color")),
     capacity: stringOrNull(pick(row, "capacity")),
-    capacityMl: numberOrNull(pick(row, "capacityMl")),
-    capacityOz: numberOrNull(pick(row, "capacityOz")),
-    heightWithCap: stringOrNull(pick(row, "heightWithCap")),
-    heightWithoutCap: stringOrNull(pick(row, "heightWithoutCap")),
-    diameter: stringOrNull(pick(row, "diameter")),
-    neckThreadSize: stringOrNull(pick(row, "neckThreadSize")),
-    applicator: stringOrNull(pick(row, "applicator")),
-    capStyle: stringOrNull(pick(row, "capStyle")),
-    capColor: stringOrNull(pick(row, "capColor")),
-    trimColor: stringOrNull(pick(row, "trimColor")),
-    bottleCollection: stringOrNull(pick(row, "bottleCollection")),
-    itemName: pick(row, "itemName") || graceSku,
+    capacityMl: numberOrNull(pick(row, "capacityMl", "capacity_ml")) ?? numberOrNull(pick(fallback, "capacityMl", "capacity_ml")),
+    capacityOz: numberOrNull(pick(row, "capacityOz", "capacity_oz")) ?? numberOrNull(pick(fallback, "capacityOz", "capacity_oz")),
+    heightWithCap:
+      stringOrNull(pick(row, "heightWithCap", "height_with_cap_mm")) ??
+      stringOrNull(pick(fallback, "heightWithCap", "height_with_cap_mm")),
+    heightWithoutCap:
+      stringOrNull(pick(row, "heightWithoutCap", "height_without_cap_mm")) ??
+      stringOrNull(pick(fallback, "heightWithoutCap", "height_without_cap_mm")),
+    diameter:
+      stringOrNull(pick(row, "diameter", "diameter_mm")) ??
+      stringOrNull(pick(fallback, "diameter", "diameter_mm")),
+    neckThreadSize:
+      stringOrNull(pick(row, "neckThreadSize", "neck_thread_size")) ??
+      stringOrNull(pick(fallback, "neckThreadSize", "neck_thread_size")),
+    applicator: stringOrNull(pick(row, "applicator")) ?? stringOrNull(pick(fallback, "applicator")),
+    capStyle: stringOrNull(pick(row, "capStyle", "cap_style")) ?? stringOrNull(pick(fallback, "capStyle", "cap_style")),
+    capColor: stringOrNull(pick(row, "capColor", "cap_color")) ?? stringOrNull(pick(fallback, "capColor", "cap_color")),
+    trimColor: stringOrNull(pick(row, "trimColor", "trim_color")) ?? stringOrNull(pick(fallback, "trimColor", "trim_color")),
+    bottleCollection:
+      stringOrNull(pick(row, "bottleCollection", "bottle_collection")) ??
+      stringOrNull(pick(fallback, "bottleCollection", "bottle_collection")),
+    itemName: pick(row, "itemName", "item_name") || pick(fallback, "itemName", "item_name") || graceSku,
     itemDescription:
       stringOrNull(pick(row, "itemDescription")) ??
       stringOrNull(pick(row, "canonicalDescription")) ??
-      stringOrNull(pick(row, "graceDescription")),
-    useCaseDescription: stringOrNull(pick(row, "useCaseDescription")),
-    imageUrl: stringOrNull(pick(row, "imageUrl")),
-    stockStatus: stringOrNull(pick(row, "stockStatus")),
-    verified: bool(pick(row, "verified")),
-    productGroupId: stringOrNull(pick(row, "productGroupId")),
+      stringOrNull(pick(row, "graceDescription")) ??
+      stringOrNull(pick(fallback, "itemDescription")) ??
+      stringOrNull(pick(fallback, "canonicalDescription")) ??
+      stringOrNull(pick(fallback, "graceDescription")),
+    useCaseDescription:
+      stringOrNull(pick(row, "useCaseDescription", "use_case_description")) ??
+      stringOrNull(pick(fallback, "useCaseDescription", "use_case_description")),
+    imageUrl: stringOrNull(pick(row, "imageUrl", "image_url")) ?? stringOrNull(pick(fallback, "imageUrl", "image_url")),
+    stockStatus:
+      stringOrNull(pick(row, "stockStatus", "stock_status")) ??
+      stringOrNull(pick(fallback, "stockStatus", "stock_status")),
+    verified: bool(pick(row, "verified"), bool(pick(fallback, "verified"))),
+    productGroupId: stringOrNull(pick(fallback, "productGroupId", "product_group_id")) ?? stringOrNull(pick(row, "productGroupId", "product_group_id")),
   };
 }
 
@@ -282,17 +329,19 @@ function formatList(values: string[], emptyText = "None"): string {
 }
 
 function buildReport(params: {
-  productsPath: string;
   masterPath: string;
+  convexPath: string;
+  enrichmentPath: string;
   groupsPath: string;
   outPath: string;
-  productRows: Record<string, string>[];
   masterRows: Record<string, string>[];
+  convexRows: Record<string, string>[];
+  enrichmentRows: Record<string, string>[];
   groupRows: Record<string, string>[];
   products: CatalogProduct[];
-  missingFromProducts: string[];
+  missingFromConvex: string[];
   missingFromMaster: string[];
-  duplicateProductSkus: string[];
+  duplicateConvexSkus: string[];
   duplicateMasterSkus: string[];
   missingProductGroupId: CatalogProduct[];
   missingWebsiteSku: CatalogProduct[];
@@ -305,20 +354,22 @@ function buildReport(params: {
     "",
     "## Sources",
     "",
-    `- Convex-derived product export: ${params.productsPath}`,
     `- Master Best Bottles catalog: ${params.masterPath}`,
+    `- Convex product export: ${params.convexPath}`,
+    `- Convex enrichment export: ${params.enrichmentPath}`,
     `- Convex-derived product groups: ${params.groupsPath}`,
     `- Runtime fallback output: ${params.outPath}`,
     "",
     "## Summary",
     "",
     `- Runtime products written: ${params.products.length}`,
-    `- Product export rows: ${params.productRows.length}`,
     `- Master catalog rows: ${params.masterRows.length}`,
+    `- Convex product rows: ${params.convexRows.length}`,
+    `- Convex enrichment rows: ${params.enrichmentRows.length}`,
     `- Product group rows: ${params.groupRows.length}`,
-    `- SKUs in master catalog but missing from Convex-derived product export: ${params.missingFromProducts.length}`,
-    `- SKUs in Convex-derived product export but missing from master catalog: ${params.missingFromMaster.length}`,
-    `- Duplicate Grace SKUs in product export: ${params.duplicateProductSkus.length}`,
+    `- SKUs in master catalog but missing from Convex: ${params.missingFromConvex.length}`,
+    `- SKUs in Convex but missing from master catalog: ${params.missingFromMaster.length}`,
+    `- Duplicate Grace SKUs in Convex export: ${params.duplicateConvexSkus.length}`,
     `- Duplicate Grace SKUs in master catalog: ${params.duplicateMasterSkus.length}`,
     `- Runtime products missing productGroupId: ${params.missingProductGroupId.length}`,
     `- Runtime products missing websiteSku: ${params.missingWebsiteSku.length}`,
@@ -332,7 +383,7 @@ function buildReport(params: {
     "",
     "## Master -> Convex Gaps",
     "",
-    formatList(sample(params.missingFromProducts)),
+    formatList(sample(params.missingFromConvex)),
     "",
     "## Convex -> Master Gaps",
     "",
@@ -347,57 +398,77 @@ function buildReport(params: {
     formatList(sample(params.missingMeasurements.map((product) => product.graceSku))),
     "",
   ];
-  return `${lines.join("\n")}\n`;
+  return `${lines.join("\n").trimEnd()}\n`;
 }
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const productsPath = resolveInput("products", args.products ?? process.env.BEST_BOTTLES_PRODUCTS_CSV, DEFAULT_PRODUCTS_CANDIDATES);
   const masterPath = resolveInput("master", args.master ?? process.env.BEST_BOTTLES_MASTER_CSV, DEFAULT_MASTER_CANDIDATES);
+  const convexPath = resolveInput(
+    "convex",
+    args.convex ?? args.products ?? process.env.BEST_BOTTLES_CONVEX_CSV ?? process.env.BEST_BOTTLES_PRODUCTS_CSV,
+    DEFAULT_CONVEX_CANDIDATES,
+  );
+  const enrichmentPath = resolveInput(
+    "enrichment",
+    args.enrichment ?? process.env.BEST_BOTTLES_ENRICHMENT_CSV,
+    DEFAULT_ENRICHMENT_CANDIDATES,
+  );
   const groupsPath = resolveInput("groups", args.groups ?? process.env.BEST_BOTTLES_GROUPS_CSV, DEFAULT_GROUPS_CANDIDATES);
   const outPath = path.resolve(ROOT, args.out ?? DEFAULT_OUT);
   const reportPath = path.resolve(ROOT, args.report ?? DEFAULT_REPORT);
 
-  const productRows = csvRecords(productsPath);
   const masterRows = csvRecords(masterPath);
+  const convexRows = csvRecords(convexPath);
+  const enrichmentRows = csvRecords(enrichmentPath);
   const groupRows = csvRecords(groupsPath);
 
-  const productSkus = skuSet(productRows);
   const masterSkus = skuSet(masterRows);
-  const duplicateProductSkus = duplicateSkus(productRows);
+  const convexSkus = skuSet(convexRows);
   const duplicateMasterSkus = duplicateSkus(masterRows);
-  const missingFromProducts = difference(masterSkus, productSkus);
-  const missingFromMaster = difference(productSkus, masterSkus);
+  const duplicateConvexSkus = duplicateSkus(convexRows);
+  const missingFromConvex = difference(masterSkus, convexSkus);
+  const missingFromMaster = difference(convexSkus, masterSkus);
+  const convexBySku = rowsBySku(convexRows);
+  const enrichmentBySku = rowsBySku(enrichmentRows);
 
-  const products = productRows
-    .map(mapProduct)
+  const products = masterRows
+    .map((row) => {
+      const key = skuKey(pick(row, "graceSku", "grace_sku", "sku"));
+      return mapProduct(row, {
+        ...(enrichmentBySku.get(key) ?? {}),
+        ...(convexBySku.get(key) ?? {}),
+      });
+    })
     .filter((product) => product.graceSku)
     .sort((a, b) => productSortKey(a).localeCompare(productSortKey(b)));
 
   const missingProductGroupId = products.filter((product) => !product.productGroupId);
   const missingWebsiteSku = products.filter((product) => !product.websiteSku);
   const missingMeasurements = products.filter((product) => !product.heightWithoutCap || !product.diameter);
-  const modelVersion = productRows.find((row) => row.modelVersion)?.modelVersion ?? null;
-  const sourceGeneratedAt = productRows.find((row) => row.generatedAt)?.generatedAt ?? null;
+  const modelVersion = convexRows.find((row) => row.modelVersion)?.modelVersion ?? null;
+  const sourceGeneratedAt = convexRows.find((row) => row.generatedAt)?.generatedAt ?? null;
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(
     outPath,
     `${JSON.stringify({
       source: {
-        sourceFile: path.basename(productsPath),
         masterCatalogFile: path.basename(masterPath),
+        convexExportFile: path.basename(convexPath),
+        enrichmentExportFile: path.basename(enrichmentPath),
         productGroupsFile: path.basename(groupsPath),
         modelVersion,
         sourceGeneratedAt,
         rowCount: products.length,
         comparison: {
-          productExportRows: productRows.length,
           masterCatalogRows: masterRows.length,
+          convexExportRows: convexRows.length,
+          enrichmentRows: enrichmentRows.length,
           productGroupRows: groupRows.length,
-          missingFromProducts: missingFromProducts.length,
+          missingFromConvex: missingFromConvex.length,
           missingFromMaster: missingFromMaster.length,
-          duplicateProductSkus: duplicateProductSkus.length,
+          duplicateConvexSkus: duplicateConvexSkus.length,
           duplicateMasterSkus: duplicateMasterSkus.length,
           missingProductGroupId: missingProductGroupId.length,
           missingWebsiteSku: missingWebsiteSku.length,
@@ -412,17 +483,19 @@ function main() {
   fs.writeFileSync(
     reportPath,
     buildReport({
-      productsPath,
       masterPath,
+      convexPath,
+      enrichmentPath,
       groupsPath,
       outPath,
-      productRows,
       masterRows,
+      convexRows,
+      enrichmentRows,
       groupRows,
       products,
-      missingFromProducts,
+      missingFromConvex,
       missingFromMaster,
-      duplicateProductSkus,
+      duplicateConvexSkus,
       duplicateMasterSkus,
       missingProductGroupId,
       missingWebsiteSku,
@@ -434,7 +507,7 @@ function main() {
     outPath,
     reportPath,
     products: products.length,
-    missingFromProducts: missingFromProducts.length,
+    missingFromConvex: missingFromConvex.length,
     missingFromMaster: missingFromMaster.length,
     missingProductGroupId: missingProductGroupId.length,
     missingMeasurements: missingMeasurements.length,

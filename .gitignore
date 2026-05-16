@@ -19,6 +19,7 @@
 # Local research/generation artifacts
 .firecrawl/
 /remotion/
+/tmp/
 scripts/local-generate.ts
 tsconfig.scripts.tmp.json
 
