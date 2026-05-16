@@ -37,6 +37,10 @@ type ShopifyGraphqlBody<T> = {
   raw?: string;
 };
 
+class ConfigurationError extends Error {
+  status = 424;
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -188,15 +192,17 @@ async function getShopifyConfig(
     .maybeSingle();
 
   if (error || !connection) {
-    throw new Error("Shopify is not connected for this organization");
+    throw new ConfigurationError(
+      "Shopify is not connected for this organization. Connect Shopify in Settings, or configure SHOPIFY_ACCESS_TOKEN and SHOPIFY_SHOP_DOMAIN for this Supabase project.",
+    );
   }
   if (!connection.access_token_encrypted || !connection.access_token_iv) {
-    throw new Error("Shopify connection is missing encrypted token data. Please reconnect Shopify.");
+    throw new ConfigurationError("Shopify connection is missing encrypted token data. Please reconnect Shopify.");
   }
 
   const encryptionKey = Deno.env.get("SHOPIFY_TOKEN_ENCRYPTION_KEY");
   if (!encryptionKey) {
-    throw new Error("SHOPIFY_TOKEN_ENCRYPTION_KEY is not configured");
+    throw new ConfigurationError("SHOPIFY_TOKEN_ENCRYPTION_KEY is not configured for this Supabase project.");
   }
 
   return {
@@ -498,7 +504,7 @@ serve(async (req) => {
     console.error("push-shopify-product-images error:", error);
     return jsonResponse(
       { error: error instanceof Error ? error.message : "Unknown error" },
-      500,
+      error instanceof ConfigurationError ? error.status : 500,
     );
   }
 });

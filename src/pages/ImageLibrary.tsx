@@ -1288,10 +1288,11 @@ export default function ImageLibrary() {
                       variant="outline"
                       size="sm"
                       onClick={openBulkBestBottlesPublish}
+                      title="Push selected images to Best Bottles PDP image fields through Sanity and Convex"
                       className="border-[var(--darkroom-accent)] text-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent)]/10 h-8 text-xs"
                     >
                       <Upload className="w-3 h-3 md:mr-1" />
-                      <span className="hidden md:inline">Push to Best Bottles</span>
+                      <span className="hidden md:inline">Push Best Bottles PDP</span>
                       <span className="md:hidden">Push</span>
                     </Button>
                   )}
@@ -1601,10 +1602,10 @@ export default function ImageLibrary() {
       >
         <DialogContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Push selected images to Best Bottles</DialogTitle>
+            <DialogTitle>Push selected images to Best Bottles PDP</DialogTitle>
             <DialogDescription className="text-[var(--darkroom-text)]/70">
-              Confirm the Best Bottles SKU or group slug for each selected Library image. Each
-              image will upload to Best Bottles Sanity, then update the matching product image
+              Confirm the Best Bottles Website SKU or Grace SKU for each selected Library image. Each
+              image uploads to Best Bottles Sanity, then updates the matching Convex product image
               field.
             </DialogDescription>
           </DialogHeader>
