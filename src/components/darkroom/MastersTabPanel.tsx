@@ -1059,7 +1059,8 @@ export function MastersTabPanel({
     for (const [key, entry] of referenceFolder.entries()) {
       // Strip "--modifier" suffix to compare against the bare graceSku.
       const base = key.split("--")[0];
-      if (!familyGraceSet.has(base)) {
+      const normalizedBase = baseSkuKey(base);
+      if (!familyGraceSet.has(base) && !familyGraceSet.has(normalizedBase)) {
         orphans.push({ key, name: entry.name });
       }
     }
@@ -2024,9 +2025,8 @@ export function MastersTabPanel({
               {orphanReferences.length} file{orphanReferences.length === 1 ? "" : "s"} don't match any Grace SKU in this family
             </div>
             <div className="text-[10px] opacity-75" style={{ color: "#FBBF24" }}>
-              These filenames don't equal any <span className="font-mono">graceSku</span> for {familyName ?? "this family"}.
-              Likely cause: still in websiteSku style (e.g. <span className="font-mono">GBEmp50DrpSl</span> instead of{" "}
-              <span className="font-mono">GB-EMP-CLR-50ML-DRP-SL</span>), the rename pass missed them, or the filename is not a supported Empire pattern.
+              These filenames don't equal any loaded <span className="font-mono">graceSku</span> for {familyName ?? "this family"}.
+              Likely cause: websiteSku-style names, a catalog sync gap between Convex/Product Hub and Madison, or an unsupported Best Bottles filename pattern.
             </div>
             <div className="space-y-0.5 max-h-40 overflow-auto pt-1">
               {orphanReferences.map((o) => (

@@ -10,11 +10,12 @@
  * Lookup strategy (in order):
  *   1. Direct match: product_hubs.sku === graceSku
  *      (works for per-SKU imports, but our import groups SKUs into hubs)
- *   2. Variant match: any variant inside product_hubs.metadata.variants[].sku
+ *   2. Variant match: any variant inside product_hubs.variants[].sku
  *      matches the given Grace SKU. This is the common path because the
  *      Best Bottles importer groups 2,321 Grace SKUs into 139 hubs and
  *      stores per-SKU details in the variants JSONB array.
- *   3. Family + capacity + color match: synthesize the group SKU
+ *   3. Legacy variant match: product_hubs.metadata.variants[].sku
+ *   4. Family + capacity + color match: synthesize the group SKU
  *      "GROUP-{FAMILY}-{SIZE}ML-{COLOR}" and match directly. Fast fallback
  *      when only the SKU's parent attributes are known.
  *
@@ -97,9 +98,19 @@ export async function fetchProductHubBySku(
   if (direct.data) return direct.data as ProductHubLike;
 
   // Strategy 2 — variant match via JSONB containment.
-  // metadata.variants is an array of {sku: ..., ...} objects.
+  // variants is an array of {sku: ..., ...} objects.
   // Postgres JSONB lets us query "any variant has this sku" via @>.
   const variantQuery = JSON.stringify([{ sku: graceSku }]);
+  const topLevelVariantMatch = await supabase
+    .from("product_hubs")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .filter("variants", "cs", variantQuery)
+    .limit(1)
+    .maybeSingle();
+  if (topLevelVariantMatch.data) return topLevelVariantMatch.data as ProductHubLike;
+
+  // Strategy 3 — legacy grouped imports stored variants under metadata.
   const variantMatch = await supabase
     .from("product_hubs")
     .select("*")
@@ -109,7 +120,7 @@ export async function fetchProductHubBySku(
     .maybeSingle();
   if (variantMatch.data) return variantMatch.data as ProductHubLike;
 
-  // Strategy 3 — synthesize the group SKU from hints (fastest path when
+  // Strategy 4 — synthesize the group SKU from hints (fastest path when
   // the caller already knows the parent family+capacity+color).
   if (hints?.family) {
     const groupSku = buildGroupSku(hints.family, hints.capacityMl ?? null, hints.color ?? null);
@@ -153,11 +164,19 @@ export async function fetchProductHubsBySkus(
     if (hub.sku && skuSet.has(hub.sku)) result.set(hub.sku, hub);
 
     // Variant match
+    const topLevelVariants = normalizeVariants(hub.variants);
+    for (const v of topLevelVariants) {
+      if (v.sku && skuSet.has(v.sku) && !result.has(v.sku)) {
+        result.set(v.sku, hub);
+      }
+    }
+
+    // Legacy metadata variant match
     const meta =
       typeof hub.metadata === "string"
-        ? safeParse(hub.metadata)
+        ? (safeParse(hub.metadata) as Record<string, unknown> | null)
         : (hub.metadata as Record<string, unknown> | null);
-    const variants = (meta?.variants as Array<{ sku?: string }> | undefined) ?? [];
+    const variants = normalizeVariants(meta?.variants);
     for (const v of variants) {
       if (v.sku && skuSet.has(v.sku) && !result.has(v.sku)) {
         result.set(v.sku, hub);
@@ -168,8 +187,17 @@ export async function fetchProductHubsBySkus(
   return result;
 }
 
-function safeParse(s: string): Record<string, unknown> | null {
+function safeParse(s: string): unknown {
   try { return JSON.parse(s); } catch { return null; }
+}
+
+function normalizeVariants(value: unknown): Array<{ sku?: string }> {
+  if (Array.isArray(value)) return value as Array<{ sku?: string }>;
+  if (typeof value === "string") {
+    const parsed = safeParse(value);
+    return Array.isArray(parsed) ? parsed as Array<{ sku?: string }> : [];
+  }
+  return [];
 }
 
 // ─── React hook ─────────────────────────────────────────────────────────────

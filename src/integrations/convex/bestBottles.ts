@@ -7,6 +7,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { getStaticBestBottlesProductsByFamily } from "@/lib/bestBottlesCatalogFallback";
 
 /** Shape of `productGroups` rows in best-bottles-website/convex/schema.ts. */
 export interface ProductGroup {
@@ -177,6 +178,36 @@ function sameThread(
   return !l || !r || l === r;
 }
 
+function uniqueProductsByGraceSku(products: Product[]): Product[] {
+  const seen = new Set<string>();
+  const unique: Product[] = [];
+  for (const product of products) {
+    const key = product.graceSku?.trim().toUpperCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(product);
+  }
+  return unique;
+}
+
+function filterApplicatorSiblingVariants(group: ProductGroup, products: Product[]): Product[] {
+  return products.filter(
+    (product) =>
+      product.capacityMl === group.capacityMl &&
+      (product.color ?? null) === (group.color ?? null) &&
+      sameThread(product.neckThreadSize, group.neckThreadSize),
+  );
+}
+
+async function getStaticFamilyProducts(family: string): Promise<Product[]> {
+  try {
+    return await getStaticBestBottlesProductsByFamily(family);
+  } catch (error) {
+    console.warn("[bestBottles] static catalog fallback unavailable", error);
+    return [];
+  }
+}
+
 /**
  * Fetch a productGroup plus every variant across its applicator siblings.
  *
@@ -206,13 +237,15 @@ export async function getProductGroupWithApplicatorSiblings(
       "[bestBottles] products:getProductGroupsByFamily unavailable; falling back to capped products:getByFamily",
       error,
     );
-    const familyProducts = await getProductsByFamily(group.family);
-    const allVariants = familyProducts.filter(
-      (p) =>
-        p.capacityMl === group.capacityMl &&
-        (p.color ?? null) === (group.color ?? null) &&
-        sameThread(p.neckThreadSize, group.neckThreadSize),
-    );
+    const [convexFamilyProducts, staticFamilyProducts] = await Promise.all([
+      getProductsByFamily(group.family),
+      getStaticFamilyProducts(group.family),
+    ]);
+    const familyProducts = uniqueProductsByGraceSku([
+      ...convexFamilyProducts,
+      ...staticFamilyProducts,
+    ]);
+    const allVariants = filterApplicatorSiblingVariants(group, familyProducts);
     return buildExpandedProductGroupResult(group, allVariants, familyProducts);
   }
   const groupsToLoad = familyGroups.length > 0 ? familyGroups : [group];
@@ -220,17 +253,15 @@ export async function getProductGroupWithApplicatorSiblings(
     if (familyGroup.slug === group.slug) return primary;
     return getProductGroup(familyGroup.slug);
   });
-  const familyProducts = groupResults.flatMap((result) => result?.variants ?? []);
+  const [staticFamilyProducts] = await Promise.all([
+    getStaticFamilyProducts(group.family),
+  ]);
+  const familyProducts = uniqueProductsByGraceSku([
+    ...groupResults.flatMap((result) => result?.variants ?? []),
+    ...staticFamilyProducts,
+  ]);
 
-  const allVariants = groupResults
-    .filter((result): result is ProductGroupResult => Boolean(result))
-    .filter(
-      (result) =>
-        result.group.capacityMl === group.capacityMl &&
-        (result.group.color ?? null) === (group.color ?? null) &&
-        sameThread(result.group.neckThreadSize, group.neckThreadSize),
-    )
-    .flatMap((result) => result.variants);
+  const allVariants = filterApplicatorSiblingVariants(group, familyProducts);
 
   return buildExpandedProductGroupResult(group, allVariants, familyProducts);
 }

@@ -37,7 +37,8 @@ export interface ProductHubLike {
   product_type?: string | null;
   long_description?: string | null;
   short_description?: string | null;
-  metadata?: { bottle_specs?: BottleSpecs } | string | null;
+  variants?: Array<{ sku?: string | null }> | string | null;
+  metadata?: { bottle_specs?: BottleSpecs; variants?: Array<{ sku?: string | null }> } | string | null;
 }
 
 export interface BuildProductHubBlockOptions {
