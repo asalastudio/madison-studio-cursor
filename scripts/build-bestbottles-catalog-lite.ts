@@ -86,6 +86,16 @@ const DEFAULT_GROUPS_CANDIDATES = [
 const DEFAULT_OUT = "public/data/best-bottles-catalog-lite.json";
 const DEFAULT_REPORT = "docs/best-bottles-catalog-reconciliation.md";
 
+const CAP_OFF_ELIGIBLE_APPLICATORS = new Set([
+  "fine mist sprayer",
+  "perfume spray pump",
+  "atomizer",
+  "metal atomizer",
+  "metal roller ball",
+  "plastic roller ball",
+  "lotion pump",
+]);
+
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -209,6 +219,38 @@ function skuKey(value: string | null | undefined): string {
   return value?.trim().toUpperCase() ?? "";
 }
 
+function capStateKey(row: Record<string, string>): string {
+  const raw = pick(row, "madison_cap_states", "madisonCapStates");
+  if (!raw) return "(blank)";
+  const states = raw
+    .split(/[;,|]+/)
+    .map((state) => state.trim().toLowerCase())
+    .filter(Boolean)
+    .sort();
+  return states.length > 0 ? states.join(";") : "(blank)";
+}
+
+function hasCapState(row: Record<string, string> | undefined, state: "cap-on" | "cap-off"): boolean {
+  if (!row) return false;
+  return capStateKey(row).split(";").includes(state);
+}
+
+function countRows(
+  rows: Record<string, string>[],
+  getKey: (row: Record<string, string>) => string,
+): Array<[string, number]> {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const key = getKey(row) || "(blank)";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function needsCapOff(applicator: string | null): boolean {
+  return CAP_OFF_ELIGIBLE_APPLICATORS.has(applicator?.trim().toLowerCase() ?? "");
+}
+
 function duplicateSkus(rows: Record<string, string>[], skuField = "graceSku"): string[] {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
@@ -328,6 +370,14 @@ function formatList(values: string[], emptyText = "None"): string {
   return values.map((value) => `- ${value}`).join("\n");
 }
 
+function formatCountTable(headers: [string, string], rows: Array<[string, number]>): string[] {
+  return [
+    `| ${headers[0]} | ${headers[1]} |`,
+    "| --- | ---: |",
+    ...rows.map(([label, count]) => `| ${label} | ${count} |`),
+  ];
+}
+
 function buildReport(params: {
   masterPath: string;
   convexPath: string;
@@ -346,6 +396,12 @@ function buildReport(params: {
   missingProductGroupId: CatalogProduct[];
   missingWebsiteSku: CatalogProduct[];
   missingMeasurements: CatalogProduct[];
+  capStateCounts: Array<[string, number]>;
+  imageCountCounts: Array<[string, number]>;
+  capOffEligible: CatalogProduct[];
+  capOffMissing: CatalogProduct[];
+  capOffMissingByFamily: Array<[string, number]>;
+  capOffMissingByApplicator: Array<[string, number]>;
 }): string {
   const lines = [
     "# Best Bottles Catalog Reconciliation",
@@ -374,12 +430,32 @@ function buildReport(params: {
     `- Runtime products missing productGroupId: ${params.missingProductGroupId.length}`,
     `- Runtime products missing websiteSku: ${params.missingWebsiteSku.length}`,
     `- Runtime products missing heightWithoutCap or diameter: ${params.missingMeasurements.length}`,
+    `- Cap-off-eligible runtime products: ${params.capOffEligible.length}`,
+    `- Cap-off-eligible products without a tracked cap-off Madison asset: ${params.capOffMissing.length}`,
+    "",
+    "## Madison Cap-State Coverage",
+    "",
+    "These counts come from the master catalog `madison_cap_states` and `madison_image_count` fields, not from a live folder scan.",
+    "",
+    ...formatCountTable(["madison_cap_states", "Rows"], params.capStateCounts),
+    "",
+    ...formatCountTable(["madison_image_count", "Rows"], params.imageCountCounts),
+    "",
+    "## Missing Cap-Off Coverage",
+    "",
+    "Cap-off is expected only for applicators that need a separate PDP image, such as sprayers, atomizers, roll-ons, and lotion pumps.",
+    "",
+    ...formatCountTable(["Family", "Missing cap-off"], params.capOffMissingByFamily),
+    "",
+    ...formatCountTable(["Applicator", "Missing cap-off"], params.capOffMissingByApplicator),
+    "",
+    "### Sample Missing Cap-Off SKUs",
+    "",
+    formatList(sample(params.capOffMissing.map((product) => product.graceSku), 75)),
     "",
     "## Family Counts",
     "",
-    "| Family | Count |",
-    "| --- | ---: |",
-    ...topCounts(params.products, "family", 100).map(([family, count]) => `| ${family} | ${count} |`),
+    ...formatCountTable(["Family", "Count"], topCounts(params.products, "family", 100)),
     "",
     "## Master -> Convex Gaps",
     "",
@@ -431,6 +507,7 @@ function main() {
   const missingFromMaster = difference(convexSkus, masterSkus);
   const convexBySku = rowsBySku(convexRows);
   const enrichmentBySku = rowsBySku(enrichmentRows);
+  const masterBySku = rowsBySku(masterRows);
 
   const products = masterRows
     .map((row) => {
@@ -446,6 +523,12 @@ function main() {
   const missingProductGroupId = products.filter((product) => !product.productGroupId);
   const missingWebsiteSku = products.filter((product) => !product.websiteSku);
   const missingMeasurements = products.filter((product) => !product.heightWithoutCap || !product.diameter);
+  const capStateCounts = countRows(masterRows, capStateKey);
+  const imageCountCounts = countRows(masterRows, (row) => pick(row, "madison_image_count", "madisonImageCount") || "(blank)");
+  const capOffEligible = products.filter((product) => needsCapOff(product.applicator));
+  const capOffMissing = capOffEligible.filter((product) => !hasCapState(masterBySku.get(skuKey(product.graceSku)), "cap-off"));
+  const capOffMissingByFamily = topCounts(capOffMissing, "family", 100);
+  const capOffMissingByApplicator = topCounts(capOffMissing, "applicator", 100);
   const modelVersion = convexRows.find((row) => row.modelVersion)?.modelVersion ?? null;
   const sourceGeneratedAt = convexRows.find((row) => row.generatedAt)?.generatedAt ?? null;
 
@@ -473,6 +556,10 @@ function main() {
           missingProductGroupId: missingProductGroupId.length,
           missingWebsiteSku: missingWebsiteSku.length,
           missingMeasurements: missingMeasurements.length,
+          capStateCounts: Object.fromEntries(capStateCounts),
+          imageCountCounts: Object.fromEntries(imageCountCounts),
+          capOffEligible: capOffEligible.length,
+          capOffMissing: capOffMissing.length,
         },
       },
       products,
@@ -500,6 +587,12 @@ function main() {
       missingProductGroupId,
       missingWebsiteSku,
       missingMeasurements,
+      capStateCounts,
+      imageCountCounts,
+      capOffEligible,
+      capOffMissing,
+      capOffMissingByFamily,
+      capOffMissingByApplicator,
     }),
   );
 
@@ -511,6 +604,8 @@ function main() {
     missingFromMaster: missingFromMaster.length,
     missingProductGroupId: missingProductGroupId.length,
     missingMeasurements: missingMeasurements.length,
+    capOffEligible: capOffEligible.length,
+    capOffMissing: capOffMissing.length,
   }, null, 2));
 }
 
