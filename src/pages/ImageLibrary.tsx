@@ -1271,7 +1271,7 @@ export default function ImageLibrary() {
 
               {/* Bulk Actions */}
               {selectedImages.size > 0 && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <Badge variant="outline" className="border-[var(--darkroom-accent)] text-[var(--darkroom-accent)] text-xs">
                     {selectedImages.size}
                   </Badge>
@@ -1296,13 +1296,15 @@ export default function ImageLibrary() {
                     </Button>
                   )}
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     onClick={openBulkShopifyPublish}
-                    className="border-[#95BF47]/70 text-[#95BF47] hover:bg-[#95BF47]/10 h-8 text-xs"
+                    title="Push selected images directly to Shopify product media and attach them by variant SKU"
+                    className="border border-[#95BF47] bg-[#95BF47] text-[#0B1F0A] hover:bg-[#A7D65A] h-8 text-xs font-semibold shadow-[0_0_0_1px_rgba(149,191,71,0.25)]"
                   >
                     <ShoppingBag className="w-3 h-3 md:mr-1" />
                     <span className="hidden md:inline">Push to Shopify</span>
+                    <span className="hidden xl:inline ml-1 opacity-75">variants</span>
                     <span className="md:hidden">Shopify</span>
                   </Button>
                   <Button
@@ -1727,11 +1729,11 @@ export default function ImageLibrary() {
       >
         <DialogContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Push selected images to Shopify</DialogTitle>
+            <DialogTitle>Push selected images to Shopify variant media</DialogTitle>
             <DialogDescription className="text-[var(--darkroom-text)]/70">
-              Match each selected image to a Shopify variant by SKU. Madison auto-fills from
-              <span className="font-mono"> shopifySku:</span> tags, <span className="font-mono">sku:</span>{" "}
-              tags, or the original filename when it contains a SKU.
+              Direct Shopify publish path. Match each selected image to a Shopify variant by SKU;
+              Madison auto-fills from <span className="font-mono">shopifySku:</span> tags,{" "}
+              <span className="font-mono">sku:</span> tags, or the original filename when it contains a SKU.
             </DialogDescription>
           </DialogHeader>
 
