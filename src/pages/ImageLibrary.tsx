@@ -84,6 +84,7 @@ interface GeneratedImage {
   final_prompt: string | null;
   library_category: string | null;
   library_tags?: string[] | null;
+  parent_image_id?: string | null;
   is_hero_image: boolean;
   created_at: string;
   is_archived: boolean;
@@ -115,7 +116,9 @@ type BulkShopifyRow = {
 const PRIMARY_PDP_MODE: BestBottlesPdpMode = "cap-on";
 const IMAGE_LIBRARY_PAGE_SIZE = 300;
 const IMAGE_LIBRARY_SELECT =
-  "id, image_url, session_id, session_name, goal_type, aspect_ratio, final_prompt, library_category, library_tags, is_hero_image, created_at, is_archived";
+  "id, image_url, session_id, session_name, goal_type, aspect_ratio, final_prompt, library_category, library_tags, parent_image_id, is_hero_image, created_at, is_archived";
+
+type ImageTagChainRow = Pick<GeneratedImage, "id" | "library_tags" | "parent_image_id">;
 
 function normalizeBestBottlesSlug(value: string): string {
   return value
@@ -214,6 +217,66 @@ function detectProductGroupSlug(image: GeneratedImage): string {
   const match = searchable.match(/\b[a-z0-9][a-z0-9-]*\d+ml[a-z0-9-]*\b/i);
   const normalized = match ? normalizeBestBottlesSlug(match[0]) : "";
   return /^(?:gb|lb)-/.test(normalized) ? "" : normalized;
+}
+
+function mergeLibraryTags(...tagSets: Array<string[] | null | undefined>): string[] {
+  const merged = new Set<string>();
+  for (const tags of tagSets) {
+    for (const tag of tags ?? []) {
+      const normalized = tag.trim();
+      if (normalized) merged.add(normalized);
+    }
+  }
+  return [...merged];
+}
+
+async function hydrateImagesWithAncestorTags(images: GeneratedImage[]): Promise<GeneratedImage[]> {
+  const tagById = new Map<string, string[]>();
+  const parentById = new Map<string, string | null>();
+
+  for (const image of images) {
+    tagById.set(image.id, image.library_tags ?? []);
+    parentById.set(image.id, image.parent_image_id ?? null);
+  }
+
+  let parentIds = new Set(
+    images
+      .map((image) => image.parent_image_id)
+      .filter((id): id is string => Boolean(id) && !tagById.has(id)),
+  );
+
+  for (let depth = 0; parentIds.size > 0 && depth < 6; depth += 1) {
+    const { data, error } = await supabase
+      .from("generated_images")
+      .select("id, library_tags, parent_image_id")
+      .in("id", [...parentIds]);
+
+    if (error || !data) break;
+
+    parentIds = new Set<string>();
+    for (const row of data as ImageTagChainRow[]) {
+      tagById.set(row.id, row.library_tags ?? []);
+      parentById.set(row.id, row.parent_image_id ?? null);
+      if (row.parent_image_id && !tagById.has(row.parent_image_id)) {
+        parentIds.add(row.parent_image_id);
+      }
+    }
+  }
+
+  const collectAncestorTags = (imageId: string, seen = new Set<string>()): string[] => {
+    const parentId = parentById.get(imageId);
+    if (!parentId || seen.has(parentId)) return [];
+    seen.add(parentId);
+    return mergeLibraryTags(tagById.get(parentId), collectAncestorTags(parentId, seen));
+  };
+
+  return images.map((image) => {
+    const inheritedTags = collectAncestorTags(image.id);
+    if (inheritedTags.length === 0) return image;
+    const mergedTags = mergeLibraryTags(image.library_tags, inheritedTags);
+    if (mergedTags.length === (image.library_tags ?? []).length) return image;
+    return { ...image, library_tags: mergedTags };
+  });
 }
 
 async function extractFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
@@ -360,7 +423,7 @@ export default function ImageLibrary() {
 
         if (!error && data && data.length > 0) {
           console.log(`✅ Image Library loaded ${data.length} recent images by org`);
-          return data as GeneratedImage[];
+          return hydrateImagesWithAncestorTags(data as GeneratedImage[]);
         }
 
         if (error) {
@@ -384,7 +447,7 @@ export default function ImageLibrary() {
       }
 
       console.log(`✅ Image Library loaded ${userData?.length || 0} recent images by user`);
-      return userData as GeneratedImage[];
+      return hydrateImagesWithAncestorTags((userData ?? []) as GeneratedImage[]);
     },
     enabled: !!user,
     staleTime: 60 * 1000,

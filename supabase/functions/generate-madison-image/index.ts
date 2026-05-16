@@ -2359,11 +2359,13 @@ serve(async (req) => {
 
     // Auto-tag pipeline-originated images so the client's team can filter
     // the Library by brand/family/shape without coordinating on tag names.
-    // Three sources get merged, de-duped, into library_tags:
+    // Four sources get merged, de-duped, into library_tags:
     //   1. Anything already on insertPayload (future-proof — no callers today)
-    //   2. pipelineMeta.libraryTags (brand/family/shape/pipeline-group refs —
+    //   2. Parent image tags for refinements — preserves SKU/publish metadata
+    //      across edit chains so Library bulk-publish can still auto-resolve.
+    //   3. pipelineMeta.libraryTags (brand/family/shape/pipeline-group refs —
     //      only present for pipeline-originated runs)
-    //   3. extraLibraryTags from the request body (per-variation tags like
+    //   4. extraLibraryTags from the request body (per-variation tags like
     //      applicator:fine-mist-metal, color:amber — emitted by Consistency
     //      Mode for every run, not just pipeline ones, so non-pipeline sets
     //      are still searchable by axis)
@@ -2372,13 +2374,14 @@ serve(async (req) => {
           (t): t is string => typeof t === "string" && t.length > 0,
         )
       : [];
-    if (pipelineMeta || callerExtraTags.length > 0) {
+    if (pipelineMeta || parentImageTags.length > 0 || callerExtraTags.length > 0) {
       const existing = Array.isArray(insertPayload.library_tags)
         ? (insertPayload.library_tags as string[])
         : [];
       insertPayload.library_tags = Array.from(
         new Set([
           ...existing,
+          ...parentImageTags,
           ...(pipelineMeta ? pipelineMeta.libraryTags : []),
           ...callerExtraTags,
         ]),
