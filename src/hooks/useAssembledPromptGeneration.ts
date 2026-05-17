@@ -17,6 +17,9 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 import type { AssembledPrompt } from "@/lib/product-image/promptAssembler";
+import { colorCorrectToTarget, dataUrlToBlob } from "@/lib/product-image/colorCorrect";
+
+const PAPER_DOLL_TARGET_CREAM = "#EEE6D4";
 
 export interface AssembledGenerationResult {
   imageUrl: string;
@@ -321,13 +324,69 @@ export function useAssembledPromptGeneration() {
         return null;
       }
 
+      // Snap the rendered cream background to the exact target hex.
+      // gpt-image-2 drifts a few percent off #EEE6D4 even when the prompt
+      // locks the hex; without this, library renders show inconsistent
+      // cream tones across batches. Only runs for Best Bottles renders
+      // that target the canonical cream plate (Scene-Flexible custom
+      // backgrounds are left alone).
+      const savedImageId = data.savedImageId ?? null;
+      const shouldColorCorrect =
+        extraLibraryTags.includes("brand:best-bottles") &&
+        !options.sceneOverlay?.backgroundPresetId &&
+        !options.sceneOverlay?.backgroundPrompt;
+      let finalImageUrl = data.imageUrl;
+      if (shouldColorCorrect && currentOrganizationId) {
+        try {
+          const correctedDataUrl = await colorCorrectToTarget(
+            data.imageUrl,
+            PAPER_DOLL_TARGET_CREAM,
+          );
+          const blob = dataUrlToBlob(correctedDataUrl);
+          const ts = Date.now();
+          const rand = Math.random().toString(36).slice(2, 8);
+          const path = `${currentOrganizationId}/${user.id}/paper-doll/master_corrected_${ts}_${rand}.png`;
+          const { error: uploadError } = await supabase.storage
+            .from("generated-images")
+            .upload(path, blob, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: "image/png",
+            });
+          if (uploadError) {
+            console.warn("[useAssembledPromptGeneration] color-corrected upload failed", uploadError);
+          } else {
+            const { data: urlData } = supabase.storage
+              .from("generated-images")
+              .getPublicUrl(path);
+            if (urlData?.publicUrl) {
+              finalImageUrl = urlData.publicUrl;
+              if (savedImageId) {
+                const { error: updateError } = await supabase
+                  .from("generated_images")
+                  .update({ image_url: finalImageUrl })
+                  .eq("id", savedImageId);
+                if (updateError) {
+                  console.warn(
+                    "[useAssembledPromptGeneration] generated_images.image_url patch failed",
+                    updateError,
+                  );
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[useAssembledPromptGeneration] color correction skipped", e);
+        }
+      }
+
       const resolvedAspectRatio =
         options.sceneOverlay?.aspectRatioOverride ?? assembled.preset.aspectRatio;
       const resolvedCanvas =
         getExactCanvasForAspectRatio(resolvedAspectRatio) ?? assembled.canvas;
       const generated: AssembledGenerationResult = {
-        imageUrl: data.imageUrl,
-        savedImageId: data.savedImageId ?? null,
+        imageUrl: finalImageUrl,
+        savedImageId,
         prompt: typeof data.finalPrompt === "string" && data.finalPrompt.trim()
           ? data.finalPrompt
           : assembled.prompt,
