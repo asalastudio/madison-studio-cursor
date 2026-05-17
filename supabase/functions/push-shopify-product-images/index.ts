@@ -355,6 +355,55 @@ async function appendMediaToVariant(
   }
 }
 
+async function getMediaStatus(
+  config: ShopifyConfig,
+  mediaId: string,
+): Promise<string | null> {
+  const query = `
+    query MediaStatus($id: ID!) {
+      node(id: $id) {
+        ... on MediaImage {
+          id
+          status
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyGraphql<{
+    node?: { id: string; status?: string } | null;
+  }>(config, query, { id: mediaId });
+
+  return data.node?.status ?? null;
+}
+
+async function waitForMediaReady(
+  config: ShopifyConfig,
+  mediaId: string,
+  initialStatus: string | undefined,
+  options: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<void> {
+  const timeoutMs = options.timeoutMs ?? 20000;
+  const intervalMs = options.intervalMs ?? 1000;
+
+  if (initialStatus === "READY") return;
+  if (initialStatus === "FAILED") {
+    throw new Error(`Shopify media ${mediaId} reported FAILED status immediately after creation`);
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    const status = await getMediaStatus(config, mediaId);
+    if (status === "READY") return;
+    if (status === "FAILED") {
+      throw new Error(`Shopify media ${mediaId} transitioned to FAILED during processing`);
+    }
+  }
+
+  throw new Error(`Shopify media ${mediaId} did not become READY within ${timeoutMs}ms`);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -451,8 +500,11 @@ serve(async (req) => {
         );
 
         if (body.attachToVariant !== false) {
+          await waitForMediaReady(shopifyConfig, media.id, media.status);
           await appendMediaToVariant(shopifyConfig, variant.product.id, variant.id, media.id);
         }
+
+        const finalMediaStatus = body.attachToVariant !== false ? "READY" : (media.status ?? null);
 
         await supabase.from("shopify_publish_log").insert({
           organization_id: organizationId,
@@ -466,7 +518,7 @@ serve(async (req) => {
             imageId: item.imageId ?? null,
             imageUrl,
             mediaId: media.id,
-            mediaStatus: media.status ?? null,
+            mediaStatus: finalMediaStatus,
             variantId: variant.id,
             productTitle: variant.product.title,
           },
@@ -479,7 +531,7 @@ serve(async (req) => {
           shopifyProductId: variant.product.id,
           shopifyVariantId: variant.id,
           mediaId: media.id,
-          mediaStatus: media.status ?? null,
+          mediaStatus: finalMediaStatus,
         });
       } catch (error) {
         results.push({
