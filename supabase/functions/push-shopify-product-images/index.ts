@@ -296,7 +296,7 @@ async function createProductMedia(
       {
         mediaContentType: "IMAGE",
         originalSource: imageUrl,
-        alt: altText,
+        alt: altText.slice(0, 512),
       },
     ],
   });
