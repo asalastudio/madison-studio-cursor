@@ -23,6 +23,8 @@ import {
   Loader2,
   Upload,
   ChevronsUpDown,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { MagicWand02 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
@@ -230,6 +232,8 @@ function mergeLibraryTags(...tagSets: Array<string[] | null | undefined>): strin
   return [...merged];
 }
 
+const IDENTIFIER_TAG_PATTERN = /^(?:sku|shopifySku|shopify-sku|websiteSku|website-sku|graceSku|grace-sku|groupSlug|group-slug|productGroupSlug|product-group-slug|slug):/i;
+
 async function hydrateImagesWithAncestorTags(images: GeneratedImage[]): Promise<GeneratedImage[]> {
   const tagById = new Map<string, string[]>();
   const parentById = new Map<string, string | null>();
@@ -267,7 +271,8 @@ async function hydrateImagesWithAncestorTags(images: GeneratedImage[]): Promise<
     const parentId = parentById.get(imageId);
     if (!parentId || seen.has(parentId)) return [];
     seen.add(parentId);
-    return mergeLibraryTags(tagById.get(parentId), collectAncestorTags(parentId, seen));
+    const ancestorTags = mergeLibraryTags(tagById.get(parentId), collectAncestorTags(parentId, seen));
+    return ancestorTags.filter((tag) => !IDENTIFIER_TAG_PATTERN.test(tag));
   };
 
   return images.map((image) => {
@@ -592,6 +597,23 @@ export default function ImageLibrary() {
     return map;
   }, [bestBottlesProducts]);
 
+  const canonicalGraceSkus = useMemo(() => {
+    const set = new Set<string>();
+    for (const product of bestBottlesProducts) {
+      if (product.graceSku) set.add(product.graceSku.toUpperCase());
+    }
+    return set;
+  }, [bestBottlesProducts]);
+
+  const isCanonicalGraceSku = useCallback(
+    (sku: string) => {
+      const trimmed = sku.trim();
+      if (!trimmed) return false;
+      return canonicalGraceSkus.has(trimmed.toUpperCase());
+    },
+    [canonicalGraceSkus],
+  );
+
   const resolveBestBottlesWebsiteSku = useCallback((image: GeneratedImage) => {
     const websiteSku = detectWebsiteSku(image);
     if (websiteSku) return websiteSku;
@@ -606,19 +628,26 @@ export default function ImageLibrary() {
   }, [bestBottlesWebsiteSkuByGraceSku]);
 
   const resolveShopifySku = useCallback((image: GeneratedImage) => {
-    const shopifySku = detectShopifySku(image);
-    if (shopifySku) return shopifySku;
+    const tags = image.library_tags ?? [];
 
-    const graceSku = detectGraceSku(image);
-    if (graceSku) return graceSku;
+    for (const tag of tags) {
+      const explicit = tag.match(/^(?:shopifySku|shopify-sku):(.+)$/i);
+      if (explicit?.[1]?.trim()) return explicit[1].trim();
+    }
 
-    const websiteSku = detectWebsiteSku(image);
-    if (websiteSku) {
-      return bestBottlesGraceSkuByWebsiteSku.get(websiteSku.toUpperCase()) ?? websiteSku;
+    for (const tag of tags) {
+      const explicit = tag.match(/^(?:graceSku|grace-sku):(.+)$/i);
+      if (explicit?.[1]?.trim()) return explicit[1].trim().toUpperCase();
+    }
+
+    for (const tag of tags) {
+      const raw = tag.replace(/^sku:/i, "").trim();
+      const match = raw.match(/\b(?:GB|LB)-[A-Z0-9][A-Z0-9-]*\b/i);
+      if (match) return match[0].toUpperCase();
     }
 
     return "";
-  }, [bestBottlesGraceSkuByWebsiteSku]);
+  }, []);
 
   const resolveBestBottlesProductGroupSlug = useCallback(
     (image: GeneratedImage) => {
@@ -1767,6 +1796,31 @@ export default function ImageLibrary() {
                     placeholder="e.g. GB-CYL-AMB-9ML-SPR-BLK"
                     className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] font-mono text-xs"
                   />
+                  {(() => {
+                    const trimmed = row.sku.trim();
+                    if (!trimmed) {
+                      return (
+                        <div className="flex items-center gap-1 text-[11px] text-[var(--darkroom-text)]/40">
+                          <span className="font-mono">—</span>
+                          <span>Will be skipped</span>
+                        </div>
+                      );
+                    }
+                    if (isCanonicalGraceSku(trimmed)) {
+                      return (
+                        <div className="flex items-center gap-1 text-[11px] text-emerald-500">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Matches Best Bottles variant</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="flex items-center gap-1 text-[11px] text-amber-500">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Not in Best Bottles catalog — push may fail</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}
