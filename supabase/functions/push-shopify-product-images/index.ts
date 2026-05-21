@@ -72,6 +72,8 @@ type ResolvedBestBottlesProduct = {
 };
 
 const SHOPIFY_IMAGE_ALT_TEXT_MAX_CHARS = 512;
+const SHOPIFY_MEDIA_READY_MAX_ATTEMPTS = 12;
+const SHOPIFY_MEDIA_READY_POLL_MS = 1000;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -301,6 +303,11 @@ function userErrorMessage(errors: Array<{ field?: string[] | null; message: stri
       return `${field}${error.message}`;
     })
     .join("; ");
+}
+
+function isNonReadyMediaError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /non-ready media|media cannot be attached/i.test(message);
 }
 
 function toShopifyAltText(value: string | null | undefined, fallback: string): string {
@@ -568,10 +575,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForMediaImageUrl(
+async function getMediaImageStatus(
   config: ShopifyConfig,
   mediaId: string,
-): Promise<string | null> {
+): Promise<{ status: string | null; url: string | null }> {
   const query = `
     query MediaImageUrl($id: ID!) {
       node(id: $id) {
@@ -585,14 +592,75 @@ async function waitForMediaImageUrl(
     }
   `;
 
+  const data = await shopifyGraphql<{
+    node?: { status?: string | null; image?: { url?: string | null } | null } | null;
+  }>(config, query, { id: mediaId });
+
+  return {
+    status: data.node?.status ?? null,
+    url: data.node?.image?.url ?? null,
+  };
+}
+
+async function waitForMediaReady(
+  config: ShopifyConfig,
+  mediaId: string,
+  initialStatus?: string | null,
+  initialUrl?: string | null,
+): Promise<{ status: string | null; url: string | null }> {
+  let latest = {
+    status: initialStatus ?? null,
+    url: initialUrl ?? null,
+  };
+
+  if (latest.status === "READY") return latest;
+
+  for (let attempt = 0; attempt < SHOPIFY_MEDIA_READY_MAX_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) await sleep(SHOPIFY_MEDIA_READY_POLL_MS);
+    latest = await getMediaImageStatus(config, mediaId);
+
+    if (latest.status === "READY") return latest;
+    if (latest.status === "FAILED") {
+      throw new Error("Shopify media processing failed before it could be attached to the variant");
+    }
+  }
+
+  throw new Error(
+    `Shopify media was not ready for variant attachment. Last status: ${latest.status ?? "unknown"}`,
+  );
+}
+
+async function appendReadyMediaToVariant(
+  config: ShopifyConfig,
+  productId: string,
+  variantId: string,
+  media: { id: string; status?: string | null; url?: string | null },
+): Promise<{ status: string | null; url: string | null }> {
+  let readyMedia = await waitForMediaReady(config, media.id, media.status ?? null, media.url ?? null);
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await appendMediaToVariant(config, productId, variantId, media.id);
+      return readyMedia;
+    } catch (error) {
+      if (!isNonReadyMediaError(error) || attempt === 2) throw error;
+      await sleep(SHOPIFY_MEDIA_READY_POLL_MS);
+      readyMedia = await waitForMediaReady(config, media.id, readyMedia.status, readyMedia.url);
+    }
+  }
+
+  return readyMedia;
+}
+
+async function waitForMediaImageUrl(
+  config: ShopifyConfig,
+  mediaId: string,
+): Promise<string | null> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     if (attempt > 0) await sleep(750);
-    const data = await shopifyGraphql<{
-      node?: { status?: string | null; image?: { url?: string | null } | null } | null;
-    }>(config, query, { id: mediaId });
-    const url = data.node?.image?.url;
-    if (url) return url;
-    if (data.node?.status === "FAILED") return null;
+    const media = await getMediaImageStatus(config, mediaId);
+    if (media.url) return media.url;
+    if (media.status === "FAILED") return null;
   }
 
   return null;
@@ -781,11 +849,20 @@ serve(async (req) => {
           label,
         );
 
+        let readyMedia: { status: string | null; url: string | null } = {
+          status: media.status ?? null,
+          url: media.url ?? null,
+        };
         if (body.attachToVariant !== false) {
-          await appendMediaToVariant(shopifyConfig, variant.product.id, variant.id, media.id);
+          readyMedia = await appendReadyMediaToVariant(
+            shopifyConfig,
+            variant.product.id,
+            variant.id,
+            media,
+          );
         }
 
-        const shopifyImageUrl = media.url ?? await waitForMediaImageUrl(shopifyConfig, media.id);
+        const shopifyImageUrl = readyMedia.url ?? await waitForMediaImageUrl(shopifyConfig, media.id);
         let bestBottlesConvex: Record<string, unknown> | null = null;
         if (syncBestBottlesConvex && bestBottlesProduct) {
           if (!shopifyImageUrl) {
@@ -848,7 +925,7 @@ serve(async (req) => {
             imageUrl,
             shopifyImageUrl: shopifyImageUrl ?? null,
             mediaId: media.id,
-            mediaStatus: media.status ?? null,
+            mediaStatus: readyMedia.status ?? media.status ?? null,
             variantId: variant.id,
             productTitle: variant.product.title,
             bestBottlesConvex,
@@ -864,7 +941,7 @@ serve(async (req) => {
           shopifyProductId: variant.product.id,
           shopifyVariantId: variant.id,
           mediaId: media.id,
-          mediaStatus: media.status ?? null,
+          mediaStatus: readyMedia.status ?? media.status ?? null,
           shopifyImageUrl: shopifyImageUrl ?? null,
           bestBottlesConvex,
         });
