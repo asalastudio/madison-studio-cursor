@@ -764,6 +764,19 @@ export default function ImageLibrary() {
     return map;
   }, [bestBottlesProductGroups]);
 
+  const bestBottlesProductGroupsByPrimarySku = useMemo(() => {
+    const map = new Map<string, BestBottlesProductGroup>();
+    for (const group of bestBottlesProductGroups) {
+      if (group.primaryGraceSku) {
+        map.set(group.primaryGraceSku.toUpperCase(), group);
+      }
+      if (group.primaryWebsiteSku) {
+        map.set(group.primaryWebsiteSku.toUpperCase(), group);
+      }
+    }
+    return map;
+  }, [bestBottlesProductGroups]);
+
   const bestBottlesWebsiteSkuByGraceSku = useMemo(() => {
     const map = new Map<string, string>();
     for (const product of bestBottlesProducts) {
@@ -921,11 +934,19 @@ export default function ImageLibrary() {
       const group = product?.productGroupId
         ? bestBottlesProductGroupsById.get(product.productGroupId)
         : undefined;
+      const groupByPrimarySku =
+        (product?.graceSku
+          ? bestBottlesProductGroupsByPrimarySku.get(product.graceSku.toUpperCase())
+          : undefined) ??
+        (product?.websiteSku
+          ? bestBottlesProductGroupsByPrimarySku.get(product.websiteSku.toUpperCase())
+          : undefined);
 
-      return group?.slug ?? "";
+      return group?.slug ?? groupByPrimarySku?.slug ?? "";
     },
     [
       bestBottlesProductGroupsById,
+      bestBottlesProductGroupsByPrimarySku,
       bestBottlesProductGroupsBySlug,
       bestBottlesProductsByGraceSku,
       bestBottlesProductsByWebsiteSku,
