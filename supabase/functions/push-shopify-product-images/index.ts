@@ -74,6 +74,17 @@ type ResolvedBestBottlesProduct = {
 const SHOPIFY_IMAGE_ALT_TEXT_MAX_CHARS = 512;
 const SHOPIFY_MEDIA_READY_MAX_ATTEMPTS = 12;
 const SHOPIFY_MEDIA_READY_POLL_MS = 1000;
+const BEST_BOTTLES_SHOPIFY_SKU_ALIASES: Array<{ matches: string[]; aliases: string[] }> = [
+  {
+    matches: [
+      "AB-ALU-CLR-250ML-SPR-BLK",
+      "Alu250mlSprayBlack",
+      "Alu250SpryBl",
+      "BB-ALU250SPRYBL",
+    ],
+    aliases: ["BB-ALU250SPRYBL", "Alu250SpryBl"],
+  },
+];
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -98,6 +109,34 @@ function uniqueTrimmedStrings(values: Array<string | null | undefined>): string[
         .filter(Boolean),
     ),
   );
+}
+
+function compactSku(value: string): string {
+  return value.trim().replace(/[^a-z0-9]/gi, "").toUpperCase();
+}
+
+function findBestBottlesShopifySkuAliases(candidates: string[]): string[] {
+  const normalizedCandidates = new Set<string>();
+  for (const candidate of candidates) {
+    const trimmed = candidate.trim();
+    if (!trimmed) continue;
+    normalizedCandidates.add(trimmed.toUpperCase());
+    normalizedCandidates.add(compactSku(trimmed));
+  }
+
+  const aliases: string[] = [];
+  for (const rule of BEST_BOTTLES_SHOPIFY_SKU_ALIASES) {
+    const matches = rule.matches.some((match) => {
+      const trimmed = match.trim();
+      return (
+        normalizedCandidates.has(trimmed.toUpperCase()) ||
+        normalizedCandidates.has(compactSku(trimmed))
+      );
+    });
+    if (matches) aliases.push(...rule.aliases);
+  }
+
+  return uniqueTrimmedStrings(aliases);
 }
 
 function postgrestEqValue(value: string): string {
@@ -809,8 +848,7 @@ serve(async (req) => {
           }
         }
 
-        const shopifySkuCandidates = Array.from(new Set(
-          [
+        const baseShopifySkuCandidates = uniqueTrimmedStrings([
             pipelineSkuJob?.shopify_sku,
             pipelineSkuJob?.grace_sku,
             sku,
@@ -818,8 +856,11 @@ serve(async (req) => {
             requestedGraceSku,
             bestBottlesProduct?.graceSku,
             bestBottlesProduct?.websiteSku,
-          ].filter((candidate): candidate is string => Boolean(candidate)),
-        ));
+        ]);
+        const shopifySkuCandidates = uniqueTrimmedStrings([
+          ...baseShopifySkuCandidates,
+          ...findBestBottlesShopifySkuAliases(baseShopifySkuCandidates),
+        ]);
         let variant: ShopifyVariant | null = null;
         let matchedShopifySku = sku;
         for (const candidate of shopifySkuCandidates) {

@@ -1428,9 +1428,11 @@ export default function ImageLibrary() {
     const resolvedGroupSlug = isBestBottlesOrg
       ? resolveBestBottlesProductGroupSlug(image) || detectProductGroupSlug(image)
       : "";
-    const bestBottlesDestination: PublishDestination = resolvedWebsiteSku
-      ? "best-bottles-pdp"
-      : "best-bottles-grid";
+    const bestBottlesDestination: PublishDestination = resolvedGroupSlug
+      ? "best-bottles-grid"
+      : resolvedWebsiteSku
+        ? "best-bottles-pdp"
+        : "best-bottles-grid";
 
     setSanityPublishImage(image);
     setSanityPublishProduct(null);
@@ -1484,8 +1486,8 @@ export default function ImageLibrary() {
         if (data?.error) throw new Error(data.error);
 
         toast({
-          title: "Website catalog updated",
-          description: `Live product group "${slug}" now uses the Sanity hero image on bestbottles.company.`,
+          title: "Website hero / thumbnail updated",
+          description: `Live product group "${slug}" now uses this image for the catalog hero/thumbnail.`,
         });
       } else if (publishDestination === "best-bottles-pdp") {
         const websiteSkus = splitWebsiteSkus(bestBottlesWebsiteSku);
@@ -2346,7 +2348,7 @@ export default function ImageLibrary() {
               />
               <p className="text-xs text-[var(--darkroom-text)]/60 line-clamp-4">
                 Choose whether this render updates a Best Bottles product page, a Best Bottles
-                Sanity-backed catalog thumbnail, or a Tarife fragrance main image.
+                Sanity-backed catalog hero/thumbnail, or a Tarife fragrance main image.
               </p>
             </div>
           )}
@@ -2368,6 +2370,13 @@ export default function ImageLibrary() {
                     : "";
                   setBestBottlesSlug(typedGroupSlug || imageGroupSlug);
                 }
+                if (
+                  nextDestination === "best-bottles-pdp" &&
+                  !bestBottlesWebsiteSku.trim() &&
+                  sanityPublishImage
+                ) {
+                  setBestBottlesWebsiteSku(resolveBestBottlesWebsiteSku(sanityPublishImage));
+                }
                 if (value !== "best-bottles-grid") {
                   setBestBottlesGroupPickerOpen(false);
                   setBestBottlesGroupSearch("");
@@ -2384,7 +2393,9 @@ export default function ImageLibrary() {
                 {isBestBottlesOrg && (
                   <>
                     <SelectItem value="best-bottles-pdp">Best Bottles SKU / PDP image</SelectItem>
-                    <SelectItem value="best-bottles-grid">Best Bottles product group hero</SelectItem>
+                    <SelectItem value="best-bottles-grid">
+                      Best Bottles group hero / thumbnail
+                    </SelectItem>
                   </>
                 )}
                 <SelectItem value="tarife-sanity">Tarife product main image</SelectItem>
@@ -2475,6 +2486,8 @@ export default function ImageLibrary() {
                 <p className="text-[11px] text-[var(--darkroom-text)]/50">
                   Uploads to Best Bottles Sanity, then writes the Sanity CDN URL to{" "}
                   <span className="font-mono">productGroups.heroImageUrl</span> in Convex.
+                  This is the catalog hero/thumbnail path; it does not attach media to a Shopify
+                  variant.
                 </p>
               </div>
             </div>
@@ -2679,6 +2692,10 @@ export default function ImageLibrary() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Publishing…
                 </>
+              ) : publishDestination === "best-bottles-grid" ? (
+                "Publish hero / thumbnail"
+              ) : publishDestination === "best-bottles-pdp" ? (
+                "Publish PDP image"
               ) : (
                 "Publish live"
               )}
