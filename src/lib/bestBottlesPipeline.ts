@@ -867,8 +867,8 @@ export async function markPipelineSkuJobSyncedBySku(params: {
   organizationId: string;
   patch: PipelineSkuShopifySyncPatch;
 }): Promise<void> {
-  const now = patch.pushedAt ?? new Date().toISOString();
   const { organizationId, patch } = params;
+  const now = patch.pushedAt ?? new Date().toISOString();
   const sku = patch.sku.trim();
   if (!sku) return;
 
