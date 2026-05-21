@@ -34,7 +34,7 @@ interface ScrapeRequest {
 
 interface ScrapeSuccess {
   imageUrl: string;
-  source: "og-image" | "twitter-image" | "image-src";
+  source: "og-image" | "twitter-image" | "image-src" | "product-image";
 }
 
 interface ScrapeFailure {
@@ -61,6 +61,54 @@ function resolveUrl(href: string, base: string): string {
   } catch {
     return href;
   }
+}
+
+function extractImageSources(html: string, base: string): string[] {
+  const sources: string[] = [];
+  const seen = new Set<string>();
+  const imgPattern = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = imgPattern.exec(html)) !== null) {
+    const rawSrc = match[1]?.trim();
+    if (!rawSrc) continue;
+    const imageUrl = resolveUrl(rawSrc, base);
+    const key = imageUrl.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sources.push(imageUrl);
+  }
+
+  return sources;
+}
+
+function findProductImage(html: string, base: string): string | null {
+  const images = extractImageSources(html, base);
+  const usableImages = images.filter((imageUrl) => {
+    const lower = imageUrl.toLowerCase();
+    return (
+      lower.includes("/images/store/") &&
+      !lower.includes("/images/store/caps/") &&
+      !lower.includes("/uat/all-bottles/video")
+    );
+  });
+
+  const priorityDirectories = [
+    "/images/store/enlarged_pics/",
+    "/images/store/capped/",
+    "/images/store/measured/",
+    "/images/store/aerial/",
+    "/images/store/depthview/",
+  ];
+
+  for (const directory of priorityDirectories) {
+    const match = usableImages.find((imageUrl) =>
+      imageUrl.toLowerCase().includes(directory)
+    );
+    if (match) return match;
+  }
+
+  return usableImages[0] ?? null;
 }
 
 async function scrapeProductImage(
@@ -114,7 +162,10 @@ async function scrapeProductImage(
     /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
   );
   if (ogImage) {
-    return { imageUrl: resolveUrl(ogImage, url.toString()), source: "og-image" };
+    return {
+      imageUrl: resolveUrl(ogImage, url.toString()),
+      source: "og-image",
+    };
   }
 
   // Try the reverse attribute order — some platforms put `content` before
@@ -152,9 +203,18 @@ async function scrapeProductImage(
     };
   }
 
+  const productImage = findProductImage(html, url.toString());
+  if (productImage) {
+    return {
+      imageUrl: productImage,
+      source: "product-image",
+    };
+  }
+
   return {
     imageUrl: null,
-    error: "No og:image, twitter:image, or image_src tag found on the page.",
+    error:
+      "No og:image, twitter:image, image_src, or product image tag found on the page.",
   };
 }
 

@@ -223,7 +223,7 @@ One per bottle family in the catalog (27 total per Brand System). Each module in
 > Same Empire silhouette as 50ml but taller; 18-415 thread maintained for fitment compatibility. Height-to-width ratio increases — appears slimmer in proportion. Clear flint glass.
 
 ### Atomizer 5ml
-> Tall narrow cylindrical metal-wrapped travel atomizer, 13-400 internal thread, fixed pump cap. Visible exterior is the metal/leather/finish layer. Slim variant exists with reduced diameter.
+> Tall narrow cylindrical metal atomizer, 13-400 internal thread, fixed pump cap. Visible exterior is an opaque metal finish layer. Not leather-wrapped. Slim variant exists with reduced diameter.
 
 ### Atomizer 10ml
 > Same construction as 5ml but ~30% taller and slightly wider. Single-piece appearance with integrated pump.

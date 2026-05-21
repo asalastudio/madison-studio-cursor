@@ -7,7 +7,10 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import { getStaticBestBottlesProductsByFamily } from "@/lib/bestBottlesCatalogFallback";
+import {
+  getStaticBestBottlesCatalogProducts,
+  getStaticBestBottlesProductsByFamily,
+} from "@/lib/bestBottlesCatalogFallback";
 
 /** Shape of `productGroups` rows in best-bottles-website/convex/schema.ts. */
 export interface ProductGroup {
@@ -106,8 +109,13 @@ export async function getProductBySku(graceSku: string): Promise<Product | null>
 }
 
 export async function getProductsByFamily(family: string): Promise<Product[]> {
-  const result = await invoke<Product[] | null>("products:getByFamily", { family });
-  return result ?? [];
+  try {
+    const result = await invoke<Product[] | null>("products:getByFamily", { family });
+    return result ?? [];
+  } catch (error) {
+    console.warn("[bestBottles] products:getByFamily unavailable; using static catalog fallback", error);
+    return await getStaticBestBottlesProductsByFamily(family);
+  }
 }
 
 export async function getProductGroupsByFamily(family: string): Promise<ProductGroup[]> {
@@ -121,8 +129,13 @@ export async function getBestBottlesCatalogGroups(limit = 1000): Promise<Product
 }
 
 export async function getBestBottlesCatalogProducts(limit = 3000): Promise<Product[]> {
-  const result = await invoke<Product[] | null>("products:getCatalogProducts", { limit });
-  return result ?? [];
+  try {
+    const result = await invoke<Product[] | null>("products:getCatalogProducts", { limit });
+    return result ?? [];
+  } catch (error) {
+    console.warn("[bestBottles] products:getCatalogProducts unavailable; using static catalog fallback", error);
+    return await getStaticBestBottlesCatalogProducts(limit);
+  }
 }
 
 export interface ApplicatorBucket {
@@ -178,6 +191,20 @@ function sameThread(
   return !l || !r || l === r;
 }
 
+function normalizeColor(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase();
+  return normalized || null;
+}
+
+function sameGroupColor(
+  productColor: string | null | undefined,
+  groupColor: string | null | undefined,
+): boolean {
+  const group = normalizeColor(groupColor);
+  if (!group || group === "mixed") return true;
+  return normalizeColor(productColor) === group;
+}
+
 function uniqueProductsByGraceSku(products: Product[]): Product[] {
   const seen = new Set<string>();
   const unique: Product[] = [];
@@ -191,12 +218,14 @@ function uniqueProductsByGraceSku(products: Product[]): Product[] {
 }
 
 function filterApplicatorSiblingVariants(group: ProductGroup, products: Product[]): Product[] {
-  return products.filter(
-    (product) =>
+  return products.filter((product) => {
+    if (product.productGroupId && product.productGroupId === group._id) return true;
+    return (
       product.capacityMl === group.capacityMl &&
-      (product.color ?? null) === (group.color ?? null) &&
-      sameThread(product.neckThreadSize, group.neckThreadSize),
-  );
+      sameGroupColor(product.color, group.color) &&
+      sameThread(product.neckThreadSize, group.neckThreadSize)
+    );
+  });
 }
 
 async function getStaticFamilyProducts(family: string): Promise<Product[]> {

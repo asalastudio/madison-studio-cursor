@@ -251,18 +251,75 @@ function buildBestBottlesApplicatorPromptRules(
   };
 }
 
-function buildBestBottlesGlassPackshotRules(
-  productContext?: Record<string, unknown> | null,
-): string[] {
-  const productText = [
+interface BestBottlesBodyMaterialPromptRules {
+  kind: "glass" | "aluminum" | "plastic";
+  sourceTruthMaterial: string;
+  styleReferenceScopeLine: string;
+  photographicStyleLine: string;
+  lightingLines: string[];
+  bodyMaterialLine: string;
+  forbiddenLines: string[];
+  packshotRules: string[];
+}
+
+function getBestBottlesProductText(productContext?: Record<string, unknown> | null): string {
+  return [
+    productContext?.bodyMaterial,
+    productContext?.family,
     productContext?.name,
     productContext?.collection,
     productContext?.category,
+    productContext?.color,
     productContext?.sku,
   ]
     .filter((value): value is string => typeof value === "string")
     .join(" ")
     .toLowerCase();
+}
+
+function buildBestBottlesBodyMaterialPromptRules(
+  productContext?: Record<string, unknown> | null,
+): BestBottlesBodyMaterialPromptRules {
+  const productText = getBestBottlesProductText(productContext);
+
+  const isAluminum =
+    productText.includes("aluminum") ||
+    productText.includes("aluminium") ||
+    productText.includes("ab-alu");
+  if (isAluminum) {
+    return {
+      kind: "aluminum",
+      sourceTruthMaterial:
+        "opaque brushed/satin aluminum body material, exact metal grain direction, soft vertical metallic sheen, shoulder highlights, crimp/neck metal/plastic transitions, cap texture, silhouette, proportions, component relationships, colors, and material identity.",
+      styleReferenceScopeLine:
+        "- Use any secondary style/specularity reference only for lighting quality, reflection-card gradients, edge glints on opaque metal, contact shadow, ambient occlusion, and premium studio polish. It must not make the aluminum transparent, glassy, refractive, crystalline, or plastic.",
+      photographicStyleLine:
+        "- Secondary style/specularity reference influence, if provided, is lighting and metal-realism only: warm directional drama, soft elongated shadow behavior, vertical reflection rhythm, tactile satin/brushed aluminum grain, cap texture, and premium pack-shot polish. The Best Bottles aluminum product shape and opaque metal substrate remain the only product truth.",
+      lightingLines: [
+        "- Use professional metal-product lighting, not flat front lighting.",
+        "- Soft warm key light from upper front-left, gentle negative fill, subtle side strip reflections to reveal the cylinder curvature, black cards/flags creating controlled dark edge lines, and white reflection cards creating clean vertical metallic highlights.",
+        "- Translate window/curtain-like inspiration into abstract reflection-card behavior on the aluminum: slender warm vertical highlights, dark edge density, and soft luminous bands across the satin/brushed metal. Do not generate actual curtains, window frames, fabric, wood, flowers, or scene props.",
+        "- Keep the Bone background flat and quiet; put the visual drama inside the product through metal reflectance, brushed grain, cap texture, shoulder highlight, and grounding shadow.",
+        "- The aluminum body should be defined by opaque metal reflectance, subtle anisotropic grain, clean vertical highlight falloff, and realistic satin-metal tonal gradients. No transmitted light, no refraction, no visible back wall, no glass wall thickness.",
+      ],
+      bodyMaterialLine:
+        "- Aluminum body: preserve an opaque satin/brushed aluminum substrate. It must be solid metal, not transparent, not translucent, not glass, not crystal, and not clear plastic. Enhance fine vertical metal grain, subtle micro-scratches, soft cylindrical highlight bands, shoulder curvature, and realistic silver-gray metal tonal variation while preserving the exact reference shape.",
+      forbiddenLines: [
+        "- Do not turn the aluminum body into glass, clear plastic, translucent material, crystal, chrome mirror, liquid-filled glass, frosted glass, or a transparent perfume bottle.",
+        "- No refraction through the aluminum body, no visible back wall, no internal caustics, no wall thickness, no glass rim sparkle, no transparent edges, no liquid, and no interior dip tube visible through the metal body.",
+      ],
+      packshotRules: [
+        "LOCK GEOMETRY, RELIGHT OPAQUE METAL: the reference locks silhouette, proportions, cap shape, sprayer/collar geometry, camera angle, and placement; it does not lock poor exposure, weak contrast, flat white fill, dull metal, missing metal grain, or low-end capture quality.",
+        "Do not perform a simple background cleanup or silhouette trace. Reconstruct the same aluminum bottle as a true luxury e-commerce pack shot inside the exact same outline.",
+        "Lighting/material inspiration is allowed only as a photographic quality target: warm quiet drama, controlled directionality, dense but soft shadows, premium satin/brushed aluminum realism, and tactile metal texture. Never copy another bottle shape, label, cap design, scene, prop, tabletop, flower, curtain, or brand mark.",
+        "Opaque aluminum must not become transparent. It needs visible metal structure: fine grain, soft vertical reflection-card bands, shoulder highlight, gentle edge darkening, realistic cap texture, and subtle silver-gray tonal separation from the Bone background.",
+        "Use product-photography cards: controlled black-card edge lines on left/right metal boundaries, white-card vertical highlights across the cylindrical body and shoulder, and soft reflection gradients that describe the metal curvature without becoming broad CGI stripes.",
+        "Aluminum texture target: dust-free luxury retouch with real satin-metal irregularity, subtle brushed grain, faint manufacturing micro-imperfections, edge density, and polished pack-shot separation. It should feel photographed, not rendered.",
+        "The body should read as opaque brushed/satin aluminum with volume, not glass, not a white cutout, not a blank void, not a traced outline, and not milky plastic.",
+        "Retouching intensity target: premium commercial retouch, enough to visibly improve fidelity and polish while preserving every structural edge from Image 1.",
+      ],
+    };
+  }
 
   const rules = [
     "LOCK GEOMETRY, RELIGHT MATERIAL: the reference locks silhouette, proportions, facets, cap shape, camera angle, and placement; it does not lock poor exposure, weak contrast, flat white fill, silhouetted glass, missing refraction, or low-end capture quality.",
@@ -286,7 +343,25 @@ function buildBestBottlesGlassPackshotRules(
     );
   }
 
-  return rules;
+  return {
+    kind: "glass",
+    sourceTruthMaterial:
+      "glass thickness, transparent body substrate, silhouette, proportions, component relationships, colors, and material identity.",
+    styleReferenceScopeLine:
+      "- Use any secondary style/specularity reference only for realistic glass transparency, refraction, rim glints, specular highlight rhythm, contact shadow, ambient occlusion, and premium studio polish.",
+    photographicStyleLine:
+      "- Secondary glass/specularity reference influence, if provided, is lighting and glass realism only: warm directional sunlight-like drama, soft elongated shadow behavior, amber-cream tonal warmth, vertical reflection rhythm, tactile glass thickness, and premium fragrance-campaign polish. The Best Bottles product shape remains the only product shape.",
+    lightingLines: [
+      "- Use professional glass-product lighting, not flat front lighting.",
+      "- Soft warm key light from upper front-left, gentle negative fill, large diffused backlight through the glass, subtle side strip reflections to define edges, black cards/flags creating controlled dark edge lines, and white reflection cards creating clean specular highlights.",
+      "- Translate window/curtain-like inspiration into abstract reflection-card behavior on the product: slender warm vertical highlights, dark edge density, and soft luminous bands inside the glass. Do not generate actual curtains, window frames, fabric, wood, flowers, or scene props.",
+      "- Keep the Bone background flat and quiet; put the visual drama inside the product through reflections, refractions, edge density, base caustics, cap texture, and shadow.",
+      "- The glass should be defined by transmitted light, rim light, refraction, and edge reflections.",
+    ],
+    bodyMaterialLine: "",
+    forbiddenLines: [],
+    packshotRules: rules,
+  };
 }
 
 function buildReferenceLockedBestBottlesPrompt(
@@ -299,11 +374,12 @@ function buildReferenceLockedBestBottlesPrompt(
     .map((ref, idx) => ref.description ? `Reference ${idx + 1}: ${ref.description}` : null)
     .filter((line): line is string => Boolean(line))
     .join("\n");
+  const bodyMaterialRules = buildBestBottlesBodyMaterialPromptRules(productContext);
   const secondaryStyleScope = categorizedRefs.style.length > 0
     ? [
         "SECONDARY STYLE REFERENCE SCOPE:",
         "- Image 1 remains the only product identity, geometry, placement, color, cap, applicator, and camera-angle source.",
-        "- Use any secondary style/specularity reference only for realistic glass transparency, refraction, rim glints, specular highlight rhythm, contact shadow, ambient occlusion, and premium studio polish.",
+        bodyMaterialRules.styleReferenceScopeLine,
         "- Do not copy the secondary reference's product silhouette, cap, label, typography, brand, colorway, camera angle, composition, background, props, tabletop, flowers, curtains, or scene.",
         ...categorizedRefs.style
           .map((ref, idx) => ref.description ? `Style Reference ${idx + 1}: ${ref.description}` : null)
@@ -311,8 +387,20 @@ function buildReferenceLockedBestBottlesPrompt(
       ].join("\n")
     : "";
   const applicatorRules = buildBestBottlesApplicatorPromptRules(productContext);
-  const glassPackshotRules = buildBestBottlesGlassPackshotRules(productContext);
+  const sourceTruth =
+    bodyMaterialRules.kind === "aluminum"
+      ? [
+          applicatorRules.sourceTruth
+            .replace(/,?\s*glass thickness/gi, "")
+            .replace(/,?\s*visible wall thickness/gi, "")
+            .replace(/,?\s*transparent body substrate/gi, ""),
+          bodyMaterialRules.sourceTruthMaterial,
+        ].join(" ")
+      : applicatorRules.sourceTruth;
   const expectedColor = [
+    typeof productContext?.bodyMaterial === "string" ? `Body material: ${productContext.bodyMaterial}` : null,
+    typeof productContext?.family === "string" ? `Family: ${productContext.family}` : null,
+    typeof productContext?.color === "string" ? `Body color: ${productContext.color}` : null,
     typeof productContext?.capColor === "string" ? `${applicatorRules.colorLabel}: ${productContext.capColor}` : null,
     typeof productContext?.trimColor === "string" ? `Trim metal: ${productContext.trimColor}` : null,
     typeof productContext?.applicator === "string" ? `Applicator: ${productContext.applicator}` : null,
@@ -336,10 +424,10 @@ function buildReferenceLockedBestBottlesPrompt(
     "Task: transform the uploaded real product reference into a photorealistic high-end editorial PDP master. The product geometry, proportions, colors, component shapes, camera angle, material identity, canvas placement, centerline, baseline, and scale are locked. The flat white source background, weak lighting, missing shadow, and extracted-PNG look are not locked.",
     "",
     "GEOMETRY LOCK VS PACK-SHOT UPGRADE:",
-    ...glassPackshotRules.map((rule) => `- ${rule}`),
+    ...bodyMaterialRules.packshotRules.map((rule) => `- ${rule}`),
     "",
     "SOURCE OF TRUTH:",
-    `- Use Image 1 only as the product reference: ${applicatorRules.sourceTruth}`,
+    `- Use Image 1 only as the product reference: ${sourceTruth}`,
     secondaryStyleScope || null,
     "- Preserve the source camera angle, product component relationships, bounding-box footprint, centerline, baseline, and relative scale inside the 2080 x 2288 canvas. Do not redesign, redraw, recolor, rotate, stretch, simplify, recenter, zoom, crop, or reinterpret the product.",
     "- Do not preserve the reference image's flat lighting, pure-white background, weak shadow, or low-end capture finish. Re-stage the same locked product as a luxury catalog photograph without moving it.",
@@ -355,18 +443,14 @@ function buildReferenceLockedBestBottlesPrompt(
     "PHOTOGRAPHIC STYLE:",
     "- Photorealistic luxury product photography, as if captured on a Hasselblad medium-format studio camera with a 100mm macro/product lens at f/8–f/11, ISO 100, tripod-stable capture, high dynamic range, controlled exposure, crisp edge acuity, and realistic optical compression.",
     "- Quiet luxury editorial restraint: Kinfolk-like negative space and warmth, Aesop-like minimal product staging and material honesty. Match only the mood, restraint, warm neutrals, and premium photographic discipline. Do not imitate Aesop products, labels, packaging, typography, or brand assets.",
-    "- Secondary glass/specularity reference influence, if provided, is lighting and glass realism only: warm directional sunlight-like drama, soft elongated shadow behavior, amber-cream tonal warmth, vertical reflection rhythm, tactile glass thickness, and premium fragrance-campaign polish. The Best Bottles product shape remains the only product shape.",
+    bodyMaterialRules.photographicStyleLine,
     "",
     "LIGHTING:",
-    "- Use professional glass-product lighting, not flat front lighting.",
-    "- Soft warm key light from upper front-left, gentle negative fill, large diffused backlight through the glass, subtle side strip reflections to define edges, black cards/flags creating controlled dark edge lines, and white reflection cards creating clean specular highlights.",
-    "- Translate window/curtain-like inspiration into abstract reflection-card behavior on the product: slender warm vertical highlights, dark edge density, and soft luminous bands inside the glass. Do not generate actual curtains, window frames, fabric, wood, flowers, or scene props.",
-    "- Keep the Bone background flat and quiet; put the visual drama inside the product through reflections, refractions, edge density, base caustics, cap texture, and shadow.",
-    "- The glass should be defined by transmitted light, rim light, refraction, and edge reflections.",
+    ...bodyMaterialRules.lightingLines,
     "",
     "MATERIAL ENHANCEMENT:",
     "- The result must show a clear visible quality lift over the reference, not a near-duplicate. Increase material separation, controlled contrast, micro-detail, and studio polish while preserving product truth.",
-    applicatorRules.glassMaterialLine,
+    bodyMaterialRules.bodyMaterialLine || applicatorRules.glassMaterialLine,
     applicatorRules.fitmentMaterialLine,
     applicatorRules.textileMaterialLine || null,
     "",
@@ -377,9 +461,14 @@ function buildReferenceLockedBestBottlesPrompt(
     "",
     "FORBIDDEN:",
     ...applicatorRules.forbiddenLines,
+    ...bodyMaterialRules.forbiddenLines,
     "- No heavy/long/hard shadow, dark smear, doubled shadow, horizon line, tabletop edge, or obvious floor plane.",
-    "- No fake bevels, extra facets, broad central CGI stripe, softened/melted edges, or plastic-looking glass.",
-    "- No blank white glass body, no empty white central panel, no silhouette-only cutout, no line-art outline, no low-contrast glass that disappears into the background.",
+    bodyMaterialRules.kind === "aluminum"
+      ? "- No fake bevels, extra facets, broad central CGI stripe, chrome-mirror body, softened/melted edges, or plastic-looking metal."
+      : "- No fake bevels, extra facets, broad central CGI stripe, softened/melted edges, or plastic-looking glass.",
+    bodyMaterialRules.kind === "aluminum"
+      ? "- No blank white metal body, no empty white central panel, no silhouette-only cutout, no line-art outline, no low-contrast metal that disappears into the background."
+      : "- No blank white glass body, no empty white central panel, no silhouette-only cutout, no line-art outline, no low-contrast glass that disappears into the background.",
     "- No copied reference bottle shape, designer perfume logo, label typography, decorative cap, curtain scene, flower prop, wood surface, mirror tabletop, or lifestyle room setup.",
     "- No label, text, badge, watermark, brand name, UI pill, card frame, rounded border, props, hands, flowers, spray mist, pure-white cutout look, tabletop edge, vignette, or decorative canvas treatment.",
     "",
@@ -1745,13 +1834,30 @@ serve(async (req) => {
     }
     
     const referenceImagesPayload = [];
+    let processedProductReferenceCount = 0;
 
     // Order: Product references first (the "star")
     for (const ref of categorizedRefs.product) {
       const processed = await processReferenceImage(ref.url);
       if (processed) {
         referenceImagesPayload.push(processed);
+        processedProductReferenceCount += 1;
       }
+    }
+
+    if (
+      bestBottlesTagSet.has("brand:best-bottles") &&
+      bestBottlesTagSet.has("studio-master") &&
+      categorizedRefs.product.length > 0 &&
+      processedProductReferenceCount === 0
+    ) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Best Bottles master generation could not load the product reference image. Upload/import a public PNG, JPG, or WebP reference before generating.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Then: Background references (the "stage")

@@ -10,7 +10,10 @@ type RequestItem = {
   imageId?: string;
   imageUrl?: string;
   sku?: string;
+  websiteSku?: string;
+  graceSku?: string;
   altText?: string;
+  mode?: "cap-on" | "cap-off";
 };
 
 type ShopifyConfig = {
@@ -41,11 +44,211 @@ class ConfigurationError extends Error {
   status = 424;
 }
 
+type ConvexResponseBody = {
+  status?: string;
+  errorMessage?: string;
+  value?: unknown;
+};
+
+type BestBottlesProductLookup = {
+  websiteSku?: unknown;
+  graceSku?: unknown;
+  applicator?: unknown;
+};
+
+type PipelineSkuJobLookup = {
+  grace_sku?: string | null;
+  website_sku?: string | null;
+  shopify_sku?: string | null;
+  product_group_slug?: string | null;
+};
+
+type ResolvedBestBottlesProduct = {
+  inputSku: string;
+  websiteSku: string;
+  graceSku: string | null;
+  resolvedVia: "websiteSku" | "graceSku" | "pipelineSkuJob";
+  product: BestBottlesProductLookup | null;
+};
+
+const SHOPIFY_IMAGE_ALT_TEXT_MAX_CHARS = 512;
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function cleanSecret(value: string | undefined | null): string {
+  return value?.trim().replace(/^['"]|['"]$/g, "") || "";
+}
+
+function getString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function uniqueTrimmedStrings(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value?.trim() ?? "")
+        .filter(Boolean),
+    ),
+  );
+}
+
+function postgrestEqValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/,/g, "\\,");
+}
+
+function isMissingShopifySkuColumn(error: unknown): boolean {
+  const maybeError = error as { code?: string; message?: string } | null | undefined;
+  return Boolean(
+    maybeError?.code === "42703" ||
+      /shopify_sku/i.test(maybeError?.message ?? ""),
+  );
+}
+
+async function findPipelineSkuJob(
+  supabase: SupabaseClient,
+  organizationId: string,
+  candidates: string[],
+): Promise<PipelineSkuJobLookup | null> {
+  const skuCandidates = uniqueTrimmedStrings(candidates);
+  if (skuCandidates.length === 0) return null;
+
+  for (const candidate of skuCandidates) {
+    const lookup = async (includeShopifySku: boolean) => {
+      const select = includeShopifySku
+        ? "grace_sku,website_sku,shopify_sku,product_group_slug"
+        : "grace_sku,website_sku,product_group_slug";
+      const clauses = [
+        `grace_sku.eq.${postgrestEqValue(candidate)}`,
+        `website_sku.eq.${postgrestEqValue(candidate)}`,
+      ];
+      if (includeShopifySku) {
+        clauses.push(`shopify_sku.eq.${postgrestEqValue(candidate)}`);
+      }
+      return await supabase
+        .from("best_bottles_pipeline_sku_jobs")
+        .select(select)
+        .eq("organization_id", organizationId)
+        .or(clauses.join(","))
+        .limit(1);
+    };
+
+    let { data, error } = await lookup(true);
+    if (error && isMissingShopifySkuColumn(error)) {
+      ({ data, error } = await lookup(false));
+    }
+    if (error) continue;
+    const row = data?.[0] as PipelineSkuJobLookup | undefined;
+    if (row) return row;
+  }
+
+  return null;
+}
+
+function looksLikeProductGroupSlug(value: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(value.trim()) && /\b\d+ml\b/i.test(value);
+}
+
+function getBestBottlesConvexUrl(): string {
+  const rawUrl =
+    cleanSecret(Deno.env.get("BB_CONVEX_URL")) ||
+    cleanSecret(Deno.env.get("BESTBOTTLES_CONVEX_URL"));
+  if (!rawUrl) return "";
+
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("Invalid protocol");
+    }
+    return rawUrl.replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
+async function callBestBottlesConvex(
+  bbConvexUrl: string,
+  endpoint: "query" | "mutation",
+  path: string,
+  args: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; body: ConvexResponseBody | null }> {
+  const res = await fetch(`${bbConvexUrl}/api/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, args, format: "json" }),
+  });
+
+  let body: ConvexResponseBody | null = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+
+  return {
+    ok: res.ok && body?.status !== "error",
+    status: res.status,
+    body,
+  };
+}
+
+async function resolveBestBottlesProduct(
+  bbConvexUrl: string,
+  rawSku: string,
+  alternates: string[] = [],
+): Promise<ResolvedBestBottlesProduct | null> {
+  const skuCandidates = Array.from(
+    new Set(
+      [rawSku, ...alternates]
+        .map((candidate) => candidate.trim())
+        .filter(Boolean),
+    ),
+  );
+  if (skuCandidates.length === 0) return null;
+
+  for (const inputSku of skuCandidates) {
+    const byWebsite = await callBestBottlesConvex(
+      bbConvexUrl,
+      "query",
+      "products:getByWebsiteSku",
+      { websiteSku: inputSku },
+    );
+    if (byWebsite.ok && byWebsite.body?.value) {
+      const product = byWebsite.body.value as BestBottlesProductLookup;
+      const websiteSku = getString(product.websiteSku) || inputSku;
+      const graceSku = getString(product.graceSku) || null;
+      return { inputSku, websiteSku, graceSku, resolvedVia: "websiteSku", product };
+    }
+  }
+
+  for (const inputSku of skuCandidates) {
+    const byGrace = await callBestBottlesConvex(
+      bbConvexUrl,
+      "query",
+      "products:getBySku",
+      { graceSku: inputSku },
+    );
+    if (byGrace.ok && byGrace.body?.value) {
+      const product = byGrace.body.value as BestBottlesProductLookup;
+      const websiteSku = getString(product.websiteSku);
+      if (websiteSku) {
+        return {
+          inputSku,
+          websiteSku,
+          graceSku: getString(product.graceSku) || inputSku,
+          resolvedVia: "graceSku",
+          product,
+        };
+      }
+    }
+  }
+
+  return null;
 }
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -98,6 +301,12 @@ function userErrorMessage(errors: Array<{ field?: string[] | null; message: stri
       return `${field}${error.message}`;
     })
     .join("; ");
+}
+
+function toShopifyAltText(value: string | null | undefined, fallback: string): string {
+  const normalized = (value?.trim() || fallback).replace(/\s+/g, " ").trim();
+  if (normalized.length <= SHOPIFY_IMAGE_ALT_TEXT_MAX_CHARS) return normalized;
+  return `${normalized.slice(0, SHOPIFY_IMAGE_ALT_TEXT_MAX_CHARS - 3).trimEnd()}...`;
 }
 
 async function shopifyGraphql<T>(
@@ -355,6 +564,40 @@ async function appendMediaToVariant(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForMediaImageUrl(
+  config: ShopifyConfig,
+  mediaId: string,
+): Promise<string | null> {
+  const query = `
+    query MediaImageUrl($id: ID!) {
+      node(id: $id) {
+        ... on MediaImage {
+          status
+          image {
+            url
+          }
+        }
+      }
+    }
+  `;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (attempt > 0) await sleep(750);
+    const data = await shopifyGraphql<{
+      node?: { status?: string | null; image?: { url?: string | null } | null } | null;
+    }>(config, query, { id: mediaId });
+    const url = data.node?.image?.url;
+    if (url) return url;
+    if (data.node?.status === "FAILED") return null;
+  }
+
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -375,7 +618,12 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) return jsonResponse({ error: "Unauthorized" }, 401);
 
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({})) as {
+      items?: unknown;
+      organizationId?: string;
+      attachToVariant?: boolean;
+      syncBestBottlesConvex?: boolean;
+    };
     const items = Array.isArray(body.items) ? body.items as RequestItem[] : [];
     if (items.length === 0) {
       return jsonResponse({ error: "items is required" }, 400);
@@ -386,6 +634,14 @@ serve(async (req) => {
 
     const organizationId = await resolveOrganizationId(supabase, user.id, body.organizationId);
     const shopifyConfig = await getShopifyConfig(supabase, organizationId);
+    const syncBestBottlesConvex = body.syncBestBottlesConvex === true;
+    const bbConvexUrl = syncBestBottlesConvex ? getBestBottlesConvexUrl() : "";
+    if (syncBestBottlesConvex && !bbConvexUrl) {
+      return jsonResponse({
+        error:
+          "BESTBOTTLES_CONVEX_URL is required when syncBestBottlesConvex is true.",
+      }, 500);
+    }
 
     const imageIds = items
       .map((item) => item.imageId)
@@ -415,9 +671,15 @@ serve(async (req) => {
 
     for (const item of items) {
       const sku = item.sku?.trim();
+      const requestedWebsiteSku = item.websiteSku?.trim();
+      const requestedGraceSku = item.graceSku?.trim();
       const dbImage = item.imageId ? imageById.get(item.imageId) : null;
       const imageUrl = dbImage?.image_url ?? item.imageUrl?.trim();
-      const label = item.altText?.trim() || dbImage?.session_name || sku || "Product image";
+      const label = toShopifyAltText(
+        item.altText?.trim() || dbImage?.session_name,
+        sku ? `${sku} product image` : "Product image",
+      );
+      const mode = item.mode === "cap-off" ? "cap-off" : "cap-on";
 
       if (!sku) {
         results.push({ imageId: item.imageId, sku, status: "failed", message: "Missing SKU" });
@@ -437,9 +699,78 @@ serve(async (req) => {
       }
 
       try {
-        const variant = await findVariantBySku(shopifyConfig, sku);
+        const pipelineSkuJob = syncBestBottlesConvex
+          ? await findPipelineSkuJob(
+              supabase,
+              organizationId,
+              [sku, requestedWebsiteSku ?? "", requestedGraceSku ?? ""],
+            )
+          : null;
+
+        let bestBottlesProduct: ResolvedBestBottlesProduct | null = null;
+        if (syncBestBottlesConvex) {
+          bestBottlesProduct = await resolveBestBottlesProduct(
+            bbConvexUrl,
+            sku,
+            [
+              requestedWebsiteSku ?? "",
+              requestedGraceSku ?? "",
+              pipelineSkuJob?.website_sku ?? "",
+              pipelineSkuJob?.grace_sku ?? "",
+              pipelineSkuJob?.shopify_sku ?? "",
+            ],
+          );
+          if (!bestBottlesProduct && pipelineSkuJob?.website_sku) {
+            bestBottlesProduct = {
+              inputSku: sku,
+              websiteSku: pipelineSkuJob.website_sku,
+              graceSku: pipelineSkuJob.grace_sku ?? null,
+              resolvedVia: "pipelineSkuJob",
+              product: null,
+            };
+          }
+          if (!bestBottlesProduct) {
+            results.push({
+              imageId: item.imageId,
+              sku,
+              mode,
+              status: "failed",
+              message: `No Best Bottles Convex product found for SKU ${sku}`,
+            });
+            continue;
+          }
+        }
+
+        const shopifySkuCandidates = Array.from(new Set(
+          [
+            pipelineSkuJob?.shopify_sku,
+            pipelineSkuJob?.grace_sku,
+            sku,
+            requestedWebsiteSku,
+            requestedGraceSku,
+            bestBottlesProduct?.graceSku,
+            bestBottlesProduct?.websiteSku,
+          ].filter((candidate): candidate is string => Boolean(candidate)),
+        ));
+        let variant: ShopifyVariant | null = null;
+        let matchedShopifySku = sku;
+        for (const candidate of shopifySkuCandidates) {
+          variant = await findVariantBySku(shopifyConfig, candidate);
+          if (variant) {
+            matchedShopifySku = candidate;
+            break;
+          }
+        }
         if (!variant) {
-          results.push({ imageId: item.imageId, sku, status: "failed", message: `No Shopify variant found for SKU ${sku}` });
+          const tried = shopifySkuCandidates.length > 0
+            ? ` Tried: ${shopifySkuCandidates.join(", ")}.`
+            : "";
+          results.push({
+            imageId: item.imageId,
+            sku,
+            status: "failed",
+            message: `No Shopify variant found for SKU ${sku}.${tried}`,
+          });
           continue;
         }
 
@@ -454,6 +785,44 @@ serve(async (req) => {
           await appendMediaToVariant(shopifyConfig, variant.product.id, variant.id, media.id);
         }
 
+        const shopifyImageUrl = media.url ?? await waitForMediaImageUrl(shopifyConfig, media.id);
+        let bestBottlesConvex: Record<string, unknown> | null = null;
+        if (syncBestBottlesConvex && bestBottlesProduct) {
+          if (!shopifyImageUrl) {
+            throw new Error("Shopify accepted the image but did not return a CDN URL for Convex sync");
+          }
+
+          const field = mode === "cap-off" ? "imageUrlCapOff" : "imageUrl";
+          const mutation = await callBestBottlesConvex(
+            bbConvexUrl,
+            "mutation",
+            "products:setVariantImages",
+            { websiteSku: bestBottlesProduct.websiteSku, [field]: shopifyImageUrl },
+          );
+          if (!mutation.ok) {
+            throw new Error(
+              mutation.body?.errorMessage ||
+                `Best Bottles Convex sync failed with status ${mutation.status}`,
+            );
+          }
+
+          const mutationValue = mutation.body?.value as { success?: boolean; error?: string } | null | undefined;
+          if (mutationValue?.success === false) {
+            throw new Error(
+              mutationValue.error ||
+                "Best Bottles Convex did not update the product image",
+            );
+          }
+
+          bestBottlesConvex = {
+            websiteSku: bestBottlesProduct.websiteSku,
+            resolvedVia: bestBottlesProduct.resolvedVia,
+            field,
+            imageUrl: shopifyImageUrl,
+            mutation: mutation.body?.value ?? null,
+          };
+        }
+
         await supabase.from("shopify_publish_log").insert({
           organization_id: organizationId,
           product_id: null,
@@ -463,23 +832,41 @@ serve(async (req) => {
             type: "product_image",
             source: "image_library_batch",
             sku,
+            matchedShopifySku,
+            requestedWebsiteSku: requestedWebsiteSku ?? null,
+            requestedGraceSku: requestedGraceSku ?? null,
+            pipelineSkuJob: pipelineSkuJob
+              ? {
+                  graceSku: pipelineSkuJob.grace_sku ?? null,
+                  websiteSku: pipelineSkuJob.website_sku ?? null,
+                  shopifySku: pipelineSkuJob.shopify_sku ?? null,
+                  productGroupSlug: pipelineSkuJob.product_group_slug ?? null,
+                }
+              : null,
+            mode,
             imageId: item.imageId ?? null,
             imageUrl,
+            shopifyImageUrl: shopifyImageUrl ?? null,
             mediaId: media.id,
             mediaStatus: media.status ?? null,
             variantId: variant.id,
             productTitle: variant.product.title,
+            bestBottlesConvex,
           },
         });
 
         results.push({
           imageId: item.imageId,
           sku,
+          matchedShopifySku,
+          mode,
           status: "success",
           shopifyProductId: variant.product.id,
           shopifyVariantId: variant.id,
           mediaId: media.id,
           mediaStatus: media.status ?? null,
+          shopifyImageUrl: shopifyImageUrl ?? null,
+          bestBottlesConvex,
         });
       } catch (error) {
         results.push({

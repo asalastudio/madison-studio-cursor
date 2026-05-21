@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, X, Check, Replace } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,12 @@ export function UploadZone({
 }: UploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreviewError(false);
+  }, [image?.url]);
 
   const processFile = useCallback(
     async (file: File) => {
@@ -248,22 +253,35 @@ export function UploadZone({
               transition={{ duration: 0.3 }}
               className="upload-filled"
             >
-              <img src={image.url} alt={label} />
+              <img
+                src={image.url}
+                alt={label}
+                onLoad={() => setPreviewError(false)}
+                onError={() => setPreviewError(true)}
+              />
+              {previewError && (
+                <div className="upload-zone__preview-error">
+                  <X size={18} />
+                  <span>Preview failed to load</span>
+                </div>
+              )}
 
               {/* Success Badge with Animation */}
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 400,
-                  damping: 15,
-                  delay: 0.2,
-                }}
-                className="upload-success-badge"
-              >
-                <Check size={12} />
-              </motion.div>
+              {!previewError && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 15,
+                    delay: 0.2,
+                  }}
+                  className="upload-success-badge"
+                >
+                  <Check size={12} />
+                </motion.div>
+              )}
 
               {/* Remove Button */}
               {onRemove && (

@@ -12,6 +12,9 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "bestbottles:catalog:reconcile": "tsx scripts/build-bestbottles-catalog-lite.ts",
+    "bestbottles:generation:readiness": "tsx scripts/build-bestbottles-generation-readiness.ts",
+    "bestbottles:generation:first-batch": "tsx scripts/build-bestbottles-first-controlled-batch.ts",
+    "bestbottles:product-hub:enrich": "tsx scripts/enrich-bestbottles-product-hubs.ts",
     "preview": "vite preview"
   },
   "dependencies": {

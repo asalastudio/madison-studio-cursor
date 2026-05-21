@@ -1,15 +1,19 @@
 /**
- * Patch Best Bottles live catalog data: sets Convex `productGroups.heroImageUrl`
- * for the given slug using the library image URL (public Supabase storage URL).
- * No Sanity hop — the storefront reads hero URLs from Convex.
+ * Patch Best Bottles live catalog hero data.
+ *
+ * Catalog/product-group hero images are curated site imagery, so this uploads
+ * the Madison Library image into Best Bottles Sanity and then sets Convex
+ * `productGroups.heroImageUrl` to the resulting Sanity CDN URL.
  *
  * POST /functions/v1/push-bestbottles-grid-hero
  * Authorization: Bearer <supabase user jwt>
  * Body: { imageUrl: string, slug: string }
  *
- * Env: BESTBOTTLES_CONVEX_URL
+ * Env: BESTBOTTLES_CONVEX_URL, BESTBOTTLES_SANITY_PROJECT_ID,
+ *      BESTBOTTLES_SANITY_WRITE_TOKEN
  */
 
+import { createClient as createSanityClient } from "https://esm.sh/@sanity/client@6.8.6";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 const corsHeaders = {
@@ -37,6 +41,77 @@ function normalizeProductGroupSlug(value: string) {
     .replace(/[^a-z0-9-]/g, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function getBestBottlesSanityConfig() {
+  return {
+    projectId:
+      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_PROJECT_ID")) ||
+      cleanSecret(Deno.env.get("BB_SANITY_PROJECT_ID")),
+    dataset:
+      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_DATASET")) ||
+      cleanSecret(Deno.env.get("BB_SANITY_DATASET")) ||
+      "production",
+    token:
+      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_WRITE_TOKEN")) ||
+      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_API_TOKEN")) ||
+      cleanSecret(Deno.env.get("BB_SANITY_WRITE_TOKEN")) ||
+      cleanSecret(Deno.env.get("BB_SANITY_API_TOKEN")),
+    apiVersion:
+      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_API_VERSION")) ||
+      cleanSecret(Deno.env.get("BB_SANITY_API_VERSION")) ||
+      "2024-01-01",
+  };
+}
+
+function getBestBottlesSanityClient() {
+  const config = getBestBottlesSanityConfig();
+  if (!config.projectId || !config.token) {
+    throw new Error(
+      "Missing Best Bottles Sanity configuration. Set BESTBOTTLES_SANITY_PROJECT_ID and BESTBOTTLES_SANITY_WRITE_TOKEN in Madison Supabase secrets.",
+    );
+  }
+
+  return createSanityClient({
+    projectId: config.projectId,
+    dataset: config.dataset,
+    token: config.token,
+    apiVersion: config.apiVersion,
+    useCdn: false,
+  });
+}
+
+function safeFilenameBase(slug: string) {
+  return `${slug}-hero`.replace(/[^a-z0-9_-]+/gi, "-").slice(0, 90);
+}
+
+async function uploadHeroToSanity(params: {
+  imageUrl: string;
+  slug: string;
+}): Promise<{ sanityImageUrl: string; sanityAssetId: string }> {
+  const sanityClient = getBestBottlesSanityClient();
+  const imageRes = await fetch(params.imageUrl);
+  if (!imageRes.ok) {
+    throw new Error(`Failed to fetch Madison image (${imageRes.status}): ${imageRes.statusText}`);
+  }
+
+  const imageBlob = await imageRes.blob();
+  const contentType = imageRes.headers.get("content-type") || imageBlob.type || "image/png";
+  const extension =
+    contentType.includes("jpeg") || contentType.includes("jpg")
+      ? "jpg"
+      : contentType.includes("webp")
+        ? "webp"
+        : "png";
+  const asset = await sanityClient.assets.upload("image", imageBlob, {
+    filename: `${safeFilenameBase(params.slug)}.${extension}`,
+  });
+
+  if (!asset?._id || !asset?.url) {
+    throw new Error("Sanity upload completed without an asset id or CDN URL.");
+  }
+
+  return { sanityImageUrl: asset.url, sanityAssetId: asset._id };
 }
 
 Deno.serve(async (req) => {
@@ -92,7 +167,22 @@ Deno.serve(async (req) => {
     );
   }
 
-  const heroImageUrl = imageUrl;
+  let sanityUpload: { sanityImageUrl: string; sanityAssetId: string };
+  try {
+    sanityUpload = await uploadHeroToSanity({ imageUrl, slug });
+  } catch (e) {
+    return json(
+      {
+        error: `Best Bottles Sanity hero upload failed: ${e instanceof Error ? e.message : String(e)}`,
+        inputSlug,
+        slug,
+        sourceImageUrl: imageUrl,
+      },
+      500,
+    );
+  }
+
+  const heroImageUrl = sanityUpload.sanityImageUrl;
 
   try {
     const mutationUrl = `${convexUrl.replace(/\/$/, "")}/api/mutation`;
@@ -110,7 +200,15 @@ Deno.serve(async (req) => {
     try {
       convexBody = await convexResponse.json();
     } catch {
-      return json({ error: "Convex returned non-JSON", heroImageUrl }, 502);
+      return json(
+        {
+          error: "Convex returned non-JSON",
+          sourceImageUrl: imageUrl,
+          heroImageUrl,
+          sanityAssetId: sanityUpload.sanityAssetId,
+        },
+        502,
+      );
     }
 
     if (!convexResponse.ok) {
@@ -118,7 +216,9 @@ Deno.serve(async (req) => {
         {
           error: `Convex ${convexResponse.status}`,
           upstream: convexBody,
+          sourceImageUrl: imageUrl,
           heroImageUrl,
+          sanityAssetId: sanityUpload.sanityAssetId,
         },
         502,
       );
@@ -137,7 +237,9 @@ Deno.serve(async (req) => {
             "Convex mutation failed. Confirm productGroups:setHeroImageUrl is deployed in Best Bottles Convex.",
           inputSlug,
           slug,
+          sourceImageUrl: imageUrl,
           heroImageUrl,
+          sanityAssetId: sanityUpload.sanityAssetId,
         },
         502,
       );
@@ -151,7 +253,9 @@ Deno.serve(async (req) => {
         {
           error: `No product group found in Convex for slug "${slug}". Check the slug matches productGroups.slug.`,
           inputSlug,
+          sourceImageUrl: imageUrl,
           heroImageUrl,
+          sanityAssetId: sanityUpload.sanityAssetId,
           convex: value,
         },
         404,
@@ -162,7 +266,10 @@ Deno.serve(async (req) => {
       success: true,
       slug,
       inputSlug,
+      sourceImageUrl: imageUrl,
       heroImageUrl,
+      sanityImageUrl: sanityUpload.sanityImageUrl,
+      sanityAssetId: sanityUpload.sanityAssetId,
       convex: value ?? null,
     });
   } catch (e) {

@@ -629,6 +629,22 @@
   object-fit: cover;
 }
 
+.upload-zone__preview-error {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(10, 9, 8, 0.88);
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
 .upload-zone__preview-overlay {
   position: absolute;
   inset: 0;

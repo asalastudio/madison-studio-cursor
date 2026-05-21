@@ -25,6 +25,18 @@ export type PipelineStatus =
   | "rejected"
   | "synced";
 
+export type PipelineSkuJobStatus =
+  | "needs-reference"
+  | "ready-to-generate"
+  | "queued"
+  | "generating"
+  | "generated"
+  | "qa-pending"
+  | "approved"
+  | "rejected"
+  | "shopify-pushed"
+  | "synced";
+
 export interface PipelineGroup {
   id: string;
   organization_id: string;
@@ -95,6 +107,67 @@ export interface PipelineGroup {
 
   created_at: string;
   updated_at: string;
+}
+
+export interface PipelineSkuJob {
+  id: string;
+  organization_id: string;
+  pipeline_group_id: string | null;
+  product_group_slug: string;
+  product_group_display_name: string | null;
+  family: string;
+  catalog_reference_pages: string | null;
+  category: string | null;
+  capacity_ml: number | null;
+  applicator: string | null;
+  canonical_color: string | null;
+  product_id: string | null;
+  source_id: string | null;
+  grace_sku: string;
+  website_sku: string;
+  shopify_sku: string | null;
+  expected_canonical_filename: string | null;
+  best_reference_candidate_path: string | null;
+  coverage_status: string | null;
+  status: PipelineSkuJobStatus;
+  generated_image_id: string | null;
+  generated_image_url: string | null;
+  approved_image_id: string | null;
+  approved_image_url: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  shopify_product_id: string | null;
+  shopify_variant_id: string | null;
+  shopify_media_id: string | null;
+  shopify_image_url: string | null;
+  shopify_pushed_at: string | null;
+  convex_synced_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PipelineSkuCoverageInput {
+  action?: string;
+  coverageStatus: string;
+  productId?: string;
+  sourceId?: string;
+  productGroupSlug: string;
+  productGroupDisplayName: string;
+  family: string;
+  catalogReferencePages?: string;
+  category?: string;
+  capacityMl?: string | number | null;
+  applicator?: string;
+  canonicalColor?: string;
+  graceSku: string;
+  websiteSku: string;
+  shopifySku?: string | null;
+  expectedCanonicalFilename?: string;
+  bestReferenceCandidatePath?: string;
+  generatedCandidateCount?: number;
+  reviewCandidateCount?: number;
+  shopifyReadyCount?: number;
 }
 
 // ─── CSV parsing ─────────────────────────────────────────────────────────────
@@ -434,6 +507,182 @@ export async function listPipelineGroups(
   return (data ?? []) as PipelineGroup[];
 }
 
+export interface PipelineSkuJobFilters {
+  family?: string;
+  productGroupSlug?: string;
+  status?: PipelineSkuJobStatus;
+}
+
+export async function listPipelineSkuJobs(
+  organizationId: string,
+  filters: PipelineSkuJobFilters = {},
+): Promise<PipelineSkuJob[]> {
+  const pageSize = 1000;
+  const out: PipelineSkuJob[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    let q = supabase
+      .from("best_bottles_pipeline_sku_jobs")
+      .select("*")
+      .eq("organization_id", organizationId);
+
+    if (filters.family) q = q.eq("family", filters.family);
+    if (filters.productGroupSlug) q = q.eq("product_group_slug", filters.productGroupSlug);
+    if (filters.status) q = q.eq("status", filters.status);
+
+    const { data, error } = await q
+      .order("family", { ascending: true })
+      .order("product_group_display_name", { ascending: true, nullsFirst: false })
+      .order("grace_sku", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    const page = (data ?? []) as PipelineSkuJob[];
+    out.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return out;
+}
+
+export interface SeedPipelineSkuJobsResult {
+  total: number;
+  upserted: number;
+  skipped: number;
+}
+
+interface PipelineSkuJobSeedRow {
+  organization_id: string;
+  pipeline_group_id: string | null;
+  product_group_slug: string;
+  product_group_display_name: string | null;
+  family: string;
+  catalog_reference_pages: string | null;
+  category: string | null;
+  capacity_ml: number | null;
+  applicator: string | null;
+  canonical_color: string | null;
+  product_id: string | null;
+  source_id: string | null;
+  grace_sku: string;
+  website_sku: string;
+  shopify_sku: string | null;
+  expected_canonical_filename: string | null;
+  best_reference_candidate_path: string | null;
+  coverage_status: string | null;
+  status: PipelineSkuJobStatus;
+}
+
+const TERMINAL_SKU_JOB_STATUSES = new Set<PipelineSkuJobStatus>([
+  "approved",
+  "shopify-pushed",
+  "synced",
+]);
+
+function toNullableText(value: unknown): string | null {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+
+function toNullableInt(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function initialSkuJobStatus(job: PipelineSkuCoverageInput): PipelineSkuJobStatus {
+  if ((job.shopifyReadyCount ?? 0) > 0) return "approved";
+  if ((job.generatedCandidateCount ?? 0) > 0 || (job.reviewCandidateCount ?? 0) > 0) {
+    return "generated";
+  }
+  if (job.coverageStatus === "missing_local_reference_image") return "needs-reference";
+  if (
+    job.coverageStatus === "covered_canonical" ||
+    job.coverageStatus === "covered_needs_canonical_copy"
+  ) {
+    return "ready-to-generate";
+  }
+  return "needs-reference";
+}
+
+export async function seedPipelineSkuJobsFromCoverage(params: {
+  organizationId: string;
+  products: PipelineSkuCoverageInput[];
+  groups: PipelineGroup[];
+  existingJobs?: PipelineSkuJob[];
+}): Promise<SeedPipelineSkuJobsResult> {
+  const { organizationId, products, groups, existingJobs = [] } = params;
+  const groupsBySlug = new Map(
+    groups
+      .filter((group) => group.convex_slug)
+      .map((group) => [group.convex_slug as string, group]),
+  );
+  const existingByGraceSku = new Map(
+    existingJobs.map((job) => [job.grace_sku, job]),
+  );
+
+  const payload: PipelineSkuJobSeedRow[] = [];
+  let skipped = 0;
+  for (const product of products) {
+    const graceSku = toNullableText(product.graceSku);
+    const websiteSku = toNullableText(product.websiteSku);
+    const productGroupSlug = toNullableText(product.productGroupSlug);
+    const family = toNullableText(product.family);
+    if (!graceSku || !websiteSku || !productGroupSlug || !family) {
+      skipped += 1;
+      continue;
+    }
+
+    const existing = existingByGraceSku.get(graceSku);
+    const seededStatus = initialSkuJobStatus(product);
+    const status =
+      existing && TERMINAL_SKU_JOB_STATUSES.has(existing.status)
+        ? existing.status
+        : seededStatus;
+    const group = groupsBySlug.get(productGroupSlug);
+
+    payload.push({
+      organization_id: organizationId,
+      pipeline_group_id: group?.id ?? null,
+      product_group_slug: productGroupSlug,
+      product_group_display_name: toNullableText(product.productGroupDisplayName),
+      family,
+      catalog_reference_pages: toNullableText(product.catalogReferencePages),
+      category: toNullableText(product.category),
+      capacity_ml: toNullableInt(product.capacityMl),
+      applicator: toNullableText(product.applicator),
+      canonical_color: toNullableText(product.canonicalColor),
+      product_id: toNullableText(product.productId),
+      source_id: toNullableText(product.sourceId),
+      grace_sku: graceSku,
+      website_sku: websiteSku,
+      shopify_sku: toNullableText(product.shopifySku),
+      expected_canonical_filename: toNullableText(product.expectedCanonicalFilename),
+      best_reference_candidate_path: toNullableText(product.bestReferenceCandidatePath),
+      coverage_status: toNullableText(product.coverageStatus),
+      status,
+    });
+  }
+
+  for (let i = 0; i < payload.length; i += 500) {
+    const chunk = payload.slice(i, i + 500);
+    const { error } = await supabase
+      .from("best_bottles_pipeline_sku_jobs")
+      .upsert(chunk, {
+        onConflict: "organization_id,grace_sku",
+        ignoreDuplicates: false,
+      });
+    if (error) throw error;
+  }
+
+  return {
+    total: products.length,
+    upserted: payload.length,
+    skipped,
+  };
+}
+
 /**
  * Find the first Pipeline row whose `convex_slug` matches the given
  * Convex productGroup slug. Used by the Studio's Masters tab to locate
@@ -514,6 +763,366 @@ export async function updatePipelineGroupStatus(
     .update(patch)
     .eq("id", id);
   if (error) throw error;
+}
+
+export async function updatePipelineSkuJob(
+  id: string,
+  patch: Partial<
+    Pick<
+      PipelineSkuJob,
+      | "status"
+      | "generated_image_id"
+      | "generated_image_url"
+      | "approved_image_id"
+      | "approved_image_url"
+      | "approved_at"
+      | "approved_by"
+      | "shopify_product_id"
+      | "shopify_variant_id"
+      | "shopify_media_id"
+      | "shopify_image_url"
+      | "shopify_sku"
+      | "shopify_pushed_at"
+      | "convex_synced_at"
+      | "last_error"
+    >
+  >,
+): Promise<void> {
+  const { error } = await supabase
+    .from("best_bottles_pipeline_sku_jobs")
+    .update(patch)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function updatePipelineSkuJobReference(params: {
+  organizationId: string;
+  graceSku: string;
+  referenceUrl: string;
+  referenceName?: string | null;
+}): Promise<void> {
+  const graceSku = params.graceSku.trim();
+  if (!graceSku) return;
+
+  const { data: job, error: lookupError } = await supabase
+    .from("best_bottles_pipeline_sku_jobs")
+    .select("id,status")
+    .eq("organization_id", params.organizationId)
+    .eq("grace_sku", graceSku)
+    .maybeSingle();
+
+  if (lookupError) throw lookupError;
+  if (!job) return;
+
+  const status = job.status === "needs-reference" ? "ready-to-generate" : job.status;
+  const { error } = await supabase
+    .from("best_bottles_pipeline_sku_jobs")
+    .update({
+      best_reference_candidate_path: params.referenceUrl,
+      expected_canonical_filename: params.referenceName ?? undefined,
+      coverage_status: "covered_canonical",
+      status,
+      last_error: null,
+    })
+    .eq("id", job.id);
+
+  if (error) throw error;
+}
+
+export async function markPipelineSkuJobsQueued(params: {
+  organizationId: string;
+  productGroupSlug: string;
+  graceSkus?: string[];
+}): Promise<number> {
+  const { organizationId, productGroupSlug, graceSkus } = params;
+  let q = supabase
+    .from("best_bottles_pipeline_sku_jobs")
+    .update({ status: "queued" })
+    .eq("organization_id", organizationId)
+    .eq("product_group_slug", productGroupSlug);
+
+  if (graceSkus && graceSkus.length > 0) {
+    q = q.in("grace_sku", graceSkus).in("status", ["needs-reference", "ready-to-generate"]);
+  } else {
+    q = q.eq("status", "ready-to-generate");
+  }
+
+  const { data, error } = await q.select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
+export interface PipelineSkuShopifySyncPatch {
+  sku: string;
+  shopifySku?: string | null;
+  shopifyProductId?: string | null;
+  shopifyVariantId?: string | null;
+  shopifyMediaId?: string | null;
+  shopifyImageUrl?: string | null;
+  convexSynced?: boolean;
+  pushedAt?: string | null;
+}
+
+export async function markPipelineSkuJobSyncedBySku(params: {
+  organizationId: string;
+  patch: PipelineSkuShopifySyncPatch;
+}): Promise<void> {
+  const now = patch.pushedAt ?? new Date().toISOString();
+  const { organizationId, patch } = params;
+  const sku = patch.sku.trim();
+  if (!sku) return;
+
+  const update: Partial<PipelineSkuJob> = {
+    status: patch.convexSynced ? "synced" : "shopify-pushed",
+    shopify_product_id: patch.shopifyProductId ?? null,
+    shopify_variant_id: patch.shopifyVariantId ?? null,
+    shopify_media_id: patch.shopifyMediaId ?? null,
+    shopify_image_url: patch.shopifyImageUrl ?? null,
+    shopify_sku: patch.shopifySku ?? sku,
+    shopify_pushed_at: now,
+    convex_synced_at: patch.convexSynced ? now : null,
+    last_error: null,
+  };
+
+  const { error } = await supabase
+    .from("best_bottles_pipeline_sku_jobs")
+    .update(update)
+    .eq("organization_id", organizationId)
+    .or(`grace_sku.eq.${sku},website_sku.eq.${sku},shopify_sku.eq.${sku}`);
+  if (error) throw error;
+}
+
+type ShopifyPublishLogRow = {
+  id: string;
+  shopify_product_id: string;
+  published_at: string | null;
+  published_content: unknown;
+};
+
+type ShopifyProductImagePublishContent = {
+  type?: string | null;
+  source?: string | null;
+  sku?: string | null;
+  matchedShopifySku?: string | null;
+  mode?: string | null;
+  imageId?: string | null;
+  imageUrl?: string | null;
+  shopifyImageUrl?: string | null;
+  mediaId?: string | null;
+  variantId?: string | null;
+  bestBottlesConvex?: {
+    websiteSku?: string | null;
+    field?: string | null;
+  } | null;
+};
+
+export interface ReconcilePipelineShopifyPushesResult {
+  totalLogs: number;
+  productImageLogs: number;
+  matched: number;
+  updated: number;
+  alreadyAccounted: number;
+  skipped: number;
+  unmatched: number;
+  unmatchedSkus: string[];
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function textValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function normalizeShopifyPublishContent(value: unknown): ShopifyProductImagePublishContent | null {
+  const obj = asObject(value);
+  if (!obj) return null;
+  const bestBottlesConvex = asObject(obj.bestBottlesConvex);
+
+  return {
+    type: textValue(obj.type),
+    source: textValue(obj.source),
+    sku: textValue(obj.sku),
+    matchedShopifySku: textValue(obj.matchedShopifySku),
+    mode: textValue(obj.mode),
+    imageId: textValue(obj.imageId),
+    imageUrl: textValue(obj.imageUrl),
+    shopifyImageUrl: textValue(obj.shopifyImageUrl),
+    mediaId: textValue(obj.mediaId),
+    variantId: textValue(obj.variantId),
+    bestBottlesConvex: bestBottlesConvex
+      ? {
+          websiteSku: textValue(bestBottlesConvex.websiteSku),
+          field: textValue(bestBottlesConvex.field),
+        }
+      : null,
+  };
+}
+
+function isUuid(value: string | null | undefined): value is string {
+  return Boolean(
+    value &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+  );
+}
+
+function skuLookupKey(value: string | null | undefined): string | null {
+  const text = value?.trim().toLowerCase();
+  return text && text.length > 0 ? text : null;
+}
+
+async function listShopifyPublishLogs(organizationId: string): Promise<ShopifyPublishLogRow[]> {
+  const pageSize = 1000;
+  const out: ShopifyPublishLogRow[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("shopify_publish_log")
+      .select("id, shopify_product_id, published_at, published_content")
+      .eq("organization_id", organizationId)
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    const page = (data ?? []) as ShopifyPublishLogRow[];
+    out.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return out;
+}
+
+/**
+ * Backfill Best Bottles SKU job state from historical Madison Shopify pushes.
+ *
+ * Earlier Shopify pushes were already recorded in `shopify_publish_log`, but
+ * the newer per-SKU Pipeline table did not exist yet. This pass reads those
+ * logs, matches by website/Grace SKU, and writes the Shopify product/variant/
+ * media URL metadata into `best_bottles_pipeline_sku_jobs` so the queue does
+ * not ask operators to push the same approved image twice.
+ */
+export async function reconcilePipelineShopifyPushes(params: {
+  organizationId: string;
+  existingJobs?: PipelineSkuJob[];
+}): Promise<ReconcilePipelineShopifyPushesResult> {
+  const { organizationId } = params;
+  const jobs = params.existingJobs ?? await listPipelineSkuJobs(organizationId);
+  const logs = await listShopifyPublishLogs(organizationId);
+  const jobsBySku = new Map<string, PipelineSkuJob>();
+
+  for (const job of jobs) {
+    const graceKey = skuLookupKey(job.grace_sku);
+    const websiteKey = skuLookupKey(job.website_sku);
+    const shopifyKey = skuLookupKey(job.shopify_sku);
+    if (graceKey) jobsBySku.set(graceKey, job);
+    if (websiteKey) jobsBySku.set(websiteKey, job);
+    if (shopifyKey) jobsBySku.set(shopifyKey, job);
+  }
+
+  const result: ReconcilePipelineShopifyPushesResult = {
+    totalLogs: logs.length,
+    productImageLogs: 0,
+    matched: 0,
+    updated: 0,
+    alreadyAccounted: 0,
+    skipped: 0,
+    unmatched: 0,
+    unmatchedSkus: [],
+  };
+  const updatedJobIds = new Set<string>();
+
+  for (const log of logs) {
+    const content = normalizeShopifyPublishContent(log.published_content);
+    if (content?.type !== "product_image") {
+      result.skipped += 1;
+      continue;
+    }
+    result.productImageLogs += 1;
+
+    const skuCandidates = [
+      content.sku,
+      content.matchedShopifySku,
+      content.bestBottlesConvex?.websiteSku,
+    ]
+      .map(skuLookupKey)
+      .filter((value): value is string => Boolean(value));
+
+    const job = skuCandidates
+      .map((candidate) => jobsBySku.get(candidate))
+      .find((candidate): candidate is PipelineSkuJob => Boolean(candidate));
+
+    if (!job) {
+      result.unmatched += 1;
+      const label = content.sku ?? content.matchedShopifySku ?? content.bestBottlesConvex?.websiteSku;
+      if (label && result.unmatchedSkus.length < 20 && !result.unmatchedSkus.includes(label)) {
+        result.unmatchedSkus.push(label);
+      }
+      continue;
+    }
+
+    if (updatedJobIds.has(job.id)) {
+      result.skipped += 1;
+      continue;
+    }
+
+    result.matched += 1;
+    const shopifyProductId = log.shopify_product_id;
+    const shopifyVariantId = content.variantId ?? job.shopify_variant_id;
+    const shopifyMediaId = content.mediaId ?? job.shopify_media_id;
+    const shopifyImageUrl = content.shopifyImageUrl ?? job.shopify_image_url;
+    const publishedAt = log.published_at ?? new Date().toISOString();
+    const convexSynced = Boolean(content.bestBottlesConvex);
+    const nextStatus: PipelineSkuJobStatus =
+      job.status === "synced" || convexSynced ? "synced" : "shopify-pushed";
+    const alreadyTerminal = job.status === "shopify-pushed" || job.status === "synced";
+    const sameKnownShopifyFields =
+      (!shopifyProductId || job.shopify_product_id === shopifyProductId) &&
+      (!shopifyVariantId || job.shopify_variant_id === shopifyVariantId) &&
+      (!shopifyMediaId || job.shopify_media_id === shopifyMediaId) &&
+      (!shopifyImageUrl || job.shopify_image_url === shopifyImageUrl);
+
+    if (alreadyTerminal && job.shopify_pushed_at && sameKnownShopifyFields) {
+      result.alreadyAccounted += 1;
+      updatedJobIds.add(job.id);
+      continue;
+    }
+
+    const patch: Partial<PipelineSkuJob> = {
+      status: nextStatus,
+      shopify_product_id: shopifyProductId,
+      shopify_variant_id: shopifyVariantId,
+      shopify_media_id: shopifyMediaId,
+      shopify_image_url: shopifyImageUrl,
+      shopify_sku: content.matchedShopifySku ?? content.sku ?? job.shopify_sku,
+      shopify_pushed_at: job.shopify_pushed_at ?? publishedAt,
+      convex_synced_at: nextStatus === "synced" ? (job.convex_synced_at ?? publishedAt) : job.convex_synced_at,
+      last_error: null,
+    };
+
+    if (!job.approved_image_id && isUuid(content.imageId)) {
+      patch.approved_image_id = content.imageId;
+    }
+    if (!job.approved_image_url && content.imageUrl) {
+      patch.approved_image_url = content.imageUrl;
+    }
+    if (!job.approved_at) {
+      patch.approved_at = publishedAt;
+    }
+
+    const { error } = await supabase
+      .from("best_bottles_pipeline_sku_jobs")
+      .update(patch)
+      .eq("id", job.id);
+    if (error) throw error;
+
+    result.updated += 1;
+    updatedJobIds.add(job.id);
+  }
+
+  return result;
 }
 
 async function updatePipelineGroupsByIds(

@@ -20,7 +20,7 @@
  * Master creation, component generation, and compositor are follow-up commits.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Beaker, Layers, Grid3x3, ImageIcon } from "lucide-react";
@@ -43,6 +43,7 @@ import {
 } from "@/integrations/convex/bestBottles";
 import {
   findPipelineGroupByConvexSlug,
+  listPipelineSkuJobs,
   updatePipelineGroupStatus,
 } from "@/lib/bestBottlesPipeline";
 import "@/styles/darkroom.css";
@@ -99,6 +100,51 @@ export default function BestBottlesStudio() {
   });
 
   const applicatorBuckets: ApplicatorBucket[] = data?.applicatorBuckets ?? [];
+
+  const { data: persistedSkuJobs = [], isFetched: hasFetchedPersistedSkuJobs } = useQuery({
+    queryKey: ["best-bottles-studio-sku-job-references", currentOrganizationId, data?.group.family],
+    queryFn: () =>
+      listPipelineSkuJobs(currentOrganizationId!, {
+        family: data!.group.family,
+      }),
+    enabled: Boolean(currentOrganizationId && data?.group.family),
+    staleTime: 30 * 1000,
+  });
+
+  const persistedReferenceImagesBySku = useMemo(() => {
+    return Object.fromEntries(
+      persistedSkuJobs
+        .filter((job) => Boolean(job.best_reference_candidate_path))
+        .map((job) => [
+          job.grace_sku,
+          {
+            url: job.best_reference_candidate_path!,
+            name: job.expected_canonical_filename ?? job.grace_sku,
+          },
+        ]),
+    );
+  }, [persistedSkuJobs]);
+
+  useEffect(() => {
+    if (!data?.variants?.length) return;
+    const shouldWaitForPersistedRefs = Boolean(currentOrganizationId && data?.group.family);
+    if (shouldWaitForPersistedRefs && !hasFetchedPersistedSkuJobs) return;
+    if (selectedSku && data.variants.some((variant) => variant.graceSku === selectedSku)) {
+      return;
+    }
+
+    const firstReferencedVariant =
+      data.variants.find((variant) => Boolean(persistedReferenceImagesBySku[variant.graceSku])) ??
+      data.variants[0];
+    setSelectedSku(firstReferencedVariant.graceSku);
+  }, [
+    currentOrganizationId,
+    data?.group.family,
+    data?.variants,
+    hasFetchedPersistedSkuJobs,
+    persistedReferenceImagesBySku,
+    selectedSku,
+  ]);
 
   // Component target math — paper-doll asset inventory for this family.
   // 1 body PNG + one fitment PNG per unique applicator-colorway combo.
@@ -316,6 +362,7 @@ export default function BestBottlesStudio() {
                     familyVariants={data.variants}
                     allFamilyProducts={data.allFamilyProducts}
                     familyName={data.group.family}
+                    persistedReferenceImagesBySku={persistedReferenceImagesBySku}
                     onApproveMaster={async (result, product) => {
                       if (!currentOrganizationId || !groupSlug) {
                         toast({

@@ -17,6 +17,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 import type { AssembledPrompt } from "@/lib/product-image/promptAssembler";
+import { getBestBottlesReferenceUrlIssue } from "@/lib/bestBottlesReferenceValidation";
 
 export interface AssembledGenerationResult {
   imageUrl: string;
@@ -42,7 +43,10 @@ export interface AssembledGenerateOptions {
   productContext?: {
     name?: string;
     collection?: string;
+    family?: string | null;
     category?: string;
+    bodyMaterial?: string | null;
+    color?: string | null;
     scent_family?: string;
     sku?: string;
     capacityMl?: number | null;
@@ -81,6 +85,25 @@ function getExactCanvasForAspectRatio(aspectRatio: string): { widthPx: number; h
   return normalized === "10:11" || normalized === "2080:2288" || normalized === "2080x2288"
     ? { widthPx: 2080, heightPx: 2288 }
     : null;
+}
+
+function getBodyMaterialLabel(productContext: AssembledGenerateOptions["productContext"]): string {
+  const haystack = [
+    productContext?.bodyMaterial,
+    productContext?.family,
+    productContext?.collection,
+    productContext?.category,
+    productContext?.name,
+    productContext?.sku,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  if (haystack.includes("aluminum") || haystack.includes("aluminium") || haystack.includes("ab-alu")) {
+    return "opaque brushed/satin aluminum metal";
+  }
+  return "the exact referenced bottle body material";
 }
 
 export function useAssembledPromptGeneration() {
@@ -126,11 +149,31 @@ export function useAssembledPromptGeneration() {
     // actually sees the reference. Always pass objects.
     const rawRef = options.referenceImageUrl?.trim() || "";
     const rawGlassRef = options.glassSpecularityReferenceImageUrl?.trim() || "";
+    const isBestBottlesStudioMasterRequest =
+      Boolean(options.extraLibraryTags?.includes("brand:best-bottles")) &&
+      Boolean(options.extraLibraryTags?.includes("studio-master"));
+    const productReferenceIssue = getBestBottlesReferenceUrlIssue(rawRef);
+    if (isBestBottlesStudioMasterRequest && productReferenceIssue) {
+      const message = `Reference is not usable: ${productReferenceIssue}`;
+      setError(message);
+      setIsGenerating(false);
+      toast({
+        title: "Usable reference required",
+        description: message,
+        variant: "destructive",
+      });
+      return null;
+    }
     const refIsSupported =
-      rawRef.length > 0 && !/\.(gif|heic|bmp)(\?|$)/i.test(rawRef);
+      rawRef.length > 0 && productReferenceIssue === null;
     const glassRefIsSupported =
       rawGlassRef.length > 0 && !/\.(gif|heic|bmp)(\?|$)/i.test(rawGlassRef);
     const referenceImagesList: Array<{ url: string; label: string; description: string }> = [];
+    const bodyMaterialLabel = getBodyMaterialLabel(options.productContext);
+    const isAluminumBody = bodyMaterialLabel.includes("aluminum");
+    const styleReferenceLabel = isAluminumBody
+      ? "Aluminum Lighting-Only Style Reference"
+      : "Glass Specularity Style Reference";
     if (refIsSupported) {
       referenceImagesList.push({
         url: rawRef,
@@ -138,7 +181,7 @@ export function useAssembledPromptGeneration() {
         description:
           [
             "Canonical bottle reference (PSD-rendered PNG).",
-            "Use this image as an exact product-identity lock: preserve the bottle geometry, camera angle, scale relationships, cap texture, fitment, applicator, glass color, hose/bulb/tassel color, trim metal, and all surface details.",
+            `Use this image as an exact product-identity lock: preserve the bottle geometry, camera angle, scale relationships, body material/substrate (${bodyMaterialLabel}), cap texture, fitment, applicator, body color, hose/bulb/tassel color, trim metal, and all surface details.`,
             "Do not redesign, restyle, recolor, rotate, or reinterpret the product components.",
             "Do allow luxury catalog staging, lighting, background replacement, shadow, and refined PDP canvas placement as instructed by the server prompt.",
           ].join(" "),
@@ -147,11 +190,13 @@ export function useAssembledPromptGeneration() {
     if (glassRefIsSupported) {
       referenceImagesList.push({
         url: rawGlassRef,
-        label: "Glass Specularity Style Reference",
+        label: styleReferenceLabel,
         description:
           [
             "Secondary style-only reference.",
-            "Use only for realistic glass transparency, refraction, edge glints, specular highlight rhythm, contact shadow, ambient occlusion, and premium studio polish.",
+            isAluminumBody
+              ? "Use only for lighting direction, reflection-card rhythm, opaque metal edge glints, contact shadow, ambient occlusion, and premium studio polish. Do not use this image to change the product material: the body must remain opaque brushed/satin aluminum."
+              : "Use only for realistic glass transparency, refraction, edge glints, specular highlight rhythm, contact shadow, ambient occlusion, and premium studio polish.",
             "Do not copy or infer this reference's product silhouette, cap, label, colors, geometry, camera angle, composition, background, props, brand, or scene.",
             "Image 1 Product Reference remains the only product identity and placement source.",
           ].join(" "),

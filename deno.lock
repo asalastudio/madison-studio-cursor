@@ -44,7 +44,9 @@
     "https://deno.land/x/imagescript@1.2.17/v2/ops/resize.mjs": "814e78ebce8eaf8f1f918688db7b52a141405e06a36ed4b25d04413d69e7d17b",
     "https://deno.land/x/imagescript@1.2.17/v2/ops/rotate.mjs": "a1b65616717bd2eed8db406affea3263b4674dada46b56441ef38167a187455d",
     "https://deno.land/x/imagescript@1.2.17/v2/util/mem.mjs": "4968d400dae069b4bf0ef4767c1802fd2cc7d15d90eda4cfadf5b4cd19b96c6d",
-    "https://esm.sh/@supabase/supabase-js@2.104.0": "67037e235b6fbec8e8eed1ca97714a9379c8cc60af4e8747dfe6cf4c43f661bb"
+    "https://esm.sh/@sanity/client@6.8.6": "ec7e8b7755676e00a0f03eb0dc4296a9148bbf036cf14cc28a0dba8fd6a76d2d",
+    "https://esm.sh/@supabase/supabase-js@2.104.0": "67037e235b6fbec8e8eed1ca97714a9379c8cc60af4e8747dfe6cf4c43f661bb",
+    "https://esm.sh/@supabase/supabase-js@2.7.1": "be4ce96f1e7e5c9fc4b2b77a7feb75ac03796dd2c6988e99b229c0cefc28309b"
   },
   "workspace": {
     "packageJson": {

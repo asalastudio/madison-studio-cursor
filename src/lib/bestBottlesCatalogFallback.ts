@@ -49,3 +49,8 @@ export async function getStaticBestBottlesProductsByFamily(
   const catalog = await loadBestBottlesCatalog();
   return catalog.filter((product) => normalizeFamily(product.family) === target);
 }
+
+export async function getStaticBestBottlesCatalogProducts(limit = 3000): Promise<Product[]> {
+  const catalog = await loadBestBottlesCatalog();
+  return limit > 0 ? catalog.slice(0, limit) : catalog;
+}

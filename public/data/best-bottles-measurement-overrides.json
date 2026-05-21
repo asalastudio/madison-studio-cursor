@@ -1,0 +1,93 @@
+{
+  "notes": "Temporary generation-readiness measurements for Convex-backed rows with incomplete catalog dimensions. These should be synced back into the canonical Convex/catalog data before removing the measurement_override_pending_convex_sync issue.",
+  "overrides": [
+    {
+      "graceSku": "GB-BEL-CLR-10ML-SPR-SBLK",
+      "heightWithoutCap": "55",
+      "diameter": "27",
+      "source": "BestBottles product page",
+      "sourceUrl": "https://www.bestbottles.com/product/bell-design-10-ml-glass-bottle-shiny-black-spray",
+      "note": "Exact website SKU page lists 55 mm body height and 27 mm diameter."
+    },
+    {
+      "graceSku": "GB-BLL-CLR-10ML-MRL-BDOT",
+      "heightWithoutCap": "55",
+      "diameter": "27",
+      "source": "Catalog duplicate and body-equivalent BestBottles Bell metal roll-on rows",
+      "sourceUrl": "https://www.bestbottles.com/product/bell-design-10-ml-glass-bottle-metal-roller-ball-plug-shiny-gold-cap",
+      "note": "The exact websiteSku appears in a catalog duplicate with 55 mm height and 27 mm diameter; equivalent Bell 10 ml metal roll-on pages match those body dimensions."
+    },
+    {
+      "graceSku": "GB-BLL-CLR-10ML-RBL-BDOT",
+      "heightWithoutCap": "55",
+      "diameter": "27",
+      "source": "Catalog duplicate and body-equivalent BestBottles Bell plastic roll-on rows",
+      "sourceUrl": "https://www.bestbottles.com/product/bell-design-10-ml-glass-bottle-plastic-roller-ball-plug-black-shiny-cap",
+      "note": "The exact websiteSku appears in a catalog duplicate with 55 mm height and 27 mm diameter; equivalent Bell 10 ml plastic roll-on pages match those body dimensions."
+    },
+    {
+      "graceSku": "GB-BSR-CLR-15ML-DRP-BLK",
+      "heightWithoutCap": "68",
+      "diameter": "25",
+      "source": "BestBottles product page",
+      "sourceUrl": "https://www.bestbottles.com/product/boston-round-design-15-ml-clear-glass-bottle-black-dropper",
+      "note": "Exact website SKU page lists 68 mm body height and 25 mm diameter."
+    },
+    {
+      "graceSku": "PB-CYL-CLR-118ML-WFLP",
+      "heightWithoutCap": "116",
+      "diameter": "41",
+      "source": "BestBottles product page",
+      "sourceUrl": "https://www.bestbottles.com/product/cylinder-design-4-oz-plastic-bottle-white-flip-top-cap",
+      "note": "Exact website SKU page lists 116 mm body height and 41 mm diameter."
+    },
+    {
+      "graceSku": "PB-CYL-227ML-WFLP",
+      "heightWithoutCap": "156",
+      "diameter": "51",
+      "source": "BestBottles product page",
+      "sourceUrl": "https://www.bestbottles.com/product/cylinder-design-16-oz-plastic-bottle-white-flip-top-cap",
+      "note": "Exact website SKU page lists 156 mm body height and 51 mm diameter. The legacy URL slug says 16 oz, but the page content is PbClear8ozFlpWh."
+    },
+    {
+      "graceSku": "PB-CYL-454ML-WFLP",
+      "heightWithoutCap": "195",
+      "diameter": "62",
+      "source": "BestBottles product page",
+      "sourceUrl": "https://www.bestbottles.com/product/cylinder-design-8-oz-plastic-bottle-white-flip-top-cap",
+      "note": "Exact website SKU page lists 195 mm body height and 62 mm diameter. The legacy URL slug says 8 oz, but the page content is PbNat16ozFlpWh."
+    },
+    {
+      "graceSku": "GB-ELG-FRS-15ML-CAP-SBLK",
+      "heightWithoutCap": "61",
+      "diameter": "35",
+      "source": "Catalog sibling rows in elegant-15ml-frosted-13-415 product group",
+      "sourceUrl": null,
+      "note": "Same product group rows with matching 61 mm body height list 35 mm diameter."
+    },
+    {
+      "graceSku": "GB-PIL-CLR-9ML-MRL-BDOT",
+      "heightWithoutCap": "57",
+      "diameter": "21",
+      "source": "BestBottles equivalent Pillar 9 ml metal roll-on product page",
+      "sourceUrl": "https://www.bestbottles.com/product/pillar-design-5-ml-glass-bottle-metal-roller-ball-plug-matte-gold-cap",
+      "note": "Equivalent Pillar 9 ml metal roll-on body page lists 57 mm body height and 21 mm diameter."
+    },
+    {
+      "graceSku": "GB-PIL-CLR-9ML-SPR-MBLK",
+      "heightWithoutCap": "57",
+      "diameter": "21",
+      "source": "BestBottles Pillar 9 ml sprayer page plus Pillar 9 ml sibling height",
+      "sourceUrl": "https://www.bestbottles.com/product/pillar-design-5-ml-glass-bottle-matte-black-spray",
+      "note": "Exact sprayer page lists 21 mm diameter; same Pillar 9 ml body family consistently lists 57 mm body height."
+    },
+    {
+      "graceSku": "GB-VIA-BLU-3ML-BLK-S",
+      "heightWithoutCap": "27",
+      "diameter": "15",
+      "source": "BestBottles product page",
+      "sourceUrl": "https://www.bestbottles.com/product/Vial-design-half-dram-blue-glass-black-short-cap",
+      "note": "Exact website SKU page lists 27 mm body height and 15 mm diameter; this replaces a stale catalog diameter value."
+    }
+  ]
+}

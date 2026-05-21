@@ -112,6 +112,29 @@ export function inferFillable(applicator: string | null | undefined): boolean {
   return applicator !== "Glass Rod";
 }
 
+function inferBodyMaterialKind(
+  product: ConvexProductLike,
+): "aluminum" | "plastic" | "glass" {
+  const haystack = [
+    product.family,
+    product.bottleCollection,
+    product.category,
+    product.itemName,
+    product.graceSku,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  if (haystack.includes("aluminum") || haystack.includes("aluminium") || haystack.includes("ab-alu")) {
+    return "aluminum";
+  }
+  if (haystack.includes("plastic")) {
+    return "plastic";
+  }
+  return "glass";
+}
+
 /**
  * Per-family default wall thickness in mm. Convex does not store this; the
  * values below are reasonable defaults for the dominant families. For families
@@ -125,6 +148,9 @@ const WALL_THICKNESS_BY_FAMILY_MM: Record<string, number> = {
   Apothecary: 3.0,
   "Cream Jar": 3.5,
   Rectangle: 3.0,
+  Grace: 3.0,
+  Royal: 2.5,
+  Square: 2.5,
   Teardrop: 2.5,
   Bell: 3.0,
   Diamond: 3.0,
@@ -154,6 +180,8 @@ export function defaultWallThicknessMm(family: string | null | undefined): numbe
 const NON_CYLINDRICAL_FAMILIES: ReadonlySet<string> = new Set([
   "Empire",
   "Rectangle",
+  "Grace",
+  "Royal",
   "Slim",
   "Sleek",
   "Diamond",
@@ -234,6 +262,7 @@ export function buildProductSpecBlock(
 
   const bodyFields = scope !== "fitment";
   const fitmentFields = scope !== "body";
+  const bodyMaterial = inferBodyMaterialKind(product);
 
   if (bodyFields && product.family) {
     const collection =
@@ -323,7 +352,17 @@ export function buildProductSpecBlock(
   }
 
   if (bodyFields) {
-    lines.push(`- Glass color: ${product.color || MISSING}`);
+    if (bodyMaterial === "aluminum") {
+      lines.push(
+        `- Body finish/color: ${product.color || MISSING} opaque brushed/satin aluminum — NOT glass, NOT transparent, NOT translucent.`,
+      );
+    } else if (bodyMaterial === "plastic") {
+      lines.push(
+        `- Body color/material: ${product.color || MISSING} plastic — NOT glass unless the catalog explicitly says glass.`,
+      );
+    } else {
+      lines.push(`- Glass color: ${product.color || MISSING}`);
+    }
   }
 
   // Neck thread matters for both body (where fitment seats) and fitment
@@ -373,9 +412,15 @@ export function buildProductSpecBlock(
       }
     }
     if (wallMm != null) {
-      lines.push(
-        `- Glass thickness must be visually consistent with approximately ${wallMm} mm wall`,
-      );
+      if (bodyMaterial === "glass") {
+        lines.push(
+          `- Glass thickness must be visually consistent with approximately ${wallMm} mm wall`,
+        );
+      } else {
+        lines.push(
+          `- Body wall/gauge must be visually consistent with approximately ${wallMm} mm material thickness`,
+        );
+      }
     }
     lines.push("- Render ONLY the bottle body — no fitment, no sprayer, no cap, no dip tube");
     lines.push("- The neck opening should be visible and unobstructed at the top of the bottle");
@@ -395,6 +440,9 @@ export function buildProductSpecBlock(
     lines.push("PHYSICAL CONSTRAINTS — MANDATORY DIMENSIONS:");
     lines.push(
       "These measurements come directly from Grace's catalog and are NOT approximations. The rendered bottle MUST match these dimensions exactly. Do not invent, scale, or interpolate.",
+    );
+    lines.push(
+      "- SIZE SCALE LOCK: Use the millimeter dimensions as real physical scale within the fixed catalog frame. Do NOT enlarge smaller capacities to fill the canvas like larger siblings. A 30ml bottle must remain visibly smaller/shorter than a 50ml sibling when its dimensions are smaller, and a 50ml bottle must remain visibly smaller/shorter than a 100ml sibling when its dimensions are smaller.",
     );
     if (heightMm != null && diameterMm != null) {
       const ratio = (heightMm / diameterMm).toFixed(2);
@@ -429,9 +477,15 @@ export function buildProductSpecBlock(
       lines.push(`- ASSEMBLED HEIGHT (body + cap): ${heightWithCapMm} mm.`);
     }
     if (wallMm != null) {
-      lines.push(
-        `- WALL THICKNESS: approximately ${wallMm} mm. Glass body should visibly read as this thickness through the bottle's transparent walls — base reads thicker due to convex bottom.`,
-      );
+      if (bodyMaterial === "glass") {
+        lines.push(
+          `- WALL THICKNESS: approximately ${wallMm} mm. Glass body should visibly read as this thickness through the bottle's transparent walls — base reads thicker due to convex bottom.`,
+        );
+      } else {
+        lines.push(
+          `- BODY WALL/GAUGE: approximately ${wallMm} mm. Material reads as opaque ${bodyMaterial}, with no glass transparency or see-through wall effect.`,
+        );
+      }
     }
     lines.push(
       "- Bottle must appear structurally realistic at the stated dimensions; do NOT exaggerate curvature, neck taper, or base thickness beyond what these numbers imply.",

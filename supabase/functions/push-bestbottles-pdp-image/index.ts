@@ -1,9 +1,14 @@
 /**
  * push-bestbottles-pdp-image
  * ─────────────────────────────────────────────────────────────────────────
- * Uploads a Madison Library image to Best Bottles Sanity, then patches
- * Best Bottles Convex `products.imageUrl` (cap-on) or
- * `products.imageUrlCapOff` (cap-off) for a specific SKU with the Sanity CDN URL.
+ * Legacy compatibility endpoint.
+ *
+ * Product images now belong in Shopify Plus, not Sanity. This endpoint keeps
+ * old Madison clients working by forwarding PDP image requests to
+ * `push-shopify-product-images`, which uploads to Shopify product media,
+ * attaches the media to the matched variant, then patches Best Bottles Convex
+ * `products.imageUrl` (cap-on) or `products.imageUrlCapOff` (cap-off) with
+ * the Shopify CDN URL.
  *
  * Companion to:
  *   push-bestbottles-grid-hero    — patches productGroups.heroImageUrl
@@ -17,20 +22,13 @@
  *
  * Auth: Supabase JWT (caller must be signed in to Madison).
  *
- * Validation:
- *   - cap-off mode is rejected for applicators not in NEEDS_CAP_OFF
- *     (sprayers / atomizers / roll-ons / lotion pumps only)
- *
  * Returns:
- *   200 { ok: true, websiteSku, mode, field, sanityImageUrl, sanityAssetId, mutationResult }
+ *   200 { ok: true, websiteSku, mode, field, shopifyImageUrl, mutationResult }
  *   400 { error: "..." }
  *   404 { error: "websiteSku not found in BB Convex" }
  *   500 { error: "..." }
  */
 
-// deno-lint-ignore-file no-explicit-any
-
-import { createClient as createSanityClient } from "https://esm.sh/@sanity/client@6.8.6";
 import { createClient as createSupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 const corsHeaders = {
@@ -39,89 +37,33 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const NEEDS_CAP_OFF: ReadonlySet<string> = new Set([
-  "Perfume Spray Pump",
-  "Fine Mist Sprayer",
-  "Atomizer",
-  "Metal Atomizer",
-  "Metal Roller Ball",
-  "Plastic Roller Ball",
-  "Lotion Pump",
-]);
-
 type PushBody = {
   imageUrl?: unknown;
   websiteSku?: unknown;
   mode?: unknown;
 };
 
-type ConvexProductLookup = {
-  value?: {
-    websiteSku?: unknown;
-    graceSku?: unknown;
-    applicator?: unknown;
+type ForwardedResult = {
+  status?: string;
+  message?: string;
+  shopifyImageUrl?: string | null;
+  shopifyProductId?: string | null;
+  shopifyVariantId?: string | null;
+  mediaId?: string | null;
+  bestBottlesConvex?: {
+    websiteSku?: string;
+    field?: string;
+    mutation?: unknown;
   } | null;
 };
 
-type ResolvedWebsiteSku = {
-  inputSku: string;
-  websiteSku: string;
-  product: ConvexProductLookup["value"];
-  resolvedVia: "websiteSku" | "graceSku";
-};
-
-type ConvexSetVariantImagesResult = {
-  success?: boolean;
+type ForwardedBody = {
   error?: string;
-  [key: string]: unknown;
-};
-
-type ConvexMutationBody = {
-  status?: string;
-  errorMessage?: string;
-  value?: ConvexSetVariantImagesResult | null;
+  results?: ForwardedResult[];
 };
 
 function cleanSecret(value: string | undefined | null) {
   return value?.trim().replace(/^['"]|['"]$/g, "") || "";
-}
-
-function getBestBottlesConvexUrl() {
-  const rawUrl =
-    cleanSecret(Deno.env.get("BB_CONVEX_URL")) ||
-    cleanSecret(Deno.env.get("BESTBOTTLES_CONVEX_URL"));
-  if (!rawUrl) return "";
-
-  try {
-    const url = new URL(rawUrl);
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      throw new Error("Invalid protocol");
-    }
-    return rawUrl.replace(/\/+$/, "");
-  } catch {
-    return "";
-  }
-}
-
-function getBestBottlesSanityConfig() {
-  return {
-    projectId:
-      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_PROJECT_ID")) ||
-      cleanSecret(Deno.env.get("BB_SANITY_PROJECT_ID")),
-    dataset:
-      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_DATASET")) ||
-      cleanSecret(Deno.env.get("BB_SANITY_DATASET")) ||
-      "production",
-    token:
-      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_WRITE_TOKEN")) ||
-      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_API_TOKEN")) ||
-      cleanSecret(Deno.env.get("BB_SANITY_WRITE_TOKEN")) ||
-      cleanSecret(Deno.env.get("BB_SANITY_API_TOKEN")),
-    apiVersion:
-      cleanSecret(Deno.env.get("BESTBOTTLES_SANITY_API_VERSION")) ||
-      cleanSecret(Deno.env.get("BB_SANITY_API_VERSION")) ||
-      "2024-01-01",
-  };
 }
 
 function jsonResponse(status: number, body: unknown) {
@@ -129,122 +71,6 @@ function jsonResponse(status: number, body: unknown) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-function getBestBottlesSanityClient() {
-  const config = getBestBottlesSanityConfig();
-  if (!config.projectId || !config.token) {
-    throw new Error(
-      "Missing Best Bottles Sanity configuration. Set BESTBOTTLES_SANITY_PROJECT_ID and BESTBOTTLES_SANITY_WRITE_TOKEN in Madison Supabase secrets.",
-    );
-  }
-
-  return createSanityClient({
-    projectId: config.projectId,
-    dataset: config.dataset,
-    token: config.token,
-    apiVersion: config.apiVersion,
-    useCdn: false,
-  });
-}
-
-function safeFilenameBase(websiteSku: string, mode: "cap-on" | "cap-off") {
-  return `${websiteSku}-${mode}`.replace(/[^a-z0-9_-]+/gi, "-").slice(0, 80);
-}
-
-async function callConvex(
-  bbConvexUrl: string,
-  endpoint: "query" | "mutation",
-  path: string,
-  args: Record<string, unknown>,
-): Promise<{ ok: boolean; status: number; body: any }> {
-  const res = await fetch(`${bbConvexUrl}/api/${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, args, format: "json" }),
-  });
-
-  let body: any = null;
-  try {
-    body = await res.json();
-  } catch {
-    body = null;
-  }
-
-  return {
-    ok: res.ok && body?.status !== "error",
-    status: res.status,
-    body,
-  };
-}
-
-function getString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function looksLikeProductGroupSlug(value: string): boolean {
-  return /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(value.trim()) && /\b\d+ml\b/i.test(value);
-}
-
-async function resolveWebsiteSku(
-  bbConvexUrl: string,
-  rawSku: string,
-): Promise<ResolvedWebsiteSku | null> {
-  const inputSku = rawSku.trim();
-  if (!inputSku) return null;
-
-  const byWebsite = await callConvex(
-    bbConvexUrl,
-    "query",
-    "products:getByWebsiteSku",
-    { websiteSku: inputSku },
-  );
-  if (byWebsite.ok && byWebsite.body?.value) {
-    const product = byWebsite.body.value as ConvexProductLookup["value"];
-    const websiteSku = getString(product?.websiteSku) || inputSku;
-    return { inputSku, websiteSku, product, resolvedVia: "websiteSku" };
-  }
-
-  const byGrace = await callConvex(
-    bbConvexUrl,
-    "query",
-    "products:getBySku",
-    { graceSku: inputSku },
-  );
-  if (byGrace.ok && byGrace.body?.value) {
-    const product = byGrace.body.value as ConvexProductLookup["value"];
-    const websiteSku = getString(product?.websiteSku);
-    if (websiteSku) return { inputSku, websiteSku, product, resolvedVia: "graceSku" };
-  }
-
-  if (looksLikeProductGroupSlug(inputSku) || byWebsite.ok) return null;
-
-  return { inputSku, websiteSku: inputSku, product: null, resolvedVia: "websiteSku" };
-}
-
-async function uploadImageToBestBottlesSanity(params: {
-  imageUrl: string;
-  websiteSku: string;
-  mode: "cap-on" | "cap-off";
-}): Promise<{ sanityImageUrl: string; sanityAssetId: string }> {
-  const sanityClient = getBestBottlesSanityClient();
-  const imageRes = await fetch(params.imageUrl);
-  if (!imageRes.ok) {
-    throw new Error(`Failed to fetch Madison image (${imageRes.status}): ${imageRes.statusText}`);
-  }
-
-  const imageBlob = await imageRes.blob();
-  const contentType = imageRes.headers.get("content-type") || imageBlob.type || "image/png";
-  const extension = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
-  const asset = await sanityClient.assets.upload("image", imageBlob, {
-    filename: `${safeFilenameBase(params.websiteSku, params.mode)}.${extension}`,
-  });
-
-  if (!asset?._id || !asset?.url) {
-    throw new Error("Sanity upload completed without an asset id or CDN URL.");
-  }
-
-  return { sanityImageUrl: asset.url, sanityAssetId: asset._id };
 }
 
 Deno.serve(async (req) => {
@@ -290,128 +116,86 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: "imageUrl must be http(s)" });
   }
 
-  const bbConvexUrl = getBestBottlesConvexUrl();
-  if (!bbConvexUrl) {
+  const supabaseUrl = cleanSecret(Deno.env.get("SUPABASE_URL")).replace(/\/+$/, "");
+  const anonKey = cleanSecret(Deno.env.get("SUPABASE_ANON_KEY"));
+  if (!supabaseUrl || !anonKey) {
     return jsonResponse(500, {
       error:
-        "Missing or invalid Best Bottles Convex configuration. Set BESTBOTTLES_CONVEX_URL to a full Convex cloud URL like https://helpful-elephant-638.convex.cloud.",
+        "SUPABASE_URL and SUPABASE_ANON_KEY are required to forward Best Bottles PDP images to Shopify.",
     });
   }
 
-  // ── 1. Resolve the caller input into the real Convex websiteSku.
-  // Madison Library tags historically held a mix of values:
-  //   - true websiteSku, e.g. GBEmp50RdcrBlkLthr
-  //   - Grace SKU, e.g. GB-EMP-CLR-50ML-RDCR-BLK
-  // The Convex mutation only accepts websiteSku, so normalize before upload.
-  // Product-group slugs are reserved for group-level hero/thumbnail updates;
-  // PDP product images must target one exact variant SKU.
-  let resolved: ResolvedWebsiteSku | null = null;
   try {
-    resolved = await resolveWebsiteSku(bbConvexUrl, requestedWebsiteSku);
-  } catch (e) {
-    console.warn("[push-bestbottles-pdp-image] SKU resolution failed", e);
-    resolved = null;
-  }
-
-  if (!resolved) {
-    return jsonResponse(404, {
-      error:
-        `Website SKU or Grace SKU "${requestedWebsiteSku}" was not found in Best Bottles Convex.`,
-      websiteSku: requestedWebsiteSku,
+    const forwarded = await fetch(`${supabaseUrl}/functions/v1/push-shopify-product-images`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": authHeader,
+        "apikey": anonKey,
+      },
+      body: JSON.stringify({
+        items: [
+          {
+            imageUrl,
+            sku: requestedWebsiteSku,
+            altText: requestedWebsiteSku,
+            mode,
+          },
+        ],
+        attachToVariant: true,
+        syncBestBottlesConvex: true,
+      }),
     });
-  }
 
-  // ── 2. Validate cap-off is allowed for this applicator
-  if (mode === "cap-off" && typeof resolved.product?.applicator === "string") {
-    const applicator = resolved.product.applicator;
-    if (!NEEDS_CAP_OFF.has(applicator)) {
-      return jsonResponse(400, {
-        error: `cap-off mode is not used for applicator "${applicator}". ` +
-               `Only sprayers, atomizers, roll-ons, and lotion pumps need cap-off images.`,
-        applicator,
-        websiteSku: resolved.websiteSku,
-        requestedWebsiteSku,
-      });
+    let forwardedBody: ForwardedBody | null = null;
+    try {
+      const parsed: unknown = await forwarded.json();
+      forwardedBody =
+        parsed && typeof parsed === "object"
+          ? parsed as ForwardedBody
+          : null;
+    } catch {
+      forwardedBody = null;
     }
-  }
 
-  // ── 3. Upload Madison image into the Best Bottles Sanity project
-  let sanityUpload: { sanityImageUrl: string; sanityAssetId: string };
-  try {
-    sanityUpload = await uploadImageToBestBottlesSanity({
-      imageUrl,
-      websiteSku: resolved.websiteSku,
-      mode,
-    });
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e);
-    return jsonResponse(500, {
-      error: `Best Bottles Sanity upload failed: ${message}`,
-      websiteSku: resolved.websiteSku,
-      requestedWebsiteSku,
-      mode,
-    });
-  }
-
-  // ── 4. Determine which Convex field to patch
-  const field = mode === "cap-on" ? "imageUrl" : "imageUrlCapOff";
-
-  // ── 5. Call the Convex mutation with the Sanity CDN URL
-  let mutationResult: ConvexSetVariantImagesResult | null | undefined;
-  try {
-    const mutation = await callConvex(
-      bbConvexUrl,
-      "mutation",
-      "products:setVariantImages",
-      { websiteSku: resolved.websiteSku, [field]: sanityUpload.sanityImageUrl },
-    );
-
-    const mutBody = mutation.body as ConvexMutationBody;
-    if (!mutation.ok) {
-      return jsonResponse(mutation.status === 404 ? 404 : 500, {
-        error: mutBody?.errorMessage || "Convex mutation failed",
-        websiteSku: resolved.websiteSku,
-        requestedWebsiteSku,
-        mode,
-        field,
-        details: mutBody,
-      });
-    }
-    mutationResult = mutBody.value ?? mutBody;
-    if (mutationResult?.success === false) {
-      return jsonResponse(mutationResult.error === "not_found" ? 404 : 400, {
+    if (!forwarded.ok || forwardedBody?.error) {
+      return jsonResponse(forwarded.ok ? 500 : forwarded.status, {
         error:
-          mutationResult.error === "not_found"
-            ? `Website SKU "${resolved.websiteSku}" was not found in Best Bottles Convex.`
-            : mutationResult.error || "Best Bottles Convex did not update the product image.",
-        websiteSku: resolved.websiteSku,
-        requestedWebsiteSku,
-        mode,
-        field,
-        details: mutationResult,
+          forwardedBody?.error ||
+          `push-shopify-product-images returned ${forwarded.status}`,
+        upstream: forwardedBody,
       });
     }
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e);
-    return jsonResponse(500, {
-      error: `Convex mutation request failed: ${message}`,
-      websiteSku: resolved.websiteSku,
+
+    const firstResult = Array.isArray(forwardedBody?.results)
+      ? forwardedBody.results[0]
+      : null;
+    if (firstResult?.status === "failed") {
+      return jsonResponse(400, {
+        error: firstResult.message || "Shopify image publish failed",
+        upstream: forwardedBody,
+      });
+    }
+
+    return jsonResponse(200, {
+      ok: true,
+      websiteSku:
+        firstResult?.bestBottlesConvex?.websiteSku ||
+        requestedWebsiteSku,
       requestedWebsiteSku,
       mode,
-      field,
+      field: firstResult?.bestBottlesConvex?.field || (mode === "cap-off" ? "imageUrlCapOff" : "imageUrl"),
+      sourceImageUrl: imageUrl,
+      shopifyImageUrl: firstResult?.shopifyImageUrl ?? null,
+      shopifyProductId: firstResult?.shopifyProductId ?? null,
+      shopifyVariantId: firstResult?.shopifyVariantId ?? null,
+      mediaId: firstResult?.mediaId ?? null,
+      mutationResult: firstResult?.bestBottlesConvex?.mutation ?? null,
+      forwarded: forwardedBody,
+    });
+  } catch (e: unknown) {
+    return jsonResponse(500, {
+      error: `Shopify product image forward failed: ${e instanceof Error ? e.message : String(e)}`,
     });
   }
-
-  return jsonResponse(200, {
-    ok: true,
-    websiteSku: resolved.websiteSku,
-    requestedWebsiteSku,
-    resolvedVia: resolved.resolvedVia,
-    mode,
-    field,
-    sourceImageUrl: imageUrl,
-    sanityImageUrl: sanityUpload.sanityImageUrl,
-    sanityAssetId: sanityUpload.sanityAssetId,
-    mutationResult,
-  });
 });

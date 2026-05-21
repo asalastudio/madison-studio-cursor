@@ -55,6 +55,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import BestBottlesProductHub from "@/components/best-bottles/BestBottlesProductHub";
+import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
 import {
   useProducts,
   PRODUCT_STATUS_OPTIONS,
@@ -439,7 +441,7 @@ function CreateProductModal({ open, onClose, onCreate, isCreating }: CreateProdu
 // MAIN PRODUCTS PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export default function Products() {
+function GenericProductsPage() {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState("");
@@ -708,4 +710,29 @@ export default function Products() {
       </Dialog>
     </div>
   );
+}
+
+export default function Products() {
+  const { enabled: bestBottlesMode, isLoading } = useGridPipelineFeatureFlag();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background px-4 py-6 md:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="h-8 w-56 animate-pulse rounded bg-muted" />
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="h-40 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (bestBottlesMode) {
+    return <BestBottlesProductHub />;
+  }
+
+  return <GenericProductsPage />;
 }

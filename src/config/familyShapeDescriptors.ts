@@ -30,6 +30,15 @@ export const FAMILY_BODY_SHAPE_DESCRIPTORS: Record<string, string> = {
   Bell:
     "Bell-shaped silhouette — wide rounded base tapering smoothly upward into a narrower shoulder and short threaded neck. Curvilinear profile, no sharp edges.",
 
+  Grace:
+    "Wide rounded-rectangle cosmetic bottle with broad flat front and back faces, softly radiused vertical corners, and gently rounded shoulders tapering into a short 18-415 neck. Stable flat base, broad face width relative to height, refined lotion/perfume profile; not cylindrical.",
+
+  Royal:
+    "Squat octagonal-shouldered miniature glass bottle with faceted/stepped shoulders, short 13-415 neck, broad low body, flat front/back faces, and chamfered side facets. Compact decorative profile; not cylindrical.",
+
+  Square:
+    "Square-prism glass bottle with equal width and depth, flat square front/back/side faces, crisp vertical edges, flat square base, and short 13-415 neck centered above a square shoulder. Cube-like lower body stretched vertically; not a flask, not a round cylinder.",
+
   Diamond:
     "Diamond-faceted bottle with multiple flat angled panels around the body, sharp vertical edges between facets, and a short threaded neck.",
 
@@ -74,6 +83,18 @@ export const FAMILY_BODY_SHAPE_DESCRIPTORS: Record<string, string> = {
 
   "Cream Jar":
     "Wide low cylindrical jar with a broad flat circular base, short straight sides, wide threaded mouth (no narrow neck — mouth is nearly the full diameter of the body).",
+
+  Atomizer:
+    "Tall narrow metal atomizer with slim cylindrical outer shell, integrated pump/actuator at top, straight sides, flat circular base, and single-piece opaque metal finish. Body reads as metal shell, not transparent glass and not leather-wrapped.",
+
+  "Aluminum Bottle":
+    "Straight cylindrical opaque aluminum bottle with smooth vertical sides, flat circular base, rounded shoulder into a short 20-410 neck, and satin/brushed metal surface. Preserve opaque metal wall and metallic reflectivity; no glass transparency.",
+
+  "Plastic Bottle":
+    "Lightweight cylindrical PET plastic bottle with straight transparent/translucent sides, shallow rounded shoulders, flat circular base, and small threaded/spray neck. Plastic wall is thin and simple; softer edges than glass.",
+
+  "Lotion Bottle":
+    "Tall narrow lotion bottle with straight cylindrical or slightly rounded sides, decorative top/base bands when present, flat circular base, and compact cap/pump neck. Slim cosmetic proportions; not a wide jar.",
 };
 
 const GENERIC_FALLBACK =
