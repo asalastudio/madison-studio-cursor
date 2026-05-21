@@ -512,7 +512,7 @@ async function createProductMedia(
       {
         mediaContentType: "IMAGE",
         originalSource: imageUrl,
-        alt: altText,
+        alt: altText.slice(0, 512),
       },
     ],
   });
@@ -900,6 +900,8 @@ serve(async (req) => {
           };
         }
 
+        const finalMediaStatus = readyMedia.status ?? (body.attachToVariant !== false ? "READY" : media.status ?? null);
+
         await supabase.from("shopify_publish_log").insert({
           organization_id: organizationId,
           product_id: null,
@@ -925,7 +927,7 @@ serve(async (req) => {
             imageUrl,
             shopifyImageUrl: shopifyImageUrl ?? null,
             mediaId: media.id,
-            mediaStatus: readyMedia.status ?? media.status ?? null,
+            mediaStatus: finalMediaStatus,
             variantId: variant.id,
             productTitle: variant.product.title,
             bestBottlesConvex,
@@ -941,7 +943,7 @@ serve(async (req) => {
           shopifyProductId: variant.product.id,
           shopifyVariantId: variant.id,
           mediaId: media.id,
-          mediaStatus: readyMedia.status ?? media.status ?? null,
+          mediaStatus: finalMediaStatus,
           shopifyImageUrl: shopifyImageUrl ?? null,
           bestBottlesConvex,
         });
