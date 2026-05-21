@@ -69,6 +69,10 @@ export interface Product {
   stockStatus: string | null;
   verified: boolean;
   productGroupId?: string | null;
+  /** Static Madison pipeline crosswalk fallback; live Convex rows use productGroupId. */
+  productGroupSlug?: string | null;
+  /** Shopify export / legacy variant SKU when it differs from Grace SKU. */
+  shopifySku?: string | null;
 }
 
 async function invoke<T>(path: string, args: Record<string, unknown> = {}): Promise<T> {

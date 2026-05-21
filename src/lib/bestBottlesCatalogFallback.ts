@@ -24,8 +24,17 @@ interface BestBottlesPipelineGroupLite {
   sampleGraceSkus?: string;
 }
 
+interface BestBottlesPipelineProductLite {
+  productGroupSlug?: string;
+  graceSku?: string;
+  websiteSku?: string;
+  shopifySku?: string;
+  category?: string;
+}
+
 interface BestBottlesPipelineUiLite {
   productGroups?: BestBottlesPipelineGroupLite[];
+  products?: BestBottlesPipelineProductLite[];
 }
 
 const CATALOG_PATH = "/data/best-bottles-catalog-lite.json";
@@ -33,6 +42,7 @@ const PIPELINE_UI_PATH = "/data/best-bottles-madison-pipeline-ui.json";
 
 let catalogPromise: Promise<Product[]> | null = null;
 let catalogGroupsPromise: Promise<ProductGroup[]> | null = null;
+let pipelineUiPromise: Promise<BestBottlesPipelineUiLite> | null = null;
 
 function normalizeFamily(value: string | null | undefined): string {
   return value?.trim().toLowerCase() ?? "";
@@ -75,15 +85,89 @@ function firstListItem(value: string | null | undefined): string | null {
   return splitList(value)[0] ?? null;
 }
 
+function skuKey(value: string | null | undefined): string {
+  return value?.trim().toUpperCase() ?? "";
+}
+
+function isComponentPipelineProduct(value: BestBottlesPipelineProductLite): boolean {
+  return value.category?.trim().toLowerCase() === "component";
+}
+
+function shouldReplacePipelineCrosswalk(
+  current: BestBottlesPipelineProductLite | undefined,
+  next: BestBottlesPipelineProductLite,
+): boolean {
+  if (!current) return true;
+  const currentHasSlug = Boolean(normalizeSlug(current.productGroupSlug));
+  const nextHasSlug = Boolean(normalizeSlug(next.productGroupSlug));
+  if (currentHasSlug !== nextHasSlug) return nextHasSlug;
+  const currentIsComponent = isComponentPipelineProduct(current);
+  const nextIsComponent = isComponentPipelineProduct(next);
+  if (currentIsComponent !== nextIsComponent) return !nextIsComponent;
+  return false;
+}
+
+function buildPipelineProductCrosswalk(
+  products: BestBottlesPipelineProductLite[] | null | undefined,
+): Map<string, BestBottlesPipelineProductLite> {
+  const map = new Map<string, BestBottlesPipelineProductLite>();
+  for (const product of products ?? []) {
+    for (const sku of [product.graceSku, product.websiteSku, product.shopifySku]) {
+      const key = skuKey(sku);
+      if (!key) continue;
+      if (shouldReplacePipelineCrosswalk(map.get(key), product)) {
+        map.set(key, product);
+      }
+    }
+  }
+  return map;
+}
+
+async function loadBestBottlesPipelineUi(): Promise<BestBottlesPipelineUiLite> {
+  if (!pipelineUiPromise) {
+    pipelineUiPromise = fetch(publicDataUrl(PIPELINE_UI_PATH), { cache: "force-cache" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Static Best Bottles pipeline UI failed to load (${response.status})`);
+        }
+        return (await response.json()) as BestBottlesPipelineUiLite;
+      })
+      .catch((error) => {
+        console.warn("[bestBottlesCatalogFallback] pipeline UI unavailable", error);
+        return {};
+      });
+  }
+  return pipelineUiPromise;
+}
+
 async function loadBestBottlesCatalog(): Promise<Product[]> {
   if (!catalogPromise) {
-    catalogPromise = fetch(publicDataUrl(CATALOG_PATH), { cache: "force-cache" })
-      .then(async (response) => {
+    catalogPromise = Promise.all([
+      fetch(publicDataUrl(CATALOG_PATH), { cache: "force-cache" }),
+      loadBestBottlesPipelineUi(),
+    ])
+      .then(async ([response, pipelineUi]) => {
         if (!response.ok) {
           throw new Error(`Static Best Bottles catalog failed to load (${response.status})`);
         }
         const payload = (await response.json()) as BestBottlesCatalogLite;
-        return Array.isArray(payload.products) ? payload.products : [];
+        const products = Array.isArray(payload.products) ? payload.products : [];
+        const pipelineProductsBySku = buildPipelineProductCrosswalk(pipelineUi.products);
+
+        return products.map((product) => {
+          const crosswalk =
+            pipelineProductsBySku.get(skuKey(product.graceSku)) ??
+            pipelineProductsBySku.get(skuKey(product.websiteSku)) ??
+            pipelineProductsBySku.get(skuKey(product.shopifySku));
+          const productGroupSlug = normalizeSlug(product.productGroupSlug) || normalizeSlug(crosswalk?.productGroupSlug);
+          const shopifySku = product.shopifySku ?? crosswalk?.shopifySku ?? null;
+          if (!productGroupSlug && !shopifySku) return product;
+          return {
+            ...product,
+            productGroupSlug: productGroupSlug || product.productGroupSlug || null,
+            shopifySku,
+          };
+        });
       })
       .catch((error) => {
         console.warn("[bestBottlesCatalogFallback] unavailable", error);
@@ -95,12 +179,8 @@ async function loadBestBottlesCatalog(): Promise<Product[]> {
 
 async function loadBestBottlesCatalogGroups(): Promise<ProductGroup[]> {
   if (!catalogGroupsPromise) {
-    catalogGroupsPromise = fetch(publicDataUrl(PIPELINE_UI_PATH), { cache: "force-cache" })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Static Best Bottles product groups failed to load (${response.status})`);
-        }
-        const payload = (await response.json()) as BestBottlesPipelineUiLite;
+    catalogGroupsPromise = loadBestBottlesPipelineUi()
+      .then(async (payload) => {
         const rows = Array.isArray(payload.productGroups) ? payload.productGroups : [];
         return rows
           .map((row) => {

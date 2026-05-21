@@ -934,6 +934,10 @@ export default function ImageLibrary() {
       const group = product?.productGroupId
         ? bestBottlesProductGroupsById.get(product.productGroupId)
         : undefined;
+      const productGroupSlug = normalizeBestBottlesSlug(product?.productGroupSlug);
+      const groupByProductSlug = productGroupSlug
+        ? bestBottlesProductGroupsBySlug.get(productGroupSlug)
+        : undefined;
       const groupByPrimarySku =
         (product?.graceSku
           ? bestBottlesProductGroupsByPrimarySku.get(product.graceSku.toUpperCase())
@@ -942,7 +946,7 @@ export default function ImageLibrary() {
           ? bestBottlesProductGroupsByPrimarySku.get(product.websiteSku.toUpperCase())
           : undefined);
 
-      return group?.slug ?? groupByPrimarySku?.slug ?? "";
+      return group?.slug ?? groupByProductSlug?.slug ?? productGroupSlug ?? groupByPrimarySku?.slug ?? "";
     },
     [
       bestBottlesProductGroupsById,
@@ -2368,8 +2372,8 @@ export default function ImageLibrary() {
                 className="w-20 h-20 rounded-md object-cover border border-[var(--darkroom-border)] shrink-0"
               />
               <p className="text-xs text-[var(--darkroom-text)]/60 line-clamp-4">
-                Choose whether this render updates a Best Bottles product page, a Best Bottles
-                Sanity-backed catalog hero/thumbnail, or a Tarife fragrance main image.
+                Choose whether this render updates the Best Bottles website thumbnail/group hero,
+                Shopify-backed variant PDP media, or a Tarife fragrance main image.
               </p>
             </div>
           )}
@@ -2413,9 +2417,11 @@ export default function ImageLibrary() {
               <SelectContent>
                 {isBestBottlesOrg && (
                   <>
-                    <SelectItem value="best-bottles-pdp">Best Bottles SKU / PDP image</SelectItem>
                     <SelectItem value="best-bottles-grid">
-                      Best Bottles group hero / thumbnail
+                      Best Bottles website thumbnail / group hero
+                    </SelectItem>
+                    <SelectItem value="best-bottles-pdp">
+                      Best Bottles variant PDP image / Shopify
                     </SelectItem>
                   </>
                 )}
