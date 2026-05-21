@@ -158,6 +158,12 @@ function normalizeBestBottlesSlug(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
+function looksLikeBestBottlesProductGroupSlug(value: string): boolean {
+  const normalized = normalizeBestBottlesSlug(value);
+  if (!normalized || /^(?:gb|lb|pb|ab|bb)-/.test(normalized)) return false;
+  return normalized.includes("-");
+}
+
 function bestBottlesFamilyLabel(value: string): string {
   return normalizeBestBottlesSlug(value)
     .split("-")
@@ -996,6 +1002,24 @@ export default function ImageLibrary() {
     () => splitWebsiteSkus(bestBottlesWebsiteSku),
     [bestBottlesWebsiteSku],
   );
+  const selectedBestBottlesProductGroupSlugs = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          selectedBestBottlesWebsiteSkus
+            .map((sku) => normalizeBestBottlesSlug(sku))
+            .filter(
+              (slug) =>
+                slug &&
+                (bestBottlesProductGroupsBySlug.has(slug) ||
+                  looksLikeBestBottlesProductGroupSlug(slug)),
+            ),
+        ),
+      ),
+    [bestBottlesProductGroupsBySlug, selectedBestBottlesWebsiteSkus],
+  );
+  const selectedBestBottlesHasProductGroupSlug =
+    selectedBestBottlesProductGroupSlugs.length > 0;
   const selectedBestBottlesPrimaryOnly =
     selectedBestBottlesWebsiteSkus.length > 0 &&
     selectedBestBottlesWebsiteSkus.every((sku) =>
@@ -1400,11 +1424,19 @@ export default function ImageLibrary() {
   };
 
   const openSanityPublish = (image: GeneratedImage) => {
+    const resolvedWebsiteSku = isBestBottlesOrg ? resolveBestBottlesWebsiteSku(image) : "";
+    const resolvedGroupSlug = isBestBottlesOrg
+      ? resolveBestBottlesProductGroupSlug(image) || detectProductGroupSlug(image)
+      : "";
+    const bestBottlesDestination: PublishDestination = resolvedWebsiteSku
+      ? "best-bottles-pdp"
+      : "best-bottles-grid";
+
     setSanityPublishImage(image);
     setSanityPublishProduct(null);
-    setPublishDestination(isBestBottlesOrg ? "best-bottles-pdp" : "tarife-sanity");
-    setBestBottlesSlug("");
-    setBestBottlesWebsiteSku("");
+    setPublishDestination(isBestBottlesOrg ? bestBottlesDestination : "tarife-sanity");
+    setBestBottlesSlug(bestBottlesDestination === "best-bottles-grid" ? resolvedGroupSlug : "");
+    setBestBottlesWebsiteSku(bestBottlesDestination === "best-bottles-pdp" ? resolvedWebsiteSku : "");
     setBestBottlesPdpMode("cap-on");
     setBestBottlesGroupSearch("");
     setBestBottlesSkuSearch("");
@@ -1419,6 +1451,21 @@ export default function ImageLibrary() {
     } else if (publishDestination === "best-bottles-pdp") {
       const websiteSkus = splitWebsiteSkus(bestBottlesWebsiteSku);
       if (websiteSkus.length === 0) return;
+      const productGroupSlug = websiteSkus
+        .map((sku) => normalizeBestBottlesSlug(sku))
+        .find(
+          (slug) =>
+            bestBottlesProductGroupsBySlug.has(slug) ||
+            looksLikeBestBottlesProductGroupSlug(slug),
+        );
+      if (productGroupSlug) {
+        toast({
+          title: "Use the product group hero route",
+          description: `${productGroupSlug} is a product group slug, not a variant SKU. Switch the destination to Best Bottles product group hero or pick a variant SKU.`,
+          variant: "destructive",
+        });
+        return;
+      }
     } else if (!sanityPublishProduct) {
       return;
     }
@@ -2310,8 +2357,17 @@ export default function ImageLibrary() {
             <Select
               value={publishDestination}
               onValueChange={(value) => {
-                setPublishDestination(value as PublishDestination);
+                const nextDestination = value as PublishDestination;
+                setPublishDestination(nextDestination);
                 if (value !== "tarife-sanity") setSanityPublishProduct(null);
+                if (nextDestination === "best-bottles-grid" && !bestBottlesSlug.trim()) {
+                  const typedGroupSlug = selectedBestBottlesProductGroupSlugs[0] ?? "";
+                  const imageGroupSlug = sanityPublishImage
+                    ? resolveBestBottlesProductGroupSlug(sanityPublishImage) ||
+                      detectProductGroupSlug(sanityPublishImage)
+                    : "";
+                  setBestBottlesSlug(typedGroupSlug || imageGroupSlug);
+                }
                 if (value !== "best-bottles-grid") {
                   setBestBottlesGroupPickerOpen(false);
                   setBestBottlesGroupSearch("");
@@ -2327,8 +2383,8 @@ export default function ImageLibrary() {
               <SelectContent>
                 {isBestBottlesOrg && (
                   <>
-                    <SelectItem value="best-bottles-pdp">Best Bottles PDP image</SelectItem>
-                    <SelectItem value="best-bottles-grid">Best Bottles catalog thumbnail</SelectItem>
+                    <SelectItem value="best-bottles-pdp">Best Bottles SKU / PDP image</SelectItem>
+                    <SelectItem value="best-bottles-grid">Best Bottles product group hero</SelectItem>
                   </>
                 )}
                 <SelectItem value="tarife-sanity">Tarife product main image</SelectItem>
@@ -2425,7 +2481,7 @@ export default function ImageLibrary() {
           ) : publishDestination === "best-bottles-pdp" ? (
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label className="text-[var(--darkroom-text)]">SKU picker</Label>
+                <Label className="text-[var(--darkroom-text)]">Variant SKU picker</Label>
                 <Popover open={bestBottlesSkuPickerOpen} onOpenChange={setBestBottlesSkuPickerOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -2435,7 +2491,7 @@ export default function ImageLibrary() {
                       aria-expanded={bestBottlesSkuPickerOpen}
                       className="w-full justify-between bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
                     >
-                      {bestBottlesWebsiteSku || "Select a Best Bottles SKU..."}
+                      {bestBottlesWebsiteSku || "Select a Best Bottles variant SKU..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -2488,7 +2544,7 @@ export default function ImageLibrary() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bb-website-sku" className="text-[var(--darkroom-text)]">
-                  Website SKU or Grace SKU
+                  Website SKU or Grace SKU (variant only)
                 </Label>
                 <Textarea
                   id="bb-website-sku"
@@ -2501,8 +2557,36 @@ export default function ImageLibrary() {
                 />
                 <p className="text-[11px] text-[var(--darkroom-text)]/50">
                   Use one SKU for a single image. Use one SKU per line only when the exact same
-                  approved image should be assigned to multiple variants.
+                  approved image should be assigned to multiple variants. Product group slugs
+                  belong in the product group hero destination.
                 </p>
+                {selectedBestBottlesHasProductGroupSlug && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-100">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                      <div className="space-y-2">
+                        <p>
+                          {selectedBestBottlesProductGroupSlugs[0]} is a product group slug,
+                          not a variant SKU. Use this route only for SKU/PDP media that should
+                          attach to Shopify variants.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-amber-400/50 bg-transparent text-amber-100 hover:bg-amber-500/15"
+                          onClick={() => {
+                            setPublishDestination("best-bottles-grid");
+                            setBestBottlesSlug(selectedBestBottlesProductGroupSlugs[0]);
+                            setBestBottlesWebsiteSku("");
+                          }}
+                        >
+                          Switch to product group hero
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bb-pdp-mode" className="text-[var(--darkroom-text)]">
@@ -2585,7 +2669,7 @@ export default function ImageLibrary() {
                 (publishDestination === "best-bottles-grid"
                   ? !normalizeBestBottlesSlug(bestBottlesSlug)
                   : publishDestination === "best-bottles-pdp"
-                    ? !bestBottlesWebsiteSku.trim()
+                    ? !bestBottlesWebsiteSku.trim() || selectedBestBottlesHasProductGroupSlug
                     : !sanityPublishProduct)
               }
               onClick={() => void handleConfirmSanityPublish()}
