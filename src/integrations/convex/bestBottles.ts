@@ -8,6 +8,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import {
+  getStaticBestBottlesCatalogGroups,
   getStaticBestBottlesCatalogProducts,
   getStaticBestBottlesProductsByFamily,
 } from "@/lib/bestBottlesCatalogFallback";
@@ -119,13 +120,28 @@ export async function getProductsByFamily(family: string): Promise<Product[]> {
 }
 
 export async function getProductGroupsByFamily(family: string): Promise<ProductGroup[]> {
-  const result = await invoke<ProductGroup[] | null>("products:getProductGroupsByFamily", { family });
-  return result ?? [];
+  try {
+    const result = await invoke<ProductGroup[] | null>("products:getProductGroupsByFamily", { family });
+    return result ?? [];
+  } catch (error) {
+    console.warn(
+      "[bestBottles] products:getProductGroupsByFamily unavailable; using static product group fallback",
+      error,
+    );
+    const target = family.trim().toLowerCase();
+    const groups = await getStaticBestBottlesCatalogGroups(0);
+    return groups.filter((group) => group.family.trim().toLowerCase() === target);
+  }
 }
 
 export async function getBestBottlesCatalogGroups(limit = 1000): Promise<ProductGroup[]> {
-  const result = await invoke<ProductGroup[] | null>("products:getCatalogGroups", { limit });
-  return result ?? [];
+  try {
+    const result = await invoke<ProductGroup[] | null>("products:getCatalogGroups", { limit });
+    return result ?? [];
+  } catch (error) {
+    console.warn("[bestBottles] products:getCatalogGroups unavailable; using static product group fallback", error);
+    return await getStaticBestBottlesCatalogGroups(limit);
+  }
 }
 
 export async function getBestBottlesCatalogProducts(limit = 3000): Promise<Product[]> {
