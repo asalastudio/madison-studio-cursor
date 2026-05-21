@@ -291,6 +291,7 @@ interface BatchPreflightEntry {
   reference: UploadedReferenceImage | FolderReferenceEntry | null;
   referenceIssue: string | null;
   measurementIssue: string | null;
+  referenceSource: "uploaded" | "synced" | "path-only" | "missing";
 }
 
 type ReferenceImportEntryStatus =
@@ -1102,6 +1103,26 @@ export function MastersTabPanel({
     const folderReference =
       referenceFolder.size > 0 ? lookupFolderReference(sku, preset) : null;
     return folderReference ?? lookupPersistedReference(sku);
+  };
+
+  const lookupReferenceCandidateForDiagnostics = (
+    sku: Product,
+    preset: string,
+  ): {
+    reference: UploadedReferenceImage | FolderReferenceEntry | null;
+    source: BatchPreflightEntry["referenceSource"];
+  } => {
+    const folderReference =
+      referenceFolder.size > 0 ? lookupFolderReference(sku, preset) : null;
+    if (folderReference) return { reference: folderReference, source: "uploaded" };
+
+    const persistedCandidate = lookupPersistedReferenceCandidateFromMap(sku);
+    if (!persistedCandidate) return { reference: null, source: "missing" };
+
+    return {
+      reference: persistedCandidate,
+      source: getBestBottlesReferenceUrlIssue(persistedCandidate.url) ? "path-only" : "synced",
+    };
   };
 
   const buildReferenceImportPreflight = (files: FileList | File[]): ReferenceImportPreflight => {
@@ -2112,7 +2133,7 @@ export function MastersTabPanel({
   const batchPreflightEntries = useMemo<BatchPreflightEntry[]>(
     () =>
       batchScopeCandidates.map((product) => {
-        const reference = lookupAvailableReference(product, presetId);
+        const { reference, source } = lookupReferenceCandidateForDiagnostics(product, presetId);
         return {
           product,
           reference,
@@ -2120,6 +2141,7 @@ export function MastersTabPanel({
             ? getBestBottlesReferenceUrlIssue(reference.url)
             : "No usable reference is attached.",
           measurementIssue: getMeasurementIssue(product),
+          referenceSource: source,
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2152,6 +2174,9 @@ export function MastersTabPanel({
   ).length;
   const batchInvalidReferenceCount = batchPreflightEntries.filter(
     (entry) => entry.reference !== null && entry.referenceIssue !== null,
+  ).length;
+  const batchPathOnlyReferenceCount = batchPreflightEntries.filter(
+    (entry) => entry.referenceSource === "path-only",
   ).length;
   const batchMeasurementBlockedCount = batchPreflightEntries.filter(
     (entry) => entry.measurementIssue !== null,
@@ -3405,6 +3430,14 @@ export function MastersTabPanel({
                 <div>Capacity: <span className="font-mono text-white/75">{batchCapacitySummary}</span></div>
                 <div>Applicator: <span className="font-mono text-white/75">{batchApplicatorSummary}</span></div>
                 <div>Color: <span className="font-mono text-white/75">{batchColorSummary}</span></div>
+                {selectedProduct && (
+                  <div>Active SKU: <span className="font-mono text-white/75">{selectedProduct.graceSku}</span></div>
+                )}
+                {batchScope === "current-applicator" && (
+                  <div className="pt-1 text-[10px] leading-snug text-white/45">
+                    Current applicator follows the active SKU selected in the left rail.
+                  </div>
+                )}
               </div>
               <div className="rounded border border-white/10 bg-white/[0.02] p-3 space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-white/45">Prompt policy summary</div>
@@ -3424,7 +3457,12 @@ export function MastersTabPanel({
                   <div>{batchMissingReferenceCount} SKU{batchMissingReferenceCount === 1 ? "" : "s"} omitted: no usable reference.</div>
                 )}
                 {batchInvalidReferenceCount > 0 && (
-                  <div>{batchInvalidReferenceCount} SKU{batchInvalidReferenceCount === 1 ? "" : "s"} omitted: reference matched but is not fetchable/imported.</div>
+                  <div>
+                    {batchInvalidReferenceCount} SKU{batchInvalidReferenceCount === 1 ? "" : "s"} omitted: reference matched but is not fetchable/imported.
+                    {batchPathOnlyReferenceCount > 0
+                      ? ` ${batchPathOnlyReferenceCount} of these are pipeline path-only references; import/upload the PNGs first.`
+                      : ""}
+                  </div>
                 )}
                 {batchMeasurementBlockedCount > 0 && (
                   <div>{batchMeasurementBlockedCount} SKU{batchMeasurementBlockedCount === 1 ? "" : "s"} omitted: missing measurements.</div>
@@ -3493,7 +3531,7 @@ export function MastersTabPanel({
                 <div className="max-h-56 overflow-auto space-y-1 pr-1">
                   {fullFamilyBatchCandidates.map((product) => {
                     const key = productBatchKey(product);
-                    const reference = lookupAvailableReference(product, presetId);
+                    const { reference, source } = lookupReferenceCandidateForDiagnostics(product, presetId);
                     const referenceIssue = getBestBottlesReferenceUrlIssue(reference?.url);
                     const measurementIssue = getMeasurementIssue(product);
                     const blocked = reference === null || referenceIssue !== null || measurementIssue !== null;
@@ -3517,7 +3555,11 @@ export function MastersTabPanel({
                         </span>
                         {blocked && (
                           <span className="text-[10px] text-amber-300">
-                            {measurementIssue ? "Needs measurements" : "Needs usable ref"}
+                            {measurementIssue
+                              ? "Needs measurements"
+                              : source === "path-only"
+                                ? "Import path-only ref"
+                                : "Needs usable ref"}
                           </span>
                         )}
                       </label>

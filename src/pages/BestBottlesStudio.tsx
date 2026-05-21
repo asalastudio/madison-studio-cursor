@@ -129,17 +129,28 @@ export default function BestBottlesStudio() {
     if (!data?.variants?.length) return;
     const shouldWaitForPersistedRefs = Boolean(currentOrganizationId && data?.group.family);
     if (shouldWaitForPersistedRefs && !hasFetchedPersistedSkuJobs) return;
-    if (selectedSku && data.variants.some((variant) => variant.graceSku === selectedSku)) {
+
+    const isPrimaryGroupVariant = (variant: (typeof data.variants)[number]) => {
+      if (variant.productGroupId && variant.productGroupId === data.group._id) return true;
+      if (variant.productGroupSlug && variant.productGroupSlug === data.group.slug) return true;
+      return false;
+    };
+    const primaryGroupVariants = data.variants.filter(isPrimaryGroupVariant);
+    const selectionPool = primaryGroupVariants.length > 0 ? primaryGroupVariants : data.variants;
+
+    if (selectedSku && selectionPool.some((variant) => variant.graceSku === selectedSku)) {
       return;
     }
 
     const firstReferencedVariant =
-      data.variants.find((variant) => Boolean(persistedReferenceImagesBySku[variant.graceSku])) ??
-      data.variants[0];
+      selectionPool.find((variant) => Boolean(persistedReferenceImagesBySku[variant.graceSku])) ??
+      selectionPool[0];
     setSelectedSku(firstReferencedVariant.graceSku);
   }, [
     currentOrganizationId,
     data?.group.family,
+    data?.group._id,
+    data?.group.slug,
     data?.variants,
     hasFetchedPersistedSkuJobs,
     persistedReferenceImagesBySku,
