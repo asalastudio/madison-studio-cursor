@@ -252,7 +252,7 @@ function buildBestBottlesApplicatorPromptRules(
 }
 
 interface BestBottlesBodyMaterialPromptRules {
-  kind: "glass" | "aluminum" | "plastic";
+  kind: "glass" | "aluminum" | "atomizer-metal" | "plastic";
   sourceTruthMaterial: string;
   styleReferenceScopeLine: string;
   photographicStyleLine: string;
@@ -286,6 +286,44 @@ function buildBestBottlesBodyMaterialPromptRules(
     productText.includes("aluminum") ||
     productText.includes("aluminium") ||
     productText.includes("ab-alu");
+  const isAtomizerMetal =
+    productText.includes("atomizer") ||
+    productText.includes("metal atomizer") ||
+    /\bgb-[a-z0-9-]+-(?:5ml|10ml)-atm-/i.test(productText);
+  if (isAtomizerMetal) {
+    return {
+      kind: "atomizer-metal",
+      sourceTruthMaterial:
+        "opaque colored/anodized metal atomizer casing, exact cylindrical metal sleeve, cap/sprayer metal transitions, slim shell proportions, pump/actuator geometry, colors, decorative pattern if present, and material identity. The body is a solid metal outer casing, not transparent glass.",
+      styleReferenceScopeLine:
+        "- Use any secondary style/specularity reference only for lighting quality, reflection-card gradients, edge glints on opaque metal, contact shadow, ambient occlusion, and premium studio polish. It must not make the atomizer casing transparent, glassy, refractive, crystalline, or plastic.",
+      photographicStyleLine:
+        "- Secondary style/specularity reference influence, if provided, is lighting and metal-realism only: warm directional drama, soft elongated shadow behavior, vertical reflection rhythm, tactile anodized/brushed metal finish, cap texture, and premium pack-shot polish. The Best Bottles atomizer shape and opaque metal casing remain the only product truth.",
+      lightingLines: [
+        "- Use professional metal-product lighting, not flat front lighting.",
+        "- Soft warm key light from upper front-left, gentle negative fill, controlled black-card edge lines, and white reflection cards creating clean vertical metallic highlights across the cylindrical sleeve.",
+        "- Translate window/curtain-like inspiration into abstract reflection-card behavior on the metal casing: slender warm vertical highlights, dark edge density, and soft luminous bands across the opaque metal. Do not generate actual curtains, window frames, fabric, wood, flowers, or scene props.",
+        "- Keep the Bone background flat and quiet; put the visual drama inside the product through metal reflectance, anodized color depth, cap texture, shoulder/collar highlight, and grounding shadow.",
+        "- The atomizer body should be defined by opaque metal reflectance, subtle anisotropic grain or anodized sheen, clean vertical highlight falloff, and realistic metal tonal gradients. No transmitted light, no refraction, no visible back wall, no glass wall thickness.",
+      ],
+      bodyMaterialLine:
+        "- Atomizer body: preserve an opaque colored/anodized metal casing. It must be solid metal, not transparent, not translucent, not glass, not crystal, and not clear plastic. Enhance metallic reflectivity, fine vertical grain or anodized sheen, soft cylindrical highlight bands, controlled dark edge lines, and realistic colored metal tonal variation while preserving the exact reference shape and pattern.",
+      forbiddenLines: [
+        "- Do not turn the atomizer casing into glass, clear plastic, translucent material, crystal, liquid-filled glass, frosted glass, or a transparent perfume bottle.",
+        "- No refraction through the atomizer body, no visible back wall, no internal caustics, no wall thickness, no glass rim sparkle, no transparent edges, no liquid, and no interior dip tube visible through the metal body.",
+      ],
+      packshotRules: [
+        "LOCK GEOMETRY, RELIGHT OPAQUE METAL: the reference locks silhouette, proportions, cap shape, sprayer/collar geometry, camera angle, pattern placement, and casing color; it does not lock poor exposure, weak contrast, flat white fill, dull metal, missing metal grain, or low-end capture quality.",
+        "Do not perform a simple background cleanup or silhouette trace. Reconstruct the same atomizer as a true luxury e-commerce pack shot inside the exact same outline.",
+        "Lighting/material inspiration is allowed only as a photographic quality target: warm quiet drama, controlled directionality, dense but soft shadows, premium colored/anodized metal realism, and tactile metal texture. Never copy another bottle shape, label, cap design, scene, prop, tabletop, flower, curtain, or brand mark.",
+        "Opaque atomizer metal must not become transparent. It needs visible metal structure: fine grain or anodized sheen, soft vertical reflection-card bands, shoulder/collar highlight, gentle edge darkening, realistic cap texture, and strong tonal separation from the Bone background.",
+        "Use product-photography cards: controlled black-card edge lines on left/right metal boundaries, white-card vertical highlights across the cylindrical body and cap, and soft reflection gradients that describe metal curvature without becoming broad CGI stripes.",
+        "Metal texture target: dust-free luxury retouch with real satin/anodized-metal irregularity, subtle manufacturing micro-imperfections, edge density, and polished pack-shot separation. It should feel photographed, not rendered.",
+        "The body should read as opaque colored/anodized metal with volume, not glass, not a white cutout, not a blank void, not a traced outline, and not milky plastic.",
+        "Retouching intensity target: premium commercial retouch, enough to visibly improve fidelity and polish while preserving every structural edge from Image 1.",
+      ],
+    };
+  }
   if (isAluminum) {
     return {
       kind: "aluminum",
@@ -388,7 +426,7 @@ function buildReferenceLockedBestBottlesPrompt(
     : "";
   const applicatorRules = buildBestBottlesApplicatorPromptRules(productContext);
   const sourceTruth =
-    bodyMaterialRules.kind === "aluminum"
+    bodyMaterialRules.kind === "aluminum" || bodyMaterialRules.kind === "atomizer-metal"
       ? [
           applicatorRules.sourceTruth
             .replace(/,?\s*glass thickness/gi, "")
@@ -463,10 +501,10 @@ function buildReferenceLockedBestBottlesPrompt(
     ...applicatorRules.forbiddenLines,
     ...bodyMaterialRules.forbiddenLines,
     "- No heavy/long/hard shadow, dark smear, doubled shadow, horizon line, tabletop edge, or obvious floor plane.",
-    bodyMaterialRules.kind === "aluminum"
+    bodyMaterialRules.kind === "aluminum" || bodyMaterialRules.kind === "atomizer-metal"
       ? "- No fake bevels, extra facets, broad central CGI stripe, chrome-mirror body, softened/melted edges, or plastic-looking metal."
       : "- No fake bevels, extra facets, broad central CGI stripe, softened/melted edges, or plastic-looking glass.",
-    bodyMaterialRules.kind === "aluminum"
+    bodyMaterialRules.kind === "aluminum" || bodyMaterialRules.kind === "atomizer-metal"
       ? "- No blank white metal body, no empty white central panel, no silhouette-only cutout, no line-art outline, no low-contrast metal that disappears into the background."
       : "- No blank white glass body, no empty white central panel, no silhouette-only cutout, no line-art outline, no low-contrast glass that disappears into the background.",
     "- No copied reference bottle shape, designer perfume logo, label typography, decorative cap, curtain scene, flower prop, wood surface, mirror tabletop, or lifestyle room setup.",

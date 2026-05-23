@@ -66,6 +66,7 @@ export interface Product {
   itemDescription: string | null;
   useCaseDescription?: string | null;
   imageUrl?: string | null;
+  imageUrlCapOff?: string | null;
   stockStatus: string | null;
   verified: boolean;
   productGroupId?: string | null;
@@ -73,6 +74,12 @@ export interface Product {
   productGroupSlug?: string | null;
   /** Shopify export / legacy variant SKU when it differs from Grace SKU. */
   shopifySku?: string | null;
+}
+
+interface PaginatedResult<T> {
+  page: T[];
+  isDone: boolean;
+  continueCursor: string;
 }
 
 async function invoke<T>(path: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -150,10 +157,22 @@ export async function getBestBottlesCatalogGroups(limit = 1000): Promise<Product
 
 export async function getBestBottlesCatalogProducts(limit = 3000): Promise<Product[]> {
   try {
-    const result = await invoke<Product[] | null>("products:getCatalogProducts", { limit });
-    return result ?? [];
+    const products: Product[] = [];
+    let cursor: string | null = null;
+    while (products.length < limit) {
+      const result = await invoke<PaginatedResult<Product> | null>("products:getCatalogProductIndexPage", {
+        cursor,
+        limit: Math.min(150, limit - products.length),
+      });
+      if (!result) break;
+      products.push(...result.page);
+      if (result.isDone) break;
+      cursor = result.continueCursor;
+      if (!cursor) break;
+    }
+    return products;
   } catch (error) {
-    console.warn("[bestBottles] products:getCatalogProducts unavailable; using static catalog fallback", error);
+    console.warn("[bestBottles] products:getCatalogProductIndexPage unavailable; using static catalog fallback", error);
     return await getStaticBestBottlesCatalogProducts(limit);
   }
 }

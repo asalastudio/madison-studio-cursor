@@ -409,14 +409,20 @@ function buildPaperDollComponentPrompt(
   if (scope === "body") {
     const variant: PaperDollBodyVariant = bodyVariant ?? "no-tube";
     const familyShape = getBodyShapeDescriptor(sku.family);
+    const isAtomizer = /atomizer/i.test([sku.family, sku.category, sku.applicator].filter(Boolean).join(" "));
+    const materialSubject = isAtomizer
+      ? "opaque colored/anodized metal atomizer BODY (solid metal casing, not glass)"
+      : `${color} glass bottle BODY`;
     const tubeClause =
-      variant === "with-tube"
+      isAtomizer
+        ? `The atomizer shell is an opaque metal sleeve. No visible interior, no dip tube seen through the body, no glass wall thickness, no refraction, no translucent edge glow.`
+        : variant === "with-tube"
         ? `Inside the bottle — visible through the clear glass walls with subtle refraction distortion — a thin clear plastic dip tube descends from the center of the neck opening straight downward to within a few millimeters of the interior base. The tube is a structural element of THIS BODY VARIANT and must be present in the output.`
         : `The bottle interior is empty — no tube, no fitment, no liquid, no mechanism. Pure clear glass interior.`;
     contextBlock = [
       ``,
       `CONTEXT (subject of the reference):`,
-      `Isolated ${color} glass bottle BODY (no cap, no fitment, no sprayer above the neck) for a ${capacity ? `${capacity}ml ` : ""}${family} bottle. ${familyShape}`,
+      `Isolated ${materialSubject} (no cap, no fitment, no sprayer above the neck) for a ${capacity ? `${capacity}ml ` : ""}${family} bottle. ${familyShape}`,
       tubeClause,
       `Composition: only the bottle in the frame. No labels, text, logos, badges, watermarks, or secondary objects. Subtle soft contact shadow directly beneath the base for grounding.`,
     ].join("\n");
@@ -429,10 +435,13 @@ function buildPaperDollComponentPrompt(
       .filter(Boolean)
       .join(", ");
     const applicatorShape = getApplicatorShapeDescriptor(sku.applicator);
+    const bottleMaterial = /atomizer/i.test([sku.family, sku.category, sku.applicator].filter(Boolean).join(" "))
+      ? "metal atomizer casing"
+      : `${family} glass bottle`;
     contextBlock = [
       ``,
       `CONTEXT (subject of the reference):`,
-      `Isolated ${colorwayDesc} fitment component for a ${family} glass bottle. ${applicatorShape}`,
+      `Isolated ${colorwayDesc} fitment component for a ${bottleMaterial}. ${applicatorShape}`,
       `Composition: only the fitment in the frame. NO bottle, no glass body, no labels, no text, no badges, no watermarks, no secondary objects. Subtle soft contact shadow only for grounding.`,
     ].join("\n");
   }

@@ -309,49 +309,50 @@ function csvRowToImport(
   row: CsvRow,
   organizationId: string,
 ): ImportRow | null {
-  const displayName = row["Display Name"] || row["display_name"] || "";
+  const displayName = row["Display Name"] || row["display_name"] || row["displayName"] || "";
   const family = row["Family"] || row["family"] || "";
   if (!displayName || !family) return null;
 
   return {
     organization_id: organizationId,
-    tracker_row_number: toIntOrNull(row["Row #"] ?? row["row_number"]),
+    tracker_row_number: toIntOrNull(row["Row #"] ?? row["row_number"] ?? row["trackerRowNumber"]),
     family,
-    capacity_ml: toIntOrNull(row["Capacity (ml)"] ?? row["capacity_ml"]),
+    capacity_ml: toIntOrNull(row["Capacity (ml)"] ?? row["capacity_ml"] ?? row["capacityMl"]),
     capacity_label: emptyToNull(row["Capacity"] ?? row["capacity_label"]),
-    glass_color: emptyToNull(row["Glass Color"] ?? row["glass_color"]),
+    glass_color: emptyToNull(row["Glass Color"] ?? row["glass_color"] ?? row["rawColor"] ?? row["canonicalColor"]),
     applicator_types: emptyToNull(
       row["Applicator Types"] ??
         row["Applicator Type"] ??
         row["applicator_types"] ??
-        row["applicator"],
+        row["applicator"] ??
+        row["applicatorTypes"],
     ),
     thread_size: normalizeThreadSize(
-      row["Thread Size"] ?? row["thread_size"] ?? row["neck_thread_size"],
+      row["Thread Size"] ?? row["thread_size"] ?? row["neck_thread_size"] ?? row["neckThreadSize"],
     ),
     display_name: displayName,
     category: emptyToNull(row["Category"] ?? row["category"]),
-    collection: emptyToNull(row["Collection"] ?? row["collection"]),
-    convex_slug: emptyToNull(row["Convex Slug"] ?? row["convex_slug"]),
-    convex_id: emptyToNull(row["Convex ID"] ?? row["convex_id"]),
+    collection: emptyToNull(row["Collection"] ?? row["collection"] ?? row["bottleCollection"]),
+    convex_slug: emptyToNull(row["Convex Slug"] ?? row["convex_slug"] ?? row["slug"]),
+    convex_id: emptyToNull(row["Convex ID"] ?? row["convex_id"] ?? row["sourceId"]),
     primary_grace_sku: emptyToNull(
-      row["Primary Grace SKU"] ?? row["primary_grace_sku"] ?? row["grace_sku"],
+      row["Primary Grace SKU"] ?? row["primary_grace_sku"] ?? row["primaryGraceSku"] ?? row["grace_sku"],
     ),
     primary_website_sku: emptyToNull(
-      row["Primary Website SKU"] ?? row["primary_website_sku"] ?? row["website_sku"],
+      row["Primary Website SKU"] ?? row["primary_website_sku"] ?? row["primaryWebsiteSku"] ?? row["website_sku"],
     ),
     all_legacy_skus: emptyToNull(
-      row["All Legacy SKUs"] ?? row["all_legacy_skus"],
+      row["All Legacy SKUs"] ?? row["all_legacy_skus"] ?? row["allLegacySkus"],
     ),
     product_url: emptyToNull(row["Product URL"] ?? row["product_url"]),
-    variant_count: toIntOrNull(row["Variant Count"] ?? row["variant_count"]),
-    price_min_cents: toCentsOrNull(row["Price Min ($)"] ?? row["price_min"]),
-    price_max_cents: toCentsOrNull(row["Price Max ($)"] ?? row["price_max"]),
+    variant_count: toIntOrNull(row["Variant Count"] ?? row["variant_count"] ?? row["variantCount"] ?? row["actualVariantCount"]),
+    price_min_cents: toCentsOrNull(row["Price Min ($)"] ?? row["price_min"] ?? row["priceRangeMin"]),
+    price_max_cents: toCentsOrNull(row["Price Max ($)"] ?? row["price_max"] ?? row["priceRangeMax"]),
     legacy_has_hero_image: toBoolFlag(
-      row["Has Hero Image?"] ?? row["has_hero_image"],
+      row["Has Hero Image?"] ?? row["has_hero_image"] ?? (row["heroImageUrl"] ? "true" : ""),
     ),
     legacy_hero_image_url: emptyToNull(
-      row["Hero Image URL"] ?? row["hero_image_url"],
+      row["Hero Image URL"] ?? row["hero_image_url"] ?? row["heroImageUrl"],
     ),
   };
 }
@@ -890,6 +891,55 @@ export async function markPipelineSkuJobSyncedBySku(params: {
     .eq("organization_id", organizationId)
     .or(`grace_sku.eq.${sku},website_sku.eq.${sku},shopify_sku.eq.${sku}`);
   if (error) throw error;
+}
+
+export interface PipelineConvexImageBackfillResult {
+  dryRun: boolean;
+  recovery?: {
+    scanned?: number;
+    recoverable?: number;
+    recovered?: number;
+    missing?: number;
+  };
+  scanned?: number;
+  candidateCount?: number;
+  syncedCount?: number;
+  failedCount?: number;
+  skippedCount?: number;
+  error?: string;
+}
+
+/**
+ * After Shopify batch pushes, close the loop automatically:
+ * recover any Shopify CDN URLs that only made it back as media IDs, write those
+ * URLs into Best Bottles Convex, and mark the SKU jobs synced in Madison.
+ */
+export async function backfillPipelineConvexImages(params: {
+  organizationId: string;
+  productGroupSlug?: string | null;
+  family?: string | null;
+  skus?: string[];
+  limit?: number;
+}): Promise<PipelineConvexImageBackfillResult> {
+  const body = {
+    organizationId: params.organizationId,
+    productGroupSlug: params.productGroupSlug || undefined,
+    family: params.family || undefined,
+    skus: params.skus && params.skus.length > 0 ? params.skus : undefined,
+    limit: params.limit ?? 500,
+    dryRun: false,
+    recoverMissingShopifyImageUrls: true,
+  };
+
+  const { data, error } = await supabase.functions.invoke(
+    "backfill-bestbottles-convex-images",
+    { body },
+  );
+
+  if (error) throw error;
+  const result = (data ?? {}) as PipelineConvexImageBackfillResult;
+  if (result.error) throw new Error(result.error);
+  return result;
 }
 
 type ShopifyPublishLogRow = {

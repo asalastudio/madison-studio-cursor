@@ -106,6 +106,13 @@ function getBodyMaterialLabel(productContext: AssembledGenerateOptions["productC
   if (haystack.includes("aluminum") || haystack.includes("aluminium") || haystack.includes("ab-alu")) {
     return "opaque brushed/satin aluminum metal";
   }
+  if (
+    haystack.includes("atomizer") ||
+    haystack.includes("metal atomizer") ||
+    /(?:^|\s)gb-[a-z0-9-]+-(?:5ml|10ml)-atm-/i.test(haystack)
+  ) {
+    return "opaque colored/anodized metal atomizer casing";
+  }
   return "the exact referenced bottle body material";
 }
 
@@ -173,9 +180,9 @@ export function useAssembledPromptGeneration() {
       rawGlassRef.length > 0 && !/\.(gif|heic|bmp)(\?|$)/i.test(rawGlassRef);
     const referenceImagesList: Array<{ url: string; label: string; description: string }> = [];
     const bodyMaterialLabel = getBodyMaterialLabel(options.productContext);
-    const isAluminumBody = bodyMaterialLabel.includes("aluminum");
-    const styleReferenceLabel = isAluminumBody
-      ? "Aluminum Lighting-Only Style Reference"
+    const isMetalBody = bodyMaterialLabel.includes("aluminum") || bodyMaterialLabel.includes("metal atomizer");
+    const styleReferenceLabel = isMetalBody
+      ? "Metal Lighting-Only Style Reference"
       : "Glass Specularity Style Reference";
     if (refIsSupported) {
       referenceImagesList.push({
@@ -197,8 +204,8 @@ export function useAssembledPromptGeneration() {
         description:
           [
             "Secondary style-only reference.",
-            isAluminumBody
-              ? "Use only for lighting direction, reflection-card rhythm, opaque metal edge glints, contact shadow, ambient occlusion, and premium studio polish. Do not use this image to change the product material: the body must remain opaque brushed/satin aluminum."
+            isMetalBody
+              ? `Use only for lighting direction, reflection-card rhythm, opaque metal edge glints, contact shadow, ambient occlusion, and premium studio polish. Do not use this image to change the product material: the body must remain ${bodyMaterialLabel}.`
               : "Use only for realistic glass transparency, refraction, edge glints, specular highlight rhythm, contact shadow, ambient occlusion, and premium studio polish.",
             "Do not copy or infer this reference's product silhouette, cap, label, colors, geometry, camera angle, composition, background, props, brand, or scene.",
             "Image 1 Product Reference remains the only product identity and placement source.",

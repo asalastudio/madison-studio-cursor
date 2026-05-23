@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useToast } from "@/hooks/use-toast";
 import {
+  backfillPipelineConvexImages,
   listPipelineGroups,
   listPipelineSkuJobs,
   markPipelineSkuJobSyncedBySku,
@@ -710,10 +711,6 @@ export function useBestBottlesProductHub(): UseBestBottlesProductHubResult {
 
       const results = Array.isArray(data?.results) ? data.results : [];
       const failedCount = Number(data?.failedCount ?? 0);
-      if (failedCount > 0) {
-        const firstFailure = results.find((result: { status?: string }) => result.status === "failed");
-        throw new Error(firstFailure?.message ?? `${failedCount} SKU push${failedCount === 1 ? "" : "es"} failed.`);
-      }
 
       await Promise.all(
         results
@@ -741,6 +738,24 @@ export function useBestBottlesProductHub(): UseBestBottlesProductHubResult {
             }),
           ),
       );
+
+      const backfill = await backfillPipelineConvexImages({
+        organizationId: currentOrganizationId,
+        productGroupSlug: group.slug,
+        skus: approvedJobs.flatMap((job) =>
+          [job.grace_sku, job.website_sku, job.shopify_sku].filter((sku): sku is string => Boolean(sku)),
+        ),
+      });
+
+      if (failedCount > 0) {
+        const firstFailure = results.find((result: { status?: string; message?: string }) => result.status === "failed");
+        throw new Error(
+          [
+            firstFailure?.message ?? `${failedCount} SKU push${failedCount === 1 ? "" : "es"} failed.`,
+            `Auto-reconciled ${backfill.syncedCount ?? 0} pushed SKU job${backfill.syncedCount === 1 ? "" : "s"}.`,
+          ].join(" "),
+        );
+      }
     },
     onSuccess: (_data, group) => {
       queryClient.invalidateQueries({ queryKey: ["best-bottles-product-hub"] });

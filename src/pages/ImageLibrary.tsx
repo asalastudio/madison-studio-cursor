@@ -59,6 +59,12 @@ import {
   type Product as BestBottlesProduct,
 } from "@/integrations/convex/bestBottles";
 import {
+  BEST_BOTTLES_VISUAL_IDENTITY_OPTIONS,
+  detectBestBottlesVisualIdentityFromText,
+  resolveBestBottlesVisualIdentity,
+  validateBestBottlesImageIdentity,
+} from "@/lib/bestBottlesVisualIdentity";
+import {
   addLibraryTag,
   removeLibraryTag,
   BACKGROUND_SCENE_TAG,
@@ -66,7 +72,7 @@ import {
   LIBRARY_ROLE_BACKGROUND_SCENE,
   LIBRARY_ROLE_STYLE_REFERENCE,
 } from "@/lib/imageLibraryTags";
-import { markPipelineSkuJobSyncedBySku } from "@/lib/bestBottlesPipeline";
+import { backfillPipelineConvexImages, markPipelineSkuJobSyncedBySku } from "@/lib/bestBottlesPipeline";
 import {
   Dialog,
   DialogContent,
@@ -116,6 +122,7 @@ type BulkShopifyRow = {
   sku: string;
   websiteSku: string;
   graceSku: string;
+  expectedCapColor: string;
 };
 type BestBottlesFamilyOption = {
   family: string;
@@ -145,11 +152,10 @@ const BEST_BOTTLES_FAMILY_PRIORITY = [
   "grace",
   "vial",
 ];
-
 type ImageTagChainRow = Pick<GeneratedImage, "id" | "library_tags" | "parent_image_id">;
 
-function normalizeBestBottlesSlug(value: string): string {
-  return value
+function normalizeBestBottlesSlug(value: string | null | undefined): string {
+  return (value ?? "")
     .trim()
     .toLowerCase()
     .replace(/[_\s]+/g, "-")
@@ -482,6 +488,20 @@ async function markBestBottlesSkuJobsFromShopifyResults(
   );
 }
 
+async function reconcileBestBottlesPublish(params: {
+  organizationId: string | null | undefined;
+  productGroupSlug?: string | null;
+  skus?: string[];
+}): Promise<void> {
+  if (!params.organizationId) return;
+  await backfillPipelineConvexImages({
+    organizationId: params.organizationId,
+    productGroupSlug: params.productGroupSlug,
+    skus: params.skus,
+    limit: 250,
+  });
+}
+
 /** Pilot filter: Consistency / pipeline images tagged with roller-ball applicators. */
 function matchesRollOnLibraryScope(image: GeneratedImage): boolean {
   const tags = image.library_tags ?? [];
@@ -557,7 +577,7 @@ export default function ImageLibrary() {
   const [newLibraryTag, setNewLibraryTag] = useState("");
   const [tagActionLoading, setTagActionLoading] = useState(false);
 
-  // Publish live: Best Bottles grid/PDP or Tarife mainImage.
+  // Publish live: Best Bottles Shopify media or Tarife mainImage.
   const [sanityPublishOpen, setSanityPublishOpen] = useState(false);
   const [sanityPublishImage, setSanityPublishImage] = useState<GeneratedImage | null>(null);
   const [sanityPublishProduct, setSanityPublishProduct] = useState<Product | null>(null);
@@ -748,6 +768,21 @@ export default function ImageLibrary() {
     return map;
   }, [bestBottlesProducts]);
 
+  const resolveBestBottlesProductForSku = useCallback((sku: string | null | undefined) => {
+    const trimmed = sku?.trim();
+    if (!trimmed) return null;
+    const key = trimmed.toUpperCase();
+    return bestBottlesProductsByGraceSku.get(key) ?? bestBottlesProductsByWebsiteSku.get(key) ?? null;
+  }, [bestBottlesProductsByGraceSku, bestBottlesProductsByWebsiteSku]);
+
+  const getBestBottlesFinishConflict = useCallback((
+    expectedCapColor: string | null | undefined,
+    product: BestBottlesProduct | null,
+  ) => {
+    const validation = validateBestBottlesImageIdentity(expectedCapColor, product);
+    return validation.ok ? "" : validation.message;
+  }, []);
+
   const bestBottlesProductGroupsById = useMemo(() => {
     const map = new Map<string, BestBottlesProductGroup>();
     for (const group of bestBottlesProductGroups) {
@@ -906,6 +941,12 @@ export default function ImageLibrary() {
     const graceSku = detectedGraceSku || product?.graceSku || "";
     const explicitShopifySku = detectShopifySku(image);
     const sku = explicitShopifySku || product?.graceSku || graceSku || websiteSku;
+    const resolvedIdentity = resolveBestBottlesVisualIdentity(product ?? null);
+    const expectedCapColor = resolvedIdentity.safeToPush ? resolvedIdentity.resolvedVisualIdentity : detectBestBottlesVisualIdentityFromText([
+      image.session_name,
+      image.final_prompt,
+      ...(image.library_tags ?? []),
+    ].filter(Boolean).join(" "));
 
     return {
       imageId: image.id,
@@ -914,6 +955,7 @@ export default function ImageLibrary() {
       sku,
       websiteSku,
       graceSku,
+      expectedCapColor,
     };
   }, [bestBottlesProductsByGraceSku, bestBottlesProductsByWebsiteSku]);
 
@@ -1045,6 +1087,17 @@ export default function ImageLibrary() {
   );
   const selectedBestBottlesHasProductGroupSlug =
     selectedBestBottlesProductGroupSlugs.length > 0;
+
+  const resolveEnteredBestBottlesGroupSlug = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return "";
+      const normalized = normalizeBestBottlesSlug(trimmed);
+      return bestBottlesProductGroupsBySlug.get(normalized)?.slug ?? trimmed;
+    },
+    [bestBottlesProductGroupsBySlug],
+  );
+
   const selectedBestBottlesPrimaryOnly =
     selectedBestBottlesWebsiteSkus.length > 0 &&
     selectedBestBottlesWebsiteSkus.every((sku) =>
@@ -1332,6 +1385,7 @@ export default function ImageLibrary() {
           sku: replaceSku ? suggested.sku : row.sku,
           websiteSku: row.websiteSku || suggested.websiteSku,
           graceSku: row.graceSku || suggested.graceSku,
+          expectedCapColor: row.expectedCapColor || suggested.expectedCapColor,
         };
       }),
     );
@@ -1349,6 +1403,12 @@ export default function ImageLibrary() {
     );
   };
 
+  const updateBulkShopifyExpectedCapColor = (imageId: string, expectedCapColor: string) => {
+    setBulkShopifyRows((rows) =>
+      rows.map((row) => (row.imageId === imageId ? { ...row, expectedCapColor } : row)),
+    );
+  };
+
   const handleBulkShopifyPublish = async () => {
     const rowsToPublish = bulkShopifyRows
       .map((row) => ({
@@ -1356,9 +1416,28 @@ export default function ImageLibrary() {
         sku: row.sku.trim(),
         websiteSku: row.websiteSku.trim(),
         graceSku: row.graceSku.trim(),
+        expectedCapColor: row.expectedCapColor.trim(),
       }))
       .filter((row) => row.sku);
     if (rowsToPublish.length === 0) return;
+
+    const unsafeRow = isBestBottlesOrg
+      ? rowsToPublish.find((row) => {
+          const product = resolveBestBottlesProductForSku(row.sku) ?? resolveBestBottlesProductForSku(row.graceSku) ?? resolveBestBottlesProductForSku(row.websiteSku);
+          return !validateBestBottlesImageIdentity(row.expectedCapColor, product).ok;
+        })
+      : null;
+    if (unsafeRow) {
+      const product = resolveBestBottlesProductForSku(unsafeRow.sku) ?? resolveBestBottlesProductForSku(unsafeRow.graceSku) ?? resolveBestBottlesProductForSku(unsafeRow.websiteSku);
+      toast({
+        title: "Visual identity confirmation required",
+        description:
+          getBestBottlesFinishConflict(unsafeRow.expectedCapColor, product) ||
+          `Declare the image visual identity before pushing to this variant.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setBulkShopifyLoading(true);
     try {
@@ -1371,10 +1450,12 @@ export default function ImageLibrary() {
             sku: row.sku,
             websiteSku: row.websiteSku || undefined,
             graceSku: row.graceSku || undefined,
+            expectedCapColor: row.expectedCapColor || undefined,
             altText: row.label,
           })),
           attachToVariant: true,
           syncBestBottlesConvex: isBestBottlesOrg,
+          enforceBestBottlesFinishMatch: isBestBottlesOrg,
         },
       });
 
@@ -1473,7 +1554,7 @@ export default function ImageLibrary() {
   const handleConfirmSanityPublish = async () => {
     if (!sanityPublishImage) return;
     if (publishDestination === "best-bottles-grid") {
-      const slug = normalizeBestBottlesSlug(bestBottlesSlug);
+      const slug = resolveEnteredBestBottlesGroupSlug(bestBottlesSlug);
       if (!slug) return;
     } else if (publishDestination === "best-bottles-pdp") {
       const websiteSkus = splitWebsiteSkus(bestBottlesWebsiteSku);
@@ -1500,9 +1581,10 @@ export default function ImageLibrary() {
     setSanityPublishLoading(true);
     try {
       if (publishDestination === "best-bottles-grid") {
-        const slug = normalizeBestBottlesSlug(bestBottlesSlug);
+        const slug = resolveEnteredBestBottlesGroupSlug(bestBottlesSlug);
         const { data, error } = await supabase.functions.invoke("push-bestbottles-grid-hero", {
           body: {
+            organizationId: currentOrganizationId,
             imageUrl: sanityPublishImage.image_url,
             slug,
           },
@@ -1510,9 +1592,15 @@ export default function ImageLibrary() {
         if (error) throw new Error(await extractFunctionErrorMessage(error, "Best Bottles catalog update failed"));
         if (data?.error) throw new Error(data.error);
 
+        await markBestBottlesSkuJobsFromShopifyResults(currentOrganizationId, data?.forwarded?.results);
+        await reconcileBestBottlesPublish({
+          organizationId: currentOrganizationId,
+          productGroupSlug: data?.slug ?? slug,
+        });
+
         toast({
-          title: "Website hero / thumbnail updated",
-          description: `Live product group "${slug}" now uses this image for the catalog hero/thumbnail.`,
+          title: "Best Bottles Shopify hero updated",
+          description: `Product group "${data?.slug ?? slug}" now uses Shopify media and has been reconciled to Convex.`,
         });
       } else if (publishDestination === "best-bottles-pdp") {
         const websiteSkus = splitWebsiteSkus(bestBottlesWebsiteSku);
@@ -1541,13 +1629,17 @@ export default function ImageLibrary() {
         }
 
         await markBestBottlesSkuJobsFromShopifyResults(currentOrganizationId, data?.results);
+        await reconcileBestBottlesPublish({
+          organizationId: currentOrganizationId,
+          skus: websiteSkus,
+        });
 
         toast({
           title: "Best Bottles PDP updated",
           description:
             websiteSkus.length === 1
-              ? `${websiteSkus[0]} ${getBestBottlesPdpModeForWebsiteSku(websiteSkus[0], bestBottlesPdpMode)} now points to the Shopify product image.`
-              : `${websiteSkus.length} SKUs now point to Shopify product images.`,
+              ? `${websiteSkus[0]} ${getBestBottlesPdpModeForWebsiteSku(websiteSkus[0], bestBottlesPdpMode)} now points to Shopify and has been reconciled to Convex.`
+              : `${websiteSkus.length} SKUs now point to Shopify images and have been reconciled to Convex.`,
         });
       } else {
         const { data, error } = await supabase.functions.invoke("push-product-to-sanity", {
@@ -2229,73 +2321,149 @@ export default function ImageLibrary() {
           </DialogHeader>
 
           <div className="max-h-[56vh] overflow-y-auto overscroll-contain pr-1 space-y-2">
-            {bulkShopifyRows.map((row, index) => (
-              <div
-                key={row.imageId}
-                className="grid grid-cols-[56px_1fr] md:grid-cols-[64px_1fr_260px] gap-3 rounded-md border border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/50 p-2"
-              >
-                <img
-                  src={row.imageUrl}
-                  alt=""
-                  className="h-14 w-14 md:h-16 md:w-16 rounded object-cover border border-[var(--darkroom-border)]"
-                />
-                <div className="min-w-0 self-center">
-                  <div className="text-xs text-[var(--darkroom-text)]/50">Image {index + 1}</div>
-                  <div className="truncate text-sm text-[var(--darkroom-text)]">{row.label}</div>
-                </div>
-                <div className="col-span-2 md:col-span-1 space-y-1">
-                  <Label
-                    htmlFor={`bulk-shopify-sku-${row.imageId}`}
-                    className="text-[11px] text-[var(--darkroom-text)]/70"
+            {bulkShopifyRows.map((row, index) => {
+                const matchedProduct = isBestBottlesOrg
+                  ? resolveBestBottlesProductForSku(row.sku) ?? resolveBestBottlesProductForSku(row.graceSku) ?? resolveBestBottlesProductForSku(row.websiteSku)
+                  : null;
+                const visualIdentity = resolveBestBottlesVisualIdentity(matchedProduct);
+                const finishConflict = getBestBottlesFinishConflict(row.expectedCapColor, matchedProduct);
+                const needsFinish = Boolean(isBestBottlesOrg && visualIdentity.safeToPush && row.sku.trim() && !row.expectedCapColor.trim());
+                return (
+                  <div
+                    key={row.imageId}
+                    className={`grid grid-cols-[56px_1fr] md:grid-cols-[64px_1fr_280px] gap-3 rounded-md border bg-[var(--darkroom-bg)]/50 p-2 ${
+                      finishConflict || needsFinish ? "border-red-400/60" : "border-[var(--darkroom-border)]"
+                    }`}
                   >
-                    Shopify variant / Grace SKU
-                  </Label>
-                  <Input
-                    id={`bulk-shopify-sku-${row.imageId}`}
-                    value={row.sku}
-                    onChange={(e) => updateBulkShopifySku(row.imageId, e.target.value)}
-                    placeholder="e.g. GB-CYL-AMB-9ML-SPR-BLK"
-                    className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] font-mono text-xs"
-                  />
-                  {isBestBottlesOrg && (row.graceSku || row.websiteSku) && (
-                    <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-[var(--darkroom-text)]/45">
-                      {row.graceSku && <span>Grace: <span className="font-mono">{row.graceSku}</span></span>}
-                      {row.websiteSku && <span>Website: <span className="font-mono">{row.websiteSku}</span></span>}
+                    <img
+                      src={row.imageUrl}
+                      alt=""
+                      className="h-14 w-14 md:h-16 md:w-16 rounded object-cover border border-[var(--darkroom-border)]"
+                    />
+                    <div className="min-w-0 self-center">
+                      <div className="text-xs text-[var(--darkroom-text)]/50">Image {index + 1}</div>
+                      <div className="truncate text-sm text-[var(--darkroom-text)]">{row.label}</div>
+                      {matchedProduct && (
+                        <div className="mt-1 space-y-0.5 text-[10px] text-[var(--darkroom-text)]/55">
+                          <div>
+                            Resolved visual identity:{" "}
+                            <span className="font-semibold text-[var(--darkroom-text)]">
+                              {visualIdentity.resolvedVisualIdentity || "Needs review"}
+                            </span>
+                          </div>
+                          {visualIdentity.secondaryVisualAttributes.length > 0 && (
+                            <div>Secondary: {visualIdentity.secondaryVisualAttributes.join(", ")}</div>
+                          )}
+                          <div>
+                            Status:{" "}
+                            <span className={visualIdentity.safeToPush ? "text-emerald-300" : "text-amber-300"}>
+                              {visualIdentity.safeToPush ? "Safe to push" : "Needs review"}
+                            </span>
+                            {" · "}
+                            <span className="font-mono">{matchedProduct.websiteSku}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {isBestBottlesOrg && !row.graceSku && !row.websiteSku && (
-                    <p className="text-[10px] text-amber-200/70">
-                      No SKU crosswalk found. For a one-off hero, use Publish live to assign product media instead of variant media.
-                    </p>
-                  )}
-                  {(() => {
-                    const trimmed = row.sku.trim();
-                    if (!trimmed) {
-                      return (
-                        <div className="flex items-center gap-1 text-[11px] text-[var(--darkroom-text)]/40">
-                          <span className="font-mono">—</span>
-                          <span>Will be skipped</span>
-                        </div>
-                      );
-                    }
-                    if (isCanonicalGraceSku(trimmed)) {
-                      return (
-                        <div className="flex items-center gap-1 text-[11px] text-emerald-500">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Matches Best Bottles variant</span>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div className="flex items-center gap-1 text-[11px] text-amber-500">
-                        <AlertTriangle className="w-3 h-3" />
-                        <span>Not in Best Bottles catalog — push may fail</span>
+                    <div className="col-span-2 md:col-span-1 space-y-2">
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor={`bulk-shopify-sku-${row.imageId}`}
+                          className="text-[11px] text-[var(--darkroom-text)]/70"
+                        >
+                          Shopify variant / Grace SKU
+                        </Label>
+                        <Input
+                          id={`bulk-shopify-sku-${row.imageId}`}
+                          value={row.sku}
+                          onChange={(e) => updateBulkShopifySku(row.imageId, e.target.value)}
+                          placeholder="e.g. GB-CYL-AMB-9ML-SPR-BLK"
+                          className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] font-mono text-xs"
+                        />
                       </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            ))}
+                      {isBestBottlesOrg && visualIdentity.resolvedVisualIdentityCanonical && (
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-[var(--darkroom-text)]/70">
+                            Image visual identity shown
+                          </Label>
+                          <Select
+                            value={row.expectedCapColor || "__unset"}
+                            onValueChange={(value) => updateBulkShopifyExpectedCapColor(row.imageId, value === "__unset" ? "" : value)}
+                          >
+                            <SelectTrigger className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__unset">Choose finish before push</SelectItem>
+                              {BEST_BOTTLES_VISUAL_IDENTITY_OPTIONS.map((finish) => (
+                                <SelectItem key={finish} value={finish}>{finish}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {isBestBottlesOrg && matchedProduct && (
+                        <div className="rounded border border-[var(--darkroom-border)]/70 bg-black/20 p-2 text-[10px] text-[var(--darkroom-text)]/60">
+                          <div>Reason: {visualIdentity.reason}</div>
+                          {visualIdentity.blockingWarnings.length > 0 && (
+                            <div className="mt-1 text-amber-300">
+                              {visualIdentity.blockingWarnings.join(" ")}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {isBestBottlesOrg && (row.graceSku || row.websiteSku) && (
+                        <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-[var(--darkroom-text)]/45">
+                          {row.graceSku && <span>Grace: <span className="font-mono">{row.graceSku}</span></span>}
+                          {row.websiteSku && <span>Website: <span className="font-mono">{row.websiteSku}</span></span>}
+                        </div>
+                      )}
+                      {isBestBottlesOrg && !row.graceSku && !row.websiteSku && (
+                        <p className="text-[10px] text-amber-200/70">
+                          No SKU crosswalk found. For a one-off hero, use Publish live to assign product media instead of variant media.
+                        </p>
+                      )}
+                      {finishConflict && (
+                        <div className="flex items-start gap-1 text-[11px] text-red-300">
+                          <AlertTriangle className="mt-0.5 w-3 h-3 shrink-0" />
+                          <span>{finishConflict} Change the SKU or finish before pushing.</span>
+                        </div>
+                      )}
+                      {needsFinish && (
+                        <div className="flex items-start gap-1 text-[11px] text-amber-300">
+                          <AlertTriangle className="mt-0.5 w-3 h-3 shrink-0" />
+                          <span>Declare what visual identity the image shows before replacing this variant.</span>
+                        </div>
+                      )}
+                      {(() => {
+                        const trimmed = row.sku.trim();
+                        if (!trimmed) {
+                          return (
+                            <div className="flex items-center gap-1 text-[11px] text-[var(--darkroom-text)]/40">
+                              <span className="font-mono">—</span>
+                              <span>Will be skipped</span>
+                            </div>
+                          );
+                        }
+                        if (isCanonicalGraceSku(trimmed)) {
+                          return (
+                            <div className="flex items-center gap-1 text-[11px] text-emerald-500">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Matches Best Bottles variant</span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="flex items-center gap-1 text-[11px] text-amber-500">
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>Not in Best Bottles catalog — push may fail</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
 
           <p className="text-[11px] text-[var(--darkroom-text)]/50">
@@ -2322,7 +2490,12 @@ export default function ImageLibrary() {
               className="bg-[#95BF47] hover:bg-[#84aa3f] text-black"
               disabled={
                 bulkShopifyLoading ||
-                bulkShopifyRows.every((row) => !row.sku.trim())
+                bulkShopifyRows.every((row) => !row.sku.trim()) ||
+                (isBestBottlesOrg && bulkShopifyRows.some((row) => {
+                  if (!row.sku.trim()) return false;
+                  const product = resolveBestBottlesProductForSku(row.sku) ?? resolveBestBottlesProductForSku(row.graceSku) ?? resolveBestBottlesProductForSku(row.websiteSku);
+                  return !validateBestBottlesImageIdentity(row.expectedCapColor, product).ok;
+                }))
               }
               onClick={() => void handleBulkShopifyPublish()}
             >
@@ -2359,9 +2532,9 @@ export default function ImageLibrary() {
           <DialogHeader>
             <DialogTitle>Publish live</DialogTitle>
             <DialogDescription className="text-[var(--darkroom-text)]/70">
-              Send this render to Best Bottles product media, Sanity-backed catalog hero data, or
-              to Sanity as a Tarife fragrance <span className="font-mono">mainImage</span> via
-              Product Hub.
+              Send this render through Shopify for Best Bottles variant media or catalog hero
+              thumbnails, then reconcile the Shopify CDN URL into Convex for the live site. Tarife
+              still publishes to Sanity via Product Hub.
             </DialogDescription>
           </DialogHeader>
           {sanityPublishImage && (
@@ -2372,8 +2545,8 @@ export default function ImageLibrary() {
                 className="w-20 h-20 rounded-md object-cover border border-[var(--darkroom-border)] shrink-0"
               />
               <p className="text-xs text-[var(--darkroom-text)]/60 line-clamp-4">
-                Choose whether this render updates the Best Bottles website thumbnail/group hero,
-                Shopify-backed variant PDP media, or a Tarife fragrance main image.
+                Choose whether this render updates Best Bottles Shopify-backed variant media, a
+                Shopify-backed catalog hero/thumbnail, or a Tarife fragrance main image.
               </p>
             </div>
           )}
@@ -2418,10 +2591,10 @@ export default function ImageLibrary() {
                 {isBestBottlesOrg && (
                   <>
                     <SelectItem value="best-bottles-grid">
-                      Best Bottles website thumbnail / group hero
+                      Best Bottles group hero / grid thumbnail via Shopify
                     </SelectItem>
                     <SelectItem value="best-bottles-pdp">
-                      Best Bottles variant PDP image / Shopify
+                      Best Bottles variant PDP image via Shopify
                     </SelectItem>
                   </>
                 )}
@@ -2511,10 +2684,10 @@ export default function ImageLibrary() {
                   className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] font-mono text-sm"
                 />
                 <p className="text-[11px] text-[var(--darkroom-text)]/50">
-                  Uploads to Best Bottles Sanity, then writes the Sanity CDN URL to{" "}
-                  <span className="font-mono">productGroups.heroImageUrl</span> in Convex.
-                  This is the catalog hero/thumbnail path; it does not attach media to a Shopify
-                  variant.
+                  Uploads to Shopify product media, attaches the image to the primary variant,
+                  writes the Shopify CDN URL to the Best Bottles Convex catalog hero/thumbnail
+                  path, then runs the reconciliation pass so the production UI reads the current
+                  Shopify URL.
                 </p>
               </div>
             </div>
@@ -2664,8 +2837,9 @@ export default function ImageLibrary() {
               </div>
               <p className="text-[11px] text-[var(--darkroom-text)]/50">
                 Uploads this render to Shopify product media first, attaches it to the matched
-                variant, then patches the matching Convex product image field. Product pages can
-                show each top color when each SKU receives its own approved render.
+                variant, patches the matching Convex product image field, then runs reconciliation
+                so Shopify and the Best Bottles UI stay in sync. Product pages can show each top
+                color when each SKU receives its own approved render.
               </p>
             </div>
           ) : (
@@ -2720,9 +2894,9 @@ export default function ImageLibrary() {
                   Publishing…
                 </>
               ) : publishDestination === "best-bottles-grid" ? (
-                "Publish hero / thumbnail"
+                "Publish Shopify hero"
               ) : publishDestination === "best-bottles-pdp" ? (
-                "Publish PDP image"
+                "Publish Shopify PDP image"
               ) : (
                 "Publish live"
               )}

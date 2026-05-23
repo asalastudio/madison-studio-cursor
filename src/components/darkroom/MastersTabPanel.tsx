@@ -457,6 +457,13 @@ function inferBestBottlesBodyMaterial(product: Product): string {
   if (haystack.includes("aluminum") || haystack.includes("aluminium") || haystack.includes("ab-alu")) {
     return "opaque brushed/satin aluminum";
   }
+  if (
+    haystack.includes("atomizer") ||
+    haystack.includes("metal atomizer") ||
+    /(?:^|\s)gb-[a-z0-9-]+-(?:5ml|10ml)-atm-/i.test(haystack)
+  ) {
+    return "opaque colored/anodized metal atomizer casing";
+  }
   if (haystack.includes("plastic")) {
     return "plastic";
   }
@@ -1654,14 +1661,23 @@ export function MastersTabPanel({
                 : "image/png");
           const familySegment = safeStorageFilename(familyName ?? "best-bottles");
           const storageName = safeStorageFilename(entry.key);
-          const storagePath = `${currentOrganizationId}/best-bottles/reference-imports/${familySegment}/${storageName}.${ext}`;
+          const ts = Date.now();
+          const rand = Math.random().toString(36).slice(2, 8);
+          const storagePath = [
+            currentOrganizationId,
+            user.id,
+            "best-bottles",
+            "reference-imports",
+            familySegment,
+            `${storageName}_${ts}_${rand}.${ext}`,
+          ].join("/");
 
           const { error: uploadError } = await supabase.storage
             .from("generated-images")
             .upload(storagePath, entry.file, {
               cacheControl: "3600",
               contentType,
-              upsert: true,
+              upsert: false,
             });
           if (uploadError) throw uploadError;
 
@@ -1967,7 +1983,7 @@ export function MastersTabPanel({
       ].filter((t): t is string => Boolean(t));
     }
     const skuBodyMaterial = inferBestBottlesBodyMaterial(sku);
-    const skuSpecularityTag = skuBodyMaterial.includes("aluminum")
+    const skuSpecularityTag = skuBodyMaterial.includes("aluminum") || skuBodyMaterial.includes("metal atomizer")
       ? "metal-specularity-ref"
       : "glass-specularity-ref";
 

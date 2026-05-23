@@ -28,6 +28,7 @@ import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
 import {
   listPipelineGroups,
   listPipelineSkuJobs,
+  backfillPipelineConvexImages,
   groupByShape,
   importPipelineCsv,
   markPipelineSkuJobsQueued,
@@ -936,10 +937,6 @@ export default function BestBottlesPipeline() {
 
       const results = Array.isArray(data?.results) ? data.results : [];
       const failedCount = Number(data?.failedCount ?? 0);
-      if (failedCount > 0) {
-        const firstFailure = results.find((result: { status?: string }) => result.status === "failed");
-        throw new Error(firstFailure?.message ?? `${failedCount} SKU${failedCount === 1 ? "" : "s"} failed.`);
-      }
 
       await Promise.all(
         results
@@ -968,9 +965,25 @@ export default function BestBottlesPipeline() {
           ),
       );
 
-      toast.success(`Pushed ${approvedJobs.length} approved SKU job${approvedJobs.length === 1 ? "" : "s"}`, {
-        description: "Shopify media and Convex sync metadata were written back per SKU.",
+      const backfill = await backfillPipelineConvexImages({
+        organizationId,
+        productGroupSlug,
+        skus: approvedJobs.flatMap((job) =>
+          [job.grace_sku, job.website_sku, job.shopify_sku].filter((sku): sku is string => Boolean(sku)),
+        ),
       });
+
+      if (failedCount > 0) {
+        const firstFailure = results.find((result: { status?: string; message?: string }) => result.status === "failed");
+        toast.warning(`Recovered ${backfill.syncedCount ?? 0} pushed SKU job${backfill.syncedCount === 1 ? "" : "s"}`, {
+          description:
+            firstFailure?.message ?? `${failedCount} SKU${failedCount === 1 ? "" : "s"} still need review.`,
+        });
+      } else {
+        toast.success(`Pushed ${approvedJobs.length} approved SKU job${approvedJobs.length === 1 ? "" : "s"}`, {
+          description: `Shopify media, CDN URLs, and Convex sync were reconciled (${backfill.syncedCount ?? 0} backfilled).`,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["best-bottles-pipeline-sku-jobs"] });
     } catch (err) {
       toast.error("Approved SKU push failed", {

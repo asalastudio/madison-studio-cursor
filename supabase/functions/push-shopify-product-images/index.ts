@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateBestBottlesImageIdentity } from "../_shared/bestBottlesVisualIdentity.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,7 @@ type RequestItem = {
   sku?: string;
   websiteSku?: string;
   graceSku?: string;
+  expectedCapColor?: string;
   altText?: string;
   mode?: "cap-on" | "cap-off";
 };
@@ -53,10 +55,18 @@ type ConvexResponseBody = {
 type BestBottlesProductLookup = {
   websiteSku?: unknown;
   graceSku?: unknown;
+  category?: unknown;
+  family?: unknown;
+  color?: unknown;
   applicator?: unknown;
+  capStyle?: unknown;
+  capColor?: unknown;
+  trimColor?: unknown;
+  itemName?: unknown;
 };
 
 type PipelineSkuJobLookup = {
+  id?: string | null;
   grace_sku?: string | null;
   website_sku?: string | null;
   shopify_sku?: string | null;
@@ -115,6 +125,147 @@ function compactSku(value: string): string {
   return value.trim().replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
+function canonicalBestBottlesFinish(value: string | null | undefined): string {
+  const normalized = (value ?? "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\b(?:spray|screw cap|lotion pump|roller|dropper|atomizer|reducer|cap|collar|finish|with)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return "";
+  if (normalized.includes("ivory") && normalized.includes("gold")) return "ivory gold";
+  if (normalized.includes("ivory") && normalized.includes("silver")) return "ivory silver";
+  if (normalized.includes("copper")) return "copper";
+  if (normalized.includes("matte gold")) return "matte gold";
+  if (normalized.includes("shiny gold") || normalized === "gold") return "shiny gold";
+  if (normalized.includes("matte silver")) return "matte silver";
+  if (normalized.includes("shiny silver") || normalized === "silver") return "shiny silver";
+  if (normalized.includes("shiny black")) return "shiny black";
+  if (normalized.includes("matte black")) return "matte black";
+  if (normalized.includes("black leather")) return "black leather";
+  if (normalized.includes("light brown leather")) return "light brown leather";
+  if (normalized.includes("brown leather")) return "brown leather";
+  if (normalized.includes("ivory leather")) return "ivory leather";
+  if (normalized.includes("pink leather")) return "pink leather";
+  if (normalized.includes("ivory")) return "ivory";
+  if (normalized.includes("black")) return "black";
+  if (normalized.includes("white")) return "white";
+  if (normalized.includes("pink")) return "pink";
+  if (normalized.includes("lavender")) return "lavender";
+  if (normalized.includes("red")) return "red";
+  if (normalized.includes("turquoise")) return "turquoise";
+  if (normalized.includes("cobalt")) return "cobalt blue";
+  if (normalized.includes("amber")) return "amber";
+  if (normalized.includes("frosted")) return "frosted";
+  if (normalized.includes("clear")) return "clear";
+  if (normalized.includes("silver dots")) return "silver dots";
+  if (normalized.includes("black dots")) return "black dots";
+  if (normalized.includes("metal roller")) return "metal roller";
+  if (normalized.includes("plastic roller")) return "plastic roller";
+  return normalized;
+}
+
+type BestBottlesVisualIdentity = {
+  label: string;
+  canonical: string;
+  fieldLabel: string;
+};
+
+const BEST_BOTTLES_SKU_VISUAL_TOKENS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /(?:^|[-_])IVGD(?:$|[-_])|IVGD$/i, label: "Ivory + Gold" },
+  { pattern: /(?:^|[-_])IVSL(?:$|[-_])|IVSL$/i, label: "Ivory + Silver" },
+  { pattern: /(?:^|[-_])MGLD(?:$|[-_])|MTGL$/i, label: "Matte Gold" },
+  { pattern: /(?:^|[-_])SGLD(?:$|[-_])|SHNGL$/i, label: "Shiny Gold" },
+  { pattern: /(?:^|[-_])MSLV(?:$|[-_])|MTSL$/i, label: "Matte Silver" },
+  { pattern: /(?:^|[-_])SSLV(?:$|[-_])|SHNSL$/i, label: "Shiny Silver" },
+  { pattern: /(?:^|[-_])SBLK(?:$|[-_])|SHNBLK$/i, label: "Shiny Black" },
+  { pattern: /(?:^|[-_])MBLK(?:$|[-_])|MTBLK$/i, label: "Matte Black" },
+  { pattern: /(?:^|[-_])CPR(?:$|[-_])|CU$/i, label: "Copper" },
+  { pattern: /(?:^|[-_])LVN(?:$|[-_])|LVN|LAV/i, label: "Lavender" },
+  { pattern: /(?:^|[-_])PNK(?:$|[-_])|PNK|PINK/i, label: "Pink" },
+  { pattern: /(?:^|[-_])RED(?:$|[-_])/i, label: "Red" },
+  { pattern: /(?:^|[-_])WHT(?:$|[-_])|WHT|WHITE/i, label: "White" },
+  { pattern: /(?:^|[-_])BLK(?:$|[-_])|BLK|BLACK/i, label: "Black" },
+  { pattern: /(?:^|[-_])GLD(?:$|[-_])|GOLD/i, label: "Shiny Gold" },
+  { pattern: /(?:^|[-_])IV(?:$|[-_])|IVORY/i, label: "Ivory" },
+];
+
+function bestBottlesSkuVisualIdentity(product: BestBottlesProductLookup | null): BestBottlesVisualIdentity | null {
+  const text = [getString(product?.graceSku), getString(product?.websiteSku)].filter(Boolean).join(" ");
+  if (!text) return null;
+  const hit = BEST_BOTTLES_SKU_VISUAL_TOKENS.find((token) => token.pattern.test(text));
+  if (!hit) return null;
+  return {
+    label: hit.label,
+    canonical: canonicalBestBottlesFinish(hit.label),
+    fieldLabel: "SKU token",
+  };
+}
+
+function bestBottlesProductContext(product: BestBottlesProductLookup | null): string {
+  return [
+    getString(product?.category),
+    getString(product?.family),
+    getString(product?.applicator),
+    getString(product?.capStyle),
+    getString(product?.itemName),
+    getString(product?.graceSku),
+    getString(product?.websiteSku),
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function isBestBottlesBottleColorVariant(product: BestBottlesProductLookup | null): boolean {
+  const text = bestBottlesProductContext(product);
+  if (!text) return false;
+  if (/\b(?:spr|spray|mist|pump|lotion|treatment|roller|dropper|reducer|cap|closure|overcap|bulb|antique|vintage|tassel|jar)\b/.test(text)) {
+    return false;
+  }
+  return /\b(?:bottle|glass)\b/.test(text);
+}
+
+function resolveBestBottlesVisualIdentity(product: BestBottlesProductLookup | null): BestBottlesVisualIdentity | null {
+  if (!product) return null;
+  const text = bestBottlesProductContext(product);
+  const skuIdentity = bestBottlesSkuVisualIdentity(product);
+  const isComponentDriven = /\b(?:spr|spray|mist|pump|lotion|treatment|roller|dropper|reducer|cap|closure|overcap|bulb|antique|vintage|tassel)\b/.test(text);
+  if (skuIdentity && isComponentDriven) return skuIdentity;
+
+  const color = getString(product.color);
+  if (isBestBottlesBottleColorVariant(product) && color) {
+    return { label: color, canonical: canonicalBestBottlesFinish(color), fieldLabel: "glass color" };
+  }
+
+  const capColor = getString(product.capColor);
+  if (capColor) {
+    return {
+      label: capColor,
+      canonical: canonicalBestBottlesFinish(capColor),
+      fieldLabel: isComponentDriven ? "component visual identity" : "cap/finish",
+    };
+  }
+
+  if (skuIdentity) return skuIdentity;
+
+  const trimColor = getString(product.trimColor);
+  if (trimColor) {
+    return { label: trimColor, canonical: canonicalBestBottlesFinish(trimColor), fieldLabel: "trim/collar finish" };
+  }
+
+  if (color) {
+    return { label: color, canonical: canonicalBestBottlesFinish(color), fieldLabel: "glass color" };
+  }
+
+  return null;
+}
+
+function assertBestBottlesFinishMatch(
+  expectedCapColor: string | undefined,
+  product: BestBottlesProductLookup | null,
+): void {
+  const validation = validateBestBottlesImageIdentity(expectedCapColor, product);
+  if (!validation.ok) throw new Error(validation.message);
+}
+
 function findBestBottlesShopifySkuAliases(candidates: string[]): string[] {
   const normalizedCandidates = new Set<string>();
   for (const candidate of candidates) {
@@ -151,6 +302,19 @@ function isMissingShopifySkuColumn(error: unknown): boolean {
   );
 }
 
+function isServiceRoleToken(token: string, serviceRoleKey: string): boolean {
+  if (token === serviceRoleKey) return true;
+  try {
+    const [, payload] = token.split(".");
+    const parsed = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as {
+      role?: unknown;
+    };
+    return parsed.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
 async function findPipelineSkuJob(
   supabase: SupabaseClient,
   organizationId: string,
@@ -162,8 +326,8 @@ async function findPipelineSkuJob(
   for (const candidate of skuCandidates) {
     const lookup = async (includeShopifySku: boolean) => {
       const select = includeShopifySku
-        ? "grace_sku,website_sku,shopify_sku,product_group_slug"
-        : "grace_sku,website_sku,product_group_slug";
+        ? "id,grace_sku,website_sku,shopify_sku,product_group_slug"
+        : "id,grace_sku,website_sku,product_group_slug";
       const clauses = [
         `grace_sku.eq.${postgrestEqValue(candidate)}`,
         `website_sku.eq.${postgrestEqValue(candidate)}`,
@@ -210,6 +374,10 @@ function getBestBottlesConvexUrl(): string {
   } catch {
     return "";
   }
+}
+
+function getBestBottlesConvexWriteToken(): string {
+  return cleanSecret(Deno.env.get("BEST_BOTTLES_CONVEX_WRITE_TOKEN"));
 }
 
 async function callBestBottlesConvex(
@@ -347,6 +515,11 @@ function userErrorMessage(errors: Array<{ field?: string[] | null; message: stri
 function isNonReadyMediaError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? "");
   return /non-ready media|media cannot be attached/i.test(message);
+}
+
+function isVariantAlreadyHasMediaError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /variant(?:Media)?\d*\.variantId.*already has attached media|already has attached media/i.test(message);
 }
 
 function toShopifyAltText(value: string | null | undefined, fallback: string): string {
@@ -610,6 +783,76 @@ async function appendMediaToVariant(
   }
 }
 
+async function listVariantMediaIds(
+  config: ShopifyConfig,
+  variantId: string,
+): Promise<string[]> {
+  const query = `
+    query VariantAttachedMedia($variantId: ID!) {
+      node(id: $variantId) {
+        ... on ProductVariant {
+          media(first: 20) {
+            nodes {
+              id
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyGraphql<{
+    node?: { media?: { nodes?: Array<{ id?: string | null }> } } | null;
+  }>(config, query, { variantId });
+
+  return (data.node?.media?.nodes ?? [])
+    .map((node) => node.id?.trim() ?? "")
+    .filter(Boolean);
+}
+
+async function detachMediaFromVariant(
+  config: ShopifyConfig,
+  productId: string,
+  variantId: string,
+  mediaIds: string[],
+): Promise<void> {
+  if (mediaIds.length === 0) return;
+
+  const mutation = `
+    mutation DetachVariantMedia($productId: ID!, $variantMedia: [ProductVariantDetachMediaInput!]!) {
+      productVariantDetachMedia(productId: $productId, variantMedia: $variantMedia) {
+        productVariants {
+          id
+          sku
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyGraphql<{
+    productVariantDetachMedia?: {
+      userErrors?: Array<{ field?: string[] | null; message: string }>;
+    };
+  }>(config, mutation, {
+    productId,
+    variantMedia: [
+      {
+        variantId,
+        mediaIds,
+      },
+    ],
+  });
+
+  const errors = data.productVariantDetachMedia?.userErrors ?? [];
+  if (errors.length > 0) {
+    throw new Error(userErrorMessage(errors));
+  }
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -682,6 +925,12 @@ async function appendReadyMediaToVariant(
       await appendMediaToVariant(config, productId, variantId, media.id);
       return readyMedia;
     } catch (error) {
+      if (isVariantAlreadyHasMediaError(error)) {
+        const attachedMediaIds = await listVariantMediaIds(config, variantId);
+        await detachMediaFromVariant(config, productId, variantId, attachedMediaIds);
+        await appendMediaToVariant(config, productId, variantId, media.id);
+        return readyMedia;
+      }
       if (!isNonReadyMediaError(error) || attempt === 2) throw error;
       await sleep(SHOPIFY_MEDIA_READY_POLL_MS);
       readyMedia = await waitForMediaReady(config, media.id, readyMedia.status, readyMedia.url);
@@ -722,14 +971,18 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) return jsonResponse({ error: "Unauthorized" }, 401);
+    const isServiceRoleRequest = isServiceRoleToken(token, serviceRoleKey);
+    const { data: { user }, error: userError } = isServiceRoleRequest
+      ? { data: { user: null }, error: null }
+      : await supabase.auth.getUser(token);
+    if (!isServiceRoleRequest && (userError || !user)) return jsonResponse({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({})) as {
       items?: unknown;
       organizationId?: string;
       attachToVariant?: boolean;
       syncBestBottlesConvex?: boolean;
+      enforceBestBottlesFinishMatch?: boolean;
     };
     const items = Array.isArray(body.items) ? body.items as RequestItem[] : [];
     if (items.length === 0) {
@@ -739,14 +992,26 @@ serve(async (req) => {
       return jsonResponse({ error: "Batch limit is 50 images at a time" }, 400);
     }
 
-    const organizationId = await resolveOrganizationId(supabase, user.id, body.organizationId);
+    if (isServiceRoleRequest && !body.organizationId) {
+      return jsonResponse({ error: "organizationId is required for service-role requests" }, 400);
+    }
+    const organizationId = isServiceRoleRequest
+      ? body.organizationId!
+      : await resolveOrganizationId(supabase, user!.id, body.organizationId);
     const shopifyConfig = await getShopifyConfig(supabase, organizationId);
     const syncBestBottlesConvex = body.syncBestBottlesConvex === true;
     const bbConvexUrl = syncBestBottlesConvex ? getBestBottlesConvexUrl() : "";
+    const bbConvexWriteToken = syncBestBottlesConvex ? getBestBottlesConvexWriteToken() : "";
     if (syncBestBottlesConvex && !bbConvexUrl) {
       return jsonResponse({
         error:
           "BESTBOTTLES_CONVEX_URL is required when syncBestBottlesConvex is true.",
+      }, 500);
+    }
+    if (syncBestBottlesConvex && !bbConvexWriteToken) {
+      return jsonResponse({
+        error:
+          "BEST_BOTTLES_CONVEX_WRITE_TOKEN is required when syncBestBottlesConvex is true.",
       }, 500);
     }
 
@@ -780,6 +1045,7 @@ serve(async (req) => {
       const sku = item.sku?.trim();
       const requestedWebsiteSku = item.websiteSku?.trim();
       const requestedGraceSku = item.graceSku?.trim();
+      const expectedCapColor = item.expectedCapColor?.trim();
       const dbImage = item.imageId ? imageById.get(item.imageId) : null;
       const imageUrl = dbImage?.image_url ?? item.imageUrl?.trim();
       const label = toShopifyAltText(
@@ -797,9 +1063,10 @@ serve(async (req) => {
         continue;
       }
       if (
+        !isServiceRoleRequest &&
         dbImage &&
         dbImage.organization_id !== organizationId &&
-        dbImage.user_id !== user.id
+        dbImage.user_id !== user!.id
       ) {
         results.push({ imageId: item.imageId, sku, status: "failed", message: "Image does not belong to this organization" });
         continue;
@@ -845,6 +1112,9 @@ serve(async (req) => {
               message: `No Best Bottles Convex product found for SKU ${sku}`,
             });
             continue;
+          }
+          if (body.enforceBestBottlesFinishMatch === true) {
+            assertBestBottlesFinishMatch(expectedCapColor, bestBottlesProduct.product);
           }
         }
 
@@ -915,7 +1185,7 @@ serve(async (req) => {
             bbConvexUrl,
             "mutation",
             "products:setVariantImages",
-            { websiteSku: bestBottlesProduct.websiteSku, [field]: shopifyImageUrl },
+            { websiteSku: bestBottlesProduct.websiteSku, [field]: shopifyImageUrl, writeToken: bbConvexWriteToken },
           );
           if (!mutation.ok) {
             throw new Error(
@@ -947,7 +1217,7 @@ serve(async (req) => {
           organization_id: organizationId,
           product_id: null,
           shopify_product_id: variant.product.id,
-          published_by: user.id,
+          published_by: user?.id ?? dbImage?.user_id ?? null,
           published_content: {
             type: "product_image",
             source: "image_library_batch",
@@ -955,6 +1225,7 @@ serve(async (req) => {
             matchedShopifySku,
             requestedWebsiteSku: requestedWebsiteSku ?? null,
             requestedGraceSku: requestedGraceSku ?? null,
+            expectedCapColor: expectedCapColor ?? null,
             pipelineSkuJob: pipelineSkuJob
               ? {
                   graceSku: pipelineSkuJob.grace_sku ?? null,
@@ -975,10 +1246,28 @@ serve(async (req) => {
           },
         });
 
+        if (pipelineSkuJob?.id && shopifyImageUrl) {
+          await supabase
+            .from("best_bottles_pipeline_sku_jobs")
+            .update({
+              status: syncBestBottlesConvex ? "synced" : "shopify-pushed",
+              approved_image_url: imageUrl,
+              shopify_product_id: variant.product.id,
+              shopify_variant_id: variant.id,
+              shopify_media_id: media.id,
+              shopify_image_url: shopifyImageUrl,
+              shopify_pushed_at: new Date().toISOString(),
+              convex_synced_at: syncBestBottlesConvex ? new Date().toISOString() : null,
+              last_error: null,
+            })
+            .eq("id", pipelineSkuJob.id);
+        }
+
         results.push({
           imageId: item.imageId,
           sku,
           matchedShopifySku,
+          expectedCapColor: expectedCapColor ?? null,
           mode,
           status: "success",
           shopifyProductId: variant.product.id,

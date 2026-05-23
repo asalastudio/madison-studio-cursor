@@ -114,7 +114,7 @@ export function inferFillable(applicator: string | null | undefined): boolean {
 
 function inferBodyMaterialKind(
   product: ConvexProductLike,
-): "aluminum" | "plastic" | "glass" {
+): "aluminum" | "atomizer-metal" | "plastic" | "glass" {
   const haystack = [
     product.family,
     product.bottleCollection,
@@ -128,6 +128,13 @@ function inferBodyMaterialKind(
 
   if (haystack.includes("aluminum") || haystack.includes("aluminium") || haystack.includes("ab-alu")) {
     return "aluminum";
+  }
+  if (
+    haystack.includes("atomizer") ||
+    haystack.includes("metal atomizer") ||
+    /(?:^|\s)gb-[a-z0-9-]+-(?:5ml|10ml)-atm-/i.test(haystack)
+  ) {
+    return "atomizer-metal";
   }
   if (haystack.includes("plastic")) {
     return "plastic";
@@ -355,6 +362,10 @@ export function buildProductSpecBlock(
     if (bodyMaterial === "aluminum") {
       lines.push(
         `- Body finish/color: ${product.color || MISSING} opaque brushed/satin aluminum — NOT glass, NOT transparent, NOT translucent.`,
+      );
+    } else if (bodyMaterial === "atomizer-metal") {
+      lines.push(
+        `- Body finish/color: ${product.color || MISSING} opaque colored/anodized metal atomizer casing — NOT glass, NOT transparent, NOT translucent. The shell is a solid metal sleeve with metallic reflectivity; no visible interior, no glass wall thickness, no refraction.`,
       );
     } else if (bodyMaterial === "plastic") {
       lines.push(
