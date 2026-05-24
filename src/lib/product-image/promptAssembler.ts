@@ -47,12 +47,12 @@ export type PaperDollBodyVariant = "no-tube" | "with-tube";
 
 export const GLOBAL_SYSTEM_BLOCK = [
   "GLOBAL SYSTEM:",
-  "You are a high-end product photography engine specialized in luxury glass perfume bottles.",
+  "You are a high-end product photography engine specialized in luxury bottles, closures, and perfume atomizers across glass, plastic, and opaque metal-shell materials.",
   "",
   "NON-NEGOTIABLE RULES:",
   "- Preserve exact geometry and proportions of the product",
   "- No warping, stretching, or redesigning the bottle shape",
-  "- Maintain physically accurate glass behavior (refraction, reflection, transparency)",
+  "- Maintain physically accurate material behavior: glass remains transparent/refractive when the SKU is glass; metal-shell atomizers and aluminum bottles remain opaque, reflective metal with no transparency",
   "- Lighting must be realistic and consistent with physical studio or natural conditions",
   "- Avoid artificial, CGI, or plastic-looking outputs",
   "",
@@ -64,7 +64,8 @@ export const GLOBAL_SYSTEM_BLOCK = [
   "COMPOSITION RULES:",
   "- The product remains the focal point",
   "- Clean framing, no clutter",
-  "- Maintain consistent scale across images",
+  "- Maintain consistent scale, crop, centerline, baseline, camera distance, and optical compression across every SKU in the same product family",
+  "- Treat sibling SKUs as if they were photographed on the same locked studio rig: only purchasable component differences may change",
   "",
   "If a request conflicts with realism or geometry, prioritize realism and product accuracy.",
 ].join("\n");
@@ -114,6 +115,9 @@ export const CONSTRAINT_BLOCK = [
   "",
   "SCALING CONSISTENCY:",
   "- Every SKU rendered through this preset must appear as if photographed in the same studio system",
+  "- Camera distance, focal length, crop, subject scale, and cream margins must remain identical across family variants with the same capacity",
+  "- Align the bottle base to the same visual baseline across sibling thumbnails; detached caps should sit on that same baseline unless the reference physically shows otherwise",
+  "- Do not let cap color, cap height, roller/spray/closure choice, or material finish cause the model to reframe the bottle",
   "- Maintain consistent lighting ratios across all renders",
   "- Maintain visual uniformity across batch outputs — no per-image art direction drift",
   "",
@@ -139,7 +143,12 @@ export function buildGridHeroFixedFrameBlock(preset: ImagePreset): string {
     `- Final canvas is fixed at exactly ${widthPx} × ${heightPx} px. Do not change aspect ratio, crop, trim, extend, or create a different canvas.`,
     `- ${placementRule}`,
     "- Product placement is locked once the reference is attached: preserve the same centerline, baseline, bounding-box footprint, side padding, top padding, and bottom padding from the reference.",
-    "- Fixed-frame QA target: centerline drift <= 10 px, baseline drift <= 20 px, and product-height drift <= 3% compared with the attached reference. Do not exceed these tolerances.",
+    "- Family alignment is the highest priority: sibling SKUs in this family must share an imaginary horizontal baseline through the bottle base and a common vertical centerline through the bottle body.",
+    "- Match the family visual envelope: bottle body height, body width, base position, cap/top clearance, and detached-cap scale must remain consistent with sibling images of the same family/capacity.",
+    "- Catalog grid standard: render this like an e-commerce product family grid, with a stable invisible shelf line across all cards, consistent object magnification, matching top air, matching side margins, and no per-SKU zoom changes.",
+    "- When the only difference is cap, closure, roller, sprayer, color, or finish, keep the bottle body locked to the same pixel footprint as its sibling SKUs.",
+    "- Do not make one variant appear closer to camera, farther from camera, taller, smaller, wider, narrower, more zoomed-in, or more zoomed-out than its family siblings when the physical SKU dimensions are the same.",
+    "- Fixed-frame QA target: centerline drift <= 10 px, baseline drift <= 12 px, and product-height drift <= 2% compared with the attached reference or family master. Do not exceed these tolerances.",
     "- Background color changes happen behind the product only. Do not let the Bone plate change product scale, crop, camera distance, camera angle, or placement.",
     "- Chiaroscuro is allowed only through product lighting, glass edge contrast, cap/specular definition, and the grounding shadow; do not add background gradients, vignettes, spotlights, or color shifts.",
     "- Any attached lighting/style reference may influence only the photographic treatment: warm directional light, glass refraction quality, edge density, caustics, and quiet dramatic shadow. It may not influence product shape, cap design, label, props, surface, room, or background scene.",
@@ -409,13 +418,13 @@ function buildPaperDollComponentPrompt(
   if (scope === "body") {
     const variant: PaperDollBodyVariant = bodyVariant ?? "no-tube";
     const familyShape = getBodyShapeDescriptor(sku.family);
-    const isAtomizer = /atomizer/i.test([sku.family, sku.category, sku.applicator].filter(Boolean).join(" "));
+    const isAtomizer = /atomizer|metal shell/i.test([sku.family, sku.category, sku.applicator, sku.itemName, sku.websiteSku].filter(Boolean).join(" "));
     const materialSubject = isAtomizer
-      ? "opaque colored/anodized metal atomizer BODY (solid metal casing, not glass)"
+      ? "opaque colored/anodized metal-shell perfume atomizer BODY (solid aluminum/metal casing, not glass)"
       : `${color} glass bottle BODY`;
     const tubeClause =
       isAtomizer
-        ? `The atomizer shell is an opaque metal sleeve. No visible interior, no dip tube seen through the body, no glass wall thickness, no refraction, no translucent edge glow.`
+        ? `The atomizer shell is an opaque solid metal sleeve. No visible interior, no dip tube seen through the body, no glass wall thickness, no refraction, no translucent edge glow, no liquid-filled glass read. Surface must show anodized/brushed metal reflectance and controlled vertical metal highlight bands.`
         : variant === "with-tube"
         ? `Inside the bottle — visible through the clear glass walls with subtle refraction distortion — a thin clear plastic dip tube descends from the center of the neck opening straight downward to within a few millimeters of the interior base. The tube is a structural element of THIS BODY VARIANT and must be present in the output.`
         : `The bottle interior is empty — no tube, no fitment, no liquid, no mechanism. Pure clear glass interior.`;
@@ -435,8 +444,8 @@ function buildPaperDollComponentPrompt(
       .filter(Boolean)
       .join(", ");
     const applicatorShape = getApplicatorShapeDescriptor(sku.applicator);
-    const bottleMaterial = /atomizer/i.test([sku.family, sku.category, sku.applicator].filter(Boolean).join(" "))
-      ? "metal atomizer casing"
+    const bottleMaterial = /atomizer|metal shell/i.test([sku.family, sku.category, sku.applicator, sku.itemName, sku.websiteSku].filter(Boolean).join(" "))
+      ? "opaque metal-shell perfume atomizer casing"
       : `${family} glass bottle`;
     contextBlock = [
       ``,

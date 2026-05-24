@@ -887,7 +887,7 @@ export function RightPanel({
                   </div>
                   <button
                     onClick={() => onProSettingsChange({
-                      aiProvider: "auto",
+                      aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
                       resolution: "standard",
                       aspectRatio: "1:1",
                       camera: undefined,

@@ -14,6 +14,8 @@
     "bestbottles:catalog:reconcile": "tsx scripts/build-bestbottles-catalog-lite.ts",
     "bestbottles:generation:readiness": "tsx scripts/build-bestbottles-generation-readiness.ts",
     "bestbottles:generation:first-batch": "tsx scripts/build-bestbottles-first-controlled-batch.ts",
+    "bestbottles:images:reconcile-manifest": "tsx scripts/build-bestbottles-render-reconciliation-manifest.ts",
+    "bestbottles:images:canonical-copy-plan": "tsx scripts/prepare-bestbottles-canonical-image-copies.ts",
     "bestbottles:images:audit-backfill": "tsx scripts/audit-bestbottles-image-backfill.ts",
     "bestbottles:images:backfill-approved": "tsx scripts/backfill-bestbottles-approved-images.ts",
     "bestbottles:product-hub:enrich": "tsx scripts/enrich-bestbottles-product-hubs.ts",

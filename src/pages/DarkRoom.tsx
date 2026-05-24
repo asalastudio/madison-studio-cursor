@@ -84,6 +84,8 @@ interface GeneratedImage {
   isHero?: boolean;
 }
 
+type DarkRoomGenerationMode = "standard" | "missing-variant-asset" | "finish-correct-revision";
+
 interface HistoryItem {
   id: string;
   prompt: string;
@@ -175,7 +177,11 @@ export default function DarkRoom() {
   const [productImage, setProductImage] = useState<UploadedImage | null>(null);
   const [backgroundImage, setBackgroundImage] = useState<UploadedImage | null>(null);
   const [styleReference, setStyleReference] = useState<UploadedImage | null>(null);
-  const [proSettings, setProSettings] = useState<ProModeSettings>({});
+  const [navigationLibraryTags, setNavigationLibraryTags] = useState<string[]>([]);
+  const [navigationGenerationMode, setNavigationGenerationMode] = useState<DarkRoomGenerationMode>("standard");
+  const [proSettings, setProSettings] = useState<ProModeSettings>({
+    aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
+  });
 
   // Multi-product slots for compositing
   const [productSlots, setProductSlots] = useState<{ id: string; imageUrl: string | null; name?: string }[]>([
@@ -328,11 +334,35 @@ export default function DarkRoom() {
     // Check for initial data from navigation (product or background image)
     const state = location.state as {
       product?: Product;
+      productImage?: { url: string; name: string };
       backgroundImage?: { url: string; name: string };
+      extraLibraryTags?: string[];
+      generationMode?: DarkRoomGenerationMode;
     } | undefined;
 
     if (state?.product) {
       setSelectedProduct(state.product);
+    }
+
+    if (state?.productImage) {
+      setProductImage({
+        url: state.productImage.url,
+        name: state.productImage.name,
+      });
+      madison.success(
+        "Product reference loaded",
+        state.generationMode === "missing-variant-asset"
+          ? "Target-SKU-first mode loaded. The reference is only for layout and bottle geometry."
+          : "Use the prompt to revise the finish while preserving composition.",
+      );
+    }
+
+    if (state?.extraLibraryTags?.length) {
+      setNavigationLibraryTags(state.extraLibraryTags);
+    }
+
+    if (state?.generationMode) {
+      setNavigationGenerationMode(state.generationMode);
     }
 
     // If coming from Light Table with a background image, set it
@@ -411,6 +441,10 @@ export default function DarkRoom() {
       extraLibraryTags = [LIBRARY_ROLE_PRODUCT];
     }
 
+    if (navigationLibraryTags.length > 0) {
+      extraLibraryTags = Array.from(new Set([...(extraLibraryTags ?? []), ...navigationLibraryTags]));
+    }
+
     // Trigger camera feedback (sound + flash) immediately on capture
     triggerCameraFeedback();
 
@@ -424,7 +458,10 @@ export default function DarkRoom() {
           referenceImages.push({
             url: productImage.url,
             label: "Product",
-            description: "User-uploaded product for enhancement",
+            description:
+              navigationGenerationMode === "missing-variant-asset"
+                ? "Layout and bottle-geometry reference only. Ignore its finish, SKU, and visual identity."
+                : "User-uploaded product for enhancement",
           });
         }
 
@@ -476,6 +513,7 @@ export default function DarkRoom() {
         backgroundPreset: selectedBackgroundPreset,
         compositionPreset: selectedCompositionPreset,
         backgroundPlateMode,
+        navigationGenerationMode,
         goalType,
       });
       console.log("🌑 Full payload being sent:", JSON.stringify({
@@ -516,6 +554,7 @@ export default function DarkRoom() {
           compositionPresetId: backgroundPlateMode ? undefined : selectedCompositionPreset,
           compositionPrompt: backgroundPlateMode ? undefined : appliedCompositionPrompt || undefined,
           extraLibraryTags,
+          generationMode: navigationGenerationMode,
           productContext:
             !backgroundPlateMode && selectedProduct
               ? {
@@ -624,6 +663,8 @@ export default function DarkRoom() {
     selectedBackgroundPreset,
     selectedCompositionPreset,
     styleReferenceLibraryOutput,
+    navigationLibraryTags,
+    navigationGenerationMode,
   ]);
 
   const handleSaveImage = useCallback(async (id: string) => {

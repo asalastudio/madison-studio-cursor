@@ -20,6 +20,8 @@ export type BestBottlesProductType =
   | "roll-on"
   | "lotion-pump"
   | "dropper"
+  | "vial"
+  | "metal-atomizer"
   | "jar"
   | "glass-only"
   | "unknown";
@@ -48,6 +50,8 @@ export const BEST_BOTTLES_VISUAL_IDENTITY_OPTIONS = [
   "Clear",
   "Amber",
   "Cobalt Blue",
+  "Blue",
+  "Green",
   "Frosted",
   "Gold",
   "Matte Gold",
@@ -58,6 +62,7 @@ export const BEST_BOTTLES_VISUAL_IDENTITY_OPTIONS = [
   "Matte Black",
   "Matte Silver",
   "Shiny Silver",
+  "Silver",
   "Copper",
   "Matte Copper",
   "Black",
@@ -134,6 +139,8 @@ export function canonicalBestBottlesVisualIdentity(value: string | null | undefi
   if (normalized.includes("lavender")) return "lavender";
   if (normalized.includes("turquoise")) return "turquoise";
   if (normalized.includes("cobalt")) return "cobalt blue";
+  if (normalized.includes("blue")) return "blue";
+  if (normalized.includes("green")) return "green";
   if (normalized.includes("frosted")) return "frosted";
   if (normalized.includes("amber")) return "amber";
   if (normalized.includes("black")) return "black";
@@ -152,17 +159,47 @@ export function displayBestBottlesVisualIdentity(value: string): string {
   return found ?? value.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function bestBottlesVisualIdentitiesCompatible(
+  expected: string,
+  resolved: string,
+  productType: BestBottlesProductType,
+): boolean {
+  if (expected === resolved) return true;
+  const copperFamily = new Set(["copper", "matte copper"]);
+  if (copperFamily.has(expected) && copperFamily.has(resolved)) return true;
+
+  if (productType === "metal-atomizer") {
+    const blueFamily = new Set(["blue", "cobalt blue"]);
+    if (blueFamily.has(expected) && blueFamily.has(resolved)) return true;
+  }
+
+  const isClosureLike =
+    productType === "closure" ||
+    productType === "lotion-pump" ||
+    productType === "dropper" ||
+    productType === "vial";
+  if (!isClosureLike) return false;
+
+  const blackFamily = new Set(["black", "shiny black", "matte black"]);
+  if (blackFamily.has(expected) && blackFamily.has(resolved)) return true;
+
+  return false;
+}
+
 function classifyBestBottlesProduct(product: BestBottlesVisualProduct): BestBottlesProductType {
   const graceSku = clean(product.graceSku).toUpperCase();
   const websiteSku = clean(product.websiteSku);
   const text = textOf(product).toLowerCase();
+  const legacyCapSku = /-(?:GLD|SLV|BLK|WHT)-(?:T|S)(?:-|$)/.test(graceSku);
   if (/-AST-/.test(graceSku) || /ansptsl/i.test(websiteSku) || /\btassel\b/.test(text)) return "antique-bulb-sprayer-tassel";
   if (/-ASP-/.test(graceSku) || /ansp/i.test(websiteSku) || /\b(?:antique|vintage|bulb)\b.*\bspray/.test(text)) return "antique-bulb-sprayer";
   if (/-SPR-/.test(graceSku) || /\b(?:perfume spray|fine mist|mist spray|collar sprayer)\b/.test(text) || /spry/i.test(websiteSku)) return "perfume-spray";
   if (/-LPM-|-PMP-/.test(graceSku) || /\b(?:lotion|treatment)\s+pump\b/.test(text)) return "lotion-pump";
   if (/-DRP-/.test(graceSku) || /\bdropper\b/.test(text)) return "dropper";
   if (/-ROL-|-MRL-|-RBL-/.test(graceSku) || /\b(?:roll-on|roller ball|metal roller)\b/.test(text)) return "roll-on";
-  if (/-RDC-|-CAP-|-SHT-/.test(graceSku) || /\b(?:reducer|screw cap|short cap|tall cap|closure)\b/.test(text) || /rdcr|lthr|cap/i.test(websiteSku)) return "closure";
+  if (/-AT(?:M|N)(?:-|$)/.test(graceSku) || /atom/i.test(websiteSku) || /\b(?:atomizer|metal shell|travel atomizer)\b/.test(text)) return "metal-atomizer";
+  if (/^GB-VIA-/.test(graceSku) || /vial/i.test(websiteSku) || /\bvial\b/.test(text)) return "vial";
+  if (legacyCapSku || /-RDC-|-CAP-|-SHT-/.test(graceSku) || /\b(?:reducer|screw cap|short cap|tall cap|closure)\b/.test(text) || /rdcr|lthr|cap/i.test(websiteSku)) return "closure";
   if (/\bjar\b/.test(text)) return "jar";
   if (/\b(?:bottle|glass)\b/.test(text) && !/\b(?:spray|pump|dropper|roller|cap|closure|reducer|bulb|tassel)\b/.test(text)) return "glass-only";
   return "unknown";
@@ -200,6 +237,8 @@ const CLOSURE_TOKENS: VisualToken[] = [
   { pattern: /BRLT|BRWNLTHR/i, identity: "Brown Leather", reasonLabel: "BRLT/BrwnLthr" },
   { pattern: /IVLT|IVYLTHR/i, identity: "Ivory Leather", reasonLabel: "IVLT/IvyLthr" },
   { pattern: /PNKLTHR/i, identity: "Pink Leather", reasonLabel: "PnkLthr" },
+  { pattern: /(?:^|[-_])GLD(?:$|[-_])|(?:CYL|CRC)[A-Z0-9]*GL$/i, identity: "Shiny Gold", reasonLabel: "GLD/Gl" },
+  { pattern: /(?:^|[-_])SLV(?:$|[-_])|(?:CYL|CRC)[A-Z0-9]*SL$/i, identity: "Shiny Silver", reasonLabel: "SLV/Sl" },
   ...SPRAY_FINISH_TOKENS,
 ];
 
@@ -207,6 +246,32 @@ const ROLL_ON_TOKENS: VisualToken[] = [
   { pattern: /BLDOT|BLKDOT/i, identity: "Black Dots", reasonLabel: "BLDOT/BlkDot" },
   { pattern: /SLDOT|SLDOT/i, identity: "Silver Dots", reasonLabel: "SLDOT/SlDot" },
   ...SPRAY_FINISH_TOKENS,
+];
+
+const VIAL_CAP_TOKENS: VisualToken[] = [
+  { pattern: /(?:^|[-_])BLK(?:$|[-_])|VBLK|BLACKCAP|BLKCAP|BLACK/i, identity: "Black", reasonLabel: "BLK/VBlk/BlackCap" },
+  { pattern: /(?:^|[-_])WHT(?:$|[-_])|VWHT|WHTCAP|WHITE/i, identity: "White", reasonLabel: "WHT/VWht/WhtCap" },
+  { pattern: /(?:^|[-_])GLD(?:$|[-_])|GOLDCAP/i, identity: "Shiny Gold", reasonLabel: "GLD/GoldCap" },
+  { pattern: /(?:^|[-_])SLV(?:$|[-_])|SILVERCAP/i, identity: "Shiny Silver", reasonLabel: "SLV/SilverCap" },
+];
+
+const VIAL_GLASS_TOKENS: VisualToken[] = [
+  { pattern: /(?:^|[-_])AMB(?:$|[-_])|AMBV|AMBER/i, identity: "Amber", reasonLabel: "AMB/Amber" },
+  { pattern: /(?:^|[-_])BLU(?:$|[-_])|COBALT|BLUE/i, identity: "Cobalt Blue", reasonLabel: "BLU/Cobalt" },
+  { pattern: /(?:^|[-_])CLR(?:$|[-_])|CLR|CLEAR/i, identity: "Clear", reasonLabel: "CLR/Clear" },
+  { pattern: /(?:^|[-_])WHT(?:$|[-_])|WHITE/i, identity: "White", reasonLabel: "WHT/White" },
+];
+
+const METAL_ATOMIZER_TOKENS: VisualToken[] = [
+  { pattern: /ATOM\d*GL\b|(?:^|[-_])GLD(?:$|[-_])|GOLD/i, identity: "Gold", reasonLabel: "AtomGl/GLD/Gold" },
+  { pattern: /ATOM\d*BLU\b|(?:^|[-_])BLU(?:$|[-_])|COBALT|BLUE/i, identity: "Blue", reasonLabel: "AtomBlu/BLU/Blue" },
+  { pattern: /ATOM\d*GRN\b|(?:^|[-_])GRN(?:$|[-_])|GREEN/i, identity: "Green", reasonLabel: "AtomGrn/GRN/Green" },
+  { pattern: /ATOM\d*RED\b|(?:^|[-_])RED(?:$|[-_])|RED/i, identity: "Red", reasonLabel: "AtomRed/RED" },
+  { pattern: /ATOM\d*PNK\b|(?:^|[-_])PNK(?:$|[-_])|PINK/i, identity: "Pink", reasonLabel: "AtomPnk/PNK/Pink" },
+  { pattern: /ATOM\d*WHT\b|(?:^|[-_])WHT(?:$|[-_])|WHITE/i, identity: "White", reasonLabel: "AtomWht/WHT/White" },
+  { pattern: /ATOM\d*BLK\b|(?:^|[-_])BLK(?:$|[-_])|BLACK/i, identity: "Black", reasonLabel: "AtomBlk/BLK/Black" },
+  { pattern: /ATOM\d*SLV\b|(?:^|[-_])SLV(?:$|[-_])|SILVER/i, identity: "Shiny Silver", reasonLabel: "AtomSlv/SLV/Silver" },
+  { pattern: /BLDOT|BLKDOT|DOTS/i, identity: "Black Dots", reasonLabel: "Dots/Dotted shell" },
 ];
 
 function secondaryAttributesFor(product: BestBottlesVisualProduct, productType: BestBottlesProductType): string[] {
@@ -218,6 +283,13 @@ function secondaryAttributesFor(product: BestBottlesVisualProduct, productType: 
   if (/overcap/i.test(text)) attrs.add("Overcap");
   if (/tall/i.test(text) || /-T(?:-|$)/i.test(clean(product.graceSku))) attrs.add("Tall cap");
   if (/short/i.test(text) || /-S(?:-|$)/i.test(clean(product.graceSku))) attrs.add("Short cap");
+  if (productType === "vial") {
+    const glassHit = matchToken(tokenText(product), VIAL_GLASS_TOKENS);
+    if (glassHit) attrs.add(`${glassHit.identity} vial`);
+  }
+  if (productType === "metal-atomizer") {
+    attrs.add("Solid metal shell");
+  }
   if (/metal roller/i.test(text)) attrs.add("Metal roller");
   if (/plastic roller/i.test(text)) attrs.add("Plastic roller");
   return Array.from(attrs);
@@ -236,6 +308,10 @@ function textIdentity(product: BestBottlesVisualProduct, productType: BestBottle
         ? CLOSURE_TOKENS
         : productType === "roll-on"
           ? ROLL_ON_TOKENS
+          : productType === "vial"
+            ? [...VIAL_CAP_TOKENS, ...VIAL_GLASS_TOKENS]
+            : productType === "metal-atomizer"
+              ? METAL_ATOMIZER_TOKENS
           : SPRAY_FINISH_TOKENS;
   return matchToken(text, tokens)?.identity ?? "";
 }
@@ -271,7 +347,11 @@ export function resolveBestBottlesVisualIdentity(
       ? CLOSURE_TOKENS
       : productType === "roll-on"
         ? ROLL_ON_TOKENS
-        : SPRAY_FINISH_TOKENS;
+        : productType === "vial"
+          ? [...VIAL_CAP_TOKENS, ...VIAL_GLASS_TOKENS]
+          : productType === "metal-atomizer"
+            ? METAL_ATOMIZER_TOKENS
+            : SPRAY_FINISH_TOKENS;
   const tokenHit = matchToken(tokenText(product), tokenSource);
 
   let identity = "";
@@ -290,6 +370,26 @@ export function resolveBestBottlesVisualIdentity(
     identity = [product.color, product.capColor].filter(Boolean).join(" + ");
     confidence = identity ? "medium" : "low";
     reason = identity ? "Jar row; using jar color plus lid/cap finish." : "Jar row has no jar color or lid/cap finish.";
+  } else if (productType === "vial") {
+    const capTokenHit = matchToken(tokenText(product), VIAL_CAP_TOKENS);
+    const glassTokenHit = matchToken(tokenText(product), VIAL_GLASS_TOKENS);
+    identity = capTokenHit?.identity ?? glassTokenHit?.identity ?? product.capColor ?? product.color ?? "";
+    confidence = identity ? (capTokenHit || glassTokenHit ? "high" : "medium") : "low";
+    reason = capTokenHit
+      ? `Vial row; parsed cap/plug identity ${capTokenHit.reasonLabel} from SKU fields ${[graceSku, websiteSku].filter(Boolean).join(" / ")}.`
+      : glassTokenHit
+        ? `Vial row; parsed vial glass identity ${glassTokenHit.reasonLabel} from SKU fields ${[graceSku, websiteSku].filter(Boolean).join(" / ")}.`
+        : identity
+          ? "Vial row; using structured cap or glass color because no stronger SKU token was found."
+          : "Vial row has no cap/plug or vial glass identity.";
+  } else if (productType === "metal-atomizer") {
+    identity = tokenHit?.identity ?? product.color ?? product.capColor ?? "";
+    confidence = identity ? (tokenHit ? "high" : "medium") : "low";
+    reason = tokenHit
+      ? `Metal atomizer row; parsed shell color ${tokenHit.reasonLabel} from SKU fields ${[graceSku, websiteSku].filter(Boolean).join(" / ")}.`
+      : identity
+        ? "Metal atomizer row; using structured shell/body color because no stronger SKU token was found."
+        : "Metal atomizer row has no shell/body color identity.";
   } else if (["perfume-spray", "lotion-pump", "dropper"].includes(productType) && product.capColor) {
     identity = product.capColor;
     confidence = "medium";
@@ -338,7 +438,7 @@ export function validateBestBottlesImageIdentity(
       resolution,
     };
   }
-  if (expected !== resolution.resolvedVisualIdentityCanonical) {
+  if (!bestBottlesVisualIdentitiesCompatible(expected, resolution.resolvedVisualIdentityCanonical, resolution.productApplicatorType)) {
     return {
       ok: false,
       message: `Image identity says ${expectedVisualIdentity}; resolved Best Bottles identity is ${resolution.resolvedVisualIdentity}.`,
@@ -352,6 +452,12 @@ export function detectBestBottlesVisualIdentityFromText(value: string | null | u
   const text = value ?? "";
   const hit = matchToken(text, [
     ...ANTIQUE_BULB_TOKENS,
+    ...VIAL_CAP_TOKENS,
+    ...VIAL_GLASS_TOKENS,
+    ...METAL_ATOMIZER_TOKENS,
+    ...ROLL_ON_TOKENS,
+    ...CLOSURE_TOKENS,
+    ...SPRAY_FINISH_TOKENS,
   ]);
   return hit?.identity ?? textIdentity({ itemName: text }, "perfume-spray");
 }

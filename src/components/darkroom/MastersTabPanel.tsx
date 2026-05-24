@@ -1996,6 +1996,8 @@ export function MastersTabPanel({
       glassSpecularityReferenceImageUrl: glassSpecularityReference?.url ?? null,
       productContext: {
         name: sku.itemName,
+        websiteSku: sku.websiteSku ?? null,
+        itemDescription: sku.itemDescription ?? null,
         collection: sku.bottleCollection ?? undefined,
         family: sku.family,
         category: sku.category,

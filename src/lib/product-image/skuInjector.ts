@@ -120,7 +120,10 @@ function inferBodyMaterialKind(
     product.bottleCollection,
     product.category,
     product.itemName,
+    product.itemDescription,
+    product.websiteSku,
     product.graceSku,
+    product.applicator,
   ]
     .filter((value): value is string => typeof value === "string")
     .join(" ")
@@ -132,6 +135,9 @@ function inferBodyMaterialKind(
   if (
     haystack.includes("atomizer") ||
     haystack.includes("metal atomizer") ||
+    haystack.includes("metal shell") ||
+    haystack.includes("travel size purse atomizer") ||
+    /\bgbatom(?:5|10)/i.test(haystack) ||
     /(?:^|\s)gb-[a-z0-9-]+-(?:5ml|10ml)-atm-/i.test(haystack)
   ) {
     return "atomizer-metal";
@@ -365,7 +371,7 @@ export function buildProductSpecBlock(
       );
     } else if (bodyMaterial === "atomizer-metal") {
       lines.push(
-        `- Body finish/color: ${product.color || MISSING} opaque colored/anodized metal atomizer casing — NOT glass, NOT transparent, NOT translucent. The shell is a solid metal sleeve with metallic reflectivity; no visible interior, no glass wall thickness, no refraction.`,
+        `- Body finish/color: ${product.color || MISSING} opaque colored/anodized metal-shell perfume atomizer casing — NOT glass, NOT transparent, NOT translucent. The shell is a solid metal sleeve with metallic reflectivity; no visible interior, no glass wall thickness, no refraction, no liquid, and no dip tube visible through the body.`,
       );
     } else if (bodyMaterial === "plastic") {
       lines.push(

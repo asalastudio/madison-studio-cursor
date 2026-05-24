@@ -7,8 +7,8 @@
  * hit OpenAI without any caller-side changes.
  *
  * Endpoints:
- *   - POST /v1/images/generations   (text → image, gpt-image-1 / dall-e-3)
- *   - POST /v1/images/edits         (image + prompt → image, gpt-image-1 only)
+ *   - POST /v1/images/generations   (text → image, gpt-image-2 / dall-e-3)
+ *   - POST /v1/images/edits         (image + prompt → image, gpt-image-2)
  *
  * gpt-image-1 returns base64 in `data[0].b64_json`; dall-e-3 returns a URL in
  * `data[0].url`. We normalize both to base64 so the caller always uploads the
@@ -21,7 +21,7 @@ import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 
 /**
- * Current OpenAI image model family (April 2026):
+ * Current OpenAI image model family (May 2026):
  *
  *   - gpt-image-2      → current flagship. High-fidelity image inputs,
  *                        flexible sizes, and better instruction following.
@@ -223,9 +223,9 @@ function mapGptImage2GenerationSize(
 
 /**
  * Map a caller-neutral aspect ratio ("1:1", "16:9", "9:16", "2:3", …) to one
- * of OpenAI's supported discrete sizes. gpt-image-1 only ships three shapes
- * (square, portrait, landscape), so anything tall-ish → portrait and anything
- * wide-ish → landscape. dall-e-3 has its own wide set but we keep the mapping
+ * of OpenAI's supported discrete sizes. gpt-image-2 supports higher-res
+ * generation sizes while edits stay on 1024-class shapes. dall-e-3 has its
+ * own wide set but we keep the mapping
  * aligned on aspect family, not exact pixels.
  */
 export function mapAspectRatioToSize(
@@ -278,7 +278,7 @@ export function mapResolutionToQuality(
   if (model === "dall-e-3") {
     return resolution === "high" || resolution === "4k" ? "hd" : "standard";
   }
-  // gpt-image-1
+  // GPT Image models
   if (resolution === "4k") return "high";
   if (resolution === "high") return "high";
   if (resolution === "standard") return "medium";
@@ -329,7 +329,7 @@ async function generateViaGenerations(
     size,
   };
 
-  // gpt-image-1 always returns base64; dall-e-3 can do either but we force
+  // GPT Image always returns base64; dall-e-3 can do either but we force
   // b64_json so the upload path downstream is uniform.
   if (model === "dall-e-3") {
     body.response_format = "b64_json";
@@ -423,7 +423,7 @@ async function generateViaEdits(
   form.append("output_format", outputFormat);
   if (params.user) form.append("user", params.user);
 
-  // gpt-image-1 /edits accepts multiple `image[]` parts. Order matters —
+  // GPT Image /edits accepts multiple `image[]` parts. Order matters —
   // the edge function hands us product refs first, then background, then
   // style, so passing them through preserves that hierarchy.
   references.forEach((ref, idx) => {
@@ -486,7 +486,7 @@ export async function generateImage(
   const model = params.model ?? resolveDefaultOpenAIImageModel();
   const refs = params.referenceImages ?? [];
 
-  // /edits supports the entire gpt-image-* family. dall-e-3 is text-only.
+  // /edits supports the GPT Image family. dall-e-3 is text-only.
   const supportsEdits = model.startsWith("gpt-image-");
   if (refs.length > 0 && supportsEdits) {
     return generateViaEdits(params, model, refs);

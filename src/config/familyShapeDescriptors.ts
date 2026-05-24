@@ -85,7 +85,7 @@ export const FAMILY_BODY_SHAPE_DESCRIPTORS: Record<string, string> = {
     "Wide low cylindrical jar with a broad flat circular base, short straight sides, wide threaded mouth (no narrow neck — mouth is nearly the full diameter of the body).",
 
   Atomizer:
-    "Tall narrow metal atomizer with slim cylindrical outer shell, integrated pump/actuator at top, straight sides, flat circular base, and single-piece opaque metal finish. Body reads as metal shell, not transparent glass and not leather-wrapped.",
+    "Tall narrow refillable metal-shell perfume atomizer with slim cylindrical opaque aluminum/metal outer sleeve, matching removable metal cap, exposed pump/actuator when cap-off, straight sides, flat circular base, and solid anodized/colored metal finish. Body reads as a solid opaque metal shell, not transparent glass, not translucent plastic, not liquid-filled, and not leather-wrapped.",
 
   "Aluminum Bottle":
     "Straight cylindrical opaque aluminum bottle with smooth vertical sides, flat circular base, rounded shoulder into a short 20-410 neck, and satin/brushed metal surface. Preserve opaque metal wall and metallic reflectivity; no glass transparency.",

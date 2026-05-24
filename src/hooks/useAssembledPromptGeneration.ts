@@ -45,6 +45,8 @@ export interface AssembledGenerateOptions {
    */
   productContext?: {
     name?: string;
+    websiteSku?: string | null;
+    itemDescription?: string | null;
     collection?: string;
     family?: string | null;
     category?: string;

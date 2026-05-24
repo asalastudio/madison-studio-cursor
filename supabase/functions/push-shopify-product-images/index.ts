@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { validateBestBottlesImageIdentity } from "../_shared/bestBottlesVisualIdentity.ts";
+import {
+  canonicalBestBottlesVisualIdentity,
+  validateBestBottlesImageIdentity,
+} from "../_shared/bestBottlesVisualIdentity.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +17,15 @@ type RequestItem = {
   websiteSku?: string;
   graceSku?: string;
   expectedCapColor?: string;
+  manualVisualIdentityApproval?: {
+    visualFinish?: string;
+    capHeight?: string;
+    confirmed?: boolean;
+    reviewedAt?: string;
+    reviewedBy?: string | null;
+    reason?: string;
+    notes?: string;
+  };
   altText?: string;
   mode?: "cap-on" | "cap-off";
 };
@@ -155,6 +167,8 @@ function canonicalBestBottlesFinish(value: string | null | undefined): string {
   if (normalized.includes("red")) return "red";
   if (normalized.includes("turquoise")) return "turquoise";
   if (normalized.includes("cobalt")) return "cobalt blue";
+  if (normalized.includes("blue")) return "blue";
+  if (normalized.includes("green")) return "green";
   if (normalized.includes("amber")) return "amber";
   if (normalized.includes("frosted")) return "frosted";
   if (normalized.includes("clear")) return "clear";
@@ -181,6 +195,9 @@ const BEST_BOTTLES_SKU_VISUAL_TOKENS: Array<{ pattern: RegExp; label: string }> 
   { pattern: /(?:^|[-_])SBLK(?:$|[-_])|SHNBLK$/i, label: "Shiny Black" },
   { pattern: /(?:^|[-_])MBLK(?:$|[-_])|MTBLK$/i, label: "Matte Black" },
   { pattern: /(?:^|[-_])CPR(?:$|[-_])|CU$/i, label: "Copper" },
+  { pattern: /ATOM\d*GL\b|(?:^|[-_])GLD(?:$|[-_])|GOLD/i, label: "Gold" },
+  { pattern: /ATOM\d*BLU\b|(?:^|[-_])BLU(?:$|[-_])|COBALT|BLUE/i, label: "Blue" },
+  { pattern: /ATOM\d*GRN\b|(?:^|[-_])GRN(?:$|[-_])|GREEN/i, label: "Green" },
   { pattern: /(?:^|[-_])LVN(?:$|[-_])|LVN|LAV/i, label: "Lavender" },
   { pattern: /(?:^|[-_])PNK(?:$|[-_])|PNK|PINK/i, label: "Pink" },
   { pattern: /(?:^|[-_])RED(?:$|[-_])/i, label: "Red" },
@@ -217,7 +234,7 @@ function bestBottlesProductContext(product: BestBottlesProductLookup | null): st
 function isBestBottlesBottleColorVariant(product: BestBottlesProductLookup | null): boolean {
   const text = bestBottlesProductContext(product);
   if (!text) return false;
-  if (/\b(?:spr|spray|mist|pump|lotion|treatment|roller|dropper|reducer|cap|closure|overcap|bulb|antique|vintage|tassel|jar)\b/.test(text)) {
+  if (/\b(?:spr|spray|mist|pump|lotion|treatment|roller|dropper|reducer|cap|closure|overcap|bulb|antique|vintage|tassel|jar|vial|atomizer|metal shell)\b/.test(text)) {
     return false;
   }
   return /\b(?:bottle|glass)\b/.test(text);
@@ -227,7 +244,7 @@ function resolveBestBottlesVisualIdentity(product: BestBottlesProductLookup | nu
   if (!product) return null;
   const text = bestBottlesProductContext(product);
   const skuIdentity = bestBottlesSkuVisualIdentity(product);
-  const isComponentDriven = /\b(?:spr|spray|mist|pump|lotion|treatment|roller|dropper|reducer|cap|closure|overcap|bulb|antique|vintage|tassel)\b/.test(text);
+  const isComponentDriven = /\b(?:spr|spray|mist|pump|lotion|treatment|roller|dropper|reducer|cap|closure|overcap|bulb|antique|vintage|tassel|vial|atomizer|metal shell)\b/.test(text);
   if (skuIdentity && isComponentDriven) return skuIdentity;
 
   const color = getString(product.color);
@@ -258,12 +275,71 @@ function resolveBestBottlesVisualIdentity(product: BestBottlesProductLookup | nu
   return null;
 }
 
+function inferExpectedVisualIdentityFromBestBottlesSku(candidates: string[]): string {
+  const text = candidates.filter(Boolean).join(" ");
+  const tokenRules: Array<[RegExp, string]> = [
+    [/(?:^|[-_])SGLD(?:$|[-_])|SHNGL|SHGL/i, "Shiny Gold"],
+    [/(?:^|[-_])MGLD(?:$|[-_])|MTGL|MTGD/i, "Matte Gold"],
+    [/(?:^|[-_])SSLV(?:$|[-_])|SHNSL|SHSL/i, "Shiny Silver"],
+    [/(?:^|[-_])MSLV(?:$|[-_])|MTSL/i, "Matte Silver"],
+    [/(?:^|[-_])SBLK(?:$|[-_])|SHNBLK|SHBK/i, "Shiny Black"],
+    [/(?:^|[-_])CPR(?:$|[-_])|CU\b|MTCP/i, "Copper"],
+    [/ATOM\d*GL\b|(?:^|[-_])GLD(?:$|[-_])|GOLD/i, "Gold"],
+    [/ATOM\d*BLU\b|(?:^|[-_])BLU(?:$|[-_])|COBALT|BLUE/i, "Blue"],
+    [/ATOM\d*GRN\b|(?:^|[-_])GRN(?:$|[-_])|GREEN/i, "Green"],
+    [/ATOM\d*RED\b|(?:^|[-_])RED(?:$|[-_])|RED/i, "Red"],
+    [/ATOM\d*PNK\b|(?:^|[-_])PNK(?:$|[-_])|PINK/i, "Pink"],
+    [/(?:^|[-_])WHT(?:$|[-_])|WHITE/i, "White"],
+    [/(?:^|[-_])BLK(?:$|[-_])|BLACK/i, "Black"],
+    [/(?:^|[-_])GLD(?:$|[-_])|GB[A-Za-z0-9]+Gl(?:$|[A-Z])/i, "Shiny Gold"],
+    [/(?:^|[-_])SLV(?:$|[-_])|GB[A-Za-z0-9]+Sl(?:$|[A-Z])/i, "Shiny Silver"],
+  ];
+  return tokenRules.find(([pattern]) => pattern.test(text))?.[1] ?? "";
+}
+
 function assertBestBottlesFinishMatch(
   expectedCapColor: string | undefined,
   product: BestBottlesProductLookup | null,
+  manualApproval?: RequestItem["manualVisualIdentityApproval"],
+  expectedVisualIdentityFromSku = "",
 ): void {
   const validation = validateBestBottlesImageIdentity(expectedCapColor, product);
-  if (!validation.ok) throw new Error(validation.message);
+  if (validation.ok) return;
+
+  const manualReviewable =
+    Boolean(product) &&
+    !validation.resolution.safeToPush &&
+    validation.resolution.blockingWarnings.length > 0 &&
+    validation.resolution.blockingWarnings.every((warning) =>
+      [
+        "Visual identity is ambiguous; needs review.",
+        "Resolver confidence is low; manual review required.",
+        "Antique bulb sprayer resolved to Clear, which is likely glass color rather than bulb color.",
+      ].includes(warning),
+    );
+
+  const manuallyApproved = Boolean(
+    manualApproval?.confirmed &&
+      manualApproval.visualFinish?.trim() &&
+      manualApproval.capHeight?.trim(),
+  );
+
+  if (manualReviewable && manuallyApproved) {
+    if (
+      expectedVisualIdentityFromSku &&
+      canonicalBestBottlesVisualIdentity(manualApproval?.visualFinish) !==
+        canonicalBestBottlesVisualIdentity(expectedVisualIdentityFromSku)
+    ) {
+      throw new Error(
+        `Manual visual identity ${manualApproval?.visualFinish} does not match selected SKU identity ${expectedVisualIdentityFromSku}.`,
+      );
+    }
+    return;
+  }
+  if (manualReviewable) {
+    throw new Error("Manual visual identity approval is required before pushing this matched Best Bottles variant.");
+  }
+  throw new Error(validation.message);
 }
 
 function findBestBottlesShopifySkuAliases(candidates: string[]): string[] {
@@ -1046,6 +1122,19 @@ serve(async (req) => {
       const requestedWebsiteSku = item.websiteSku?.trim();
       const requestedGraceSku = item.graceSku?.trim();
       const expectedCapColor = item.expectedCapColor?.trim();
+      const manualVisualIdentityApproval = item.manualVisualIdentityApproval
+        ? {
+            visualFinish: item.manualVisualIdentityApproval.visualFinish?.trim() ?? "",
+            capHeight: item.manualVisualIdentityApproval.capHeight?.trim() ?? "",
+            confirmed: item.manualVisualIdentityApproval.confirmed === true,
+            reviewedAt: item.manualVisualIdentityApproval.reviewedAt?.trim() ?? new Date().toISOString(),
+            reviewedBy: item.manualVisualIdentityApproval.reviewedBy ?? user?.email ?? user?.id ?? null,
+            reason:
+              item.manualVisualIdentityApproval.reason?.trim() ||
+              "User confirmed visual identity despite resolver low confidence",
+            notes: item.manualVisualIdentityApproval.notes?.trim() ?? "",
+          }
+        : undefined;
       const dbImage = item.imageId ? imageById.get(item.imageId) : null;
       const imageUrl = dbImage?.image_url ?? item.imageUrl?.trim();
       const label = toShopifyAltText(
@@ -1114,7 +1203,18 @@ serve(async (req) => {
             continue;
           }
           if (body.enforceBestBottlesFinishMatch === true) {
-            assertBestBottlesFinishMatch(expectedCapColor, bestBottlesProduct.product);
+            assertBestBottlesFinishMatch(
+              expectedCapColor || manualVisualIdentityApproval?.visualFinish,
+              bestBottlesProduct.product,
+              manualVisualIdentityApproval,
+              inferExpectedVisualIdentityFromBestBottlesSku([
+                sku,
+                requestedWebsiteSku ?? "",
+                requestedGraceSku ?? "",
+                bestBottlesProduct.websiteSku,
+                bestBottlesProduct.graceSku ?? "",
+              ]),
+            );
           }
         }
 
@@ -1226,6 +1326,17 @@ serve(async (req) => {
             requestedWebsiteSku: requestedWebsiteSku ?? null,
             requestedGraceSku: requestedGraceSku ?? null,
             expectedCapColor: expectedCapColor ?? null,
+            manualVisualIdentityApproval: manualVisualIdentityApproval
+                ? {
+                  visualFinish: manualVisualIdentityApproval.visualFinish || null,
+                  capHeight: manualVisualIdentityApproval.capHeight || null,
+                  confirmed: manualVisualIdentityApproval.confirmed,
+                  reviewedAt: manualVisualIdentityApproval.reviewedAt || null,
+                  reviewedBy: manualVisualIdentityApproval.reviewedBy ?? null,
+                  reason: manualVisualIdentityApproval.reason || null,
+                  notes: manualVisualIdentityApproval.notes || null,
+                }
+              : null,
             pipelineSkuJob: pipelineSkuJob
               ? {
                   graceSku: pipelineSkuJob.grace_sku ?? null,
@@ -1268,6 +1379,7 @@ serve(async (req) => {
           sku,
           matchedShopifySku,
           expectedCapColor: expectedCapColor ?? null,
+          manualVisualIdentityApproval: manualVisualIdentityApproval ?? null,
           mode,
           status: "success",
           shopifyProductId: variant.product.id,

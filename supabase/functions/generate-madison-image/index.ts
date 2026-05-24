@@ -267,10 +267,14 @@ function getBestBottlesProductText(productContext?: Record<string, unknown> | nu
     productContext?.bodyMaterial,
     productContext?.family,
     productContext?.name,
+    productContext?.websiteSku,
+    productContext?.itemDescription,
     productContext?.collection,
     productContext?.category,
     productContext?.color,
     productContext?.sku,
+    productContext?.applicator,
+    productContext?.capColor,
   ]
     .filter((value): value is string => typeof value === "string")
     .join(" ")
@@ -289,37 +293,40 @@ function buildBestBottlesBodyMaterialPromptRules(
   const isAtomizerMetal =
     productText.includes("atomizer") ||
     productText.includes("metal atomizer") ||
+    productText.includes("metal shell") ||
+    productText.includes("travel size purse atomizer") ||
+    /\bgbatom(?:5|10)/i.test(productText) ||
     /\bgb-[a-z0-9-]+-(?:5ml|10ml)-atm-/i.test(productText);
   if (isAtomizerMetal) {
     return {
       kind: "atomizer-metal",
       sourceTruthMaterial:
-        "opaque colored/anodized metal atomizer casing, exact cylindrical metal sleeve, cap/sprayer metal transitions, slim shell proportions, pump/actuator geometry, colors, decorative pattern if present, and material identity. The body is a solid metal outer casing, not transparent glass.",
+        "refillable metal-shell perfume atomizer/travel atomizer, opaque colored/anodized aluminum outer casing, exact cylindrical metal sleeve, cap/sprayer metal transitions, slim shell proportions, pump/actuator geometry, colors, decorative pattern if present, and material identity. The body and cap are solid metal outer shells, not transparent glass.",
       styleReferenceScopeLine:
-        "- Use any secondary style/specularity reference only for lighting quality, reflection-card gradients, edge glints on opaque metal, contact shadow, ambient occlusion, and premium studio polish. It must not make the atomizer casing transparent, glassy, refractive, crystalline, or plastic.",
+        "- Use any secondary style/specularity reference only for lighting quality, reflection-card gradients, edge glints on opaque metal, contact shadow, ambient occlusion, and premium studio polish. It must not make the atomizer casing transparent, translucent, glassy, refractive, crystalline, acrylic, or plastic.",
       photographicStyleLine:
-        "- Secondary style/specularity reference influence, if provided, is lighting and metal-realism only: warm directional drama, soft elongated shadow behavior, vertical reflection rhythm, tactile anodized/brushed metal finish, cap texture, and premium pack-shot polish. The Best Bottles atomizer shape and opaque metal casing remain the only product truth.",
+        "- Secondary style/specularity reference influence, if provided, is lighting and metal-realism only: warm directional drama, soft elongated shadow behavior, vertical reflection rhythm, tactile anodized/brushed metal finish, cap texture, and premium pack-shot polish. The Best Bottles metal-shell atomizer shape and opaque metal casing remain the only product truth.",
       lightingLines: [
         "- Use professional metal-product lighting, not flat front lighting.",
-        "- Soft warm key light from upper front-left, gentle negative fill, controlled black-card edge lines, and white reflection cards creating clean vertical metallic highlights across the cylindrical sleeve.",
+        "- Soft warm key light from upper front-left, gentle negative fill, controlled black-card edge lines, and white reflection cards creating clean vertical metallic highlights across the cylindrical metal sleeve and cap.",
         "- Translate window/curtain-like inspiration into abstract reflection-card behavior on the metal casing: slender warm vertical highlights, dark edge density, and soft luminous bands across the opaque metal. Do not generate actual curtains, window frames, fabric, wood, flowers, or scene props.",
         "- Keep the Bone background flat and quiet; put the visual drama inside the product through metal reflectance, anodized color depth, cap texture, shoulder/collar highlight, and grounding shadow.",
-        "- The atomizer body should be defined by opaque metal reflectance, subtle anisotropic grain or anodized sheen, clean vertical highlight falloff, and realistic metal tonal gradients. No transmitted light, no refraction, no visible back wall, no glass wall thickness.",
+        "- The atomizer body and cap should be defined by opaque metal reflectance, subtle anisotropic grain or anodized sheen, clean vertical highlight falloff, and realistic metal tonal gradients. No transmitted light, no refraction, no visible back wall, no glass wall thickness.",
       ],
       bodyMaterialLine:
-        "- Atomizer body: preserve an opaque colored/anodized metal casing. It must be solid metal, not transparent, not translucent, not glass, not crystal, and not clear plastic. Enhance metallic reflectivity, fine vertical grain or anodized sheen, soft cylindrical highlight bands, controlled dark edge lines, and realistic colored metal tonal variation while preserving the exact reference shape and pattern.",
+        "- Atomizer body/cap: preserve an opaque colored/anodized metal shell perfume atomizer. It must be solid metal, not transparent, not translucent, not glass, not crystal, not acrylic, and not clear plastic. Enhance metallic reflectivity, fine vertical grain or anodized sheen, soft cylindrical highlight bands, controlled dark edge lines, and realistic colored metal tonal variation while preserving the exact reference shape and pattern.",
       forbiddenLines: [
-        "- Do not turn the atomizer casing into glass, clear plastic, translucent material, crystal, liquid-filled glass, frosted glass, or a transparent perfume bottle.",
-        "- No refraction through the atomizer body, no visible back wall, no internal caustics, no wall thickness, no glass rim sparkle, no transparent edges, no liquid, and no interior dip tube visible through the metal body.",
+        "- Do not turn the atomizer casing into glass, clear plastic, translucent material, acrylic, crystal, liquid-filled glass, frosted glass, or a transparent perfume bottle.",
+        "- No refraction through the atomizer body, no visible back wall, no internal caustics, no wall thickness, no glass rim sparkle, no transparent edges, no translucent blue glow, no liquid, and no interior dip tube visible through the metal body.",
       ],
       packshotRules: [
         "LOCK GEOMETRY, RELIGHT OPAQUE METAL: the reference locks silhouette, proportions, cap shape, sprayer/collar geometry, camera angle, pattern placement, and casing color; it does not lock poor exposure, weak contrast, flat white fill, dull metal, missing metal grain, or low-end capture quality.",
-        "Do not perform a simple background cleanup or silhouette trace. Reconstruct the same atomizer as a true luxury e-commerce pack shot inside the exact same outline.",
+        "Do not perform a simple background cleanup or silhouette trace. Reconstruct the same refillable metal-shell perfume atomizer as a true luxury e-commerce pack shot inside the exact same outline.",
         "Lighting/material inspiration is allowed only as a photographic quality target: warm quiet drama, controlled directionality, dense but soft shadows, premium colored/anodized metal realism, and tactile metal texture. Never copy another bottle shape, label, cap design, scene, prop, tabletop, flower, curtain, or brand mark.",
         "Opaque atomizer metal must not become transparent. It needs visible metal structure: fine grain or anodized sheen, soft vertical reflection-card bands, shoulder/collar highlight, gentle edge darkening, realistic cap texture, and strong tonal separation from the Bone background.",
         "Use product-photography cards: controlled black-card edge lines on left/right metal boundaries, white-card vertical highlights across the cylindrical body and cap, and soft reflection gradients that describe metal curvature without becoming broad CGI stripes.",
         "Metal texture target: dust-free luxury retouch with real satin/anodized-metal irregularity, subtle manufacturing micro-imperfections, edge density, and polished pack-shot separation. It should feel photographed, not rendered.",
-        "The body should read as opaque colored/anodized metal with volume, not glass, not a white cutout, not a blank void, not a traced outline, and not milky plastic.",
+        "The body should read as opaque colored/anodized metal with volume, not glass, not a white cutout, not a blank void, not a traced outline, not milky plastic, and not a tinted transparent vial.",
         "Retouching intensity target: premium commercial retouch, enough to visibly improve fidelity and polish while preserving every structural edge from Image 1.",
       ],
     };
@@ -459,7 +466,7 @@ function buildReferenceLockedBestBottlesPrompt(
   return [
     "REFERENCE-LOCKED BEST BOTTLES LUXURY PRODUCT PHOTOGRAPHY V5.1.",
     "",
-    "Task: transform the uploaded real product reference into a photorealistic high-end editorial PDP master. The product geometry, proportions, colors, component shapes, camera angle, material identity, canvas placement, centerline, baseline, and scale are locked. The flat white source background, weak lighting, missing shadow, and extracted-PNG look are not locked.",
+    "Task: transform the uploaded real product reference into a photorealistic high-end editorial PDP master. The product geometry, proportions, colors, component shapes, camera angle, material identity, canvas placement, centerline, baseline, crop, camera distance, and scale are locked. The flat white source background, weak lighting, missing shadow, and extracted-PNG look are not locked.",
     "",
     "GEOMETRY LOCK VS PACK-SHOT UPGRADE:",
     ...bodyMaterialRules.packshotRules.map((rule) => `- ${rule}`),
@@ -467,7 +474,10 @@ function buildReferenceLockedBestBottlesPrompt(
     "SOURCE OF TRUTH:",
     `- Use Image 1 only as the product reference: ${sourceTruth}`,
     secondaryStyleScope || null,
-    "- Preserve the source camera angle, product component relationships, bounding-box footprint, centerline, baseline, and relative scale inside the 2080 x 2288 canvas. Do not redesign, redraw, recolor, rotate, stretch, simplify, recenter, zoom, crop, or reinterpret the product.",
+    "- Preserve the source camera angle, product component relationships, bounding-box footprint, centerline, baseline, crop, camera distance, and relative scale inside the 2080 x 2288 canvas. Do not redesign, redraw, recolor, rotate, stretch, simplify, recenter, zoom, crop, or reinterpret the product.",
+    "- Family alignment is mission-critical: this SKU must align with sibling images from the same family/capacity as if all were photographed on one fixed studio rig. The bottle base sits on the same imaginary horizontal baseline; the bottle body uses the same vertical centerline and visual height envelope.",
+    "- Catalog grid standard: render this as part of a professional e-commerce product family grid, not as an isolated creative hero. Keep a stable invisible shelf line, consistent object magnification, matching top air, matching side margins, and identical body footprint across sibling cards.",
+    "- Cap/closure/roller/sprayer color, finish, or cap height may change only the purchasable component. It must not change zoom, camera distance, product body size, body width, base position, top clearance, detached-cap scale, or overall framing.",
     "- Do not preserve the reference image's flat lighting, pure-white background, weak shadow, or low-end capture finish. Re-stage the same locked product as a luxury catalog photograph without moving it.",
     "- For perfume spray pump references, preserve the exact cap state: if the actuator/nozzle is exposed and a detached cap is visible beside the bottle, keep both exactly as photographed. Do not add, remove, close, or relocate the cap.",
     `- ${applicatorRules.fullVisibility}`,
@@ -475,6 +485,7 @@ function buildReferenceLockedBestBottlesPrompt(
     "CANVAS AND COMPOSITION:",
     "- Canvas: exact 2080 x 2288, 10:11 portrait PDP master.",
     "- The uploaded reference canvas is the placement lock. Preserve the same product centerline, baseline, bounding-box footprint, side padding, top padding, and bottom padding.",
+    "- Fixed-family QA target: centerline drift <= 10 px, baseline drift <= 12 px, and product-height drift <= 2% versus the attached reference or family master. Do not exceed these tolerances.",
     `- ${applicatorRules.canvasBounds}`,
     "- Do not recompose or normalize the product to a new fill percentage. The image must read like the same product photo professionally retouched.",
     "",
@@ -1832,6 +1843,10 @@ serve(async (req) => {
      */
     
     // Helper function to process a reference image URL (handles both URL types)
+    const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
+    const MAX_TOTAL_REFERENCE_IMAGE_BYTES = 12 * 1024 * 1024;
+    let totalReferenceImageBytes = 0;
+
     async function processReferenceImage(url: string): Promise<{ data: string; mimeType: string } | null> {
       if (!url) return null;
       
@@ -1840,7 +1855,19 @@ serve(async (req) => {
         // Parse data URL: data:image/png;base64,xxxxx
         const matches = url.match(/^data:([^;]+);base64,(.+)$/);
         if (matches && matches[1] && matches[2]) {
-          console.log(`✅ Parsed base64 data URL (${matches[1]})`);
+          const byteSize = Math.ceil((matches[2].length * 3) / 4);
+          if (byteSize > MAX_REFERENCE_IMAGE_BYTES) {
+            throw new Error(
+              `Reference image is too large for edge generation (${Math.round(byteSize / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
+            );
+          }
+          if (totalReferenceImageBytes + byteSize > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
+            throw new Error(
+              "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
+            );
+          }
+          totalReferenceImageBytes += byteSize;
+          console.log(`✅ Parsed base64 data URL (${matches[1]})`, { byteSize, totalReferenceImageBytes });
           return {
             mimeType: matches[1],
             data: matches[2],
@@ -1858,16 +1885,41 @@ serve(async (req) => {
           console.warn(`⚠️ Failed to fetch reference: ${url.substring(0, 50)}... (${response.status})`);
           return null;
         }
+        const contentLength = Number(response.headers.get("content-length") || "0");
+        if (contentLength > MAX_REFERENCE_IMAGE_BYTES) {
+          throw new Error(
+            `Reference image is too large for edge generation (${Math.round(contentLength / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
+          );
+        }
+        if (contentLength > 0 && totalReferenceImageBytes + contentLength > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
+          throw new Error(
+            "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
+          );
+        }
         const buffer = await response.arrayBuffer();
+        if (buffer.byteLength > MAX_REFERENCE_IMAGE_BYTES) {
+          throw new Error(
+            `Reference image is too large for edge generation (${Math.round(buffer.byteLength / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
+          );
+        }
+        if (totalReferenceImageBytes + buffer.byteLength > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
+          throw new Error(
+            "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
+          );
+        }
+        totalReferenceImageBytes += buffer.byteLength;
         const base64 = encode(new Uint8Array(buffer));
-        console.log(`✅ Fetched and encoded URL reference`);
+        console.log(`✅ Fetched and encoded URL reference`, {
+          byteSize: buffer.byteLength,
+          totalReferenceImageBytes,
+        });
         return {
           data: base64,
           mimeType: response.headers.get("content-type") || "image/png",
         };
       } catch (err) {
         console.error(`❌ Error processing reference ${url.substring(0, 50)}...:`, err);
-        return null;
+        throw err;
       }
     }
     
@@ -2038,9 +2090,9 @@ serve(async (req) => {
     let tierRestrictionApplied = false;
 
     if (effectiveProvider === "openai") {
-      // OpenAI is selectable from the UI but never the auto-pick — Nano Banana
-      // stays primary. OPENAI_API_KEY must be configured; if it isn't we
-      // transparently fall back to Gemini instead of failing the request.
+      // OpenAI GPT Image 2 is the Darkroom default and primary path.
+      // OPENAI_API_KEY must be configured; if it isn't we transparently fall
+      // back to Gemini instead of failing the request.
       if (Deno.env.get("OPENAI_API_KEY")) {
         selectedProvider = "openai";
       } else {
@@ -2268,6 +2320,10 @@ serve(async (req) => {
       } catch (openaiError) {
         if (isBestBottlesReferenceLocked) {
           console.error("❌ OpenAI reference-locked Best Bottles generation failed:", openaiError);
+          throw openaiError;
+        }
+        if (aiProvider && String(aiProvider).startsWith("openai")) {
+          console.error("❌ Explicit OpenAI generation failed:", openaiError);
           throw openaiError;
         }
         console.error("❌ OpenAI generation failed, falling back to Gemini:", openaiError);

@@ -248,7 +248,81 @@ function mergePipelineAndReadinessProducts(pipelineProducts: PipelineProduct[], 
   });
 }
 
+function sentenceList(values: string[]): string {
+  if (values.length <= 1) return values[0] ?? "";
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
+}
+
+function lowerFirst(value: string): string {
+  return value ? `${value[0].toLowerCase()}${value.slice(1)}` : value;
+}
+
+function titleCase(value: string): string {
+  return value.replace(/\b[a-z]/g, (match) => match.toUpperCase());
+}
+
+function inferCircleComponentPhrase(group: Group): string {
+  const searchable = `${group.slug} ${group.displayName} ${group.products.map((product) => product.applicator).join(" ")}`.toLowerCase();
+
+  if (searchable.includes("antiquespray") || searchable.includes("antique spray") || searchable.includes("vintage bulb")) {
+    return searchable.includes("tassel") ? "vintage bulb sprayer with tassel" : "vintage bulb sprayer";
+  }
+  if (searchable.includes("perfumespray") || searchable.includes("perfume spray") || searchable.includes("fine mist") || searchable.includes("finemist")) {
+    return "perfume spray";
+  }
+  if (searchable.includes("lotionpump") || searchable.includes("lotion pump") || searchable.includes("treatment pump")) {
+    return "lotion pump";
+  }
+  if (searchable.includes("reducer") || searchable.includes("rdc")) {
+    return "reducer or short cap";
+  }
+  if (searchable.includes("dropper") || searchable.includes("drp")) {
+    return "dropper";
+  }
+  if (searchable.includes("rollon") || searchable.includes("roll-on") || searchable.includes("roller")) {
+    return "roll-on";
+  }
+
+  return "component";
+}
+
+function buildCircleDescription(group: Group): { short: string; long: string; seoTitle: string; seoDescription: string } | null {
+  if (group.family !== "Circle" || group.isComponentException) return null;
+
+  const colors = unique(group.products.map((product) => clean(product.canonicalColor) || clean(product.color)));
+  const glassColor = group.canonicalColor || colors[0] || "Clear";
+  const capacity = group.capacityMl ? `${group.capacityMl} ml` : "multi-capacity";
+  const neckFinish = group.neckThread || inferThreadSize(group.slug, group.displayName) || null;
+  const componentPhrase = inferCircleComponentPhrase(group);
+  const lowerComponent = lowerFirst(componentPhrase);
+  const componentSet = unique(group.products.map((product) => product.capStyle || product.applicator)).slice(0, 4);
+  const componentSummary = componentSet.length > 0 ? sentenceList(componentSet.map((value) => value.toLowerCase())) : lowerComponent;
+  const neckPhrase = neckFinish ? `${neckFinish} ` : "";
+  const neckDescription = neckFinish ? `an ${neckFinish} neck finish` : "a verified neck finish";
+  const slugPhrase = group.slug.includes("frosted") ? "frosted glass" : `${glassColor.toLowerCase()} glass`;
+
+  const short = `${group.displayName} pairs a rounded ${slugPhrase} profile with ${lowerComponent} options for polished fragrance, beauty, and specialty packaging programs.`;
+  const long = [
+    `The ${group.displayName} family is built around a rounded ${slugPhrase} silhouette with ${neckDescription} and SKU-level component options.`,
+    `This group supports refined perfume, fragrance, beauty, and specialty packaging presentations where the bottle shape, closure finish, and applicator style need to feel consistent across a collection.`,
+    `Use this Product Hub record to manage canonical SKUs, Shopify-backed product imagery, Convex media reconciliation, and customer-facing copy for ${componentSummary} variants.`,
+    `Each purchasable variant should keep its own Grace SKU, website SKU, Shopify media URL, and resolved visual identity so the Best Bottles product detail page reflects the exact component shown.`,
+    `Avoid unverified claims about leakproof performance, formula compatibility, regulatory compliance, or dispensing behavior unless those details are confirmed in the product database.`,
+  ].join(" ");
+  const seoTitle = truncate(`${capacity} ${glassColor} Circle Bottle with ${titleCase(componentPhrase)} | Best Bottles`, 70);
+  const seoDescription = truncate(
+    `Shop the ${capacity} ${glassColor} Circle ${neckPhrase}bottle with ${lowerComponent} options for fragrance, beauty, and specialty packaging.`,
+    320,
+  );
+
+  return { short, long, seoTitle, seoDescription };
+}
+
 function buildDescription(group: Group): { short: string; long: string; seoTitle: string; seoDescription: string } {
+  const circleDescription = buildCircleDescription(group);
+  if (circleDescription) return circleDescription;
+
   const applicators = unique(group.products.map((product) => product.applicator));
   const colors = unique(group.products.map((product) => clean(product.canonicalColor) || clean(product.color)));
   const skuCount = group.products.length;
