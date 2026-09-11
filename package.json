@@ -144,7 +144,8 @@
     "test:paperdoll:parametric-overcap-render": "tsx --test scripts/paper-doll/render-parametric-overcap-family.integration.test.ts",
     "test:paperdoll:parametric-roller-render": "tsx --test scripts/paper-doll/render-parametric-roller-fitment.integration.test.ts",
     "test:paperdoll": "tsx --test src/lib/paperDoll/componentRegistry.test.ts src/lib/paperDoll/compositeEngine.test.ts src/lib/paperDoll/weldLane.test.ts src/lib/paperDoll/qaGates.test.ts src/lib/paperDoll/closureMaterialPilot.test.ts",
-    "test:social": "tsx --test supabase/functions/_shared/social/validation.test.ts supabase/functions/_shared/social/tokenCrypto.test.ts supabase/functions/_shared/social/retry.test.ts supabase/functions/_shared/social/oauthConfig.test.ts supabase/functions/_shared/social/publishRunner.test.ts supabase/functions/_shared/social/drivers/meta.test.ts src/config/socialPlatforms.test.ts src/lib/social/composerPlan.test.ts"
+    "test:social": "tsx --test supabase/functions/_shared/social/validation.test.ts supabase/functions/_shared/social/tokenCrypto.test.ts supabase/functions/_shared/social/retry.test.ts supabase/functions/_shared/social/oauthConfig.test.ts supabase/functions/_shared/social/publishRunner.test.ts supabase/functions/_shared/social/drivers/meta.test.ts src/config/socialPlatforms.test.ts src/lib/social/composerPlan.test.ts",
+    "test:bestbottles:shopify-publish-auth": "tsx --test src/lib/bestBottlesShopifyPublishAuthorization.test.ts src/lib/bestBottlesShopifyPushIdentity.test.ts supabase/functions/_shared/shopifyPublishGuard.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

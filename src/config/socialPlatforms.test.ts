@@ -39,7 +39,7 @@ describe("socialPlatforms registry", () => {
       const rule = SOCIAL_PLATFORM_RULES[id as keyof typeof SOCIAL_PLATFORM_RULES];
       for (const key of SHARED_KEYS) {
         assert.equal(
-          (ui as Record<string, unknown>)[key],
+          (ui as unknown as Record<string, unknown>)[key],
           (rule as unknown as Record<string, unknown>)[key],
           `${id}.${key} drifted between the UI registry and the edge rules`,
         );
