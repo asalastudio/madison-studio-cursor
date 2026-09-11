@@ -797,6 +797,31 @@ export async function findPipelineGroupByConvexSlug(
 }
 
 /**
+ * Resolve the per-SKU job for one Grace SKU. The Studio approves a master
+ * against a Convex product, but the Shopify push reads
+ * `best_bottles_pipeline_sku_jobs` — this is the bridge between the two.
+ *
+ * Grace SKU is unique per job within an organization, so a match is exact.
+ * Returns null when the SKU has no seeded job, which the caller must surface:
+ * an unseeded SKU can be generated and approved in the Library and still never
+ * become pushable.
+ */
+export async function findPipelineSkuJobByGraceSku(
+  organizationId: string,
+  graceSku: string,
+): Promise<PipelineSkuJob | null> {
+  const { data, error } = await supabase
+    .from("best_bottles_pipeline_sku_jobs")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("grace_sku", graceSku)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as PipelineSkuJob | null) ?? null;
+}
+
+/**
  * Group rows by (family + capacity_ml + thread_size) — the "shape cohort"
  * that can share a single master reference image in Consistency Mode.
  * Used by the Pipeline page to let the operator launch one generation run
