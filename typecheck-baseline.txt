@@ -1,0 +1,972 @@
+scripts/best-bottles/build-cylinder-reference-production.ts(TS6133): 'join' is declared but its value is never read.
+scripts/best-bottles/run-cylinder-dual-role-remediation.ts(TS2322): Type 'CylinderDualRoleCompiledJob[]' is not assignable to type 'StoredResult[]'.
+scripts/best-bottles/run-cylinder-dual-role-remediation.ts(TS2345): Argument of type 'StoredResult' is not assignable to parameter of type 'Partial<CylinderDualRoleCompiledJob>'.
+scripts/generate-prompts.ts(TS6133): 'buildPromptForSku' is declared but its value is never read.
+src/App.tsx(TS6133): 'EmailBuilderV2' is declared but its value is never read.
+src/App.tsx(TS6133): 'Navigation' is declared but its value is never read.
+src/App.tsx(TS6133): 'Repurpose' is declared but its value is never read.
+src/App.tsx(TS6133): 'location' is declared but its value is never read.
+src/App.tsx(TS6133): 'navigate' is declared but its value is never read.
+src/components/AppSidebar.tsx(TS6133): 'Image' is declared but its value is never read.
+src/components/AppSidebar.tsx(TS6133): 'Mail' is declared but its value is never read.
+src/components/AppSidebar.tsx(TS6133): 'SidebarTrigger' is declared but its value is never read.
+src/components/AppSidebar.tsx(TS6133): 'isEcommerceLoading' is declared but its value is never read.
+src/components/AppSidebar.tsx(TS6133): 'isGroupActive' is declared but its value is never read.
+src/components/AppSidebar.tsx(TS6133): 'openMobile' is declared but its value is never read.
+src/components/AppSidebar.tsx(TS6133): 'supabase' is declared but its value is never read.
+src/components/AppSidebar.tsx(TS6133): 'toast' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'ChevronDown' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'Input' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'Label' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'Link2' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'Minimize2' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'Quote' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'Strikethrough' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'Textarea' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'copiedFormatted' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'currentFontFamily' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'handleInsertLink' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'linkPopoverOpen' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'onAssistantToggle' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'onSave' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'placeholder' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6133): 'textareaRef' is declared but its value is never read.
+src/components/ContentEditor.tsx(TS6192): All imports in import declaration are unused.
+src/components/ErrorBoundary.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/Navigation.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/Navigation.tsx(TS6133): 'navigate' is declared but its value is never read.
+src/components/agent/AgentContextProvider.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/agent/AgentSuggestion.tsx(TS6133): 'Icon' is declared but its value is never read.
+src/components/amplify/DerivativeFolderSidebar.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/amplify/DerivativeGridCard.tsx(TS6133): 'Button' is declared but its value is never read.
+src/components/amplify/DerivativeGridCard.tsx(TS6133): 'Calendar' is declared but its value is never read.
+src/components/assistant/EditorialAssistantPanel.tsx(TS6133): 'cn' is declared but its value is never read.
+src/components/brand-health/CategoryProgress.tsx(TS6133): 'CheckCircle2' is declared but its value is never read.
+src/components/brand-health/CompletedKnowledgePanel.tsx(TS2769): No overload matches this call.
+src/components/brand-health/GapWizardModal.tsx(TS6133): 'Input' is declared but its value is never read.
+src/components/brand-health/ScoreHistoryChart.tsx(TS6133): 'idx' is declared but its value is never read.
+src/components/brand/BrandQuickViewPanel.tsx(TS2554): Expected 1-2 arguments, but got 0.
+src/components/brand/BrandQuickViewPanel.tsx(TS6133): 'Copy' is declared but its value is never read.
+src/components/brand/BrandQuickViewPanel.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/brand/BrandQuickViewPanel.tsx(TS6133): 'cn' is declared but its value is never read.
+src/components/calendar/AgendaView.tsx(TS6133): 'currentDate' is declared but its value is never read.
+src/components/calendar/MobileCalendarSheet.tsx(TS6133): 'format' is declared but its value is never read.
+src/components/calendar/MonthView.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/calendar/MonthView.tsx(TS6133): 'idx' is declared but its value is never read.
+src/components/calendar/MonthView.tsx(TS6133): 'isSameDay' is declared but its value is never read.
+src/components/calendar/WeekView.tsx(TS6133): 'idx' is declared but its value is never read.
+src/components/calendar/WeekView.tsx(TS6133): 'isSameDay' is declared but its value is never read.
+src/components/dam/AssetDetailModal.tsx(TS6133): 'Clock' is declared but its value is never read.
+src/components/dam/AssetDetailModal.tsx(TS6133): 'ExternalLink' is declared but its value is never read.
+src/components/dam/AssetDetailModal.tsx(TS6133): 'FolderInput' is declared but its value is never read.
+src/components/dam/AssetGrid.tsx(TS6133): 'CheckCircle2' is declared but its value is never read.
+src/components/dam/AssetGrid.tsx(TS6133): 'Copy' is declared but its value is never read.
+src/components/dam/FolderSidebar.tsx(TS6133): 'userFolders' is declared but its value is never read.
+src/components/dam/UploadDropzone.tsx(TS6133): 'formatFileSize' is declared but its value is never read.
+src/components/dam/useDAM.tsx(TS2322): Type 'PostgrestFilterBuilder<{ PostgrestVersion: "13.0.5"; }, { Tables: { agent_preferences: { Row: { competitive_intelligence_enabled: boolean | null; created_at: string | null; id: string; last_scan_at: string | null; organization_id: string; scan_frequency: string | null; updated_at: string | null; }; Insert: { ...; };...' is not assignable to type 'number'.
+src/components/dam/useDAM.tsx(TS2345): Argument of type '"increment"' is not assignable to parameter of type '"accept_pending_invitations_for_user" | "approve_best_bottles_reconciled_image" | "approve_paper_doll_candidate" | "bb_has_role" | "best_bottles_assert_org_member" | ... 35 more ... | "seed_default_stages"'.
+src/components/dam/useDAM.tsx(TS2769): No overload matches this call.
+src/components/dam/useDAM.tsx(TS6133): 'rootFolders' is declared but its value is never read.
+src/components/darkroom/ComponentsTabPanel.tsx(TS6133): 'handleUnapprove' is declared but its value is never read.
+src/components/darkroom/GenerateButton.tsx(TS6133): 'Camera' is declared but its value is never read.
+src/components/darkroom/LeftRail.tsx(TS2339): Property 'bottle_type' does not exist on type 'ProductHub'.
+src/components/darkroom/LeftRail.tsx(TS2339): Property 'name' does not exist on type 'never'.
+src/components/darkroom/LeftRail.tsx(TS6133): 'onProSettingsChange' is declared but its value is never read.
+src/components/darkroom/MastersTabPanel.tsx(TS18047): 'promptPreflight.sku' is possibly 'null'.
+src/components/darkroom/MastersTabPanel.tsx(TS2322): Type '{ open: boolean; onOpenChange: Dispatch<SetStateAction<boolean>>; onSelectImage: (img: { url: string; file?: File | undefined; name?: string | undefined; }) => void; ... 4 more ...; excludeRetiredBestBottlesTransparentReferences: boolean; }' is not assignable to type 'IntrinsicAttributes & ImageLibraryModalProps'.
+src/components/darkroom/MastersTabPanel.tsx(TS6133): 'fetchProductHubsBySkus' is declared but its value is never read.
+src/components/darkroom/MastersTabPanel.tsx(TS6133): 'handleFolderUpload' is declared but its value is never read.
+src/components/darkroom/MobileBottomSheet.tsx(TS6133): 'useCallback' is declared but its value is never read.
+src/components/darkroom/MobileDarkRoom.tsx(TS6133): 'useEffect' is declared but its value is never read.
+src/components/darkroom/MobileSettingsGrid.tsx(TS6133): 'Settings2' is declared but its value is never read.
+src/components/darkroom/MobileSettingsGrid.tsx(TS6133): 'Sparkles' is declared but its value is never read.
+src/components/darkroom/MobileTabBar.tsx(TS6133): 'Settings' is declared but its value is never read.
+src/components/darkroom/ProSettings.tsx(TS6133): 'TrendingUp' is declared but its value is never read.
+src/components/darkroom/ProSettings.tsx(TS6133): 'Zap' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS2345): Argument of type '"Add a product reference when packaging needs to match exactly."' is not assignable to parameter of type 'never'.
+src/components/darkroom/RightPanel.tsx(TS2345): Argument of type '"Add a style reference if lighting, finish, or mood need to match another image."' is not assignable to parameter of type 'never'.
+src/components/darkroom/RightPanel.tsx(TS2345): Argument of type '"Choose a background style or add a background scene to shape the set."' is not assignable to parameter of type 'never'.
+src/components/darkroom/RightPanel.tsx(TS2345): Argument of type '"Open Settings for camera, lighting, environment, and visual style controls."' is not assignable to parameter of type 'never'.
+src/components/darkroom/RightPanel.tsx(TS6133): 'Clock' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'FirmwarePresetButton' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'History' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'ImagePlus' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'LEDState' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'ModeDialButton' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'QuickPreset' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'StyleReferencesSection' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'VisualSquad' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'formatTimeAgo' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'history' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'onApplyPreset' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'onRestoreFromHistory' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'presets' is declared but its value is never read.
+src/components/darkroom/RightPanel.tsx(TS6133): 'useMemo' is declared but its value is never read.
+src/components/dashboard/BrandPulseBar.tsx(TS6133): 'Progress' is declared but its value is never read.
+src/components/dashboard/BrandWidget.tsx(TS6133): 'ExternalLink' is declared but its value is never read.
+src/components/dashboard/BrandWidget.tsx(TS6133): 'cn' is declared but its value is never read.
+src/components/dashboard/ContentFlowZone.tsx(TS6133): 'Progress' is declared but its value is never read.
+src/components/dashboard/DashboardContextPanel.tsx(TS6133): 'isToday' is declared but its value is never read.
+src/components/dashboard/DashboardContextPanel.tsx(TS6133): 'isTomorrow' is declared but its value is never read.
+src/components/dashboard/DashboardEditorialStats.tsx(TS18048): 'stats.onBrandScore' is possibly 'undefined'.
+src/components/dashboard/DashboardEditorialStats.tsx(TS18048): 'stats.piecesCreatedThisWeek' is possibly 'undefined'.
+src/components/dashboard/DashboardEditorialStats.tsx(TS18048): 'stats.piecesPublished' is possibly 'undefined'.
+src/components/dashboard/DashboardEditorialStats.tsx(TS18048): 'stats.piecesScheduled' is possibly 'undefined'.
+src/components/dashboard/DashboardEditorialStats.tsx(TS6133): 'Button' is declared but its value is never read.
+src/components/dashboard/DashboardEditorialStats.tsx(TS6133): 'Settings' is declared but its value is never read.
+src/components/dashboard/DashboardEditorialStats.tsx(TS6133): 'isLoading' is declared but its value is never read.
+src/components/dashboard/DashboardEditorialStats.tsx(TS6133): 'navigate' is declared but its value is never read.
+src/components/dashboard/DashboardEditorialTimeline.tsx(TS6133): 'index' is declared but its value is never read.
+src/components/dashboard/DashboardHero.tsx(TS6133): 'organization' is declared but its value is never read.
+src/components/dashboard/DashboardHeroHeader.tsx(TS6133): 'streakDays' is declared but its value is never read.
+src/components/dashboard/DashboardRecentActivity.tsx(TS6133): 'type' is declared but its value is never read.
+src/components/dashboard/DashboardTourModal.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/dashboard/DashboardWeeklyStats.tsx(TS18048): 'stats.onBrandScore' is possibly 'undefined'.
+src/components/dashboard/DashboardWeeklyStats.tsx(TS6133): 'ArrowDown' is declared but its value is never read.
+src/components/dashboard/DashboardWeeklyStats.tsx(TS6133): 'ArrowUp' is declared but its value is never read.
+src/components/dashboard/DashboardWeeklyStats.tsx(TS6133): 'Minus' is declared but its value is never read.
+src/components/dashboard/DashboardWidgetSystem.tsx(TS2322): Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'LegacyRef<HTMLDivElement> | undefined'.
+src/components/dashboard/EditorialAccolades.tsx(TS6133): 'Button' is declared but its value is never read.
+src/components/dashboard/EditorialAccolades.tsx(TS6133): 'HelpCircle' is declared but its value is never read.
+src/components/dashboard/EditorialAccolades.tsx(TS6133): 'Tooltip' is declared but its value is never read.
+src/components/dashboard/EditorialAccolades.tsx(TS6133): 'TooltipContent' is declared but its value is never read.
+src/components/dashboard/EditorialAccolades.tsx(TS6133): 'TooltipTrigger' is declared but its value is never read.
+src/components/dashboard/EditorialAccolades.tsx(TS6133): 'gamificationData' is declared but its value is never read.
+src/components/dashboard/GoogleMeetWidget.tsx(TS6133): 'cn' is declared but its value is never read.
+src/components/dashboard/GoogleMeetWidget.tsx(TS6133): 'getMeetEmbedUrl' is declared but its value is never read.
+src/components/dashboard/GoogleMeetWidget.tsx(TS6133): 'getMeetThumbnailUrl' is declared but its value is never read.
+src/components/dashboard/GoogleMeetWidget.tsx(TS6133): 'meetId' is declared but its value is never read.
+src/components/dashboard/LivingReportCard.tsx(TS2339): Property 'websiteUrl' does not exist on type 'string | number | boolean | { [key: string]: Json | undefined; } | Json[]'.
+src/components/dashboard/PerformanceMomentumZone.tsx(TS6133): 'integrations' is declared but its value is never read.
+src/components/dashboard/QuickLinksWidget.tsx(TS2322): Type '{ quickLinks: QuickLink[]; }' is not assignable to type 'Json | undefined'.
+src/components/dashboard/QuickLinksWidget.tsx(TS6133): 'ExternalLink' is declared but its value is never read.
+src/components/dashboard/RetroTVWidget.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/dashboard/RetroTVWidget.tsx(TS6133): 'isLoading' is declared but its value is never read.
+src/components/dashboard/RoleDashboardWidgets.tsx(TS6133): 'CheckCircle2' is declared but its value is never read.
+src/components/dashboard/RoleDashboardWidgets.tsx(TS6133): 'Clock' is declared but its value is never read.
+src/components/dashboard/RoleDashboardWidgets.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/dashboard/RoleDashboardWidgets.tsx(TS6133): 'TeamRole' is declared but its value is never read.
+src/components/dashboard/RoleDashboardWidgets.tsx(TS6133): 'teamRole' is declared but its value is never read.
+src/components/dashboard/StreakTracker.tsx(TS18048): 'streakData' is possibly 'undefined'.
+src/components/dashboard/StreakTracker.tsx(TS6133): 'Award' is declared but its value is never read.
+src/components/dashboard/ThisWeekCard.tsx(TS2339): Property 'date' does not exist on type 'never'.
+src/components/dashboard/ThisWeekCard.tsx(TS2339): Property 'day' does not exist on type 'never'.
+src/components/dashboard/ThisWeekCard.tsx(TS2339): Property 'dots' does not exist on type 'never'.
+src/components/dashboard/ThisWeekCard.tsx(TS2339): Property 'isToday' does not exist on type 'never'.
+src/components/dashboard/ThisWeekCard.tsx(TS2339): Property 'scheduledCount' does not exist on type 'never'.
+src/components/dashboard/ThisWeekCard.tsx(TS2345): Argument of type '{ color: string; }' is not assignable to parameter of type 'never'.
+src/components/dashboard/ThisWeekCard.tsx(TS2345): Argument of type '{ day: string; date: string; fullDate: Date; dateKey: string; dots: never[]; isToday: boolean; scheduledCount: number; }' is not assignable to parameter of type 'never'.
+src/components/dashboard/UpcomingSchedule.tsx(TS2345): Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/components/dashboard/UpcomingSchedule.tsx(TS6133): 'ArrowRight' is declared but its value is never read.
+src/components/dashboard/YellowPadWidget.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/dashboard/YellowPadWidget.tsx(TS6133): 'localValue' is declared but its value is never read.
+src/components/dashboard/YourNextMoveCard.tsx(TS6133): 'Skeleton' is declared but its value is never read.
+src/components/editor/BrandReadinessIndicator.tsx(TS6133): 'CheckCircle' is declared but its value is never read.
+src/components/editor/FloatingToolbar.tsx(TS2322): Type '{ children: Element[]; editor: Editor; tippyOptions: { duration: number; placement: string; offset: number[]; hideOnClick: boolean; interactive: boolean; animation: string; }; shouldShow: ({ editor, state }: { ...; }) => boolean; className: string; }' is not assignable to type 'IntrinsicAttributes & Pick<Partial<Omit<Optional$1<BubbleMenuPluginProps, "pluginKey">, "element">>, "editor"> & Omit<...> & HTMLAttributes<...> & RefAttributes<...>'.
+src/components/editor/MadisonEditor.tsx(TS6133): 'isAIProcessing' is declared but its value is never read.
+src/components/email-builder/ComposeSidebar.tsx(TS6133): 'cta' is declared but its value is never read.
+src/components/email-builder/ComposeSidebar.tsx(TS6133): 'currentBlocks' is declared but its value is never read.
+src/components/email-builder/ComposeSidebar.tsx(TS6133): 'headline' is declared but its value is never read.
+src/components/email-builder/ESPExport.tsx(TS6133): 'response' is declared but its value is never read.
+src/components/email-builder/MobilePreviewFrame.tsx(TS6133): 'Card' is declared but its value is never read.
+src/components/email-builder/TestSend.tsx(TS6133): 'subject' is declared but its value is never read.
+src/components/email-builder/TestSend.tsx(TS6133): 'useState' is declared but its value is never read.
+src/components/email-composer/ContentPicker.tsx(TS2322): Type '{ id: string; title: string; content: string | null; created_at: string | null; source_table: string; }[]' is not assignable to type 'Content[]'.
+src/components/email-composer/ContentPicker.tsx(TS6133): 'SortDesc' is declared but its value is never read.
+src/components/email-composer/ImageLibraryPicker.tsx(TS6133): 'Label' is declared but its value is never read.
+src/components/email-composer/ImageLibraryPicker.tsx(TS6133): 'user' is declared but its value is never read.
+src/components/forge/ContentOutput.tsx(TS6133): 'Label' is declared but its value is never read.
+src/components/forge/ContentOutput.tsx(TS6133): 'voiceValidation' is declared but its value is never read.
+src/components/forge/MasterContentForm.tsx(TS6133): 'dipWeek' is declared but its value is never read.
+src/components/forge/MasterContentForm.tsx(TS6133): 'onDipWeekChange' is declared but its value is never read.
+src/components/forge/MasterContentForm.tsx(TS6133): 'onPillarChange' is declared but its value is never read.
+src/components/forge/MasterContentForm.tsx(TS6133): 'pillar' is declared but its value is never read.
+src/components/forge/ScheduleButton.tsx(TS6133): 'contentId' is declared but its value is never read.
+src/components/forge/ScheduleButton.tsx(TS6133): 'contentTitle' is declared but its value is never read.
+src/components/forge/ScheduleButton.tsx(TS6133): 'contentType' is declared but its value is never read.
+src/components/forge/WorksheetUpload.tsx(TS6133): 'parseData' is declared but its value is never read.
+src/components/forge/WorksheetUpload.tsx(TS6133): 'publicUrl' is declared but its value is never read.
+src/components/guards/EcommerceGuard.tsx(TS6133): 'Navigate' is declared but its value is never read.
+src/components/help/VideoModal.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/image-editor/BackgroundRemovalTab.tsx(TS6133): 'Scissors' is declared but its value is never read.
+src/components/image-editor/BackgroundRemovalTab.tsx(TS6133): 'cn' is declared but its value is never read.
+src/components/image-editor/BackgroundRemovalTab.tsx(TS6133): 'uploadData' is declared but its value is never read.
+src/components/image-editor/GoalSelector.tsx(TS6133): 'Card' is declared but its value is never read.
+src/components/image-editor/GuidedPromptBuilder.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/image-editor/GuidedPromptBuilder.tsx(TS6133): 'CAMERA_LENS' is declared but its value is never read.
+src/components/image-editor/GuidedPromptBuilder.tsx(TS6133): 'PROMPT_FORMULA_GUIDE' is declared but its value is never read.
+src/components/image-editor/GuidedPromptBuilder.tsx(TS6133): 'setShowFormulaGuide' is declared but its value is never read.
+src/components/image-editor/GuidedPromptBuilder.tsx(TS6133): 'showFormulaGuide' is declared but its value is never read.
+src/components/image-editor/ImageEditorModal.tsx(TS6133): 'AnimatePresence' is declared but its value is never read.
+src/components/image-editor/ImageEditorModal.tsx(TS6133): 'RefreshCw' is declared but its value is never read.
+src/components/image-editor/ImageEditorModal.tsx(TS6133): 'Sparkles' is declared but its value is never read.
+src/components/image-editor/ImageEditorModal.tsx(TS6133): 'handleCreateVideo' is declared but its value is never read.
+src/components/image-editor/ImageEditorModal.tsx(TS6133): 'hasAdContent' is declared but its value is never read.
+src/components/image-editor/ImagePreview.tsx(TS6133): 'referenceImage' is declared but its value is never read.
+src/components/image-editor/ImageTypeSelector.tsx(TS6133): 'Camera' is declared but its value is never read.
+src/components/image-editor/ImageTypeSelector.tsx(TS6133): 'Grid3x3' is declared but its value is never read.
+src/components/image-editor/ImageTypeSelector.tsx(TS6133): 'Icon' is declared but its value is never read.
+src/components/image-editor/ImageTypeSelector.tsx(TS6133): 'Palette' is declared but its value is never read.
+src/components/image-editor/ImageTypeSelector.tsx(TS6133): 'ShoppingBag' is declared but its value is never read.
+src/components/image-editor/ImageTypeSelector.tsx(TS6133): 'Sparkles' is declared but its value is never read.
+src/components/image-editor/ImageTypeSelector.tsx(TS6133): 'Users' is declared but its value is never read.
+src/components/image-editor/MadisonPanel.tsx(TS2345): Argument of type 'string' is not assignable to parameter of type 'never'.
+src/components/image-editor/MobileAspectRatioSelector.tsx(TS6133): 'useState' is declared but its value is never read.
+src/components/image-editor/MobileCreateForm.tsx(TS6133): 'prompt' is declared but its value is never read.
+src/components/image-editor/MobileGeneratedImageView.tsx(TS6133): 'MobileAspectRatioSelector' is declared but its value is never read.
+src/components/image-editor/MobileGeneratedImageView.tsx(TS6133): 'onAspectRatioChange' is declared but its value is never read.
+src/components/image-editor/MobileGeneratedImageView.tsx(TS6133): 'onShotTypeSelect' is declared but its value is never read.
+src/components/image-editor/UseCaseSelector.tsx(TS6133): 'LucideIcon' is declared but its value is never read.
+src/components/image-editor/UseCaseSelector.tsx(TS6133): 'selectedUseCase' is declared but its value is never read.
+src/components/layout/BottomNavigation.tsx(TS6133): 'Mail' is declared but its value is never read.
+src/components/librarian/LibrarianDrawer.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/librarian/LibrarianDrawer.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/librarian/LibrarianDrawer.tsx(TS6133): 'cn' is declared but its value is never read.
+src/components/librarian/LibrarianDrawer.tsx(TS6196): 'UsageContext' is declared but never used.
+src/components/librarian/LibrarianSearch.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/librarian/LibrarianTrigger.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/librarian/MastersBadge.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/library/BrandAlignmentButton.tsx(TS6133): 'lastCheckAt' is declared but its value is never read.
+src/components/library/ContentCard.tsx(TS6133): 'collectionInfo' is declared but its value is never read.
+src/components/library/ContentCard.tsx(TS6133): 'deliverableFormat' is declared but its value is never read.
+src/components/library/ContentCard.tsx(TS6133): 'getContentSubtypeLabel' is declared but its value is never read.
+src/components/library/ContentCard.tsx(TS6133): 'onPublishSuccess' is declared but its value is never read.
+src/components/library/ContentDetailModal.tsx(TS6133): 'ImagePlus' is declared but its value is never read.
+src/components/library/ContentDetailModal.tsx(TS6133): 'Linkedin' is declared but its value is never read.
+src/components/library/ContentDetailModal.tsx(TS6133): 'ScrollArea' is declared but its value is never read.
+src/components/library/ContentDetailModal.tsx(TS6133): 'isEmailComposer' is declared but its value is never read.
+src/components/library/ContentDetailModal.tsx(TS6133): 'klaviyoModalOpen' is declared but its value is never read.
+src/components/library/EmailSequenceEditor.tsx(TS2304): Cannot find name 'serializeEmailParts'.
+src/components/library/EmptyState.tsx(TS6133): 'Inbox' is declared but its value is never read.
+src/components/library/EmptyState.tsx(TS6133): 'contentType' is declared but its value is never read.
+src/components/library/ImageSessionCard.tsx(TS6133): 'Button' is declared but its value is never read.
+src/components/library/ImageSessionCard.tsx(TS6133): 'Download' is declared but its value is never read.
+src/components/library/ImageSessionCard.tsx(TS6133): 'sessionId' is declared but its value is never read.
+src/components/library/ImageSessionModal.tsx(TS6133): 'Trash2' is declared but its value is never read.
+src/components/library/ImageSessionModal.tsx(TS6133): 'sessionId' is declared but its value is never read.
+src/components/library/ImportFromCanvas.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/library/ImportFromCanvas.tsx(TS6133): 'ExternalLink' is declared but its value is never read.
+src/components/library/PublishToLinkedIn.tsx(TS2322): Type '{ value: string; onChange: (url: string) => void; organizationId: string | undefined; }' is not assignable to type 'IntrinsicAttributes & ImageLibraryPickerProps'.
+src/components/library/PublishToSanity.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/marketplace/MadisonAssistantPanel.tsx(TS6133): 'CopyCheck' is declared but its value is never read.
+src/components/marketplace/MadisonAssistantPanel.tsx(TS6133): 'onUpdateField' is declared but its value is never read.
+src/components/marketplace/sections/ImagesSection.tsx(TS6198): All destructured elements are unused.
+src/components/marketplace/sections/ProductAssociationSection.tsx(TS6133): 'loading' is declared but its value is never read.
+src/components/multiply/DerivativeCategoryAccordion.tsx(TS6133): 'CardContent' is declared but its value is never read.
+src/components/multiply/EditorialDirectorSplitScreen.tsx(TS6133): 'index' is declared but its value is never read.
+src/components/multiply/MadisonSuggestionCard.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/multiply/VideoScriptResults.tsx(TS6133): 'aspectPreview' is declared but its value is never read.
+src/components/multiply/VisualPromptsToggle.tsx(TS6133): 'CardContent' is declared but its value is never read.
+src/components/multiply/VisualPromptsToggle.tsx(TS6133): 'ChevronDown' is declared but its value is never read.
+src/components/multiply/VisualPromptsToggle.tsx(TS6133): 'CollapsibleTrigger' is declared but its value is never read.
+src/components/onboarding/BrandDNAScan.tsx(TS6133): 'Loader2' is declared but its value is never read.
+src/components/onboarding/BrandDNAScan.tsx(TS6133): 'brandData' is declared but its value is never read.
+src/components/onboarding/BrandKnowledgeCenter.tsx(TS2339): Property 'catch' does not exist on type 'PromiseLike<void>'.
+src/components/onboarding/BrandKnowledgeCenter.tsx(TS2339): Property 'content_preview' does not exist on type 'UploadedDocument'.
+src/components/onboarding/BrandKnowledgeCenter.tsx(TS2345): Argument of type '{ id: string; file_name: string; file_size: number | null; created_at: string | null; processing_status: string | null; file_url: string | null; }[]' is not assignable to parameter of type 'SetStateAction<UploadedDocument[]>'.
+src/components/onboarding/BrandKnowledgeCenter.tsx(TS2345): Argument of type '{ id: string; knowledge_type: string; content: Json; created_at: string | null; }[]' is not assignable to parameter of type 'SetStateAction<{ id: string; knowledge_type: string; content: any; created_at: string; }[]>'.
+src/components/onboarding/BrandSummaryPreview.tsx(TS6133): 'Type' is declared but its value is never read.
+src/components/onboarding/BrandSummaryPreview.tsx(TS6133): 'normalizeDomain' is declared but its value is never read.
+src/components/onboarding/GettingStartedChecklist.tsx(TS2769): No overload matches this call.
+src/components/onboarding/OnboardingBrandUpload.tsx(TS6133): 'Input' is declared but its value is never read.
+src/components/onboarding/OnboardingBrandUpload.tsx(TS6133): 'Lightbulb' is declared but its value is never read.
+src/components/onboarding/OnboardingBrandUpload.tsx(TS6133): 'bucketTest' is declared but its value is never read.
+src/components/onboarding/OnboardingBrandUpload.tsx(TS6133): 'errorCode' is declared but its value is never read.
+src/components/onboarding/OnboardingSuccess.tsx(TS2322): Type 'ReadableStream' is not assignable to type 'BlobPart'.
+src/components/onboarding/OnboardingSuccess.tsx(TS6133): 'BookOpen' is declared but its value is never read.
+src/components/onboarding/OnboardingSuccess.tsx(TS6133): 'BrandSummaryPreview' is declared but its value is never read.
+src/components/onboarding/OnboardingSuccess.tsx(TS6133): 'Sparkles' is declared but its value is never read.
+src/components/onboarding/OnboardingWelcome.tsx(TS2322): Type '"link"' is not assignable to type '"button" | "icon" | undefined'.
+src/components/onboarding/PostOnboardingGuide.tsx(TS6133): 'userName' is declared but its value is never read.
+src/components/paper-doll/AssemblyEditCanvas.tsx(TS2322): Type '{ x: number; y: number; }[]' is not assignable to type 'Point[]'.
+src/components/paper-doll/CandidateActionPanel.tsx(TS18047): 'asset' is possibly 'null'.
+src/components/paper-doll/CandidateActionPanel.tsx(TS2322): Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+src/components/paper-doll/CandidateActionPanel.tsx(TS2345): Argument of type 'SupabaseClient<Database, "public", "public", { Tables: { agent_preferences: { Row: { competitive_intelligence_enabled: boolean | null; created_at: string | null; id: string; last_scan_at: string | null; organization_id: string; scan_frequency: string | null; updated_at: string | null; }; Insert: { ...; }; Update: { ...' is not assignable to parameter of type 'FunctionClient'.
+src/components/paper-doll/CandidateActionPanel.tsx(TS2345): Argument of type 'SupabaseClient<Database, "public", "public", { Tables: { agent_preferences: { Row: { competitive_intelligence_enabled: boolean | null; created_at: string | null; id: string; last_scan_at: string | null; organization_id: string; scan_frequency: string | null; updated_at: string | null; }; Insert: { ...; }; Update: { ...' is not assignable to parameter of type 'RpcClient'.
+src/components/paper-doll/ProductionCandidateWorkbench.tsx(TS2322): Type '"fitment__roller-ball__17-415__v1" | "closure__17-415__rollon-overcap__v2"' is not assignable to type '"fitment__roller-ball__17-415__v1"'.
+src/components/paper-doll/ProductionCandidateWorkbench.tsx(TS2322): Type 'null' is not assignable to type 'string | undefined'.
+src/components/paper-doll/ProductionCandidateWorkbench.tsx(TS2322): Type 'string | null' is not assignable to type 'string'.
+src/components/paper-doll/RollonLineup.tsx(TS2322): Type 'null' is not assignable to type 'string'.
+src/components/paper-doll/SharedPlacementPanel.test.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/paper-doll/SharedPlacementPanel.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/pdf/BrandBookPDF.tsx(TS6133): 'Image' is declared but its value is never read.
+src/components/pdf/BrandBookPDF.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/press/Box3DPreview.tsx(TS6133): 'artworkUrl' is declared but its value is never read.
+src/components/press/Box3DPreview.tsx(TS6133): 'dielineData' is declared but its value is never read.
+src/components/press/TemplateLibrary.tsx(TS6133): 'FileText' is declared but its value is never read.
+src/components/products/BottleSpecsSection.tsx(TS6133): 'Award' is declared but its value is never read.
+src/components/products/BottleSpecsSection.tsx(TS6133): 'Package2' is declared but its value is never read.
+src/components/products/ContentPickerModal.tsx(TS2345): Argument of type 'string | null' is not assignable to parameter of type 'string'.
+src/components/products/ContentPickerModal.tsx(TS2769): No overload matches this call.
+src/components/products/ContentPickerModal.tsx(TS6133): 'TabsContent' is declared but its value is never read.
+src/components/products/FormulationSection.tsx(TS6133): 'Beaker' is declared but its value is never read.
+src/components/products/FormulationSection.tsx(TS6133): 'Calendar' is declared but its value is never read.
+src/components/products/FormulationSection.tsx(TS6133): 'Checkbox' is declared but its value is never read.
+src/components/products/FormulationSection.tsx(TS6133): 'Sun' is declared but its value is never read.
+src/components/products/FormulationSection.tsx(TS6133): 'cn' is declared but its value is never read.
+src/components/products/IngredientsSection.tsx(TS2339): Property 'origin' does not exist on type 'IngredientLibraryItem'.
+src/components/products/IngredientsSection.tsx(TS2345): Argument of type '{ name: string; inci_name: string | null | undefined; concentration_percent: number | undefined; is_allergen: boolean; }[]' is not assignable to parameter of type '{ name: string; inci_name?: string | undefined; concentration_percent?: number | undefined; is_allergen?: boolean | undefined; }[]'.
+src/components/products/IngredientsSection.tsx(TS2345): Argument of type '{ name: string; inci_name: string | null | undefined; concentration_percent: number | undefined; }[]' is not assignable to parameter of type '{ name: string; inci_name?: string | undefined; concentration_percent?: number | undefined; }[]'.
+src/components/products/IngredientsSection.tsx(TS6133): 'BookPlus' is declared but its value is never read.
+src/components/products/IngredientsSection.tsx(TS6133): 'COSMETIC_FUNCTIONS' is declared but its value is never read.
+src/components/products/IngredientsSection.tsx(TS6133): 'CloudOff' is declared but its value is never read.
+src/components/products/IngredientsSection.tsx(TS6133): 'Separator' is declared but its value is never read.
+src/components/products/IngredientsSection.tsx(TS6133): 'isCheckingAllergens' is declared but its value is never read.
+src/components/products/IngredientsSection.tsx(TS6133): 'productName' is declared but its value is never read.
+src/components/products/IngredientsSection.tsx(TS6192): All imports in import declaration are unused.
+src/components/products/MediaSection.tsx(TS6133): 'Check' is declared but its value is never read.
+src/components/products/MediaSection.tsx(TS6133): 'GripVertical' is declared but its value is never read.
+src/components/products/MediaSection.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/products/MediaSection.tsx(TS6133): 'heroImage' is declared but its value is never read.
+src/components/products/MediaSection.tsx(TS6133): 'toast' is declared but its value is never read.
+src/components/products/MediaSection.tsx(TS6133): 'useCallback' is declared but its value is never read.
+src/components/products/MediaSection.tsx(TS6192): All imports in import declaration are unused.
+src/components/products/PackagingSection.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/products/PackagingSection.tsx(TS6133): 'Leaf' is declared but its value is never read.
+src/components/products/PackagingSection.tsx(TS6133): 'Separator' is declared but its value is never read.
+src/components/products/PackagingSection.tsx(TS6133): 'cn' is declared but its value is never read.
+src/components/products/PackagingSection.tsx(TS6133): 'productName' is declared but its value is never read.
+src/components/products/ProductInternalSidebar.tsx(TS6133): 'DollarSign' is declared but its value is never read.
+src/components/products/ProductInternalSidebar.tsx(TS6133): 'Lock' is declared but its value is never read.
+src/components/products/ProductInternalSidebar.tsx(TS6133): 'NAV_ITEMS' is declared but its value is never read.
+src/components/products/ProductInternalSidebar.tsx(TS6133): 'productId' is declared but its value is never read.
+src/components/products/ProductInternalSidebar.tsx(TS6133): 'productName' is declared but its value is never read.
+src/components/products/PublishProductToSanity.tsx(TS2322): Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/products/PublishProductToSanity.tsx(TS2769): No overload matches this call.
+src/components/products/SDSSection.tsx(TS2322): Type 'string' is not assignable to type 'null'.
+src/components/products/SDSSection.tsx(TS2322): Type '{ name: string; inci_name: string | null | undefined; concentration_percent: number | undefined; cas_number: string | undefined; }[]' is not assignable to type '{ name: string; inci_name?: string | undefined; concentration_percent?: number | undefined; cas_number?: string | undefined; }[]'.
+src/components/products/SDSSection.tsx(TS6133): 'Link' is declared but its value is never read.
+src/components/products/SDSSection.tsx(TS6133): 'Separator' is declared but its value is never read.
+src/components/products/SDSSection.tsx(TS6133): 'productId' is declared but its value is never read.
+src/components/products/SDSSection.tsx(TS6133): 'toast' is declared but its value is never read.
+src/components/products/SDSSection.tsx(TS6196): 'SDSSourceType' is declared but never used.
+src/components/products/ScentNoteInput.tsx(TS6133): 'ScentNote' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'BarChart3' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'Button' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'Input' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'ProductImage' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'ProductOption' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'ProductVariant' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'Separator' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'isEditing' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'onChange' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'priceRange' is declared but its value is never read.
+src/components/products/VariantsSection.tsx(TS6133): 'useState' is declared but its value is never read.
+src/components/prompt-library/EnhancedPromptCard.tsx(TS6133): 'useState' is declared but its value is never read.
+src/components/prompt-library/ImageUploadDialog.tsx(TS6133): 'ImageIcon' is declared but its value is never read.
+src/components/prompt-library/ImageUploadDialog.tsx(TS6133): 'uploadData' is declared but its value is never read.
+src/components/prompt-library/ImportDialog.tsx(TS6133): 'importing' is declared but its value is never read.
+src/components/prompt-library/ImportDialog.tsx(TS6133): 'onImport' is declared but its value is never read.
+src/components/prompt-library/ImportDialog.tsx(TS6133): 'setImporting' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'CATEGORY_MAPPING' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'ChevronDown' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'ChevronUp' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'CollectionIcon' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'DialogDescription' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'DialogHeader' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'DialogTitle' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'IMAGE_CATEGORIES' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'Input' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'Label' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'REVERSE_CATEGORY_MAPPING' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'Separator' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'Sparkles' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'Tag' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'collectionColors' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'collections' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6133): 'onUse' is declared but its value is never read.
+src/components/prompt-library/PromptDetailModal.tsx(TS6192): All imports in import declaration are unused.
+src/components/prompt-library/PromptLibrarySidebar.tsx(TS2345): Argument of type 'string | null' is not assignable to parameter of type 'string'.
+src/components/prompt-library/PromptWizard.tsx(TS2345): Argument of type 'string' is not assignable to parameter of type 'never'.
+src/components/prompt-library/PromptWizard.tsx(TS6133): 'totalLabelSteps' is declared but its value is never read.
+src/components/prompt-library/QuickStartModal.tsx(TS2339): Property 'category' does not exist on type 'SelectQueryError<"column 'category' does not exist on 'brand_products'.">'.
+src/components/reports/BrandReportTemplate.tsx(TS2339): Property '0' does not exist on type '{ category: "visual" | "messaging" | "technical" | "strategy"; priority: "high" | "low" | "medium"; title: string; description: string; actionable?: boolean | undefined; }[] | undefined'.
+src/components/reports/BrandReportTemplate.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/reports/BrandReportTemplate.tsx(TS6133): 'hasSecondary' is declared but its value is never read.
+src/components/reports/BrandReportTemplate.tsx(TS6133): 'primaryColor' is declared but its value is never read.
+src/components/role/RoleBadge.tsx(TS6133): 'capabilities' is declared but its value is never read.
+src/components/role/RoleBadge.tsx(TS6133): 'teamRole' is declared but its value is never read.
+src/components/role/RoleGate.tsx(TS6133): 'section' is declared but its value is never read.
+src/components/role/RoleGate.tsx(TS6133): 'teamRole' is declared but its value is never read.
+src/components/settings/BillingTab.tsx(TS6133): 'CreditCard' is declared but its value is never read.
+src/components/settings/BrandDocumentStatus.tsx(TS6133): 'invokeData' is declared but its value is never read.
+src/components/settings/BrandDocumentStatus.tsx(TS6133): 'organizationId' is declared but its value is never read.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '"   MADISON'S VIEW OF THIS DOCUMENT"' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '"CONTENT STRUCTURE:"' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '"DOCUMENT PREVIEW (First 2000 characters):"' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '"\n\n... [truncated] ...\n"' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '"─────────────────────────────────────────────────────────"' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '"─────────────────────────────────────────────────────────\n"' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '"═══════════════════════════════════════════════════════════"' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '"═══════════════════════════════════════════════════════════\n"' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type 'any' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type 'string' is not assignable to parameter of type 'never'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS2345): Argument of type '{ file_name: any; document_id: string | null; id: string; knowledge_type: string; is_active: boolean | null; version: number | null; content: Json; created_at: string | null; updated_at: string | null; brand_documents: { ...; }; }[]' is not assignable to parameter of type 'SetStateAction<KnowledgeEntry[]>'.
+src/components/settings/BrandKnowledgeDebugPanel.tsx(TS6133): 'selectedEntry' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS2345): Argument of type '(k: BrandKnowledge) => void' is not assignable to parameter of type '(value: { content: Json; created_at: string | null; document_id: string | null; id: string; is_active: boolean | null; knowledge_type: string; organization_id: string; updated_at: string | null; version: number | null; document: { ...; } | null; }, index: number, array: { ...; }[]) => void'.
+src/components/settings/BrandKnowledgeManager.tsx(TS2345): Argument of type '(k: BrandKnowledge) => void' is not assignable to parameter of type '(value: { content: Json; created_at: string | null; document_id: string | null; id: string; is_active: boolean | null; knowledge_type: string; organization_id: string; updated_at: string | null; version: number | null; }, index: number, array: { ...; }[]) => void'.
+src/components/settings/BrandKnowledgeManager.tsx(TS2345): Argument of type '{ content: Json; created_at: string | null; document_id: string | null; id: string; is_active: boolean | null; knowledge_type: string; organization_id: string; updated_at: string | null; version: number | null; }[]' is not assignable to parameter of type 'SetStateAction<BrandKnowledge[]>'.
+src/components/settings/BrandKnowledgeManager.tsx(TS2345): Argument of type '{ document: any; content: Json; created_at: string | null; document_id: string | null; id: string; is_active: boolean | null; knowledge_type: string; organization_id: string; updated_at: string | null; version: number | null; }' is not assignable to parameter of type 'BrandKnowledge'.
+src/components/settings/BrandKnowledgeManager.tsx(TS2345): Argument of type '{ document: any; content: Json; created_at: string | null; document_id: string | null; id: string; is_active: boolean | null; knowledge_type: string; organization_id: string; updated_at: string | null; version: number | null; }[]' is not assignable to parameter of type 'SetStateAction<BrandKnowledge[]>'.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'ChevronDown' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'DialogTrigger' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'Edit2' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'Eye' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'Plus' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'XCircle' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'editingId' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'handleCancelEdit' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'handleEdit' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'handleSaveEdit' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'handleViewDuplicates' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'isSaving' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'lastConsolidation' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'renderContentFields' is declared but its value is never read.
+src/components/settings/BrandKnowledgeManager.tsx(TS6133): 'toggleSection' is declared but its value is never read.
+src/components/settings/BrandKnowledgeStatus.tsx(TS2345): Argument of type '{ id: string; knowledge_type: string; is_active: boolean | null; content_size: number; file_name: any; created_at: string | null; }[]' is not assignable to parameter of type 'SetStateAction<KnowledgeEntry[]>'.
+src/components/settings/BrandKnowledgeStatus.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/settings/BrandStudio.tsx(TS6133): 'IndustryId' is declared but its value is never read.
+src/components/settings/BrandStudio.tsx(TS6133): 'tones' is declared but its value is never read.
+src/components/settings/BusinessTypeTab.tsx(TS6133): 'currentBusinessType' is declared but its value is never read.
+src/components/settings/EtsyConnection.tsx(TS2345): Argument of type 'ResultOne | null' is not assignable to parameter of type 'SetStateAction<EtsyConnection | null>'.
+src/components/settings/EtsyConnection.tsx(TS2589): Type instantiation is excessively deep and possibly infinite.
+src/components/settings/EtsyConnection.tsx(TS2769): No overload matches this call.
+src/components/settings/GoalsTab.tsx(TS6133): 'index' is declared but its value is never read.
+src/components/settings/IndustrySelector.tsx(TS6133): 'IndustryId' is declared but its value is never read.
+src/components/settings/IntegrationsTab.tsx(TS6133): 'data' is declared but its value is never read.
+src/components/settings/KlaviyoConnection.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/settings/LinkedInConnection.tsx(TS2345): Argument of type '{ connected_at: string | null; connection_type: string | null; created_at: string | null; encrypted_access_token: string; encrypted_refresh_token: string | null; id: string; is_active: boolean | null; ... 13 more ...; user_id: string; } | null' is not assignable to parameter of type 'SetStateAction<LinkedInConnectionData | null>'.
+src/components/settings/LinkedInConnection.tsx(TS6133): 'Check' is declared but its value is never read.
+src/components/settings/MadisonTrainingTab.tsx(TS2345): Argument of type '{ created_at: string | null; extracted_content: string | null; file_name: string; file_size: number | null; file_type: string; file_url: string; id: string; processing_status: string | null; updated_at: string | null; uploaded_by: string | null; }[]' is not assignable to parameter of type 'SetStateAction<TrainingDocument[]>'.
+src/components/settings/MadisonTrainingTab.tsx(TS6133): 'Upload' is declared but its value is never read.
+src/components/settings/MadisonTrainingTab.tsx(TS6133): 'X' is declared but its value is never read.
+src/components/settings/ProductDetailModal.tsx(TS2322): Type 'string | null' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'approved_descriptors' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'archetype_environmental_enabled' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'archetype_flatlay_enabled' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'archetype_hero_enabled' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'archetype_lived_enabled' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'archetype_ritual_enabled' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'archetype_travel_enabled' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'aspect_ratio_primary' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'avatar_motivation' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'baseNotes' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'color_palette_hex_codes' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'composition_style' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'craftsmanship_term' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'depth_of_field' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'dip_layer_moral' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'environmental_location' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'flatlay_ingredients' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'handle' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'hero_artifact_placement' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'hero_primary_artifacts' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'image_type_primary' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'ingredient_disclosure' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'lighting_direction' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'lighting_spec' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'lived_life_context' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'longevity_hours' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'middleNotes' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'moral_philosophy' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'occasion_tags' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'philosophy_keywords' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'platform_material' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'platform_type' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'primary_avatar' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'prompt_template_id' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'ritual_skin_tone' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'scent_family_detailed' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'semantic_categories' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'shadow_treatment' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'textile_backdrop' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'topNotes' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'transparency_statement' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'travel_context' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'use_case_primary' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'use_case_templates' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'visual_world' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2339): Property 'visual_world_week' does not exist on type 'ProductHub'.
+src/components/settings/ProductDetailModal.tsx(TS2551): Property 'collection' does not exist on type 'ProductHub'. Did you mean 'collections'?
+src/components/settings/ProductDetailModal.tsx(TS2551): Property 'collection_tier' does not exist on type 'ProductHub'. Did you mean 'collections'?
+src/components/settings/ProductDetailModal.tsx(TS2551): Property 'sillage_description' does not exist on type 'ProductHub'. Did you mean 'seo_description'?
+src/components/settings/ProductDetailModal.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/components/settings/ProductFormFields.tsx(TS2724): '"@/hooks/useProducts"' has no exported member named 'ProductCategory'. Did you mean 'PRODUCT_CATEGORIES'?
+src/components/settings/ProductFormFields.tsx(TS6133): 'Button' is declared but its value is never read.
+src/components/settings/ProductsTab.tsx(TS18047): 'a.category' is possibly 'null'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'baseNotes' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'benefits' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'bottle_type' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'burnTime' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'description' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'format' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'formulationType' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'handle' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'id' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'keyIngredients' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'last_shopify_sync' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'middleNotes' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'name' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'scentFamily' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'scentProfile' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'shopify_product_id' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'shopify_variant_id' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'tone' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'topNotes' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'usage' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2339): Property 'usp' does not exist on type 'ProductHub'.
+src/components/settings/ProductsTab.tsx(TS2345): Argument of type 'string' is not assignable to parameter of type 'never'.
+src/components/settings/ProductsTab.tsx(TS2538): Type 'null' cannot be used as an index type.
+src/components/settings/ProductsTab.tsx(TS2551): Property 'collection' does not exist on type 'ProductHub'. Did you mean 'collections'?
+src/components/settings/ProductsTab.tsx(TS2724): '"@/hooks/useProducts"' has no exported member named 'ProductCategory'. Did you mean 'PRODUCT_CATEGORIES'?
+src/components/settings/ProductsTab.tsx(TS2769): No overload matches this call.
+src/components/settings/SanityConnection.tsx(TS6133): 'CheckCircle' is declared but its value is never read.
+src/components/settings/SanityConnection.tsx(TS6133): 'RefreshCw' is declared but its value is never read.
+src/components/settings/ShopifyConnection.tsx(TS2345): Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/components/settings/TeamTab.tsx(TS2769): No overload matches this call.
+src/components/settings/TeamTab.tsx(TS6133): 'invitationCount' is declared but its value is never read.
+src/components/sidebar/VaultSidebarBtn.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/tasks/TaskCard.tsx(TS6133): 'Clock' is declared but its value is never read.
+src/components/tasks/TaskCard.tsx(TS6133): 'statusConfig' is declared but its value is never read.
+src/components/tasks/TaskCreationModal.tsx(TS6133): 'Flag' is declared but its value is never read.
+src/components/tasks/TaskDetailModal.tsx(TS6133): 'Edit2' is declared but its value is never read.
+src/components/tasks/TaskDetailModal.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/tasks/TaskDetailModal.tsx(TS6133): 'SelectValue' is declared but its value is never read.
+src/components/tasks/TaskDetailModal.tsx(TS6133): 'Textarea' is declared but its value is never read.
+src/components/tasks/TaskDetailModal.tsx(TS6133): 'useProductTasks' is declared but its value is never read.
+src/components/tasks/TaskList.tsx(TS6133): 'CardHeader' is declared but its value is never read.
+src/components/tasks/TaskList.tsx(TS6133): 'CardTitle' is declared but its value is never read.
+src/components/tasks/TaskList.tsx(TS6133): 'React' is declared but its value is never read.
+src/components/tasks/TaskList.tsx(TS6133): 'TASK_STATUS_OPTIONS' is declared but its value is never read.
+src/components/ui/calendar.tsx(TS6133): '_props' is declared but its value is never read.
+src/components/video-project/ImagePickerDialog.tsx(TS2345): Argument of type '{ id: string; url: string; source: string; createdAt: string | null; }' is not assignable to parameter of type 'LibraryImage'.
+src/components/video-project/ImagePickerDialog.tsx(TS6133): 'Upload' is declared but its value is never read.
+src/components/video-project/ImagePickerDialog.tsx(TS6133): 'user' is declared but its value is never read.
+src/components/video-project/SceneCard.tsx(TS6133): 'SelectValue' is declared but its value is never read.
+src/components/widgets/BrandHealthWidget.tsx(TS6133): 'getProgressColor' is declared but its value is never read.
+src/components/widgets/ContentPipelineWidget.tsx(TS2769): No overload matches this call.
+src/components/widgets/ContentStreakWidget.tsx(TS2769): No overload matches this call.
+src/components/widgets/ThisWeekWidget.tsx(TS6133): 'Clock' is declared but its value is never read.
+src/components/widgets/WidgetContext.tsx(TS2322): Type '{ dashboardLayout: { lastModified: string; version: number; widgets: WidgetConfig[]; }; }' is not assignable to type 'Json | undefined'.
+src/config/bestBottlesFamilyProfiles.test.ts(TS18047): 'fiveMl' is possibly 'null'.
+src/config/bestBottlesFamilyProfiles.test.ts(TS18047): 'fiveMlRollOn' is possibly 'null'.
+src/config/bestBottlesFamilyProfiles.test.ts(TS18047): 'fourMl' is possibly 'null'.
+src/config/bestBottlesFamilyProfiles.test.ts(TS18047): 'nineMl' is possibly 'null'.
+src/config/bestBottlesFamilyProfiles.test.ts(TS18047): 'threeMl' is possibly 'null'.
+src/config/bestBottlesFamilyProfiles.test.ts(TS6133): 'BEST_BOTTLES_FAMILY_FILL_HEIGHT_RANGES' is declared but its value is never read.
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: "aluminum-bottle"; family: string; label: string; relativeScaleZoneId: "aluminum-bottle"; relativeScaleZoneLabel: string; canvas: { readonly widthPx: 2080; readonly heightPx: 2288; }; ... 7 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: "boston-round"; family: string; label: string; relativeScaleZoneId: "boston-round"; relativeScaleZoneLabel: string; glassGeometryHint: string; canvas: { readonly widthPx: 2080; readonly heightPx: 2288; }; ... 7 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: "cylinder-standard"; family: string; label: string; relativeScaleZoneId: "standard-cylinder"; relativeScaleZoneLabel: string; glassGeometryHint: string; canvas: { readonly widthPx: 2080; readonly heightPx: 2288; }; ... 7 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: "cylinder-tall"; family: string; label: string; relativeScaleZoneId: "large-cylinder"; relativeScaleZoneLabel: string; glassGeometryHint: string; canvas: { readonly widthPx: 2080; readonly heightPx: 2288; }; ... 7 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: "empire-bottle"; family: string; label: string; relativeScaleZoneId: "empire-bottle"; relativeScaleZoneLabel: string; canvas: { readonly widthPx: 2080; readonly heightPx: 2288; }; targetProductHeightRangePct: { ...; }; ... 6 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: "heavy-perfume-bottle"; family: string; label: string; relativeScaleZoneId: "heavy-perfume-bottle"; relativeScaleZoneLabel: string; canvas: { readonly widthPx: 2080; readonly heightPx: 2288; }; ... 7 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: "roller-bottle"; family: string; label: string; relativeScaleZoneId: "roller-bottle"; relativeScaleZoneLabel: string; glassGeometryHint: string; canvas: { readonly widthPx: 2080; readonly heightPx: 2288; }; ... 7 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: "sample-vial"; family: string; label: string; relativeScaleZoneId: "sample-vial"; relativeScaleZoneLabel: string; glassGeometryHint: string; canvas: { readonly widthPx: 2080; readonly heightPx: 2288; }; ... 7 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/bestBottlesFamilyProfiles.ts(TS2739): Type '{ id: BestBottlesFamilyProfileId; family: string; label: string; relativeScaleZoneId: BestBottlesRelativeScaleZoneId; ... 10 more ...; detachedComponentShiftsPrimary: false; }' is missing the following properties from type 'BestBottlesFamilyProfileTemplate': scaleContractVersion, globalTargetProductHeightPct, familyScaleCorrectionPct
+src/config/imageSettings.ts(TS6133): 'Image' is declared but its value is never read.
+src/config/imageSettings.ts(TS6133): 'Monitor' is declared but its value is never read.
+src/config/industryTemplates.ts(TS6133): 'industryKey' is declared but its value is never read.
+src/config/marketplaceTemplates.ts(TS6133): 'Package' is declared but its value is never read.
+src/contexts/DashboardEditContext.tsx(TS2322): Type '{ dashboardLayouts: Record<string, CardLayout>; }' is not assignable to type 'Json | undefined'.
+src/contexts/DashboardEditContext.tsx(TS2339): Property 'dashboardLayouts' does not exist on type 'string | number | boolean | { [key: string]: Json | undefined; } | Json[]'.
+src/contexts/DashboardEditContext.tsx(TS2339): Property 'data' does not exist on type 'PostgrestBuilder<{ PostgrestVersion: "13.0.5"; }, { settings: Json; }, false>'.
+src/data/imageCategories.ts(TS2322): Type '"lifestyle"' is not assignable to type 'UseCaseKey'.
+src/data/imageCategories.ts(TS6133): 'Store' is declared but its value is never read.
+src/hooks/useAgentBehavior.ts(TS6196): 'LibrarianFramework' is declared but never used.
+src/hooks/useAutoSave.ts(TS6133): 'count' is declared but its value is never read.
+src/hooks/useBackgroundRemoval.tsx(TS6133): 'toast' is declared but its value is never read.
+src/hooks/useBestBottlesCylinderProductionReadiness.test.ts(TS2345): Argument of type 'Function' is not assignable to parameter of type '(artifact: CylinderRoleAwareReadinessArtifact, roster: CylinderCanonicalRosterAuthority) => unknown'.
+src/hooks/useBestBottlesCylinderProductionReadiness.ts(TS2345): Argument of type 'string | null' is not assignable to parameter of type 'string'.
+src/hooks/useBestBottlesProductHub.tsx(TS2322): Type '{ id: string; organization_id: string; pipeline_group_id: null; product_group_slug: string; product_group_display_name: string | null; family: string; catalog_reference_pages: string | null; ... 28 more ...; is_report_only: true; }' is not assignable to type 'BestBottlesProductHubJob'.
+src/hooks/useBrandHealth.tsx(TS2352): Conversion of type '{ completeness_score: number; created_at: string; gap_analysis: Json; id: string; last_analyzed_at: string; organization_id: string; recommendations: Json; updated_at: string; } | null' to type 'BrandHealthData' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/hooks/useBusinessType.tsx(TS2322): Type 'BusinessType' is not assignable to type '"finished_goods" | "bottles_vessels" | "packaging_boxes" | "raw_materials" | null | undefined'.
+src/hooks/useBusinessType.tsx(TS2352): Conversion of type '{ ai_context: Json; business_type: "finished_goods" | "bottles_vessels" | "packaging_boxes" | "raw_materials"; created_at: string | null; default_categories: Json; ... 10 more ...; vocabulary: Json; }' to type 'BusinessTypeConfig' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/hooks/useBusinessType.tsx(TS2352): Conversion of type '{ ai_context: Json; business_type: "finished_goods" | "bottles_vessels" | "packaging_boxes" | "raw_materials"; created_at: string | null; default_categories: Json; ... 10 more ...; vocabulary: Json; }[]' to type 'BusinessTypeConfig[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/hooks/useCameraFeedback.ts(TS6133): 'isReady' is declared but its value is never read.
+src/hooks/useClapperFeedback.ts(TS6133): 'React' is declared but its value is never read.
+src/hooks/useClapperFeedback.ts(TS6133): 'useEffect' is declared but its value is never read.
+src/hooks/useDashboardStats.tsx(TS2322): Type '({ id: string; title: string; type: string; action: string; time: string; category: "master"; created_at: string | null; } | { id: string; title: string; type: string; action: string; time: string; category: "output"; created_at: string | null; } | { ...; })[]' is not assignable to type 'RecentActivityItem[]'.
+src/hooks/useDashboardStats.tsx(TS2322): Type 'string | null' is not assignable to type 'string'.
+src/hooks/useDashboardStats.tsx(TS2345): Argument of type 'string | null' is not assignable to parameter of type 'string'.
+src/hooks/useDashboardStats.tsx(TS2769): No overload matches this call.
+src/hooks/useFormulation.tsx(TS2345): Argument of type '{ id?: string | undefined; formula_code?: string | null | undefined; formula_name?: string | null | undefined; version?: number | undefined; status?: string | undefined; formulation_type?: string | ... 1 more ... | undefined; ... 20 more ...; updated_at?: string | undefined; }' is not assignable to parameter of type '{ active_ingredients?: Json | undefined; approved_at?: string | null | undefined; approved_by?: string | null | undefined; base_carrier?: string | null | undefined; base_type?: string | ... 1 more ... | undefined; ... 41 more ...; viscosity_target?: string | ... 1 more ... | undefined; }'.
+src/hooks/useFormulation.tsx(TS2769): No overload matches this call.
+src/hooks/useFormulation.tsx(TS6192): All imports in import declaration are unused.
+src/hooks/useGoals.tsx(TS18047): 'orgMember' is possibly 'null'.
+src/hooks/useIngredients.tsx(TS2353): Object literal may only specify known properties, and 'concentration_percent' does not exist in type 'DetectedAllergen'.
+src/hooks/useKeyboardShortcuts.ts(TS2722): Cannot invoke an object which is possibly 'undefined'.
+src/hooks/useLibraryContent.tsx(TS2769): No overload matches this call.
+src/hooks/useLibraryContent.tsx(TS6133): 'deliverable' is declared but its value is never read.
+src/hooks/useOnboarding.tsx(TS2322): Type 'string' is not assignable to type '"finished_goods" | "bottles_vessels" | "packaging_boxes" | "raw_materials" | null | undefined'.
+src/hooks/useOnboarding.tsx(TS2339): Property 'catch' does not exist on type 'PromiseLike<void>'.
+src/hooks/useOrganization.tsx(TS6196): 'Organization' is declared but never used.
+src/hooks/useProductTasks.tsx(TS2352): Conversion of type '{ author_id: string; content: string; created_at: string | null; id: string; mentions: string[] | null; task_id: string; updated_at: string | null; author: SelectQueryError<"could not find the relation between task_comments and profiles">; }[]' to type 'TaskComment[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/hooks/useProducts.tsx(TS2345): Argument of type '{ name?: string | undefined; slug?: string | undefined; sku?: string | undefined; barcode?: string | undefined; short_description?: string | undefined; long_description?: string | undefined; ... 23 more ...; metadata?: Record<...> | undefined; }' is not assignable to parameter of type '{ barcode?: string | null | undefined; brand_voice_notes?: string | null | undefined; category?: string | null | undefined; collections?: string[] | null | undefined; compare_at_price?: number | ... 1 more ... | undefined; ... 42 more ...; visibility?: string | ... 1 more ... | undefined; }'.
+src/hooks/usePromptGeneration.ts(TS2345): Argument of type '"\n--- Technical Specifications ---"' is not assignable to parameter of type 'never'.
+src/hooks/usePromptGeneration.ts(TS2345): Argument of type '"\nIMPORTANT: Reference these specific details in your copy to create vivid, contextual descriptions."' is not assignable to parameter of type 'never'.
+src/hooks/usePromptGeneration.ts(TS2345): Argument of type '"\n\nIMPORTANT: Return output as plain text only. Do not use any Markdown formatting (no asterisks, bold, italics, headers, etc.). Output should be clean copy-paste ready text."' is not assignable to parameter of type 'never'.
+src/hooks/usePromptGeneration.ts(TS2345): Argument of type 'string' is not assignable to parameter of type 'never'.
+src/hooks/useStreakCalculation.tsx(TS6133): 'type' is declared but its value is never read.
+src/hooks/useTooltipAnalytics.tsx(TS6133): 'supabase' is declared but its value is never read.
+src/hooks/useWeeklySchedule.ts(TS2322): Type '{ content_id: string | null; content_type: string; created_at: string | null; derivative_id: string | null; google_event_id: string | null; id: string; notes: string | null; organization_id: string | null; ... 8 more ...; user_id: string; }[]' is not assignable to type 'ScheduledContentItem[]'.
+src/lib/agents/assembler.ts(TS2322): Type '"document_upload"' is not assignable to type '"document" | "manual" | "url_scan" | "url_scan_enhanced"'.
+src/lib/agents/assembler.ts(TS2322): Type '"professional"' is not assignable to type 'BrandTone | undefined'.
+src/lib/agents/assembler.ts(TS2322): Type 'string | number | true | { [key: string]: Json | undefined; } | Json[]' is not assignable to type 'Record<string, unknown>'.
+src/lib/agents/assembler.ts(TS2339): Property 'values' does not exist on type 'BrandEssence'.
+src/lib/agents/assembler.ts(TS2345): Argument of type '(string | undefined)[]' is not assignable to parameter of type 'readonly string[]'.
+src/lib/agents/assembler.ts(TS2352): Conversion of type '{ channel: string | null; content: string; content_type: string | null; created_at: string | null; embedding: string | null; id: string; metadata: Json; org_id: string; source: string; tone_tags: string[] | null; }[]' to type 'BrandWritingExample[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/lib/agents/assembler.ts(TS2352): Conversion of type '{ created_at: string | null; id: string; image_embedding: string | null; image_url: string; master_used: string | null; metadata: Json; org_id: string; squad_used: string | null; style_tags: string[] | null; }[]' to type 'BrandVisualExample[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/lib/agents/assembler.ts(TS6133): 'query' is declared but its value is never read.
+src/lib/agents/assembler.ts(TS6133): 'text' is declared but its value is never read.
+src/lib/agents/contentToVisualPrompts.ts(TS6133): 'content' is declared but its value is never read.
+src/lib/agents/editor.ts(TS2307): Cannot find module '@anthropic-ai/sdk' or its corresponding type declarations.
+src/lib/agents/generator.ts(TS2307): Cannot find module '@anthropic-ai/sdk' or its corresponding type declarations.
+src/lib/agents/pipeline.ts(TS2769): No overload matches this call.
+src/lib/agents/router.ts(TS2307): Cannot find module '@anthropic-ai/sdk' or its corresponding type declarations.
+src/lib/bestBottlesCatalogFallback.ts(TS2322): Type 'ProductGroup[] | null' is not assignable to type 'ProductGroup[]'.
+src/lib/bestBottlesCatalogFallback.ts(TS2322): Type 'Promise<never[] | ({ _id: string; _creationTime: number; slug: string; displayName: string; family: string; capacity: string | null; capacityMl: number | null; color: null; category: string; bottleCollection: string | null; ... 11 more ...; paperDollFamilyKey: null; } | null)[]>' is not assignable to type 'Promise<ProductGroup[]>'.
+src/lib/bestBottlesCatalogFallback.ts(TS2677): A type predicate's type must be assignable to its parameter's type.
+src/lib/bestBottlesCylinderApprovedCoverageManifest.ts(TS18047): 'source.composite' is possibly 'null'.
+src/lib/bestBottlesCylinderBlockedRecovery.test.ts(TS2550): Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+src/lib/bestBottlesCylinderCanonicalTypeReview.test.ts(TS2322): Type 'string' is not assignable to type '"Cylinder" | "Tall Cylinder"'.
+src/lib/bestBottlesCylinderDualRoleRemediation.test.ts(TS2339): Property 'outputSha256' does not exist on type 'RecoveryDecision | LivePointerDecision'.
+src/lib/bestBottlesCylinderDualRoleRunner.test.ts(TS2322): Type 'Record<string, string>[]' is not assignable to type 'CylinderDualRoleCanonicalProductTruthRow[]'.
+src/lib/bestBottlesCylinderDualRoleRunner.test.ts(TS2345): Argument of type '{ disposition: "rendered"; outputSha256: string; width: number; height: number; opaque: true; }' is not assignable to parameter of type 'CylinderDualRoleOutputValidation'.
+src/lib/bestBottlesCylinderDualRoleRunner.test.ts(TS2740): Type 'Record<string, string>' is missing the following properties from type 'CylinderDualRoleCanonicalProductTruthRow': graceSku, websiteSku, productGroupSlug, family, and 15 more.
+src/lib/bestBottlesCylinderDualRoleRunner.ts(TS2430): Interface 'CylinderDualRoleSuccessfulResult' incorrectly extends interface 'CylinderDualRoleCompiledJob'.
+src/lib/bestBottlesCylinderFramingRecovery.test.ts(TS2322): Type '{ readonly status: "failed-framing"; readonly reviewStatus: "framing-rejected"; readonly error: "framing failed"; readonly outputSha256: string; readonly outputDimensions: { readonly width: 2080; readonly height: 2288; }; ... 23 more ...; readonly warnings: readonly []; }' is not assignable to type 'StoredFailedFramingResult'.
+src/lib/bestBottlesCylinderFramingRecovery.test.ts(TS2322): Type '{ readonly workflowVersion: "best-bottles-cylinder-dual-role-runner-v1"; readonly jobId: "GBCYLBLU5SPRYBLKSH|GBCYLBLU5MLSPRSBLK|preserve-cap-off-sidecar-reference"; readonly jobType: "preserve-cap-off-sidecar-reference"; ... 20 more ...; readonly warnings: readonly []; }' is not assignable to type 'CylinderDualRoleCompiledJob'.
+src/lib/bestBottlesCylinderFramingRecovery.test.ts(TS2739): Type '{ fillHeightPct: number; baselineYPx: number; targetBaselineYPx: number; baselineDeltaPx: number; centerXPct: number; targetCenterXPct: number; centerDeltaPct: number; }' is missing the following properties from type '{ fillHeightPct: number | null; baselineYPx: number | null; targetBaselineYPx: number; baselineDeltaPx: number | null; centerXPct: number | null; targetCenterXPct: number; centerDeltaPct: number | null; primaryAspectRatio: number | null; expectedPrimaryAspectRatio: number | null; aspectRatioDriftPct: number | null; }': primaryAspectRatio, expectedPrimaryAspectRatio, aspectRatioDriftPct
+src/lib/bestBottlesCylinderFramingRecovery.ts(TS2430): Interface 'StoredFailedFramingResult' incorrectly extends interface 'CylinderDualRoleCompiledJob'.
+src/lib/bestBottlesCylinderFramingRecovery.ts(TS2550): Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+src/lib/bestBottlesCylinderFullExecutionSchedule.ts(TS2322): Type 'CylinderDualRoleCompiledJob[]' is not assignable to type 'CylinderNextCohortCompiledJobInput[]'.
+src/lib/bestBottlesCylinderFullExecutionSchedule.ts(TS2550): Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+src/lib/bestBottlesCylinderFullExecutionSchedule.ts(TS6133): 'row' is declared but its value is never read.
+src/lib/bestBottlesCylinderNextCohortPreflight.ts(TS18047): 'planRow.evidence.sourceLocator' is possibly 'null'.
+src/lib/bestBottlesCylinderNextCohortPreflight.ts(TS2322): Type 'string | null' is not assignable to type 'string'.
+src/lib/bestBottlesCylinderNextCohortPreflight.ts(TS2345): Argument of type 'string | null' is not assignable to parameter of type 'string'.
+src/lib/bestBottlesCylinderNextCohortPreflight.ts(TS2550): Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+src/lib/bestBottlesCylinderPilotRoleReview.test.ts(TS2322): Type '{ websiteSku: string; graceSku: string; role: "identity-cap-on" | "pdp-cap-off-sidecar"; topology: "assembled" | "detached"; jobId: string; jobType: "assemble-cap-on-reference" | "preserve-cap-off-sidecar-reference"; ... 22 more ...; recomputedShadowQa: { ...; }; }' is not assignable to type 'CylinderPilotRoleReviewInput'.
+src/lib/bestBottlesCylinderPilotRoleReview.ts(TS2322): Type '{ websiteSku: "GBCylBlu5SpryBlkSh"; graceSku: "GB-CYL-BLU-5ML-SPR-SBLK"; canonicalIdentityKey: string; }' is not assignable to type '{ websiteSku: "GBCylBlu5SpryBlkSh"; graceSku: "GB-CYL-BLU-5ML-SPR-SBLK"; canonicalIdentityKey: "GBCYLBLU5SPRYBLKSH|GBCYLBLU5MLSPRSBLK"; }'.
+src/lib/bestBottlesCylinderPilotRoleReview.ts(TS2550): Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+src/lib/bestBottlesCylinderReferencePromotion.test.ts(TS2322): Type '{ websiteSku: string; graceSku: string; family: string; productGroupSlug: string; capacityMl: string; canon_bodyHeightMm: string; canon_widthAxisMm: string; canon_secondAxisMm: string; canon_heightWithCapMm: string; }' is not assignable to type 'CanonicalCylinderCoverageRow'.
+src/lib/bestBottlesCylinderReferencePromotionExecution.test.ts(TS2322): Type '"flattened-product-truth"' is not assignable to type 'null'.
+src/lib/bestBottlesCylinderReferenceRemediation.test.ts(TS2322): Type '{ websiteSku: string; graceSku: string; sourcePath: string; sourceSha256: string; outputPath: string; outputSha256: string; width: number; height: number; pixelCount: number; resolutionStatus: string; classification: string; identityDecision: string; productionDisposition: string; }[]' is not assignable to type 'CylinderRecoveryApprovalDecision[]'.
+src/lib/bestBottlesCylinderRoleAuthority.test.ts(TS2345): Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BodyInit | null | undefined'.
+src/lib/bestBottlesCylinderRoleAuthority.ts(TS2345): Argument of type 'string | null' is not assignable to parameter of type 'string'.
+src/lib/bestBottlesCylinderRoleAwareReadiness.test.ts(TS18047): 'badRecord.source' is possibly 'null'.
+src/lib/bestBottlesCylinderRoleAwareReadiness.test.ts(TS18047): 'manifestRecord.source' is possibly 'null'.
+src/lib/bestBottlesCylinderRoleAwareReadiness.test.ts(TS18049): 'badRecord.source.canonicalReviewMetadata' is possibly 'null' or 'undefined'.
+src/lib/bestBottlesCylinderRoleAwareReadiness.test.ts(TS18049): 'manifestRecord.source.canonicalReviewMetadata' is possibly 'null' or 'undefined'.
+src/lib/bestBottlesCylinderStudioOrchestration.test.ts(TS2345): Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BodyInit | null | undefined'.
+src/lib/bestBottlesDarkroomAssetWorkflow.ts(TS6133): 'IDENTITY_TAG_TO_STATUS' is declared but its value is never read.
+src/lib/bestBottlesGapWorklist.ts(TS2352): Conversion of type 'GapWorklistRow' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/lib/bestBottlesMeasurementFirecrawl.test.ts(TS18048): 'payload.overrides' is possibly 'undefined'.
+src/lib/bestBottlesPipeline.ts(TS2322): Type 'string' is not assignable to type 'PipelineSkuJobStatus | undefined'.
+src/lib/bestBottlesPipeline.ts(TS2339): Property 'geometry_spec' does not exist on type 'SelectQueryError<"column 'geometry_spec' does not exist on 'best_bottles_pipeline_groups'.">'.
+src/lib/bestBottlesPipeline.ts(TS2345): Argument of type 'PipelineSkuJobSeedRow' is not assignable to parameter of type 'Record<string, unknown>'.
+src/lib/bestBottlesPipeline.ts(TS2353): Object literal may only specify known properties, and 'geometry_spec' does not exist in type '{ all_legacy_skus?: string | null | undefined; applicator_types?: string | null | undefined; capacity_label?: string | null | undefined; capacity_ml?: number | null | undefined; category?: string | ... 1 more ... | undefined; ... 30 more ...; variant_count?: number | ... 1 more ... | undefined; }'.
+src/lib/bestBottlesPipeline.ts(TS2353): Object literal may only specify known properties, and 'is_clear_master_reference' does not exist in type '{ all_legacy_skus?: string | null | undefined; applicator_types?: string | null | undefined; capacity_label?: string | null | undefined; capacity_ml?: number | null | undefined; category?: string | ... 1 more ... | undefined; ... 30 more ...; variant_count?: number | ... 1 more ... | undefined; }'.
+src/lib/bestBottlesPipeline.ts(TS2353): Object literal may only specify known properties, and 'is_hero_reference' does not exist in type '{ all_legacy_skus?: string | null | undefined; applicator_types?: string | null | undefined; capacity_label?: string | null | undefined; capacity_ml?: number | null | undefined; category?: string | ... 1 more ... | undefined; ... 30 more ...; variant_count?: number | ... 1 more ... | undefined; }'.
+src/lib/bestBottlesPipeline.ts(TS2554): Expected 0-1 arguments, but got 2.
+src/lib/bestBottlesPipeline.ts(TS2769): No overload matches this call.
+src/lib/bestBottlesPromptCompiler.ts(TS2550): Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.
+src/lib/bestBottlesPromptPreflight.ts(TS6133): 'closureType' is declared but its value is never read.
+src/lib/bestBottlesPromptPreflight.ts(TS6133): 'product' is declared but its value is never read.
+src/lib/bestBottlesStageInSightTargets.ts(TS2345): Argument of type 'string' is not assignable to parameter of type '"Dropper" | "Cap/Closure" | "Sleek" | "Slim" | "Rectangle" | "Roll-On Cap" | "Sprayer"'.
+src/lib/buildBrandAuditReport.ts(TS2339): Property 'filter' does not exist on type 'string | number | true | { [key: string]: Json | undefined; } | Json[] | { category: "visual" | "messaging" | "technical" | "strategy"; priority: "high" | "low" | "medium"; title: string; description: string; actionable?: boolean | undefined; }[]'.
+src/lib/buildBrandAuditReport.ts(TS2339): Property 'narrative' does not exist on type 'string | number | boolean | { [key: string]: Json | undefined; } | Json[]'.
+src/lib/buildBrandAuditReport.ts(TS2339): Property 'slice' does not exist on type 'string | number | true | { [key: string]: Json | undefined; } | Json[] | { category: "visual" | "messaging" | "technical" | "strategy"; priority: "high" | "low" | "medium"; title: string; description: string; actionable?: boolean | undefined; }[]'.
+src/lib/buildBrandAuditReport.ts(TS2339): Property 'usageNotes' does not exist on type '{ primaryFont?: string | undefined; secondaryFont?: string | undefined; headlineFont?: string | undefined; bodyFont?: string | undefined; guesses?: string[] | undefined; sources?: { ...; } | undefined; }'.
+src/lib/darkroomProductReference.test.ts(TS2352): Conversion of type '{ name: string; hero_image_url: string; short_description: string; metadata: { best_bottles: { graceSku: string; family: string; capColor: string; referenceLineage: string; }; }; }' to type 'ProductHub' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/lib/darkroomProductReference.ts(TS6133): 'isRetiredTransparentBestBottlesReferenceUrl' is declared but its value is never read.
+src/lib/madisonToast.ts(TS6196): 'ToastProps' is declared but never used.
+src/lib/paperDoll/candidateReviewPolicy.ts(TS1354): 'readonly' type modifier is only permitted on array and tuple literal types.
+src/lib/paperDoll/closureMaterialPilot.ts(TS2339): Property 'raw' does not exist on type 'Create'.
+src/lib/paperDoll/componentKitDecomposition.test.ts(TS2352): Conversion of type '{ readonly schemaVersion: 1; readonly kitId: "sprayer__15-415__physical-v1"; readonly sourceReviewGroupKey: "geometry-review__sprayer__15-415__01e5312a22"; readonly sourceCompositeProductionEligible: false; readonly canonicalCanvas: { ...; }; readonly sources: readonly [...]; readonly parts: readonly [...]; }' to type 'Record<string, unknown> & { parts: Record<string, unknown>[]; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/lib/paperDoll/componentKitDecomposition.test.ts(TS2352): Conversion of type '{ readonly schemaVersion: 1; readonly kitId: "sprayer__15-415__physical-v1"; readonly sourceReviewGroupKey: "geometry-review__sprayer__15-415__01e5312a22"; readonly sourceCompositeProductionEligible: false; readonly canonicalCanvas: { ...; }; readonly sources: readonly [...]; readonly parts: readonly [...]; }' to type 'Record<string, unknown> & { sources: Record<string, unknown>[]; parts: (Record<string, unknown> & { sourceSelectors: Record<string, unknown>[]; })[]; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/lib/paperDoll/componentWorkbenchModel.ts(TS2678): Type '"rejected"' is not comparable to type '"published" | "candidate" | "placement-locked" | "pixels-approved" | "family-fit-approved" | "released" | "sanity-draft"'.
+src/lib/paperDoll/compositeEngine.test.ts(TS6133): 'detectPlateForegroundBounds' is declared but its value is never read.
+src/lib/paperDoll/cyl9BodyRelease.node.test.ts(TS2322): Type '100' is not assignable to type '4587451 | 4551405 | 4677657 | 4542106 | 2736270'.
+src/lib/paperDoll/cyl9BodyRelease.node.test.ts(TS2322): Type 'string' is not assignable to type '"97cfe967a4ab02ba4de51c07416c80df54244adf8dfab95406a36f4fe90e933f" | "c84db213449da4ef6afbcb67fad0da5811ae937c3c9c1234be801cb473ea31c3" | "87804d45a242795aaecf10d677ad469b22803e2f2476421ffbce5d4d944f148c" | "c844fb9f3a6ffb467daa02d17cb2378b659fc2e0be166f13073bb7b4f8422956" | "c2b67ee9151dc89d44d3a8d65a112b908bb84a2c...'.
+src/lib/paperDoll/cyl9BodyRelease.node.ts(TS2322): Type '{ schemaVersion: 1; familyKey: string; releaseVersion: string; status: "blocked"; scope: "locked-body-plates-only"; blockers: string[]; canvas: { widthPx: 2080; heightPx: 2288; backgroundHex: "#F5F3EF"; }; assets: { ...; }[]; assemblyRecipes: []; assemblyMappings: []; }' is not assignable to type '{ schemaVersion: 1; familyKey: "CYL-9ML"; releaseVersion: string; status: "blocked"; scope: "locked-body-plates-only"; blockers: string[]; canvas: { widthPx: 2080; heightPx: 2288; backgroundHex: "#F5F3EF"; }; assets: Record<...>[]; assemblyRecipes: []; assemblyMappings: []; }'.
+src/lib/paperDoll/cyl9FamilyRelease.test.ts(TS2345): Argument of type '{ id: "silver" | "translucent-frosted" | "matte-white" | "glossy-black"; path: string; }' is not assignable to parameter of type 'never'.
+src/lib/paperDoll/cyl9FamilyRelease.test.ts(TS2345): Argument of type '{ id: string; role: string; asset: { path: string; sha256: string; widthPx: number; heightPx: number; hasAlpha: boolean; }; status: string; }' is not assignable to parameter of type 'never'.
+src/lib/paperDoll/rollonRequirements.ts(TS2322): Type '{ mappingKey: string; websiteSku: string; graceSku: string; bodyVariantKey: "CLR" | "AMB" | "BLU" | "FRS" | "SWL"; bodyRequirementKey: string; rollerVariantKey: "PLASTIC" | "METAL"; ... 7 more ...; evidenceIssues: string[]; }[]' is not assignable to type '{ mappingKey: string; websiteSku: string; graceSku: string; bodyVariantKey: "CLR" | "AMB" | "BLU" | "FRS" | "SWL"; overcapVariantKey: "SHN-SL" | "WHT" | "SHN-BLK" | "SHN-GL" | "MAT-CU" | ... 4 more ... | "PNK-DOT"; ... 8 more ...; evidenceIssues: string[]; }[]'.
+src/lib/paperDoll/workbenchSummary.test.ts(TS2739): Type '{ componentVersionId: string; componentKey: string; displayName: string; geometryFamilyId: string; slot: string; variantKey: string; versionKey: string; materialVariant: string; approvalStatus: "approved"; ... 7 more ...; qa: { ...; }[]; }' is missing the following properties from type '{ componentId: string; componentVersionId: string; componentKey: string; displayName: string; geometryFamilyId: string; slot: string; variantKey: string; versionKey: string; materialVariant: string; ... 10 more ...; qa: { ...; }[]; }': componentId, geometryMaskUrl, geometryMaskReference
+src/lib/paperDoll/workbenchSummary.test.ts(TS2739): Type '{ componentVersionId: string; componentKey: string; displayName: string; geometryFamilyId: string; slot: string; variantKey: string; versionKey: string; materialVariant: string; approvalStatus: "blocked"; ... 7 more ...; qa: { ...; }[]; }' is missing the following properties from type '{ componentId: string; componentVersionId: string; componentKey: string; displayName: string; geometryFamilyId: string; slot: string; variantKey: string; versionKey: string; materialVariant: string; ... 10 more ...; qa: { ...; }[]; }': componentId, geometryMaskUrl, geometryMaskReference
+src/lib/paperDollAssets.ts(TS2769): No overload matches this call.
+src/lib/press/canvas-annotations.ts(TS6133): 'arrowSize' is declared but its value is never read.
+src/lib/press/generators/candle-box.ts(TS2739): Type '{ total_width: number; total_height: number; box_width: number; box_height: number; box_depth: number; }' is missing the following properties from type '{ total_width: number; total_height: number; box_width: number; box_height: number; box_depth: number; manufacture: { width: number; height: number; depth: number; }; inner: { width: number; height: number; depth: number; }; outer: { ...; }; }': manufacture, inner, outer
+src/lib/press/generators/geometry-analyzer.ts(TS6133): 'searchTemplates' is declared but its value is never read.
+src/lib/press/generators/jar-box.ts(TS2739): Type '{ total_width: number; total_height: number; box_width: number; box_height: number; box_depth: number; }' is missing the following properties from type '{ total_width: number; total_height: number; box_width: number; box_height: number; box_depth: number; manufacture: { width: number; height: number; depth: number; }; inner: { width: number; height: number; depth: number; }; outer: { ...; }; }': manufacture, inner, outer
+src/lib/press/generators/tuck-end-box.ts(TS6133): 'bleed' is declared but its value is never read.
+src/lib/product-image/framingQa.ts(TS18047): 'expectedAspect' is possibly 'null'.
+src/lib/product-image/productHubPromptInjector.ts(TS6133): 'packaging' is declared but its value is never read.
+src/lib/product-image/productHubPromptInjector.ts(TS6133): 'range' is declared but its value is never read.
+src/lib/product-image/rigPostprocess.test.ts(TS18047): 'result.transformedBottomYPx' is possibly 'null'.
+src/lib/product-image/rigPostprocess.test.ts(TS18047): 'result.transformedTopYPx' is possibly 'null'.
+src/lib/product-image/rigPostprocess.test.ts(TS2300): Duplicate identifier 'rigPostprocess'.
+src/lib/product-image/rigPostprocess.test.ts(TS2532): Object is possibly 'undefined'.
+src/lib/product-image/rigPostprocess.ts(TS18047): 'finalShadow.shadowQa' is possibly 'null'.
+src/lib/product-image/rigPostprocess.ts(TS18048): 'bottle.right' is possibly 'undefined'.
+src/lib/product-image/rigPostprocess.ts(TS18048): 'union.right' is possibly 'undefined'.
+src/lib/product-image/rigPostprocess.ts(TS18048): 'vessel.left' is possibly 'undefined'.
+src/lib/product-image/rigPostprocess.ts(TS18048): 'vessel.right' is possibly 'undefined'.
+src/lib/product-image/rigPostprocess.ts(TS2322): Type 'BestBottlesShadowTopology | undefined' is not assignable to type 'BestBottlesShadowTopology'.
+src/lib/product-image/rigPostprocess.ts(TS2322): Type 'Partial<Record<BestBottlesShadowContact, RigStrongBounds>> | undefined' is not assignable to type 'Partial<Record<BestBottlesShadowContact, ShadowQaBounds>> | undefined'.
+src/lib/product-image/rigPostprocess.ts(TS2322): Type 'Rgb | null' is not assignable to type 'Rgb'.
+src/lib/product-image/rigPostprocess.ts(TS2322): Type 'RigStrongBounds | null' is not assignable to type 'RigStrongBounds'.
+src/lib/product-image/rigPostprocess.ts(TS2322): Type 'number | null' is not assignable to type 'number'.
+src/lib/product-image/rigPostprocess.ts(TS2322): Type '{ bottom: number; top: number; left?: number | undefined; right?: number | undefined; } | null' is not assignable to type 'ShadowQaObjectBounds | undefined'.
+src/lib/product-image/rigPostprocess.ts(TS6133): 'drawX' is declared but its value is never read.
+src/lib/product-image/rigReview.test.ts(TS2322): Type '{ status: "pass"; failures: never[]; warnings: never[]; measurements: { fillHeightPct: number; baselineYPx: number; targetBaselineYPx: number; baselineDeltaPx: number; centerXPct: number; targetCenterXPct: number; centerDeltaPct: number; }; target: { ...; }; }' is not assignable to type 'FramingQaReport'.
+src/lib/product-image/rigReview.test.ts(TS2345): Argument of type '"fail"' is not assignable to parameter of type '"review" | "pass"'.
+src/lib/product-image/sidecarCapSplice.ts(TS6133): 'targetBg' is declared but its value is never read.
+src/lib/productCSVImport.ts(TS2339): Property 'handle' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/lib/productCSVImport.ts(TS2339): Property 'id' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/lib/productCSVImport.ts(TS2339): Property 'last_shopify_sync' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/lib/productCSVImport.ts(TS2339): Property 'name' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/lib/productCSVImport.ts(TS2339): Property 'shopify_product_id' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/lib/productCSVImport.ts(TS2339): Property 'shopify_variant_id' does not exist on type 'SelectQueryError<"column 'shopify_product_id' does not exist on 'brand_products'.">'.
+src/lib/productCSVImport.ts(TS6133): 'Product' is declared but its value is never read.
+src/lib/promptDescriptors.ts(TS2769): No overload matches this call.
+src/pages/Auth.tsx(TS6133): 'location' is declared but its value is never read.
+src/pages/BestBottlesPipeline.tsx(TS2345): Argument of type '{ id: string; generation_provider: string | null; description: string | null; created_at: string | null; }' is not assignable to parameter of type '{ id: string; generation_provider: string | null; description: string | null; created_at: string; }'.
+src/pages/BestBottlesPipeline.tsx(TS2367): This comparison appears to be unintentional because the types 'BestBottlesNeedsWorkAction' and '"none"' have no overlap.
+src/pages/BestBottlesPipeline.tsx(TS6133): 'Volume2' is declared but its value is never read.
+src/pages/BestBottlesStudio.tsx(TS6133): 'Product' is declared but its value is never read.
+src/pages/BrandBuilder.tsx(TS2322): Type '(field: keyof Essential5Data, value: string | string[]) => Promise<void>' is not assignable to type '(field: string, value: string | string[]) => void'.
+src/pages/BrandHealth.tsx(TS2322): Type 'BrandHealthRecommendation' is not assignable to type 'Recommendation'.
+src/pages/BrandHealth.tsx(TS2739): Type 'Record<string, any>' is missing the following properties from type '{ missing_components: string[]; incomplete_areas: string[]; strengths?: string[] | undefined; }': missing_components, incomplete_areas
+src/pages/BrandHealth.tsx(TS6133): 'BookOpen' is declared but its value is never read.
+src/pages/BrandReport.tsx(TS2322): Type 'string | undefined' is not assignable to type 'string'.
+src/pages/BrandReport.tsx(TS2345): Argument of type '{ id: string; file_name: string; file_type: string; file_url: string | null; content_preview: string | null; created_at: string | null; }[]' is not assignable to parameter of type 'SetStateAction<{ content_preview: string | null; created_at: string | null; extracted_content: string | null; file_name: string; file_size: number | null; file_type: string; file_url: string | null; ... 5 more ...; uploaded_by: string | null; }[]>'.
+src/pages/BrandReport.tsx(TS2345): Argument of type '{ id: string; name: string; brand_config: Json; settings: Json; }' is not assignable to parameter of type 'SetStateAction<{ brand_config: Json; business_model: string | null; business_type: "finished_goods" | "bottles_vessels" | "packaging_boxes" | "raw_materials" | null; created_at: string | null; ... 11 more ...; updated_at: string | null; } | null>'.
+src/pages/BrandReport.tsx(TS2345): Argument of type '{ organization_id: string; completeness_score: number; gap_analysis: Json; recommendations: Json; last_analyzed_at: string; }' is not assignable to parameter of type 'SetStateAction<{ completeness_score: number; created_at: string; gap_analysis: Json; id: string; last_analyzed_at: string; organization_id: string; recommendations: Json; updated_at: string; } | null>'.
+src/pages/BrandReport.tsx(TS6133): 'data' is declared but its value is never read.
+src/pages/Calendar.tsx(TS6133): 'CalendarSidebar' is declared but its value is never read.
+src/pages/Calendar.tsx(TS6133): 'MobileCalendarSheet' is declared but its value is never read.
+src/pages/Calendar.tsx(TS6133): 'format' is declared but its value is never read.
+src/pages/ComponentDemo.tsx(TS6133): 'EmptyState' is declared but its value is never read.
+src/pages/ComponentDemo.tsx(TS6133): 'Settings' is declared but its value is never read.
+src/pages/ContentEditor.tsx(TS2345): Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/pages/ContentEditor.tsx(TS6133): 'isEditorReady' is declared but its value is never read.
+src/pages/Create.tsx(TS6133): 'Input' is declared but its value is never read.
+src/pages/Create.tsx(TS6133): 'Textarea' is declared but its value is never read.
+src/pages/Create.tsx(TS6133): 'cn' is declared but its value is never read.
+src/pages/Create.tsx(TS6133): 'handleLoadPrompt' is declared but its value is never read.
+src/pages/Create.tsx(TS6133): 'onGenerationComplete' is declared but its value is never read.
+src/pages/Create.tsx(TS6133): 'useCallback' is declared but its value is never read.
+src/pages/Create.tsx(TS6192): All imports in import declaration are unused.
+src/pages/DAMLibrary.tsx(TS6133): 'Calendar' is declared but its value is never read.
+src/pages/DAMLibrary.tsx(TS6133): 'Download' is declared but its value is never read.
+src/pages/DAMLibrary.tsx(TS6133): 'DropdownMenuSeparator' is declared but its value is never read.
+src/pages/DAMLibrary.tsx(TS6133): 'FolderPlus' is declared but its value is never read.
+src/pages/DAMLibrary.tsx(TS6133): 'SlidersHorizontal' is declared but its value is never read.
+src/pages/DAMLibrary.tsx(TS6133): 'folderTree' is declared but its value is never read.
+src/pages/DAMLibrary.tsx(TS6133): 'moveAsset' is declared but its value is never read.
+src/pages/DarkRoom.tsx(TS6133): 'prompt' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'ContentPipelineCard' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'DashboardHero' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'DashboardRecentActivity' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'QuickLinksWidget' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'RoleDashboardWidgets' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'SmartMomentumTracker' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'StrategySessionCard' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'ThisWeekCard' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'organizationId' is declared but its value is never read.
+src/pages/DashboardNew.tsx(TS6133): 'useUserRole' is declared but its value is never read.
+src/pages/EmailBuilderV2.tsx(TS6133): 'ContentPicker' is declared but its value is never read.
+src/pages/EmailBuilderV2.tsx(TS6133): 'MadisonSuggestions' is declared but its value is never read.
+src/pages/EmailBuilderV2.tsx(TS6133): 'TabsContent' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS2322): Type '{ name: string; collection: any; scent_family: any; category: string | null; } | null' is not assignable to type '{ name: string; collection: string; scent_family: string; category?: string | undefined; } | null | undefined'.
+src/pages/ImageEditor.tsx(TS2339): Property 'bottle_type' does not exist on type 'ProductHub'.
+src/pages/ImageEditor.tsx(TS2339): Property 'scentFamily' does not exist on type 'ProductHub'.
+src/pages/ImageEditor.tsx(TS2551): Property 'collection' does not exist on type 'ProductHub'. Did you mean 'collections'?
+src/pages/ImageEditor.tsx(TS6133): 'ChevronDown' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'ChevronUp' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'GeneratingLoader' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'ImageCategoryDefinition' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'ImageChainBreadcrumb' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'ImageIcon' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'Menu' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'MobileAspectRatioSelector' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'MobileReferenceUpload' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'MobileShotTypeSelector' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'Switch' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'Trash2' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'USE_CASES' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'Upload' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'allPrompts' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'enhancePromptWithControls' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'handleJumpToChainImage' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'handleSaveRecipe' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'imageCategories' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6133): 'setMarketplace' is declared but its value is never read.
+src/pages/ImageEditor.tsx(TS6192): All imports in import declaration are unused.
+src/pages/ImageLibrary.tsx(TS2339): Property 'matchedBestBottlesProduct' does not exist on type 'BulkShopifyRow'.
+src/pages/ImageLibrary.tsx(TS2345): Argument of type 'string | null | undefined' is not assignable to parameter of type 'string'.
+src/pages/ImageLibrary.tsx(TS6133): 'bestBottlesGraceSkuByWebsiteSku' is declared but its value is never read.
+src/pages/ImageLibrary.tsx(TS6133): 'image' is declared but its value is never read.
+src/pages/Landing.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/pages/Landing.tsx(TS6133): 'PlayCircle' is declared but its value is never read.
+src/pages/Landing.tsx(TS6133): 'Sparkles' is declared but its value is never read.
+src/pages/Landing.tsx(TS6133): 'madisonNibb' is declared but its value is never read.
+src/pages/Landing.tsx(TS6133): 'madisonStudioIcon' is declared but its value is never read.
+src/pages/Landing.tsx(TS6133): 'madisonStudioLogo' is declared but its value is never read.
+src/pages/Library.tsx(TS2322): Type 'ContentCategory' is not assignable to type '"output" | "master" | "derivative"'.
+src/pages/Library.tsx(TS2322): Type 'LibraryContentItem' is not assignable to type '{ id: string; title: string; contentType: string; collection: string; product?: string | undefined; content: string; createdAt: Date; wordCount: number; dipWeek?: number | undefined; rating?: number | undefined; ... 11 more ...; featuredImageUrl?: string | undefined; }'.
+src/pages/Library.tsx(TS2322): Type 'string | undefined' is not assignable to type 'string'.
+src/pages/Library.tsx(TS2345): Argument of type 'PostgrestFilterBuilder<{ PostgrestVersion: "13.0.5"; }, { Tables: { agent_preferences: { Row: { competitive_intelligence_enabled: boolean | null; created_at: string | null; id: string; last_scan_at: string | null; organization_id: string; scan_frequency: string | null; updated_at: string | null; }; Insert: { ...; };...' is not assignable to parameter of type 'never'.
+src/pages/Library.tsx(TS6133): 'Mail' is declared but its value is never read.
+src/pages/Library.tsx(TS6133): 'setSearchParams' is declared but its value is never read.
+src/pages/LightTable.tsx(TS2322): Type '"light-table"' is not assignable to type '"library" | "darkroom" | "video-project" | undefined'.
+src/pages/LightTable.tsx(TS2345): Argument of type 'string' is not assignable to parameter of type 'never'.
+src/pages/LightTable.tsx(TS6133): 'AnimatePresence' is declared but its value is never read.
+src/pages/LightTable.tsx(TS6133): 'Film' is declared but its value is never read.
+src/pages/LightTable.tsx(TS6133): 'Heart' is declared but its value is never read.
+src/pages/LightTable.tsx(TS6133): 'Scissors' is declared but its value is never read.
+src/pages/LightTable.tsx(TS6133): 'handleCreateVideo' is declared but its value is never read.
+src/pages/LightTable.tsx(TS6133): 'newSessionImage' is declared but its value is never read.
+src/pages/LightTable.tsx(TS6133): 'updatedImages' is declared but its value is never read.
+src/pages/MarketplaceLibrary.tsx(TS2345): Argument of type 'string | null' is not assignable to parameter of type 'string'.
+src/pages/MarketplaceLibrary.tsx(TS2345): Argument of type '{ archived_at: string | null; created_at: string | null; created_by: string | null; external_id: string | null; external_url: string | null; id: string; is_archived: boolean | null; ... 10 more ...; updated_at: string | null; }[]' is not assignable to parameter of type 'SetStateAction<MarketplaceListing[]>'.
+src/pages/MarketplaceLibrary.tsx(TS2769): No overload matches this call.
+src/pages/MarketplaceLibrary.tsx(TS6133): 'Check' is declared but its value is never read.
+src/pages/MarketplaceLibrary.tsx(TS6133): 'Filter' is declared but its value is never read.
+src/pages/MarketplaceLibrary.tsx(TS6133): 'Loader2' is declared but its value is never read.
+src/pages/MarketplaceLibrary.tsx(TS6133): 'Upload' is declared but its value is never read.
+src/pages/MarketplaceLibrary.tsx(TS6133): 'etsyConnected' is declared but its value is never read.
+src/pages/MarketplaceLibrary.tsx(TS6133): 'pushingToEtsy' is declared but its value is never read.
+src/pages/MarketplaceLibrary.tsx(TS6133): 'setEtsyConnected' is declared but its value is never read.
+src/pages/MarketplaceLibrary.tsx(TS6133): 'setPushingToEtsy' is declared but its value is never read.
+src/pages/MeetMadison.tsx(TS6133): 'User' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'AlertCircle' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'BookOpen' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'Bookmark' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'Calendar' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'Link' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'SavePromptDialog' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'Textarea' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'contentFromNavigation' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'deselectAll' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'savePromptDialogOpen' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'setContentFromNavigation' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'setSavePromptDialogOpen' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'setUserContent' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6133): 'useOrganization' is declared but its value is never read.
+src/pages/Multiply.tsx(TS6192): All imports in import declaration are unused.
+src/pages/Press.tsx(TS2322): Type 'null' is not assignable to type 'string | undefined'.
+src/pages/ProductHub.tsx(TS2322): Type 'number | null' is not assignable to type 'number | undefined'.
+src/pages/ProductHub.tsx(TS2322): Type 'string | null' is not assignable to type 'string | undefined'.
+src/pages/ProductHub.tsx(TS2322): Type '{ [k: string]: AccessLevel; }' is not assignable to type 'Record<string, "view" | "none" | "full">'.
+src/pages/ProductHub.tsx(TS2339): Property 'brand' does not exist on type 'ProductHub'.
+src/pages/ProductHub.tsx(TS2345): Argument of type '(prev: ProductWithVariants | null) => { id?: string | undefined; organization_id?: string | undefined; name?: string | undefined; slug?: string | null | undefined; ... 45 more ...; variants?: ProductVariantSummary[] | undefined; }' is not assignable to parameter of type 'SetStateAction<ProductWithVariants | null>'.
+src/pages/ProductHub.tsx(TS2345): Argument of type '{ id?: string | undefined; organization_id?: string | undefined; name?: string | undefined; slug?: string | null | undefined; sku?: string | null | undefined; barcode?: string | null | undefined; ... 42 more ...; is_self_manufactured?: boolean; }' is not assignable to parameter of type 'SetStateAction<ProductWithVariants | null>'.
+src/pages/ProductHub.tsx(TS6133): 'BarChart3' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'CheckCircle2' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'ExternalLink' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'Settings' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'TAB_CONFIG' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'capabilities' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'hasFullAccess' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'motion' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'suppliersLoading' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6133): 'teamRole' is declared but its value is never read.
+src/pages/ProductHub.tsx(TS6192): All imports in import declaration are unused.
+src/pages/Products.tsx(TS2322): Type 'unknown' is not assignable to type 'ReactNode'.
+src/pages/Products.tsx(TS6133): 'Filter' is declared but its value is never read.
+src/pages/Products.tsx(TS6133): 'ImageIcon' is declared but its value is never read.
+src/pages/Products.tsx(TS6133): 'Layers' is declared but its value is never read.
+src/pages/Products.tsx(TS6133): 'Upload' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS2322): Type 'DerivativeAsset | null' is not assignable to type 'DerivativeAsset | undefined'.
+src/pages/Repurpose.tsx(TS2322): Type 'MasterContent | null' is not assignable to type 'MasterContent | undefined'.
+src/pages/Repurpose.tsx(TS2345): Argument of type '{ approval_status: string | null; archived_at: string | null; asset_type: string; brand_analysis: Json; brand_consistency_score: number | null; created_at: string | null; ... 12 more ...; quality_rating: number | null; }[]' is not assignable to parameter of type 'SetStateAction<DerivativeAsset[]>'.
+src/pages/Repurpose.tsx(TS2345): Argument of type '{ archived_at: string | null; brand_analysis: Json; brand_consistency_score: number | null; collection: string | null; content_type: string; created_at: string | null; created_by: string | null; ... 14 more ...; word_count: number | null; }[]' is not assignable to parameter of type 'SetStateAction<MasterContent[]>'.
+src/pages/Repurpose.tsx(TS6133): 'Badge' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'DERIVATIVE_ICONS' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'Input' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'MasterContentCard' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'MoreVertical' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'PLATFORM_MAPPING' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'Search' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'format' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'getStatusBorderColor' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'groupKeys' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'setSearchQuery' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6133): 'setSortBy' is declared but its value is never read.
+src/pages/Repurpose.tsx(TS6192): All imports in import declaration are unused.
+src/pages/Reservoir.tsx(TS2322): Type '(filters: { collection: string | null; contentType: string | null; dipWeek: number | null; quickAccess: "favorites" | "recent" | null; scentFamily: string | null; }) => void' is not assignable to type '(filters: { collection?: string | null | undefined; contentType?: string | null | undefined; dipWeek?: number | null | undefined; quickAccess?: "recent" | "favorites" | null | undefined; scentFamily?: string | ... 1 more ... | undefined; }) => void'.
+src/pages/Reservoir.tsx(TS2339): Property 'key' does not exist on type 'never'.
+src/pages/Reservoir.tsx(TS2339): Property 'label' does not exist on type 'never'.
+src/pages/Reservoir.tsx(TS2339): Property 'scentFamily' does not exist on type 'ProductHub'.
+src/pages/Reservoir.tsx(TS2345): Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/pages/Reservoir.tsx(TS2345): Argument of type '{ key: string; label: string; }' is not assignable to parameter of type 'never'.
+src/pages/Reservoir.tsx(TS2551): Property 'collection' does not exist on type 'ProductHub'. Did you mean 'collections'?
+src/pages/Reservoir.tsx(TS6133): 'DateGroupHeader' is declared but its value is never read.
+src/pages/Reservoir.tsx(TS6133): 'SidebarTrigger' is declared but its value is never read.
+src/pages/Reservoir.tsx(TS6133): 'groupByDateEnabled' is declared but its value is never read.
+src/pages/Reservoir.tsx(TS6133): 'productsInFamily' is declared but its value is never read.
+src/pages/Reservoir.tsx(TS6133): 'setGroupByDateEnabled' is declared but its value is never read.
+src/pages/Reservoir.tsx(TS6192): All imports in import declaration are unused.
+src/pages/Suppliers.tsx(TS6133): 'ExternalLink' is declared but its value is never read.
+src/pages/Suppliers.tsx(TS6133): 'Package' is declared but its value is never read.
+src/pages/Templates.tsx(TS2345): Argument of type '"Create {{CONTENT_TYPE}} content with the following specifications:"' is not assignable to parameter of type 'never'.
+src/pages/Templates.tsx(TS2345): Argument of type '"\nConstraints: {{CONSTRAINTS}}"' is not assignable to parameter of type 'never'.
+src/pages/Templates.tsx(TS2345): Argument of type '"\nKey Elements to Include: {{KEY_ELEMENTS}}"' is not assignable to parameter of type 'never'.
+src/pages/Templates.tsx(TS2345): Argument of type '"\nPurpose: {{PURPOSE}}"' is not assignable to parameter of type 'never'.
+src/pages/Templates.tsx(TS2345): Argument of type '"\nTone: {{TONE}}"' is not assignable to parameter of type 'never'.
+src/pages/Templates.tsx(TS6133): 'ImageIcon' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'ViewDensityToggle' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'contentTypeMapping' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'counts' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'handleToggleFavorite' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'newPrompt' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'placeholderValues' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'retryData' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'setViewMode' is declared but its value is never read.
+src/pages/Templates.tsx(TS6133): 'viewMode' is declared but its value is never read.
+src/pages/Templates.tsx(TS6196): 'SortOption' is declared but never used.
+src/pages/ThinkMode.tsx(TS6133): 'Send' is declared but its value is never read.
+src/pages/ThinkMode.tsx(TS6133): 'match' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS18048): 'state.startingImage' is possibly 'undefined'.
+src/pages/VideoProject.tsx(TS6133): 'ArrowLeft' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Check' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'ChevronRight' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Clock' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'GripVertical' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'ImageIcon' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Loader2' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Music' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Pause' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Play' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Settings2' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Trash2' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Type' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'Wand2' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'activeScene' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'cn' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'currentTime' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'handleReorderScenes' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'index' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'selectedTemplate' is declared but its value is never read.
+src/pages/VideoProject.tsx(TS6133): 'setCurrentTime' is declared but its value is never read.
+src/pages/WidgetDashboard.tsx(TS6133): 'ArrowLeft' is declared but its value is never read.
+src/pages/WidgetDashboard.tsx(TS6133): 'useOrganization' is declared but its value is never read.
+src/pages/marketplace/CreateEtsyListing.tsx(TS2322): Type 'string | null' is not assignable to type 'string | undefined'.
+src/pages/marketplace/CreateEtsyListing.tsx(TS2339): Property 'etsy_listing_id' does not exist on type '{ archived_at: string | null; created_at: string | null; created_by: string | null; external_id: string | null; external_url: string | null; id: string; is_archived: boolean | null; ... 10 more ...; updated_at: string | null; }'.
+src/pages/marketplace/CreateEtsyListing.tsx(TS2339): Property 'last_etsy_sync' does not exist on type '{ archived_at: string | null; created_at: string | null; created_by: string | null; external_id: string | null; external_url: string | null; id: string; is_archived: boolean | null; ... 10 more ...; updated_at: string | null; }'.
+src/pages/marketplace/CreateEtsyListing.tsx(TS2769): No overload matches this call.
+src/pages/marketplace/CreateEtsyListing.tsx(TS6133): 'Card' is declared but its value is never read.
+src/pages/marketplace/CreateEtsyListing.tsx(TS6133): 'Eye' is declared but its value is never read.
+src/pages/marketplace/CreateEtsyListing.tsx(TS6133): 'handlePreview' is declared but its value is never read.
+src/pages/marketplace/CreateTikTokShopListing.tsx(TS2769): No overload matches this call.
+src/pages/marketplace/CreateTikTokShopListing.tsx(TS6133): 'Card' is declared but its value is never read.
+src/src/lib/madisonLLM.ts(TS2307): Cannot find module '@anthropic-ai/sdk' or its corresponding type declarations.
+src/src/lib/madisonLLM.ts(TS2307): Cannot find module '@google/generative-ai' or its corresponding type declarations.
+src/utils/emailHtmlConverter.ts(TS6133): 'brandColor' is declared but its value is never read.
+src/utils/imageDownload.ts(TS6133): 'shouldRevoke' is declared but its value is never read.
+src/utils/luxuryEmailTemplates.ts(TS6133): 'buttonStyle' is declared but its value is never read.
+src/utils/worksheetGenerator.ts(TS6133): 'brassColor' is declared but its value is never read.

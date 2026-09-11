@@ -61,6 +61,12 @@ jobs:
             fi
           done
 
+      # `supabase functions deploy` enables JWT verification unless told
+      # otherwise, so redeploying a function that was deliberately deployed with
+      # verify_jwt=false silently starts rejecting its callers with 401 — with
+      # no error at deploy time and nothing in the diff to explain it. Five
+      # functions are in that state today, including generate-madison-image.
+      # Read the live setting per function and pass the flag back.
       - name: Deploy approved functions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -68,8 +74,36 @@ jobs:
           REQUESTED_FUNCTIONS: ${{ inputs.functions }}
         run: |
           set -euo pipefail
+
+          deployed_json="$(supabase functions list --project-ref "$SUPABASE_PROJECT_ID")"
+
           for func in $REQUESTED_FUNCTIONS; do
-            echo "Deploying approved function: $func"
-            supabase functions deploy "$func" --project-ref "$SUPABASE_PROJECT_ID"
+            verify_jwt="$(
+              printf '%s' "$deployed_json" \
+                | node -e '
+                    let raw = "";
+                    process.stdin.on("data", (chunk) => { raw += chunk; });
+                    process.stdin.on("end", () => {
+                      const slug = process.argv[1];
+                      const pattern = new RegExp(
+                        `"slug":"${slug}"[\\s\\S]{0,600}?"verify_jwt":(true|false)`
+                      );
+                      const found = raw.match(pattern);
+                      process.stdout.write(found ? found[1] : "new");
+                    });
+                  ' "$func"
+            )"
+
+            if [ "$verify_jwt" = "false" ]; then
+              echo "Deploying $func (preserving verify_jwt=false)"
+              supabase functions deploy "$func" --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt
+            else
+              if [ "$verify_jwt" = "new" ]; then
+                echo "Deploying $func (not currently deployed — creating with JWT verification)"
+              else
+                echo "Deploying $func (verify_jwt=true)"
+              fi
+              supabase functions deploy "$func" --project-ref "$SUPABASE_PROJECT_ID"
+            fi
           done
           echo "All named Edge Functions deployed successfully."
