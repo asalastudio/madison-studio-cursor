@@ -23,6 +23,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The affected-functions report diffs against the base branch, and a
+          # three-dot diff needs a common ancestor. actions/checkout defaults to
+          # depth 1, which has none: `fatal: origin/main...HEAD: no merge base`.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -69,6 +74,9 @@ jobs:
       # PR would need; it never deploys.
       - name: Report edge functions this change affects
         if: github.event_name == 'pull_request'
+        # Advisory only — it prints what a reviewer should redeploy. It must
+        # never be the reason a green change is blocked.
+        continue-on-error: true
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git fetch --no-tags origin "${{ github.base_ref }}"
           npm run deploy:affected -- --since "origin/${{ github.base_ref }}" --dry-run

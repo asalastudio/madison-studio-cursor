@@ -121,9 +121,17 @@ function deployedFunctions(): Map<string, boolean> {
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
 
-  const changed = run("git", ["diff", "--name-only", `${args.since}...HEAD`])
-    .split("\n")
-    .filter(Boolean);
+  // Three-dot gives "changed since we diverged", which is what a reviewer wants.
+  // It needs a common ancestor though, and a shallow CI clone has none — fall
+  // back to a two-dot diff rather than failing an advisory report.
+  let changedRaw: string;
+  try {
+    changedRaw = run("git", ["diff", "--name-only", `${args.since}...HEAD`]);
+  } catch {
+    console.log(`(no merge base with ${args.since} — falling back to a two-dot diff)`);
+    changedRaw = run("git", ["diff", "--name-only", `${args.since}`, "HEAD"]);
+  }
+  const changed = changedRaw.split("\n").filter(Boolean);
   const affected = affectedFunctions(changed);
 
   if (affected.length === 0) {
