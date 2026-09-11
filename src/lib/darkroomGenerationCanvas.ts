@@ -1,6 +1,10 @@
 import type { PreserveSourceCanvasConstraints } from "./imageCanvasMetadata";
 
-export type DarkroomGenerationCanvasMode = "preserve-source" | "selected-aspect";
+export type DarkroomGenerationCanvasMode =
+  | "preserve-source"
+  | "selected-aspect"
+  /** An exact pixel canvas the caller names outright, e.g. a 2688x1152 hero set. */
+  | "exact-canvas";
 
 export interface ResolveDarkroomGenerationCanvasInput {
   mode: DarkroomGenerationCanvasMode;
@@ -9,6 +13,14 @@ export interface ResolveDarkroomGenerationCanvasInput {
   selectedAspectRatio: string | null | undefined;
   fallbackAspectRatio: string;
   backgroundPlateMode?: boolean;
+  /**
+   * Exact output pixels, when the caller knows them. Hero-set presets are
+   * authored for one canvas (2688x1152), and an aspect ratio alone would be
+   * mapped to whichever discrete size the provider prefers — losing the
+   * ultra-wide framing the prompt describes. Wins over every other mode,
+   * including backgroundPlateMode, because it is always an explicit request.
+   */
+  exactCanvas?: { width: number; height: number } | null;
 }
 
 export interface ResolvedDarkroomGenerationCanvas {
@@ -27,6 +39,18 @@ export function resolveDarkroomGenerationCanvas(
 ): ResolvedDarkroomGenerationCanvas {
   const selectedAspectRatio =
     cleanAspectRatio(input.selectedAspectRatio) || input.fallbackAspectRatio;
+
+  if (input.exactCanvas) {
+    const { width, height } = input.exactCanvas;
+    return {
+      aspectRatio: selectedAspectRatio,
+      imageConstraints: {
+        preserveSourceCanvas: true,
+        outputCanvas: { width, height },
+      },
+      modeApplied: "exact-canvas",
+    };
+  }
 
   if (input.backgroundPlateMode || input.mode === "selected-aspect") {
     return {

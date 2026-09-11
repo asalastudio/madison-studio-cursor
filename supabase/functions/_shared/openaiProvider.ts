@@ -75,6 +75,7 @@ export type OpenAIImageSize =
   | "2048x1152"
   | "2048x2048"
   | "2080x2288"
+  | "2688x1152"   // 21:9 hero set (Best Bottles homepage banner)
   | "2160x3840"
   | "2880x2880"
   | "3840x2160";

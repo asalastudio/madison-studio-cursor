@@ -1,6 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Package, Image, Palette, Layers, BookOpen, Info, Route, Landmark } from "lucide-react";
+import { Package, Image, Palette, Layers, BookOpen, Info, Route, Landmark, Sparkles } from "lucide-react";
+import {
+  BEST_BOTTLES_HERO_SET_PRESETS,
+  HERO_SET_CANVAS,
+  getHeroSetPreset,
+  type HeroSetPresetId,
+} from "@/lib/darkroomHeroSetPresets";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -61,6 +67,9 @@ interface LeftRailProps {
   onGenerate: () => void;
   onUseSchematicPrompt: (mode: DarkroomSchematicPromptMode) => void;
   onUseBestBottlesHeroPrompt: (arrangement: BestBottlesStoneHeroArrangement) => void;
+  onUseHeroSetPreset: (presetId: HeroSetPresetId, options?: { includeMoodMock?: boolean }) => void;
+  /** Best Bottles org only — these directions are that client's homepage. */
+  showHeroSetPresets?: boolean;
 
   // Session info
   sessionCount: number;
@@ -195,6 +204,8 @@ export function LeftRail({
   onGenerate,
   onUseSchematicPrompt,
   onUseBestBottlesHeroPrompt,
+  onUseHeroSetPreset,
+  showHeroSetPresets = false,
   sessionCount,
   maxImages,
   backgroundPlateMode,
@@ -202,6 +213,8 @@ export function LeftRail({
   styleReferenceLibraryOutput,
   onStyleReferenceLibraryOutputChange,
 }: LeftRailProps) {
+  const [heroSetId, setHeroSetId] = useState<HeroSetPresetId>("silver-travertine");
+  const [heroSetMoodMock, setHeroSetMoodMock] = useState(false);
   const [showBackgroundUpload, setShowBackgroundUpload] = useState(false);
   const [showStyleUpload, setShowStyleUpload] = useState(false);
   const [showProductLibrary, setShowProductLibrary] = useState(false);
@@ -450,6 +463,65 @@ export function LeftRail({
               </Button>
             </div>
           </div>
+
+          {showHeroSetPresets && (
+            <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[var(--camera-body-deep)]/50 p-2.5">
+              <div className="mb-1.5 flex items-center gap-2">
+                <Sparkles className="h-3 w-3 text-[var(--darkroom-accent)]" />
+                <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--darkroom-text-dim)]">
+                  Hero sets · empty
+                </span>
+                <InlineHelp>
+                  Ten art directions for an empty homepage set at {HERO_SET_CANVAS.widthPx}x{HERO_SET_CANVAS.heightPx}, generated on GPT Image 2.5 Sunburst. No product reference needed: real bottles are composited in afterwards from catalogue dimensions, so a generated bottle is never part of the deliverable. Judge these on set, palette, light direction and how much quiet room the left side leaves for the headline.
+                </InlineHelp>
+              </div>
+              <p className="mb-2 text-[10px] leading-relaxed text-[var(--darkroom-text-muted)]">
+                {HERO_SET_CANVAS.widthPx}x{HERO_SET_CANVAS.heightPx} · 21:9 · Sunburst. Left 45% stays clear for the headline.
+              </p>
+
+              <select
+                value={heroSetId}
+                onChange={(event) => setHeroSetId(event.target.value as HeroSetPresetId)}
+                disabled={isGenerating}
+                aria-label="Hero set direction"
+                className="mb-1.5 w-full rounded border border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 py-1.5 text-[10px] text-[var(--darkroom-text-muted)] disabled:opacity-40"
+              >
+                {BEST_BOTTLES_HERO_SET_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+
+              <p className="mb-2 text-[9px] leading-relaxed text-[var(--darkroom-text-dim)]">
+                {getHeroSetPreset(heroSetId).direction}
+              </p>
+
+              <label className="mb-2 flex cursor-pointer items-center gap-2 text-[9px] text-[var(--darkroom-text-dim)]">
+                <input
+                  type="checkbox"
+                  className="h-3 w-3 accent-[var(--darkroom-accent)]"
+                  checked={heroSetMoodMock}
+                  onChange={(event) => setHeroSetMoodMock(event.target.checked)}
+                  disabled={isGenerating}
+                />
+                Add stand-in glass (mood only — never shippable)
+              </label>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isGenerating}
+                onClick={() => onUseHeroSetPreset(heroSetId, { includeMoodMock: heroSetMoodMock })}
+                className="h-9 w-full justify-center gap-1.5 border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
+                title="Load this empty hero set prompt at 2688x1152 on GPT Image 2.5 Sunburst"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Load hero set
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Secondary Uploads: Collapsed by Default */}
