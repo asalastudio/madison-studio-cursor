@@ -94,12 +94,31 @@ function aspectRatioForCanvas(canvas: { width: number; height: number }): string
   return `${canvas.width / divisor}:${canvas.height / divisor}`;
 }
 
+/**
+ * GPT Image accepts any size meeting its four constraints, so membership of a
+ * hand-maintained list was the wrong test: a perfectly valid canvas that nobody
+ * had thought to add was silently dropped, and the request fell back to a
+ * bucketed size at a different aspect ratio. Validate the constraints instead.
+ *
+ * The allowlist is retained only as the fast path for the sizes we ship.
+ */
 function openAIExactSizeForCanvas(
   canvas: { width: number; height: number } | null,
 ): OpenAIImageSize | undefined {
   if (!canvas) return undefined;
-  const size = `${canvas.width}x${canvas.height}`;
-  return OPENAI_EXACT_SIZE_ALLOWLIST.has(size) ? size as OpenAIImageSize : undefined;
+  const { width, height } = canvas;
+  const size = `${width}x${height}`;
+  if (OPENAI_EXACT_SIZE_ALLOWLIST.has(size)) return size as OpenAIImageSize;
+
+  if (!Number.isInteger(width) || !Number.isInteger(height)) return undefined;
+  if (width % 16 !== 0 || height % 16 !== 0) return undefined;
+  if (width > 3840 || height > 3840) return undefined;
+  const ratio = width / height;
+  if (ratio > 3 || ratio < 1 / 3) return undefined;
+  const totalPixels = width * height;
+  if (totalPixels < 655_360 || totalPixels > 8_294_400) return undefined;
+
+  return size as OpenAIImageSize;
 }
 
 function normalizeOpenAIOutputFormat(value: unknown): OpenAIOutputFormat {

@@ -17,6 +17,7 @@
  */
 
 import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { resolveGptImageSize } from "./openaiImageSize.ts";
 
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 
@@ -58,7 +59,13 @@ export type OpenAIImageModel =
   | "gpt-image-1-mini"   // smaller / faster tier of the 1-series
   | "dall-e-3";          // legacy text-only
 
+/**
+ * Any `WIDTHxHEIGHT` the constraints allow, not a fixed menu. GPT Image 2 and
+ * 2.5 accept arbitrary sizes; the named members below are kept for readability
+ * and for the dall-e-3 code path, which really does have a fixed set.
+ */
 export type OpenAIImageSize =
+  | `${number}x${number}`
   | "auto"
   | "1024x1024"   // 1:1 square
   | "1024x1536"   // portrait (2:3 family)
@@ -219,6 +226,15 @@ function effectiveBackground(
  * master size explicitly.
  */
 function mapWideGridGenerationSize(
+  aspectRatio: string | undefined,
+  resolution: string | undefined,
+): OpenAIImageSize {
+  // Solved exactly for the requested ratio — see openaiImageSize.ts.
+  return resolveGptImageSize(aspectRatio, resolution) as OpenAIImageSize;
+}
+
+/** Retained for reference; superseded by the solver above. */
+function legacyBucketedGenerationSize(
   aspectRatio: string | undefined,
   resolution: string | undefined,
 ): OpenAIImageSize {
@@ -617,3 +633,5 @@ export const OpenAIProvider = {
 };
 
 export default OpenAIProvider;
+
+export { resolveGptImageSize } from "./openaiImageSize.ts";
