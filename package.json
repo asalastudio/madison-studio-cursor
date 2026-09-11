@@ -38,6 +38,7 @@
     "bestbottles:scale:lineups": "tsx scripts/best-bottles/build-catalog-lineups.ts",
     "bestbottles:image-ops:diagnose": "tsx scripts/bestBottlesImageOpsDiagnostic.ts",
     "bestbottles:image-ops:repair": "tsx scripts/bestBottlesImageOpsRepair.ts",
+    "deploy:affected": "tsx scripts/deploy-affected-edge-functions.ts",
     "bestbottles:shopify:preflight": "tsx scripts/bestBottlesShopifyPublishPreflight.ts",
     "bestbottles:measurements:intake": "tsx scripts/bestBottlesMeasurementIntake.ts",
     "bestbottles:references:intake": "tsx scripts/bestBottlesReferenceIntake.ts",
