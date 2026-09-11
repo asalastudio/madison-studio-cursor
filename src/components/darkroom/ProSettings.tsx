@@ -28,6 +28,9 @@ const ASPECT_RATIO_OPTIONS = [
   { value: "3:4", label: "Traditional", description: "Mobile, Portrait" },
   { value: "1:2", label: "Vertical", description: "Tall banner" },
   { value: "2:1", label: "Horizontal", description: "Wide banner" },
+  // The Best Bottles homepage hero slot. Without this entry the aspect Select
+  // has no item matching the value the hero-set presets set, and renders blank.
+  { value: "21:9", label: "Ultra-wide", description: "Hero banner · 2688x1152" },
   { value: "4:5", label: "Social Post", description: "Instagram Feed" },
   { value: "3:2", label: "Standard", description: "Classic photo" },
   { value: "4:3", label: "Classic", description: "Traditional photo" },

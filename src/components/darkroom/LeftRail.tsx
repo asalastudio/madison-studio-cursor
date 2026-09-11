@@ -484,10 +484,15 @@ export function LeftRail({
                 onChange={(event) => setHeroSetId(event.target.value as HeroSetPresetId)}
                 disabled={isGenerating}
                 aria-label="Hero set direction"
-                className="mb-1.5 w-full rounded border border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 py-1.5 text-[10px] text-[var(--darkroom-text-muted)] disabled:opacity-40"
+                className="mb-1.5 w-full rounded border border-[var(--darkroom-border)] bg-[var(--darkroom-surface)] px-2 py-1.5 text-[10px] text-[var(--darkroom-text)] disabled:opacity-40"
               >
                 {BEST_BOTTLES_HERO_SET_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
+                  <option
+                    key={preset.id}
+                    value={preset.id}
+                    // Native option popups ignore the parent on Windows/Linux.
+                    style={{ background: "var(--darkroom-surface)", color: "var(--darkroom-text)" }}
+                  >
                     {preset.label}
                   </option>
                 ))}
@@ -513,13 +518,21 @@ export function LeftRail({
                 variant="outline"
                 size="sm"
                 disabled={isGenerating}
-                onClick={() => onUseHeroSetPreset(heroSetId, { includeMoodMock: heroSetMoodMock })}
+                onClick={() => {
+                  onUseHeroSetPreset(heroSetId, { includeMoodMock: heroSetMoodMock });
+                  const order = BEST_BOTTLES_HERO_SET_PRESETS.map((preset) => preset.id);
+                  const next = order[(order.indexOf(heroSetId) + 1) % order.length];
+                  setHeroSetId(next);
+                }}
                 className="h-9 w-full justify-center gap-1.5 border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
-                title="Load this empty hero set prompt at 2688x1152 on GPT Image 2.5 Sunburst"
+                title="Load this empty hero set prompt at 2688x1152 on GPT Image 2.5 Sunburst, then advance to the next direction"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Load hero set
               </Button>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-[var(--darkroom-text-dim)]">
+                Each load advances to the next direction, so ten clicks walk the whole set.
+              </p>
             </div>
           )}
         </div>
