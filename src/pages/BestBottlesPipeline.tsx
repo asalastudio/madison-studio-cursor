@@ -4117,7 +4117,14 @@ function OpenAiCostMeterPanel({
       const desc = img.description || "";
 
       let cost = 0;
-      if (provider.includes("gpt-image-2")) {
+      // GPT Image 2.5 is billed per output token, not per image, so it has no
+      // safe flat constant here — count it separately instead of letting the
+      // "gpt-image-2" substring swallow it. Authoritative spend lives in the
+      // generation cost ledger, not in this estimator.
+      if (provider.includes("gpt-image-2.5")) {
+        cost = 0;
+        otherOpenAi++;
+      } else if (provider.includes("gpt-image-2")) {
         if (desc.includes("Director Mode") || desc.includes("Pro Photography")) {
           cost = 0.25;
           gpt2High++;
@@ -4166,7 +4173,9 @@ function OpenAiCostMeterPanel({
         const provider = img.generation_provider || "";
         const desc = img.description || "";
         let cost = 0;
-        if (provider.includes("gpt-image-2")) {
+        if (provider.includes("gpt-image-2.5")) {
+          cost = 0;
+        } else if (provider.includes("gpt-image-2")) {
           cost = (desc.includes("Director Mode") || desc.includes("Pro Photography")) ? 0.25 : 0.095;
         } else if (provider.includes("gpt-image-1.5")) {
           cost = 0.08;

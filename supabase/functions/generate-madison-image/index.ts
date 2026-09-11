@@ -1666,7 +1666,26 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         effectiveFreepikModel = "classic-fast";
       }
       // OpenAI image models (gpt-image-* family + dall-e-3).
+      // GPT Image 2.5 (2026-09-08): Flare is the fast everyday tier, Sunburst
+      // the editing-precision tier. Both accept the same size grid and add
+      // the `xhigh` / `max` quality settings.
       else if (
+        aiProvider === "openai-image-2.5-flare" ||
+        aiProvider === "openai-gpt-image-2.5-flare" ||
+        aiProvider === "gpt-image-2.5-flare"
+      ) {
+        effectiveProvider = "openai";
+        effectiveOpenAIModel = "gpt-image-2.5-flare";
+      } else if (
+        aiProvider === "openai-image-2.5-sunburst" ||
+        aiProvider === "openai-gpt-image-2.5-sunburst" ||
+        aiProvider === "gpt-image-2.5-sunburst" ||
+        aiProvider === "openai-image-2.5" ||
+        aiProvider === "gpt-image-2.5"
+      ) {
+        effectiveProvider = "openai";
+        effectiveOpenAIModel = "gpt-image-2.5-sunburst";
+      } else if (
         aiProvider === "openai-image-2" ||
         aiProvider === "openai-gpt-image-2" ||
         aiProvider === "gpt-image-2"
@@ -2464,6 +2483,11 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           allowBestBottlesProviderOverride,
         });
 
+    // NOTE: this lane stays pinned to gpt-image-2 on purpose. The Best Bottles
+    // reference-locked contract (canvas, Bone background, ambient-contact
+    // shadow, light contract) was validated against gpt-image-2 output; moving
+    // it to GPT Image 2.5 is a contract change that needs its own re-validation
+    // pass, not a silent model bump. See bestBottlesRenderingContract.ts.
     if (forceBestBottlesOpenAIProvider) {
       if (effectiveProvider !== "openai" || effectiveOpenAIModel !== "gpt-image-2") {
         console.log(
@@ -2749,8 +2773,13 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
 
         let openaiImageBase64 = openaiResult.imageBase64;
         let openaiMimeType = openaiResult.mimeType;
-        const shouldTrustOpenAIExactCanvas =
-          Boolean(exactCanvas && requestedOpenAIExactSize && effectiveOpenAIModel === "gpt-image-2");
+        const shouldTrustOpenAIExactCanvas = Boolean(
+          exactCanvas &&
+            requestedOpenAIExactSize &&
+            (effectiveOpenAIModel === "gpt-image-2" ||
+              effectiveOpenAIModel === "gpt-image-2.5-flare" ||
+              effectiveOpenAIModel === "gpt-image-2.5-sunburst"),
+        );
 
         if (exactCanvas && (isBestBottlesReferenceLocked || shouldTrustOpenAIExactCanvas)) {
           // A 2080×2288 decode + contain + PNG re-encode can exhaust Supabase
@@ -2764,7 +2793,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
             targetCanvas: `${exactCanvas.width}×${exactCanvas.height}`,
             exactSizeRequested: requestedOpenAIExactSize ?? "(none)",
             reason: shouldTrustOpenAIExactCanvas
-              ? "exact GPT Image 2 output size requested; avoid edge WORKER_LIMIT during ImageScript resize/re-encode"
+              ? "exact GPT Image output size requested; avoid edge WORKER_LIMIT during ImageScript resize/re-encode"
               : "avoid edge WORKER_LIMIT during ImageScript resize/re-encode",
           });
         } else {

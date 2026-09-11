@@ -34,10 +34,12 @@ const ASPECT_RATIO_OPTIONS = [
 ];
 
 // AI Provider/Model options - Updated for Freepik's actual API offerings
-// Default/primary: GPT Image 2. If OpenAI can't serve the request, the
-// edge function falls back to Gemini 3.1 Pro automatically.
+// Default/primary: GPT Image 2.5 Sunburst. If OpenAI can't serve the request,
+// the edge function falls back to Gemini 3.1 Pro automatically.
 const AI_PROVIDER_OPTIONS = [
-  { value: "openai-image-2", label: "GPT Image 2", description: "Default — high-fidelity reference edits", badge: "DEFAULT", group: "openai" },
+  { value: "openai-image-2.5-sunburst", label: "GPT Image 2.5 Sunburst", description: "Default — most capable; editing precision", badge: "DEFAULT", group: "openai" },
+  { value: "openai-image-2.5-flare", label: "GPT Image 2.5 Flare", description: "Fast 2.5 tier — better than GPT Image 2, ~half the latency", badge: "NEW", group: "openai" },
+  { value: "openai-image-2", label: "GPT Image 2", description: "Previous flagship; pinned for Best Bottles", badge: null, group: "openai" },
   { value: "openai-gpt-image-1.5", label: "GPT Image 1.5", description: "Previous GPT Image model with reference edits", badge: null, group: "openai" },
   { value: "auto", label: "Auto", description: "Legacy path: GPT Image 2 -> Gemini 3.1 Pro", badge: null, group: "auto" },
   // Google Gemini Direct (Google's API) - MOVED TO TOP

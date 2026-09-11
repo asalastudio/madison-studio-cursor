@@ -1,6 +1,6 @@
 export const PAPER_DOLL_PROVIDER_MODELS = {
   blender: ["cyl9-rollon-blender-v1"],
-  openai: ["gpt-image-2"],
+  openai: ["gpt-image-2.5-sunburst", "gpt-image-2.5-flare", "gpt-image-2"],
   google: ["gemini-3.1-flash-image", "gemini-3-pro-image"],
   manual: ["manual-v1"],
 } as const;
