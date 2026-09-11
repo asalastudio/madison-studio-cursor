@@ -37,6 +37,7 @@ import {
   HERO_SET_MODEL,
   buildHeroSetPrompt,
   getHeroSetPreset,
+  type HeroSetPopulation,
   type HeroSetPresetId,
 } from "@/lib/darkroomHeroSetPresets";
 import {
@@ -970,9 +971,22 @@ export default function DarkRoom() {
    * real bottles are composited in later from catalogue dimensions, so a
    * generated bottle is never part of the deliverable.
    */
+  /**
+   * Pro-settings changes flow through here so an explicit aspect-ratio choice
+   * can release the hero-set canvas pin. Without this the pin outranks the
+   * picker and a later 9:16 selection still renders 21:9.
+   */
+  const handleProSettingsChange = useCallback<typeof setProSettings>((update) => {
+    setProSettings((prev) => {
+      const next = typeof update === "function" ? update(prev) : update;
+      if (next.aspectRatio !== prev.aspectRatio) setExactGenerationCanvas(null);
+      return next;
+    });
+  }, []);
+
   const handleUseHeroSetPreset = useCallback((
     presetId: HeroSetPresetId,
-    options: { includeMoodMock?: boolean } = {},
+    options: { population?: HeroSetPopulation } = {},
   ) => {
     const preset = getHeroSetPreset(presetId);
 
@@ -988,11 +1002,15 @@ export default function DarkRoom() {
     }));
     setPrompt(buildHeroSetPrompt(presetId, options));
 
+    const populationNote =
+      options.population === "place-product"
+        ? " · your product placed once"
+        : options.population === "mood-mock"
+          ? " · 3 stand-ins"
+          : " · empty set";
     madison.success(
       `${preset.label} set loaded`,
-      `${HERO_SET_CANVAS.widthPx}x${HERO_SET_CANVAS.heightPx} · Sunburst${
-        options.includeMoodMock ? " · mood mock" : ""
-      }`,
+      `${HERO_SET_CANVAS.widthPx}x${HERO_SET_CANVAS.heightPx} · Sunburst${populationNote}`,
     );
   }, []);
 
@@ -1110,7 +1128,7 @@ export default function DarkRoom() {
           styleReference={styleReference}
           onStyleReferenceUpload={setStyleReference}
           proSettings={proSettings}
-          onProSettingsChange={setProSettings}
+          onProSettingsChange={handleProSettingsChange}
           backgroundPlateMode={backgroundPlateMode}
           onBackgroundPlateModeChange={setBackgroundPlateMode}
           styleReferenceLibraryOutput={styleReferenceLibraryOutput}
@@ -1208,7 +1226,7 @@ export default function DarkRoom() {
           styleReference={styleReference}
           onStyleReferenceUpload={setStyleReference}
           proSettings={proSettings}
-          onProSettingsChange={setProSettings}
+          onProSettingsChange={handleProSettingsChange}
           isGenerating={isGenerating}
           canGenerate={canGenerate}
           onGenerate={handleGenerate}
@@ -1257,7 +1275,7 @@ export default function DarkRoom() {
           hasStyle={!!styleReference}
           proSettingsCount={proSettingsCount}
           proSettings={proSettings}
-          onProSettingsChange={setProSettings}
+          onProSettingsChange={handleProSettingsChange}
           isGenerating={isGenerating}
           productSlots={productSlots}
           onProductSlotsChange={setProductSlots}

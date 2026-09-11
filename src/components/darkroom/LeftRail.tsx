@@ -5,6 +5,7 @@ import {
   BEST_BOTTLES_HERO_SET_PRESETS,
   HERO_SET_CANVAS,
   getHeroSetPreset,
+  type HeroSetPopulation,
   type HeroSetPresetId,
 } from "@/lib/darkroomHeroSetPresets";
 import { Button } from "@/components/ui/button";
@@ -67,7 +68,7 @@ interface LeftRailProps {
   onGenerate: () => void;
   onUseSchematicPrompt: (mode: DarkroomSchematicPromptMode) => void;
   onUseBestBottlesHeroPrompt: (arrangement: BestBottlesStoneHeroArrangement) => void;
-  onUseHeroSetPreset: (presetId: HeroSetPresetId, options?: { includeMoodMock?: boolean }) => void;
+  onUseHeroSetPreset: (presetId: HeroSetPresetId, options?: { population?: HeroSetPopulation }) => void;
   /** Best Bottles org only — these directions are that client's homepage. */
   showHeroSetPresets?: boolean;
 
@@ -214,7 +215,12 @@ export function LeftRail({
   onStyleReferenceLibraryOutputChange,
 }: LeftRailProps) {
   const [heroSetId, setHeroSetId] = useState<HeroSetPresetId>("silver-travertine");
-  const [heroSetMoodMock, setHeroSetMoodMock] = useState(false);
+  // Scenes are nearly always built around a product reference, so default to
+  // placing it. Empty is the deliberate exception (composite the real bottle
+  // in later), not the common case.
+  const [heroSetPopulation, setHeroSetPopulation] = useState<HeroSetPopulation>("empty");
+  const effectiveHeroPopulation: HeroSetPopulation =
+    heroSetPopulation === "empty" && productImage ? "place-product" : heroSetPopulation;
   const [showBackgroundUpload, setShowBackgroundUpload] = useState(false);
   const [showStyleUpload, setShowStyleUpload] = useState(false);
   const [showProductLibrary, setShowProductLibrary] = useState(false);
@@ -502,16 +508,51 @@ export function LeftRail({
                 {getHeroSetPreset(heroSetId).direction}
               </p>
 
-              <label className="mb-2 flex cursor-pointer items-center gap-2 text-[9px] text-[var(--darkroom-text-dim)]">
-                <input
-                  type="checkbox"
-                  className="h-3 w-3 accent-[var(--darkroom-accent)]"
-                  checked={heroSetMoodMock}
-                  onChange={(event) => setHeroSetMoodMock(event.target.checked)}
-                  disabled={isGenerating}
-                />
-                Add stand-in glass (mood only — never shippable)
-              </label>
+              <div className="mb-2 grid grid-cols-3 gap-1">
+                {([
+                  { id: "empty", label: "Empty set", hint: "The set alone, for compositing into later." },
+                  { id: "place-product", label: "My product", hint: "Places the loaded product reference once, grounded in the set." },
+                  { id: "mood-mock", label: "3 stand-ins", hint: "Three INVENTED bottles for judging mood. Never shippable." },
+                ] as Array<{ id: HeroSetPopulation; label: string; hint: string }>).map((mode) => {
+                  // "My product" needs a reference to place. "3 stand-ins" with a
+                  // reference loaded makes three distorted copies of that product,
+                  // which is exactly the failure this control exists to prevent.
+                  const unavailable =
+                    (mode.id === "place-product" && !productImage) ||
+                    (mode.id === "mood-mock" && !!productImage);
+                  const active = effectiveHeroPopulation === mode.id;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      disabled={isGenerating || unavailable}
+                      onClick={() => setHeroSetPopulation(mode.id)}
+                      title={
+                        unavailable
+                          ? mode.id === "place-product"
+                            ? "Load a product reference image first"
+                            : "Unavailable while a product reference is loaded — it would generate three copies of that product. Use \u201cMy product\u201d instead."
+                          : mode.hint
+                      }
+                      className="rounded border px-1.5 py-1.5 text-[9px] leading-tight disabled:opacity-30"
+                      style={{
+                        borderColor: active ? "rgba(97,214,200,0.52)" : "var(--darkroom-border)",
+                        background: active ? "rgba(97,214,200,0.06)" : "transparent",
+                        color: active ? "#61d6c8" : "var(--darkroom-text-dim)",
+                      }}
+                    >
+                      {mode.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mb-2 text-[9px] leading-relaxed text-[var(--darkroom-text-dim)]">
+                {effectiveHeroPopulation === "place-product"
+                  ? "Places exactly one instance of your reference, grounded with a contact shadow and matched to the set's light."
+                  : effectiveHeroPopulation === "mood-mock"
+                    ? "Three invented stand-in bottles. Mood only — never shippable."
+                    : "No product. Composite the real bottle in afterwards."}
+              </p>
 
               <Button
                 type="button"
@@ -519,7 +560,7 @@ export function LeftRail({
                 size="sm"
                 disabled={isGenerating}
                 onClick={() => {
-                  onUseHeroSetPreset(heroSetId, { includeMoodMock: heroSetMoodMock });
+                  onUseHeroSetPreset(heroSetId, { population: effectiveHeroPopulation });
                   const order = BEST_BOTTLES_HERO_SET_PRESETS.map((preset) => preset.id);
                   const next = order[(order.indexOf(heroSetId) + 1) % order.length];
                   setHeroSetId(next);

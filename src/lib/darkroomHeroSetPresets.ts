@@ -175,13 +175,48 @@ export const BEST_BOTTLES_HERO_SET_PRESETS: HeroSetPreset[] = [
 ];
 
 /**
+ * How the set should be populated.
+ *
+ * - `empty`        the set alone, for compositing into later. The default.
+ * - `mood-mock`    THREE invented stand-in bottles, for judging mood only.
+ * - `place-product` exactly ONE instance of the loaded product reference,
+ *                  grounded in the set. Requires a product reference.
+ */
+export type HeroSetPopulation = "empty" | "mood-mock" | "place-product";
+
+/**
  * Stand-in glass for judging mood. Whatever this draws is placeholder art and
  * can never ship: real bottles are composited from catalogue dimensions later.
+ *
+ * Note it asks for THREE bottles. Combined with a loaded product reference the
+ * model borrows that product's identity for all three, which reads as "it
+ * generated three of my product and distorted them" — the reason
+ * `place-product` exists and why the UI refuses to run both at once.
  */
 export const MOOD_MOCK_ADDON =
   "Now place three simple clear glass perfume bottles on the set as placeholders: one tall slim cylinder standing on the low surface toward the middle right, one small squat rounded bottle standing beside it, and one medium tapered bottle standing on the highest surface. " +
   "Plain unbranded optical clear glass with polished silver collars, no caps, no atomizers, no labels, no engraving, no text. " +
   "Every bottle stands flat on its surface with a soft tight contact shadow directly beneath it and a gentle cast shadow falling to the right; none of them floats, tilts or overhangs an edge. Keep the left 45% of the frame empty.";
+
+/**
+ * Place the loaded product reference into the set, exactly once.
+ *
+ * Every clause here answers an observed failure. The model invented three
+ * bottles because the mood mock asked for three, so the count is stated twice
+ * and duplication is negated explicitly. It distorted them because a
+ * placeholder is free to differ from the reference, so identity is pinned to
+ * the reference rather than described. Grounding and light direction repeat the
+ * set's own language so the product sits in the scene instead of on top of it.
+ */
+export const PRODUCT_PLACEMENT_ADDON =
+  "Now place the product from the reference image into this set. " +
+  "Render EXACTLY ONE product. There is one bottle in the final image and no other product, duplicate, mirrored copy, ghost, reflection-as-second-object, or variant anywhere in the frame. " +
+  "It is the SAME product as the reference: preserve its exact silhouette, proportions, glass colour and material, closure, applicator and any trim, precisely as the reference shows them. Do not restyle it, do not simplify it, do not substitute a generic bottle, and do not invent detail the reference does not show. " +
+  "Stand it upright on the highest flat surface of the set, comfortably inside the frame with air above it. " +
+  "It rests on that surface with a soft tight contact shadow directly beneath the point of contact, plus a gentle cast shadow falling to the right, matching the set's own light from upper camera-left. It does not float, does not tilt, does not hover, and does not overhang the edge. " +
+  "Match the set's lighting, white balance and depth of field so the product reads as photographed in this scene rather than pasted onto it; the surface beneath it picks up a faint bounce from the glass. " +
+  "The product occupies roughly 45–60% of the frame height. " +
+  "Keep the LEFT 45% of the frame empty for the headline.";
 
 export function getHeroSetPreset(id: HeroSetPresetId): HeroSetPreset {
   return (
@@ -191,7 +226,9 @@ export function getHeroSetPreset(id: HeroSetPresetId): HeroSetPreset {
 }
 
 export interface BuildHeroSetPromptOptions {
-  /** Append stand-in glass. Placeholder art for mood only — never shippable. */
+  /** Defaults to `empty` — the set alone. */
+  population?: HeroSetPopulation;
+  /** Deprecated alias for `population: "mood-mock"`. */
   includeMoodMock?: boolean;
 }
 
@@ -200,7 +237,12 @@ export function buildHeroSetPrompt(
   options: BuildHeroSetPromptOptions = {},
 ): string {
   const preset = getHeroSetPreset(id);
-  return options.includeMoodMock ? `${preset.prompt}\n\n${MOOD_MOCK_ADDON}` : preset.prompt;
+  const population: HeroSetPopulation =
+    options.population ?? (options.includeMoodMock ? "mood-mock" : "empty");
+
+  if (population === "mood-mock") return `${preset.prompt}\n\n${MOOD_MOCK_ADDON}`;
+  if (population === "place-product") return `${preset.prompt}\n\n${PRODUCT_PLACEMENT_ADDON}`;
+  return preset.prompt;
 }
 
 /**
