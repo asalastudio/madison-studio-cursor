@@ -504,7 +504,7 @@ ${jsonInstruction}`,
         ],
         // Note: responseMimeType removed for compatibility with gemini-2.0-flash-exp
         temperature: 0.4,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 8192,
       });
       console.log('[suggest-brand-knowledge] Gemini response received');
     } catch (geminiError) {

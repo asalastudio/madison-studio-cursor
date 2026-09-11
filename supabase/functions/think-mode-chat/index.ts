@@ -412,7 +412,7 @@ CRITICAL OUTPUT FORMATTING:
         systemPrompt: systemContent,
         messages,
         temperature: mode === 'strategic' ? 0.5 : 0.65, // Lower temp for strategy
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192,
       });
 
       const content = extractTextFromGeminiResponse(completion) ||

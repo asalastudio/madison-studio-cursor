@@ -796,7 +796,38 @@ const parseSequenceEmails = (content: string) => {
     .filter((email) => email.subject || email.preview || email.body);
 };
 
+/**
+ * Gemini 3.x draw their internal reasoning from maxOutputTokens BEFORE emitting
+ * content, and the amount is not deterministic — measured between ~970 and
+ * ~1,700 tokens on the same prompt shape. The budgets below were tuned for the
+ * prose itself, so every profile that leaves thinking enabled needs headroom on
+ * top or the deliverable is truncated with finishReason=MAX_TOKENS.
+ *
+ * Without this, `default` (1200) left roughly 200 tokens for content — a
+ * fragment, returned as HTTP 200 and presented to the operator as a finished
+ * deliverable. Profiles that set `disableThinking` spend nothing on reasoning
+ * and are left exactly as tuned.
+ */
+const THINKING_HEADROOM_TOKENS = 4096;
+
+const withThinkingHeadroom = <T extends {
+  maxOutputTokens: number;
+  retryMaxOutputTokens: number;
+  disableThinking?: boolean;
+}>(profile: T): T => {
+  if (profile.disableThinking) return profile;
+  return {
+    ...profile,
+    maxOutputTokens: profile.maxOutputTokens + THINKING_HEADROOM_TOKENS,
+    retryMaxOutputTokens: profile.retryMaxOutputTokens + THINKING_HEADROOM_TOKENS,
+  };
+};
+
 const getGenerationProfile = (derivativeType: string) => {
+  return withThinkingHeadroom(getGenerationProfileBudgets(derivativeType));
+};
+
+const getGenerationProfileBudgets = (derivativeType: string) => {
   switch (derivativeType) {
     case 'linkedin':
       return { maxOutputTokens: 3072, retryMaxOutputTokens: 4096, minWords: 220 };
@@ -813,7 +844,10 @@ const getGenerationProfile = (derivativeType: string) => {
     case 'email_7part':
       return { maxOutputTokens: 16384, retryMaxOutputTokens: 24576, expectedEmails: 7, minTotalWords: 1000, disableThinking: true };
     default:
-      return { maxOutputTokens: 1200, retryMaxOutputTokens: 2048 };
+      // Catch-all for image_pack, instagram, pinterest, product,
+      // product_backgrounds, sms, tiktok and video_script — none of which ever
+      // had a sized profile. 1200 was far too small even before thinking.
+      return { maxOutputTokens: 4096, retryMaxOutputTokens: 6144 };
   }
 };
 
@@ -953,7 +987,7 @@ serve(async (req) => {
       throw new Error('Neither GEMINI_API_KEY nor ANTHROPIC_API_KEY is configured');
     }
     
-    const DEFAULT_ANTHROPIC_MODEL = 'claude-3-haiku-20240307';
+    const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-5';
     const configuredAnthropicModel = Deno.env.get('ANTHROPIC_MODEL') || DEFAULT_ANTHROPIC_MODEL;
     const useGemini = !!GEMINI_API_KEY;
 
@@ -1171,7 +1205,7 @@ FAILURE TO FOLLOW CODEX V2 PRINCIPLES OR BRAND GUIDELINES IS UNACCEPTABLE.`;
         console.log(`Calling Gemini for ${derivativeType} with maxOutputTokens=${maxOutputTokens}, thinkingBudget=${disableThinking ? 0 : 'default'}...`);
         try {
           const geminiResponse = await generateGeminiContent({
-            model: 'models/gemini-2.5-flash',
+            model: 'models/gemini-3.5-flash',
             systemPrompt,
             messages: [{ role: 'user', content: promptText }],
             maxOutputTokens,

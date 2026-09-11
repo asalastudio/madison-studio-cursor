@@ -85,7 +85,7 @@ Return ONLY valid JSON in this format:
       ],
       responseMimeType: "application/json",
       temperature: 0.5,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 8192,
     });
 
     const raw = extractTextFromGeminiResponse(data);

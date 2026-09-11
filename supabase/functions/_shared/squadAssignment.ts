@@ -136,7 +136,7 @@ Return ONLY valid JSON (no markdown):
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 1024,
       messages: [{ role: 'user', content: assignmentPrompt }]
     });
@@ -195,7 +195,7 @@ Return ONLY valid JSON with squad assignments and reasoning:
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 1024,
       messages: [{ role: 'user', content: assignmentPrompt }]
     });
@@ -254,7 +254,7 @@ Return ONLY valid JSON:
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 1024,
       messages: [{ role: 'user', content: assignmentPrompt }]
     });

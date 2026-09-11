@@ -1,6 +1,14 @@
 export const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-const DEFAULT_MODEL = "models/gemini-2.5-flash";
+// gemini-2.5-flash is refused for newer API keys ("no longer available to
+// new users"); 1.5 and 2.0 are fully removed; 3-pro-preview is gone too.
+//
+// 3.5 over the newer 3.8/3.7 on purpose. Measured against the live endpoint
+// with this client's exact request body: 3.5-flash returned 6/6 200, while
+// 3.8-flash returned 3/6 and 3.7-flash 4/6 — the rest were 503 "experiencing
+// high demand". Google's own 404 message recommends 3.6-flash, which returns
+// 400 invalid-argument for this body. Re-measure before moving off 3.5.
+const DEFAULT_MODEL = "models/gemini-3.5-flash";
 
 type OpenAIContentPart =
   | { type: "text"; text: string }
@@ -139,7 +147,7 @@ export async function generateGeminiContent(options: GeminiRequestOptions) {
     temperature: rest.temperature ?? 0.7,
     topP: rest.topP ?? 0.95,
     topK: rest.topK,
-    maxOutputTokens: rest.maxOutputTokens ?? 2048,
+    maxOutputTokens: rest.maxOutputTokens ?? 8192,
   };
 
   if (typeof rest.thinkingBudget === "number") {
@@ -263,7 +271,7 @@ export async function streamGeminiTextResponse(
       temperature: rest.temperature ?? 0.7,
       topP: rest.topP ?? 0.95,
       topK: rest.topK,
-      maxOutputTokens: rest.maxOutputTokens ?? 2048,
+      maxOutputTokens: rest.maxOutputTokens ?? 8192,
     },
   };
 

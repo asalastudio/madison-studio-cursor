@@ -2301,7 +2301,15 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
                 parts: geminiParts
               }],
               generationConfig: {
-                maxOutputTokens: 4096,
+                // Gemini 3.x are thinking models and their internal reasoning is
+                // drawn from maxOutputTokens BEFORE any content is emitted.
+                // Measured on gemini-3.5-flash with a 2,500-word article brief:
+                // at 4096 the model spent 1,724 tokens thinking, left 2,368 for
+                // prose, and returned finishReason=MAX_TOKENS — a part-written
+                // article with no error. The same request at 32768 returns
+                // finishReason=STOP and the complete piece. The model's own
+                // output ceiling is 65536, and this is a cap, not a spend.
+                maxOutputTokens: 32768,
                 temperature: 0.7,
               }
             };
@@ -2313,8 +2321,9 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
               };
             }
             
-            // Use gemini-2.5-flash (gemini-2.0-flash-001 no longer available to new users)
-            const GEMINI_MODEL = 'gemini-2.5-flash';
+            // gemini-2.5-flash is now itself refused for newer API keys, the same
+            // way 2.0-flash-001 was before it. 3.8 is the current flash model.
+            const GEMINI_MODEL = 'gemini-3.5-flash';
             console.log('Sending request to Gemini Direct API:', {
               model: GEMINI_MODEL,
               partsCount: geminiParts.length,
@@ -2406,6 +2415,18 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
             }
             
             generatedContent = textParts.join('\n');
+
+            // A truncated deliverable still arrives as HTTP 200 with usable-looking
+            // prose, so it reaches the user as a finished article. Log it loudly.
+            if (candidate.finishReason === 'MAX_TOKENS') {
+              console.error('Gemini response hit MAX_TOKENS — deliverable is truncated', {
+                model: data?.modelVersion,
+                thoughtsTokenCount: data?.usageMetadata?.thoughtsTokenCount,
+                candidatesTokenCount: data?.usageMetadata?.candidatesTokenCount,
+                totalTokenCount: data?.usageMetadata?.totalTokenCount,
+                contentLength: generatedContent.length,
+              });
+            }
             break; // Success!
           }
         }
@@ -2415,7 +2436,7 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
           // Use Anthropic Claude API
           try {
             const requestBody = {
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-sonnet-5',
               max_tokens: 4096,
               system: systemPrompt,
               messages: [
@@ -2468,7 +2489,7 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
               status: response.status,
               statusText: response.statusText,
               error: errorText,
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-sonnet-5',
               hasPrompt: !!prompt,
               promptLength: prompt?.length || 0
             });

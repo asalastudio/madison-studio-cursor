@@ -146,7 +146,7 @@ Be specific, actionable, and brand-aware.`;
             messages: [{ role: 'user', content: aiPrompt }],
             responseMimeType: 'application/json',
             temperature: 0.7,
-            maxOutputTokens: 1536,
+            maxOutputTokens: 8192,
           });
 
           const aiContent = extractTextFromGeminiResponse(aiData) || '';

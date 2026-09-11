@@ -68,7 +68,7 @@ Create a reusable prompt template with {{PLACEHOLDERS}}.`;
       systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
       temperature: 0.6,
-      maxOutputTokens: 512,
+      maxOutputTokens: 8192,
     });
 
     const refinedPrompt = extractTextFromGeminiResponse(data) || "";

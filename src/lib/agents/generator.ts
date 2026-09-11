@@ -62,7 +62,7 @@ export async function generatorAgent(
   });
 
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514', // Use claude-opus-4 for best quality
+    model: 'claude-sonnet-5',
     max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
