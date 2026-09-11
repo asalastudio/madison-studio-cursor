@@ -79,6 +79,8 @@ interface SessionImage {
   timestamp: number;
   isSaved: boolean;
   isHero?: boolean;
+  /** The ratio the image was generated at, handed over by the Dark Room. */
+  aspectRatio?: string;
 }
 
 interface Variation {
@@ -357,7 +359,19 @@ export default function LightTable() {
           prompt: selectedImage.prompt,
         },
       );
-      const refinementAspectRatio = generationCanvasMetadata.aspectRatio || "1:1";
+      // The recorded ratio wins over a measurement: readImageCanvasSize
+      // resolves null on any load failure, and `null || "1:1"` was silently
+      // squaring ultra-wide and portrait images on edit.
+      const refinementAspectRatio =
+        selectedImage.aspectRatio
+        || generationCanvasMetadata.aspectRatio
+        || "1:1";
+      if (!selectedImage.aspectRatio && !generationCanvasMetadata.aspectRatio) {
+        console.warn(
+          "[LightTable] No recorded or measurable aspect ratio — defaulting to 1:1.",
+          { imageId: selectedImage.id },
+        );
+      }
       const edgeSafeSettings = resolveEdgeSafeImageSettings({
         aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
         resolution: "standard",
@@ -493,7 +507,19 @@ export default function LightTable() {
           prompt: selectedImage.prompt,
         },
       );
-      const variationAspectRatio = generationCanvasMetadata.aspectRatio || "1:1";
+      // The recorded ratio wins over a measurement: readImageCanvasSize
+      // resolves null on any load failure, and `null || "1:1"` was silently
+      // squaring ultra-wide and portrait images on edit.
+      const variationAspectRatio =
+        selectedImage.aspectRatio
+        || generationCanvasMetadata.aspectRatio
+        || "1:1";
+      if (!selectedImage.aspectRatio && !generationCanvasMetadata.aspectRatio) {
+        console.warn(
+          "[LightTable] No recorded or measurable aspect ratio — defaulting to 1:1.",
+          { imageId: selectedImage.id },
+        );
+      }
       const edgeSafeSettings = resolveEdgeSafeImageSettings({
         aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
         resolution: "standard",
@@ -829,7 +855,9 @@ Generate a polished, publication-ready advertisement image where the product and
           organizationId: orgId,
           sessionId,
           goalType: "product_advertisement",
-          aspectRatio: "1:1", // Default to square for ads, can be made configurable
+          // Was hardcoded to "1:1" regardless of the source image. An ad built
+          // from a 21:9 hero came back square.
+          aspectRatio: selectedImage.aspectRatio || "1:1",
           aiProvider: "gemini-3-pro-image", // Force Gemini 3.0 Pro
           resolution: "high", // Use high res for ads
           referenceImages: [
