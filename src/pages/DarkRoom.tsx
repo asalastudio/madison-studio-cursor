@@ -145,14 +145,6 @@ interface Suggestion {
 }
 
 // Quick presets
-const DEFAULT_PRESETS = [
-  "Golden hour glow",
-  "Minimalist white",
-  "Luxury marble",
-  "Natural botanical",
-  "Dramatic shadows",
-  "Soft diffused light",
-];
 
 // Default suggestions (context-aware ones are generated)
 const generateSuggestions = (
@@ -946,11 +938,6 @@ export default function DarkRoom() {
     madison.success("Suggestion applied");
   }, []);
 
-  const handleApplyPreset = useCallback((preset: string) => {
-    setPrompt((prev) => (prev ? `${prev}, ${preset.toLowerCase()}` : preset));
-    madison.success(`Applied: ${preset}`);
-  }, []);
-
   const handleUseSchematicPrompt = useCallback((mode: DarkroomSchematicPromptMode) => {
     if (!productImage) {
       madison.info("Load a product reference image first");
@@ -1266,8 +1253,6 @@ export default function DarkRoom() {
         <RightPanel
           suggestions={suggestions}
           onUseSuggestion={handleUseSuggestion}
-          presets={DEFAULT_PRESETS}
-          onApplyPreset={handleApplyPreset}
           history={history}
           onRestoreFromHistory={handleRestoreFromHistory}
           hasProduct={!!productImage}

@@ -89,19 +89,11 @@ src/components/darkroom/RightPanel.tsx(TS2345): Argument of type '"Choose a back
 src/components/darkroom/RightPanel.tsx(TS2345): Argument of type '"Open Settings for camera, lighting, environment, and visual style controls."' is not assignable to parameter of type 'never'.
 src/components/darkroom/RightPanel.tsx(TS6133): 'Clock' is declared but its value is never read.
 src/components/darkroom/RightPanel.tsx(TS6133): 'FirmwarePresetButton' is declared but its value is never read.
-src/components/darkroom/RightPanel.tsx(TS6133): 'History' is declared but its value is never read.
 src/components/darkroom/RightPanel.tsx(TS6133): 'ImagePlus' is declared but its value is never read.
 src/components/darkroom/RightPanel.tsx(TS6133): 'LEDState' is declared but its value is never read.
 src/components/darkroom/RightPanel.tsx(TS6133): 'ModeDialButton' is declared but its value is never read.
-src/components/darkroom/RightPanel.tsx(TS6133): 'QuickPreset' is declared but its value is never read.
 src/components/darkroom/RightPanel.tsx(TS6133): 'StyleReferencesSection' is declared but its value is never read.
 src/components/darkroom/RightPanel.tsx(TS6133): 'VisualSquad' is declared but its value is never read.
-src/components/darkroom/RightPanel.tsx(TS6133): 'formatTimeAgo' is declared but its value is never read.
-src/components/darkroom/RightPanel.tsx(TS6133): 'history' is declared but its value is never read.
-src/components/darkroom/RightPanel.tsx(TS6133): 'onApplyPreset' is declared but its value is never read.
-src/components/darkroom/RightPanel.tsx(TS6133): 'onRestoreFromHistory' is declared but its value is never read.
-src/components/darkroom/RightPanel.tsx(TS6133): 'presets' is declared but its value is never read.
-src/components/darkroom/RightPanel.tsx(TS6133): 'useMemo' is declared but its value is never read.
 src/components/dashboard/BrandPulseBar.tsx(TS6133): 'Progress' is declared but its value is never read.
 src/components/dashboard/BrandWidget.tsx(TS6133): 'ExternalLink' is declared but its value is never read.
 src/components/dashboard/BrandWidget.tsx(TS6133): 'cn' is declared but its value is never read.

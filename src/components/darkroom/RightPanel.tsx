@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, type ReactNode } from "react";
 import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
+import { Chip, ChipRow } from "./Chip";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Lightbulb,
@@ -311,9 +312,6 @@ interface RightPanelProps {
   suggestions: Suggestion[];
   onUseSuggestion: (suggestion: Suggestion) => void;
 
-  // Quick presets
-  presets: string[];
-  onApplyPreset: (preset: string) => void;
 
   // Session history
   history: HistoryItem[];
@@ -350,24 +348,6 @@ interface RightPanelProps {
 }
 
 // Quick Preset Button
-function QuickPreset({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <motion.button
-      className="preset-button"
-      onClick={onClick}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-    >
-      {label}
-    </motion.button>
-  );
-}
 
 // Suggestion Card
 function SuggestionCard({
@@ -625,8 +605,6 @@ function formatTimeAgo(date: Date): string {
 export function RightPanel({
   suggestions,
   onUseSuggestion,
-  presets,
-  onApplyPreset,
   history,
   onRestoreFromHistory,
   hasProduct,
@@ -653,6 +631,24 @@ export function RightPanel({
 
   // Get photography options
   const cameraOptions = getCameraOptions();
+  /**
+   * The five most recent distinct prompts. De-duplicated because re-exposing
+   * the same prompt is the common case — a run of identical chips would push
+   * the genuinely older ones out of the cap for no benefit.
+   */
+  const recentPromptChips = useMemo(() => {
+    const seen = new Set<string>();
+    const unique: HistoryItem[] = [];
+    for (const item of history) {
+      const key = item.prompt.trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      unique.push(item);
+      if (unique.length === 5) break;
+    }
+    return unique;
+  }, [history]);
+
   const lightingOptions = getLightingOptions();
   const environmentOptions = getEnvironmentOptions();
 
@@ -1099,6 +1095,37 @@ export function RightPanel({
               </div>
 
               {aiModelAndResolutionSection}
+
+              {/*
+                Recent prompts. `history`, `onRestoreFromHistory` and
+                formatTimeAgo all already existed and were wired end to end —
+                the panel destructured `history` and never rendered it, so the
+                feature shipped as dead weight. Session-local by design: it is
+                useState, so it is empty until the first generation and gone on
+                reload, which is why the whole block is guarded on length.
+              */}
+              {recentPromptChips.length > 0 && (
+                <div className="camera-panel p-2.5 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <History className="w-3 h-3 text-[var(--darkroom-accent)]" />
+                    <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Recent prompts</span>
+                    <InlineHelp>
+                      Prompts you have exposed this session. Tap one to load it back into the shot description. Cleared on reload.
+                    </InlineHelp>
+                  </div>
+                  <ChipRow>
+                    {recentPromptChips.map((item) => (
+                      <Chip
+                        key={item.id}
+                        label={item.prompt.length > 40 ? `${item.prompt.slice(0, 40)}\u2026` : item.prompt}
+                        title={item.prompt}
+                        meta={formatTimeAgo(item.timestamp)}
+                        onClick={() => onRestoreFromHistory(item)}
+                      />
+                    ))}
+                  </ChipRow>
+                </div>
+              )}
 
               {/* Context Tips */}
               {contextTips.length > 0 && (
