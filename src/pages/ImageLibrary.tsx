@@ -132,6 +132,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import "@/styles/darkroom.css";
+import { storageThumbnailUrl } from "@/lib/storageThumbnails";
 
 interface GeneratedImage {
   id: string;
@@ -3252,10 +3253,11 @@ export default function ImageLibrary() {
                     viewMode === "grid" && "aspect-square"
                   )}>
                     <img
-                      src={image.image_url}
+                      src={storageThumbnailUrl(image.image_url, { width: 500 })}
                       alt={image.session_name || "Generated image"}
                       className="w-full h-full object-cover"
                       loading="lazy"
+                      decoding="async"
                     />
 
                     {/* Selection Checkbox */}

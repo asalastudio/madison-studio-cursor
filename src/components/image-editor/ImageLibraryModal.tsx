@@ -15,6 +15,7 @@ import { Upload, FolderOpen, Check, Plus, Image as ImageIcon, Loader2 } from "lu
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useImageLibrary } from "@/hooks/useImageLibrary";
+import { storageThumbnailUrl } from "@/lib/storageThumbnails";
 
 interface LibraryImage {
     id: string;
@@ -227,7 +228,7 @@ export function ImageLibraryModal({
                                     )}
                                 >
                                     <img
-                                        src={image.url}
+                                        src={storageThumbnailUrl(image.url, { width: 400 })}
                                         alt={image.name}
                                         className="w-full h-full object-cover"
                                         loading="lazy"
