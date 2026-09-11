@@ -99,7 +99,7 @@ export function StudioControls({
                   "flex items-center gap-1.5 pl-1 pr-2 py-1 rounded border text-[10px] transition-all",
                   "disabled:opacity-40 disabled:cursor-not-allowed",
                   isSelected
-                    ? "border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/10 text-[var(--darkroom-text)]"
+                    ? "border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)] text-[var(--darkroom-text)]"
                     : "border-white/[0.06] bg-[var(--camera-body-deep)] text-[var(--darkroom-text-muted)] hover:border-white/[0.15] hover:text-[var(--darkroom-text)]",
                 )}
               >
@@ -138,7 +138,7 @@ export function StudioControls({
                   "px-2 py-1 rounded border text-[10px] transition-all",
                   "disabled:opacity-40 disabled:cursor-not-allowed",
                   isSelected
-                    ? "border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/10 text-[var(--darkroom-text)]"
+                    ? "border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)] text-[var(--darkroom-text)]"
                     : "border-white/[0.06] bg-[var(--camera-body-deep)] text-[var(--darkroom-text-muted)] hover:border-white/[0.15] hover:text-[var(--darkroom-text)]",
                 )}
               >
@@ -188,7 +188,7 @@ export function StudioControls({
                   "flex-1 px-2 py-1 rounded border text-[10px] transition-all",
                   "disabled:opacity-40 disabled:cursor-not-allowed",
                   isSelected
-                    ? "border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/10 text-[var(--darkroom-text)]"
+                    ? "border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)] text-[var(--darkroom-text)]"
                     : "border-white/[0.06] bg-[var(--camera-body-deep)] text-[var(--darkroom-text-muted)] hover:border-white/[0.15] hover:text-[var(--darkroom-text)]",
                 )}
               >
@@ -245,7 +245,7 @@ function ShadowCompass({ value, onChange, disabled }: ShadowCompassProps) {
               "flex items-center justify-center",
               isCentre && "border-dashed",
               isSelected
-                ? "border-[var(--darkroom-accent)]/60 bg-[var(--darkroom-accent)]/15 text-[var(--darkroom-accent)]"
+                ? "border-[color-mix(in_srgb,var(--darkroom-accent)_60%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_15%,transparent)] text-[var(--darkroom-accent)]"
                 : "border-white/[0.08] bg-[var(--camera-body-deep)] text-[var(--darkroom-text-dim)] hover:border-white/[0.20] hover:text-[var(--darkroom-text)]",
             )}
           >

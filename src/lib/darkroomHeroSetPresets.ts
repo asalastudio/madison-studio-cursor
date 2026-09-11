@@ -214,7 +214,11 @@ export const PRODUCT_PLACEMENT_ADDON =
   "It is the SAME product as the reference: preserve its exact silhouette, proportions, glass colour and material, closure, applicator and any trim, precisely as the reference shows them. Do not restyle it, do not simplify it, do not substitute a generic bottle, and do not invent detail the reference does not show. " +
   "Stand it upright on the highest flat surface of the set, comfortably inside the frame with air above it. " +
   "It rests on that surface with a soft tight contact shadow directly beneath the point of contact, plus a gentle cast shadow falling to the right, matching the set's own light from upper camera-left. It does not float, does not tilt, does not hover, and does not overhang the edge. " +
-  "Match the set's lighting, white balance and depth of field so the product reads as photographed in this scene rather than pasted onto it; the surface beneath it picks up a faint bounce from the glass. " +
+  "INTEGRATE THE LIGHT. The set's light is authoritative: light the product from the same direction, at the same colour temperature and the same softness as everything else in frame. " +
+  "The product takes colour bounce from the surface it stands on and from nearby surfaces, and the set is visible reflected in its glass and in any polished closure — a window, the backdrop gradient, the stone beside it — rather than a clean studio environment that does not exist in this scene. " +
+  "Shadow direction and length agree with the shadows already cast by the set's own blocks. Match the set's depth of field. " +
+  "CLOSURES ARE MOULDED PHENOLIC PLASTIC, NOT METAL — even in gold, silver and black colourways. Render a polished lacquered plastic finish: highlights are clean but marginally softer and broader than true polished metal, and they pick up the warm or cool cast of the scene. Do not render a mirror-chrome cylinder, do not add machined metal grain or seams, and do not give the cap a single hard vertical specular stripe that ignores the room. A roller ball, if the reference has one, IS polished steel and stays so. " +
+  "Nothing may read as a cut-out composited onto a backdrop. " +
   "The product occupies roughly 45–60% of the frame height. " +
   "Keep the LEFT 45% of the frame empty for the headline.";
 

@@ -81,13 +81,13 @@ export function StyleReferenceGuideModal({ open, onOpenChange }: StyleReferenceG
       <DialogContent className="max-w-lg bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">Style reference — best practices</DialogTitle>
-          <DialogDescription className="text-[var(--darkroom-text)]/70 text-sm">
+          <DialogDescription className="text-[color-mix(in_srgb,var(--darkroom-text)_70%,transparent)] text-sm">
             Twelve guidelines for choosing and using style references in Dark Room. References steer lighting,
             mood, and material language — not a second product to composite.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] pr-3">
-          <ol className="list-decimal list-inside space-y-4 text-sm text-[var(--darkroom-text)]/90">
+          <ol className="list-decimal list-inside space-y-4 text-sm text-[color-mix(in_srgb,var(--darkroom-text)_90%,transparent)]">
             {PRACTICES.map((p, i) => (
               <li key={i} className="leading-relaxed">
                 <span className="font-medium text-[var(--darkroom-text)]">{p.title}.</span>{" "}

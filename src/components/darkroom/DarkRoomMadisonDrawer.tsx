@@ -325,7 +325,7 @@ Checklist:
           )
         }
         disabled={pendingAction !== null}
-        className="h-auto min-h-[84px] w-full overflow-hidden justify-start rounded-xl border border-white/[0.08] bg-[var(--darkroom-accent)]/10 px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-[var(--darkroom-accent)]/15"
+        className="h-auto min-h-[84px] w-full overflow-hidden justify-start rounded-xl border border-white/[0.08] bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)] px-3 py-3 text-left text-[var(--darkroom-text)] hover:bg-[color-mix(in_srgb,var(--darkroom-accent)_15%,transparent)]"
       >
         {pendingAction ? (
           <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin text-[var(--darkroom-accent)]" />

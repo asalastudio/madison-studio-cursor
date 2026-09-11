@@ -116,9 +116,9 @@ export function GenerationQueue({
               className={cn(
                 "flex items-center gap-2.5 px-2 py-1.5 rounded border transition-colors",
                 "border-white/[0.04] bg-[var(--camera-body-deep)]",
-                item.status === "error" && "border-[var(--led-error)]/20",
-                item.status === "complete" && "border-[var(--led-ready)]/20",
-                isActiveMaster && "border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/5",
+                item.status === "error" && "border-[color-mix(in_srgb,var(--led-error)_20%,transparent)]",
+                item.status === "complete" && "border-[color-mix(in_srgb,var(--led-ready)_20%,transparent)]",
+                isActiveMaster && "border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_5%,transparent)]",
               )}
             >
               {/* Frame number + LED */}
@@ -152,7 +152,7 @@ export function GenerationQueue({
                 <div className="text-[11px] text-[var(--darkroom-text)] truncate font-medium flex items-center gap-1.5">
                   {item.label}
                   {isActiveMaster && (
-                    <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded bg-[var(--darkroom-accent)]/15 text-[var(--darkroom-accent)] border border-[var(--darkroom-accent)]/30">
+                    <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded bg-[color-mix(in_srgb,var(--darkroom-accent)_15%,transparent)] text-[var(--darkroom-accent)] border border-[color-mix(in_srgb,var(--darkroom-accent)_30%,transparent)]">
                       Master
                     </span>
                   )}
@@ -213,8 +213,8 @@ export function GenerationQueue({
                   className={cn(
                     "flex-shrink-0 w-6 h-6 rounded border flex items-center justify-center transition-colors",
                     isActiveMaster
-                      ? "border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/15 text-[var(--darkroom-accent)] cursor-default"
-                      : "border-white/[0.06] bg-black/20 text-[var(--darkroom-text-dim)] hover:border-[var(--darkroom-accent)]/50 hover:text-[var(--darkroom-accent)] hover:bg-black/40",
+                      ? "border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_15%,transparent)] text-[var(--darkroom-accent)] cursor-default"
+                      : "border-white/[0.06] bg-black/20 text-[var(--darkroom-text-dim)] hover:border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] hover:text-[var(--darkroom-accent)] hover:bg-black/40",
                   )}
                 >
                   <Star

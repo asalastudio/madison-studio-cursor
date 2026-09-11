@@ -1145,9 +1145,36 @@ function buildDirectorModePrompt(
     // Randomly select a lighting variation (using timestamp for pseudo-randomness)
     const lightingIndex = Date.now() % lightingVariations.length;
     const selectedLighting = lightingVariations[lightingIndex];
-    
+
+    /**
+     * When the scene already owns the light, a second lighting directive is the
+     * thing that makes a product look pasted on.
+     *
+     * These five are PORTRAIT patterns — named for how they light a face — and
+     * one was appended at random on every non-Pro-Mode generation. Drop a
+     * product into a set whose prompt says "soft directional daylight from
+     * upper camera-left" and then also tell the model "LIGHTING SETUP: Split,
+     * CONTRAST RATIO 5:1", and it lights the product by one instruction and the
+     * scene by the other. The result is a correctly-rendered product that does
+     * not belong to its background, which is exactly the superimposed look.
+     *
+     * The rotation was there to stop repetitive output on bare prompts. That is
+     * still worth having when there is no scene to respect — so it stays for
+     * that case only.
+     */
+    const sceneDescribesItsOwnLight =
+      categorizedRefs.background.length > 0 ||
+      /\b(daylight|sunlight|window light|studio light|backdrop|camera-left|camera-right|shadows fall|lit from|rim light|soft directional)\b/i
+        .test(userPrompt);
+
     if (categorizedRefs.style.length > 0) {
       prompt += "LIGHTING: Match the lighting style from the style reference(s)\n";
+    } else if (sceneDescribesItsOwnLight) {
+      prompt +=
+        "LIGHTING: The scene's own light is authoritative — do not impose a separate studio setup. " +
+        "Light every object from the same direction, at the same colour temperature and the same softness as the set described above. " +
+        "Objects standing in the scene take colour bounce from the surfaces beneath and beside them, cast shadows that agree in direction and length with the set's existing shadows, and show the set reflected in any glossy or polished surface. " +
+        "Nothing may read as a cut-out composited onto a backdrop.\n";
     } else {
       prompt += `LIGHTING SETUP: ${selectedLighting.setup} - Commercial standard\n`;
       prompt += `LIGHT QUALITY: ${selectedLighting.quality} (flattering, commercial look)\n`;

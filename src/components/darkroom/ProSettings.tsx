@@ -398,7 +398,7 @@ export function ProSettings({ settings, onChange, disabled = false }: ProSetting
                                   option.badge === "FREE" && "bg-emerald-500/20 text-emerald-400",
                                   option.badge === "TRENDING" && "bg-orange-500/20 text-orange-400",
                                   option.badge === "NEW" && "bg-emerald-500/20 text-emerald-400",
-                                  option.badge === "SUGGESTED" && "bg-[var(--darkroom-accent)]/20 text-[var(--darkroom-accent)]"
+                                  option.badge === "SUGGESTED" && "bg-[color-mix(in_srgb,var(--darkroom-accent)_20%,transparent)] text-[var(--darkroom-accent)]"
                                 )}>
                                   {option.badge}
                                 </span>

@@ -138,14 +138,14 @@ function ProductContextCard({
   const statusReady = statusLabel === "Full context loaded";
 
   return (
-    <div className="mt-3 space-y-2 rounded-lg border border-[var(--darkroom-border)] bg-[var(--camera-body-deep)]/40 p-2.5">
+    <div className="mt-3 space-y-2 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_40%,transparent)] p-2.5">
       <div className="flex items-center gap-2">
         <Badge
           variant="outline"
           className={cn(
             "px-1.5 py-0 text-[8px] font-mono uppercase tracking-wider",
             statusReady
-              ? "border-[var(--led-ready)]/30 bg-[var(--led-ready)]/10 text-[var(--led-ready)]"
+              ? "border-[color-mix(in_srgb,var(--led-ready)_30%,transparent)] bg-[color-mix(in_srgb,var(--led-ready)_10%,transparent)] text-[var(--led-ready)]"
               : "border-amber-500/30 bg-amber-500/10 text-amber-400",
           )}
         >
@@ -177,7 +177,7 @@ function ProductContextCard({
           variant="outline"
           size="sm"
           onClick={onLoadReferenceImage}
-          className="h-7 w-full border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[9px] font-mono uppercase tracking-wider text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
+          className="h-7 w-full border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--darkroom-bg)_40%,transparent)] px-2 text-[9px] font-mono uppercase tracking-wider text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
         >
           <Image className="mr-1.5 h-3 w-3" />
           {summary.imageStatus === "missing" ? "Load product image" : "Use product reference"}
@@ -271,7 +271,7 @@ export function LeftRail({
                       className={cn(
                         "text-[9px] mt-1 font-mono uppercase tracking-wider",
                         selectedProduct.bottle_type === "oil"
-                          ? "bg-[var(--led-ready)]/10 border-[var(--led-ready)]/30 text-[var(--led-ready)]"
+                          ? "bg-[color-mix(in_srgb,var(--led-ready)_10%,transparent)] border-[color-mix(in_srgb,var(--led-ready)_30%,transparent)] text-[var(--led-ready)]"
                           : "bg-blue-500/10 border-blue-500/30 text-blue-400"
                       )}
                     >
@@ -326,7 +326,7 @@ export function LeftRail({
           </span>
         </div>
 
-        <div className="mb-4 rounded-lg border border-[var(--darkroom-border)] bg-[var(--camera-body-deep)]/50 p-3 space-y-2">
+        <div className="mb-4 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <Label
               htmlFor="background-plate-mode"
@@ -339,7 +339,7 @@ export function LeftRail({
             </InlineHelp>
             <Badge
               variant="outline"
-              className="ml-auto mr-1 border-[var(--darkroom-accent)]/20 bg-[var(--darkroom-accent)]/5 px-1.5 py-0 text-[8px] font-mono uppercase tracking-wider text-[var(--darkroom-accent)]"
+              className="ml-auto mr-1 border-[color-mix(in_srgb,var(--darkroom-accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_5%,transparent)] px-1.5 py-0 text-[8px] font-mono uppercase tracking-wider text-[var(--darkroom-accent)]"
             >
               Advanced
             </Badge>
@@ -380,7 +380,7 @@ export function LeftRail({
             onLibraryOpen={() => setShowProductLibrary(true)}
             disabled={isGenerating || backgroundPlateMode}
           />
-          <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[var(--camera-body-deep)]/50 p-2.5">
+          <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
             <div className="mb-2 flex items-center gap-2">
               <Route className="h-3 w-3 text-[var(--darkroom-accent)]" />
               <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--darkroom-text-dim)]">
@@ -397,7 +397,7 @@ export function LeftRail({
                 size="sm"
                 disabled={isGenerating || backgroundPlateMode || !productImage}
                 onClick={() => onUseSchematicPrompt("whole-product")}
-                className="h-9 justify-start gap-2 border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
+                className="h-9 justify-start gap-2 border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--darkroom-bg)_40%,transparent)] px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
                 title="Prefill a whole-product schematic prompt"
               >
                 <Package className="h-3.5 w-3.5" />
@@ -409,7 +409,7 @@ export function LeftRail({
                 size="sm"
                 disabled={isGenerating || backgroundPlateMode || !productImage}
                 onClick={() => onUseSchematicPrompt("exploded")}
-                className="h-9 justify-start gap-2 border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
+                className="h-9 justify-start gap-2 border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--darkroom-bg)_40%,transparent)] px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
                 title="Prefill an exploded assembly schematic prompt"
               >
                 <Layers className="h-3.5 w-3.5" />
@@ -417,7 +417,7 @@ export function LeftRail({
               </Button>
             </div>
           </div>
-          <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[var(--camera-body-deep)]/50 p-2.5">
+          <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
             <div className="mb-1.5 flex items-center gap-2">
               <Landmark className="h-3 w-3 text-[var(--darkroom-accent)]" />
               <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--darkroom-text-dim)]">
@@ -437,7 +437,7 @@ export function LeftRail({
                 size="sm"
                 disabled={isGenerating || backgroundPlateMode || !productImage}
                 onClick={() => onUseBestBottlesHeroPrompt("single-stone")}
-                className="h-9 justify-start gap-1.5 border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
+                className="h-9 justify-start gap-1.5 border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--darkroom-bg)_40%,transparent)] px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
                 title="Prefill a homepage hero prompt with one stone plinth"
               >
                 <Package className="h-3.5 w-3.5" />
@@ -449,7 +449,7 @@ export function LeftRail({
                 size="sm"
                 disabled={isGenerating || backgroundPlateMode || !productImage}
                 onClick={() => onUseBestBottlesHeroPrompt("two-stone")}
-                className="h-9 justify-start gap-1.5 border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
+                className="h-9 justify-start gap-1.5 border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--darkroom-bg)_40%,transparent)] px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
                 title="Prefill a homepage hero prompt with two stone forms"
               >
                 <Landmark className="h-3.5 w-3.5" />
@@ -461,7 +461,7 @@ export function LeftRail({
                 size="sm"
                 disabled={isGenerating || backgroundPlateMode || !productImage}
                 onClick={() => onUseBestBottlesHeroPrompt("stone-cluster")}
-                className="h-9 justify-start gap-1.5 border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
+                className="h-9 justify-start gap-1.5 border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--darkroom-bg)_40%,transparent)] px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
                 title="Prefill a homepage hero prompt with a restrained stone cluster"
               >
                 <Layers className="h-3.5 w-3.5" />
@@ -471,7 +471,7 @@ export function LeftRail({
           </div>
 
           {showHeroSetPresets && (
-            <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[var(--camera-body-deep)]/50 p-2.5">
+            <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
               <div className="mb-1.5 flex items-center gap-2">
                 <Sparkles className="h-3 w-3 text-[var(--darkroom-accent)]" />
                 <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--darkroom-text-dim)]">
@@ -565,7 +565,7 @@ export function LeftRail({
                   const next = order[(order.indexOf(heroSetId) + 1) % order.length];
                   setHeroSetId(next);
                 }}
-                className="h-9 w-full justify-center gap-1.5 border-[var(--darkroom-border)] bg-[var(--darkroom-bg)]/40 px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
+                className="h-9 w-full justify-center gap-1.5 border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--darkroom-bg)_40%,transparent)] px-2 text-[10px] text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)] hover:text-[var(--darkroom-accent)]"
                 title="Load this empty hero set prompt at 2688x1152 on GPT Image 2.5 Sunburst, then advance to the next direction"
               >
                 <Sparkles className="h-3.5 w-3.5" />
@@ -666,7 +666,7 @@ export function LeftRail({
                   disabled={isGenerating}
                 />
                 {styleReference ? (
-                  <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-[var(--darkroom-border)] bg-[var(--camera-body-deep)]/40 px-2 py-1.5">
+                  <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_40%,transparent)] px-2 py-1.5">
                     <Label
                       htmlFor="style-ref-library-out"
                       className="text-[10px] text-[var(--darkroom-text-muted)] cursor-pointer leading-snug"
