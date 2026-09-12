@@ -1855,6 +1855,15 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       }
     }
     
+    // Freepik is retired (2026-09): route any lingering Freepik selection —
+    // a legacy `provider` value or a stale saved `aiProvider` — to the default
+    // GPT Image 2.5 Sunburst so old settings keep working on the new model.
+    if (effectiveProvider === "freepik") {
+      console.warn("[image] Freepik is retired; routing to GPT Image 2.5 Sunburst", { aiProvider, provider });
+      effectiveProvider = "openai";
+      effectiveOpenAIModel = "gpt-image-2.5-sunburst";
+    }
+
     if (resolution) {
       if (resolution === "standard") {
         effectiveFreepikResolution = "1k";

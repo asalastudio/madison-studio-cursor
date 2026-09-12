@@ -303,11 +303,6 @@ export const AI_MODEL_OPTIONS: AiModelOption[] = [
   { value: "gemini-3.1-flash-image-preview", label: "Nano Banana 2", description: "Fast, improved aspect ratio", badge: "NEW", group: "gemini" },
   { value: "gemini-3-pro-image-preview", label: "Gemini 3.1 Pro", description: "Latest Gemini image model", badge: "BEST", group: "gemini" },
   { value: "gemini-2.5-flash-image", label: "Nano Banana", description: "Stable fallback", badge: "FREE", group: "gemini" },
-  { value: "freepik-seedream-4", label: "Seedream 4", description: "4K capable", badge: "4K", group: "freepik" },
-  { value: "freepik-flux-pro", label: "Flux Pro v1.1", description: "Premium", badge: "NEW", group: "freepik" },
-  { value: "freepik-hyperflux", label: "Hyperflux", description: "Ultra-fast", badge: "FAST", group: "freepik" },
-  { value: "freepik-flux", label: "Flux Dev", description: "Community favorite", badge: "POPULAR", group: "freepik" },
-  { value: "freepik-mystic", label: "Mystic", description: "2K resolution", badge: null, group: "freepik" },
 ];
 
 export interface ImageGenResolutionOption {
