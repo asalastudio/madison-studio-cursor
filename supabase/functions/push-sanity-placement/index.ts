@@ -72,6 +72,8 @@ type Destination = SanityDestinationRow & {
   selector_query: string;
   target_field_path: string;
   target_list_query?: string | null;
+  upsert_id_template?: string | null;
+  upsert_defaults?: Record<string, unknown> | null;
 };
 
 type SanityConfig = {
@@ -389,6 +391,70 @@ async function insertPublishLog(
       error.message,
     );
   }
+}
+
+/**
+ * Fills {placeholders} from request metadata. Returns null when any placeholder
+ * is missing, so a half-built document id is never written.
+ */
+function interpolateFromMetadata(
+  template: string,
+  metadata: Record<string, unknown>,
+): string | null {
+  let missing = false;
+  const result = template.replace(
+    /\{([A-Za-z_][A-Za-z0-9_]*)\}/g,
+    (_match, key: string) => {
+      const value = metadata[key];
+      if (typeof value !== "string" || value.trim().length === 0) {
+        missing = true;
+        return "";
+      }
+      return value.trim();
+    },
+  );
+  return missing ? null : result;
+}
+
+/**
+ * Creates the destination document when the selector found nothing and the
+ * registry row declares an upsert template.
+ *
+ * Uses the same deterministic id convention as the site's
+ * scripts/push-sanity-marketing-heroes.mjs so Madison and that CLI converge on
+ * one document per slot. createIfNotExists rather than createOrReplace: an
+ * editor may have changed the title or notes, and a replace would discard it
+ * silently. The image itself is set by the patch that follows.
+ */
+async function upsertDestinationDocument(
+  sanityClient: any,
+  destination: Destination,
+  metadata: Record<string, unknown>,
+): Promise<{ _id: string; _type?: string } | null> {
+  if (!destination.upsert_id_template) return null;
+
+  const documentId = interpolateFromMetadata(
+    destination.upsert_id_template,
+    metadata,
+  );
+  if (!documentId) return null;
+
+  const doc: Record<string, unknown> = {
+    _id: documentId,
+    _type: destination.sanity_document_type,
+  };
+  for (const [key, value] of Object.entries(destination.upsert_defaults ?? {})) {
+    if (key === "_id" || key === "_type") continue;
+    if (typeof value === "string") {
+      const filled = interpolateFromMetadata(value, metadata);
+      if (filled === null) return null;
+      doc[key] = filled;
+    } else {
+      doc[key] = value;
+    }
+  }
+
+  return await sanityClient.createIfNotExists(doc);
 }
 
 async function loadDestinationRows(
@@ -918,10 +984,22 @@ serve(async (req) => {
 
   try {
     const selectorParams = buildSelectorParams(destination, metadata);
-    const targetDoc = await sanityClient.fetch(
+    let targetDoc = await sanityClient.fetch(
       destination.selector_query,
       selectorParams,
     );
+    if (!targetDoc?._id && !dryRun) {
+      // marketingHeroAsset.image is Rule.required(), so an empty shell document
+      // would be invalid in Studio. Create the document on first publish
+      // instead of asking anyone to pre-make one.
+      targetDoc = await upsertDestinationDocument(
+        sanityClient,
+        destination,
+        // __imageUrl lets a registry row record provenance (sourceUrl) the same
+        // way scripts/push-sanity-marketing-heroes.mjs does.
+        { ...metadata, __imageUrl: imageUrl },
+      );
+    }
     if (!targetDoc?._id) {
       throw new Error(
         `No Sanity document matched destination ${destinationKey} selector for ${destination.sanity_document_type}.`,
