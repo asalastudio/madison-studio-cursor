@@ -514,7 +514,10 @@ export default function DarkRoom() {
         url: state.backgroundImage.url,
         name: state.backgroundImage.name,
       });
-      madison.success("Background image loaded from Light Table");
+      madison.success(
+        "Set loaded",
+        "The product will be placed into this set. Choose a format on the right and expose.",
+      );
     }
   }, [location.state]);
 
