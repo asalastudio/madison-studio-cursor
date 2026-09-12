@@ -71,6 +71,7 @@ type Destination = SanityDestinationRow & {
   sanity_document_type: string;
   selector_query: string;
   target_field_path: string;
+  target_list_query?: string | null;
 };
 
 type SanityConfig = {
@@ -611,8 +612,8 @@ serve(async (req) => {
   }
 
   const action = body.action;
-  if (action !== "inspect" && action !== "publish") {
-    return json(400, { error: "action must be inspect or publish." });
+  if (action !== "inspect" && action !== "publish" && action !== "targets") {
+    return json(400, { error: "action must be inspect, publish or targets." });
   }
 
   const organizationId = normalizeOptionalString(body.organizationId);
@@ -648,6 +649,67 @@ serve(async (req) => {
   }
 
   const sanityClient = makeSanityClient(config);
+
+  // "targets" lets the UI offer real, pickable destinations instead of asking a
+  // human to type a Sanity document id. Each registry row may declare a GROQ
+  // list query returning [{label, metadata}]; the chosen item's metadata is what
+  // the caller sends back on publish, where the existing selector_query resolves
+  // it to a document. Read-only.
+  if (action === "targets") {
+    const destinationKey = normalizeDestinationKey(
+      (body as PublishBody).destinationKey,
+    );
+    if (!destinationKey) {
+      return json(400, { error: "destinationKey is required for targets." });
+    }
+
+    let destination: Destination | null = null;
+    try {
+      const destinationRows = await loadDestinationRows(
+        serviceClient,
+        destinationKey,
+      );
+      destination = selectDestinationConfig(
+        destinationRows,
+        destinationKey,
+        config.schemaProfile,
+        organizationId,
+      ) as Destination | null;
+    } catch (error) {
+      return json(500, { error: errorMessage(error) });
+    }
+    if (!destination) {
+      return json(400, {
+        error:
+          `No active Sanity destination registry row found for ${destinationKey} / ${config.schemaProfile}.`,
+      });
+    }
+
+    if (!destination?.target_list_query) {
+      return json(200, {
+        success: true,
+        destinationKey,
+        targets: [],
+        message:
+          `No target list is configured for ${destinationKey}; enter a document id manually.`,
+      });
+    }
+
+    try {
+      const rows = await sanityClient.fetch(destination.target_list_query, {});
+      const targets = Array.isArray(rows) ? rows : [];
+      return json(200, {
+        success: true,
+        destinationKey,
+        documentType: destination.sanity_document_type,
+        targets,
+      });
+    } catch (error) {
+      return json(502, {
+        error: `Sanity target lookup failed: ${errorMessage(error)}`,
+      });
+    }
+  }
 
   if (action === "inspect") {
     const inspection = await inspectSanitySchema(sanityClient);

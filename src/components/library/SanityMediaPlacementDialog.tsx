@@ -55,6 +55,12 @@ function errorText(error: unknown, fallback: string) {
   return fallback;
 }
 
+type PlacementTarget = {
+  label: string;
+  metadata?: Record<string, unknown> | null;
+  hasImage?: boolean;
+};
+
 export function SanityMediaPlacementDialog({
   open,
   onOpenChange,
@@ -70,6 +76,11 @@ export function SanityMediaPlacementDialog({
     getDefaultSanityPlacementDestination({ familySlug: initialFamilySlug }),
   );
   const [documentId, setDocumentId] = useState("");
+  // Server-offered targets, so nobody has to know a Sanity document id.
+  const [targets, setTargets] = useState<PlacementTarget[]>([]);
+  const [targetsLoading, setTargetsLoading] = useState(false);
+  const [targetsError, setTargetsError] = useState<string | null>(null);
+  const [selectedTargetIndex, setSelectedTargetIndex] = useState<string>("");
   const [altText, setAltText] = useState("");
   const [caption, setCaption] = useState("");
   const [familySlug, setFamilySlug] = useState(initialFamilySlug ?? "");
@@ -101,6 +112,43 @@ export function SanityMediaPlacementDialog({
     initialWebsiteSku,
     open,
   ]);
+
+  // Ask the server which documents this destination can actually target. The
+  // picker replaces the old free-text "Sanity document ID" field; the chosen
+  // item's metadata is what the publisher's selector_query consumes.
+  useEffect(() => {
+    if (!open || !organizationId || !destinationKey) return;
+    let cancelled = false;
+
+    setTargetsLoading(true);
+    setTargetsError(null);
+    setTargets([]);
+    setSelectedTargetIndex("");
+
+    supabase.functions
+      .invoke("push-sanity-placement", {
+        body: { action: "targets", organizationId, destinationKey },
+      })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        const rows: PlacementTarget[] = Array.isArray(data?.targets) ? data.targets : [];
+        setTargets(rows);
+        if (rows.length === 1) setSelectedTargetIndex("0");
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setTargetsError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setTargetsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, organizationId, destinationKey]);
 
   const destination = useMemo(
     () => getSanityPlacementDestination(destinationKey),
@@ -157,6 +205,18 @@ export function SanityMediaPlacementDialog({
         websiteSku,
         graceSku,
       });
+
+      // The picked target carries whatever the destination's selector needs
+      // (slug, groupSlug + kind, ...). Explicit form fields still win.
+      const picked = selectedTargetIndex ? targets[Number(selectedTargetIndex)] : null;
+      if (picked?.metadata) {
+        for (const [key, value] of Object.entries(picked.metadata)) {
+          // The metadata payload is string-valued; targets only ever carry
+          // identifying strings (slug, groupSlug, kind).
+          if (typeof value !== "string" || value.length === 0) continue;
+          if (metadata[key] == null || metadata[key] === "") metadata[key] = value;
+        }
+      }
       const { data, error } = await supabase.functions.invoke(
         "push-sanity-placement",
         {
@@ -241,15 +301,50 @@ export function SanityMediaPlacementDialog({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="sanity-document-id">Sanity document ID</Label>
-              <Input
-                id="sanity-document-id"
-                value={documentId}
-                onChange={(event) => setDocumentId(event.target.value)}
-                placeholder="e.g. homepage or productFamily.sleek"
-                className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
-                disabled={isPushing}
-              />
+              <Label htmlFor="sanity-target">Where it goes</Label>
+              {targetsLoading ? (
+                <div className="flex h-10 items-center gap-2 rounded-md border border-[var(--darkroom-border)] bg-[var(--darkroom-bg)] px-3 text-sm text-[var(--darkroom-text-dim)]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Loading destinations…
+                </div>
+              ) : targets.length > 0 ? (
+                <Select
+                  value={selectedTargetIndex}
+                  onValueChange={setSelectedTargetIndex}
+                  disabled={isPushing}
+                >
+                  <SelectTrigger
+                    id="sanity-target"
+                    className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+                  >
+                    <SelectValue placeholder="Choose where this image goes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {targets.map((target, index) => (
+                      <SelectItem key={`${target.label}-${index}`} value={String(index)}>
+                        {target.label}
+                        {target.hasImage ? " · replaces current image" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    id="sanity-target"
+                    value={documentId}
+                    onChange={(event) => setDocumentId(event.target.value)}
+                    placeholder="Sanity document ID"
+                    className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+                    disabled={isPushing}
+                  />
+                  <p className="text-xs text-[var(--darkroom-text-dim)]">
+                    {targetsError
+                      ? `Could not load destinations: ${targetsError}`
+                      : "No documents exist for this destination yet — create one in Sanity Studio, or enter a document ID."}
+                  </p>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="sanity-alt-text">Alt text</Label>
