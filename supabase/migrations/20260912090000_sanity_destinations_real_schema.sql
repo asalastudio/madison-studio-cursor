@@ -11,7 +11,33 @@
 -- pickable targets. publish_mode = 'draft' lands the change on drafts.<id>
 -- for an editor to publish from Studio.
 
--- homepage_hero: desktop image on one slide
+-- 1. Field paths may address one array element by key, or a named object
+--    field by parameter, e.g. heroSlides[_key==$slideKey].image and
+--    megaMenuPanels.$panel.featuredImage. Same closed grammar the function
+--    re-validates after substitution.
+alter table public.sanity_destination_registry
+  drop constraint if exists sanity_destination_field_path_is_dotted;
+alter table public.sanity_destination_registry
+  add constraint sanity_destination_field_path_is_safe check (
+    target_field_path ~ '^([A-Za-z_][A-Za-z0-9_]*(\[_key==(\$[A-Za-z_][A-Za-z0-9_]*|"[A-Za-z0-9_-]+")\])?|\$[A-Za-z_][A-Za-z0-9_]*)(\.([A-Za-z_][A-Za-z0-9_]*(\[_key==(\$[A-Za-z_][A-Za-z0-9_]*|"[A-Za-z0-9_-]+")\])?|\$[A-Za-z_][A-Za-z0-9_]*))*$'
+  );
+
+-- 2. Four more homepage destinations.
+alter table public.sanity_destination_registry
+  drop constraint if exists sanity_destination_registry_destination_key_check;
+alter table public.sanity_destination_registry
+  add constraint sanity_destination_registry_destination_key_check check (
+    destination_key in (
+      'blog_post', 'homepage_hero', 'homepage_hero_mobile', 'homepage_start_here_card',
+      'homepage_mobile_category_card', 'homepage_mega_menu_panel',
+      'product_family_hero', 'product_main_image', 'paper_doll_component'
+    )
+  );
+
+-- 3. homepage_hero: desktop image on one slide of homepagePage.heroSlides.
+--    The row previously created standalone marketingHeroAsset documents on
+--    first publish (upsert_id_template); that type is not in the deployed
+--    schema and the homepage does not render it, so the template is cleared.
 update public.sanity_destination_registry set
   sanity_document_type = 'homepagePage',
   selector_query = '*[_type == $documentType && !(_id in path("drafts.**"))][0]{_id, _type}',
@@ -20,10 +46,12 @@ update public.sanity_destination_registry set
   target_field_path = 'heroSlides[_key==$slideKey].image',
   target_list_query = '*[_type == "homepagePage" && !(_id in path("drafts.**"))][0].heroSlides[]{"label": coalesce(headline, "Untitled slide"), "metadata": {"slideKey": _key}, "hasImage": defined(image)}',
   publish_mode = 'draft',
+  upsert_id_template = null,
+  upsert_defaults = '{}'::jsonb,
   description = 'Desktop hero image for one slide of the homepage slider (homepagePage.heroSlides[].image, 1920x1080 or larger). Lands as a draft for an editor to publish.'
 where id = '2b2d0b7a-1d58-4f52-943c-a9dea76a3865';
 
--- product_family_hero: the design family card on the homepage carousel
+-- 4. product_family_hero: the design family card on the homepage carousel
 update public.sanity_destination_registry set
   sanity_document_type = 'homepagePage',
   selector_query = '*[_type == $documentType && !(_id in path("drafts.**"))][0]{_id, _type}',
@@ -32,10 +60,12 @@ update public.sanity_destination_registry set
   target_field_path = 'designFamilyCards[_key==$cardKey].image',
   target_list_query = '*[_type == "homepagePage" && !(_id in path("drafts.**"))][0].designFamilyCards[] | order(order asc){"label": coalesce(title, family) + " · " + family, "metadata": {"cardKey": _key, "familySlug": family}, "hasImage": defined(image)}',
   publish_mode = 'draft',
+  upsert_id_template = null,
+  upsert_defaults = '{}'::jsonb,
   description = 'Image for one bottle-family card in the homepage Design Families carousel (homepagePage.designFamilyCards[].image, 600x800 portrait). Lands as a draft.'
 where id = '6504b046-283a-4e20-a4df-c342bf6165d1';
 
--- New homepage destinations. Inserted only if absent for this org/profile.
+-- 5. New homepage destinations. Inserted only if absent for this org/profile.
 insert into public.sanity_destination_registry
   (id, organization_id, destination_key, schema_profile, is_active, publish_mode, requires_image,
    sanity_document_type, selector_query, selector_params, required_metadata,
