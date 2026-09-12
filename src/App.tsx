@@ -77,7 +77,19 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+// Default query behavior for the ~14 useQuery sites that set none: treat data
+// as fresh for 30s and don't refetch on window focus, so navigating between
+// pages stops re-issuing the same query on every mount (the client default is
+// staleTime: 0). Queries that need fresher data set their own staleTime, and
+// mutation invalidation still forces a refetch regardless of this default.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const RouteErrorBoundary = ({ children, routeName }: { children: React.ReactNode; routeName: string }) => {
   const navigate = useNavigate();
