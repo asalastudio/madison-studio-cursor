@@ -915,6 +915,48 @@ function detectBottleType(productData: any): {
  * ------------------------------
  */
 
+/**
+ * The lighting lane's passes.
+ *
+ * "place": the set already exists as the FIRST reference image and is the
+ * canvas. The product (second image) is placed into it; the set's light is
+ * the only authority, so the studio-lighting rotation, the background
+ * directive and the brand palette are all withheld — every one of them is a
+ * second light source, which is exactly what makes a product read as a
+ * sticker.
+ *
+ * "match": an in-place relight of a finished composite. Nothing about the
+ * scene or the product's geometry may change, so the director scaffolding
+ * is bypassed entirely (see buildMatchLightPrompt).
+ */
+type GenerationLane = "place" | "match" | null;
+
+function generationLaneForGoal(goalType: unknown): GenerationLane {
+  if (goalType === "place-product") return "place";
+  if (goalType === "match-light") return "match";
+  return null;
+}
+
+function buildMatchLightPrompt(userPrompt: string, productData: any): string {
+  let prompt = "=== LIGHT MATCH (EDIT IN PLACE) ===\n";
+  prompt += "The reference image is a finished composite: a product standing in a set. ";
+  prompt += "Output the same image with ONLY the product's lighting and shadows changed to belong to the set.\n\n";
+  prompt += `${userPrompt.trim()}\n\n`;
+  if (productData) {
+    const bottleType = detectBottleType(productData);
+    if (bottleType.isOil) {
+      prompt += "The closure is a dropper, roller or screw cap (oil bottle). Keep it exactly as it is; do not turn it into a sprayer.\n";
+    } else if (bottleType.isSpray) {
+      prompt += "The closure is a spray atomizer. Keep it exactly as it is; do not turn it into a dropper or roller.\n";
+    }
+  }
+  prompt += "\nTECHNICAL REQUIREMENTS:\n";
+  prompt += "- Same canvas, same framing, same resolution as the reference\n";
+  prompt += "- Photographic realism: accurate shadow physics, glass refraction and colour bounce\n";
+  prompt += "- No new objects, props, text or watermarks\n";
+  return prompt;
+}
+
 function buildDirectorModePrompt(
   userPrompt: string,
   categorizedRefs: CategorizedReferences,
@@ -928,7 +970,8 @@ function buildDirectorModePrompt(
     backgroundPrompt?: string;
     compositionPresetId?: string;
     compositionPrompt?: string;
-  }
+  },
+  lane: GenerationLane = null,
 ): string {
   let prompt = "";
 
@@ -1062,7 +1105,12 @@ function buildDirectorModePrompt(
     }
   }
 
-  if (categorizedRefs.background.length > 0) {
+  if (lane === "place" && categorizedRefs.background.length > 0) {
+    prompt += "THE SET (Image 1) IS THE CANVAS:\n";
+    prompt += "- Image 1 is the finished set, already photographed. Reproduce it exactly: same camera, same framing, same surfaces, same props, same light, same colour. Nothing in the set moves, changes or is re-rendered.\n";
+    prompt += "- The ONLY change is the product from the product reference placed into it, together with its contact shadow, its cast shadow, and the colour bounce and reflections it causes.\n";
+    prompt += "- Where the set already shows a light direction, the product is lit from that direction and no other.\n\n";
+  } else if (categorizedRefs.background.length > 0) {
     prompt += `BACKGROUND REFERENCE (${categorizedRefs.background.length} image${categorizedRefs.background.length > 1 ? "s" : ""}):\n`;
     prompt += "Use this/these as the ENVIRONMENTAL CONTEXT:\n";
     prompt += "- Replicate the scene, setting, or backdrop\n";
@@ -1098,10 +1146,13 @@ function buildDirectorModePrompt(
   prompt += "=== CREATIVE DIRECTION ===\n";
   prompt += `${userPrompt}\n\n`;
 
-  if (artDirectionControls?.backgroundPrompt || artDirectionControls?.compositionPrompt) {
+  if (
+    (artDirectionControls?.backgroundPrompt && lane !== "place") ||
+    artDirectionControls?.compositionPrompt
+  ) {
     prompt += "=== DARK ROOM ART DIRECTION CONTROLS ===\n";
 
-    if (artDirectionControls.backgroundPrompt) {
+    if (artDirectionControls.backgroundPrompt && lane !== "place") {
       prompt += `BACKGROUND STYLE${artDirectionControls.backgroundPresetId ? ` (${artDirectionControls.backgroundPresetId})` : ""}: ${artDirectionControls.backgroundPrompt}\n`;
       prompt += "Treat this as a deliberate background/surface directive that should materially shape the scene.\n";
     }
@@ -1167,7 +1218,12 @@ function buildDirectorModePrompt(
       /\b(daylight|sunlight|window light|studio light|backdrop|camera-left|camera-right|shadows fall|lit from|rim light|soft directional)\b/i
         .test(userPrompt);
 
-    if (categorizedRefs.style.length > 0) {
+    if (lane === "place") {
+      prompt +=
+        "LIGHTING: The set in Image 1 is the only light source. Read its key direction, softness and colour temperature from its own shadows and highlights and light the product identically. " +
+        "Contact and cast shadows agree with the set's existing shadows in direction, length and softness; the product takes colour bounce from the surface beneath it and shows the set reflected in glass and polished closures. " +
+        "No separate studio setup, no rim light, no second key.\n";
+    } else if (categorizedRefs.style.length > 0) {
       prompt += "LIGHTING: Match the lighting style from the style reference(s)\n";
     } else if (sceneDescribesItsOwnLight) {
       prompt +=
@@ -1182,7 +1238,9 @@ function buildDirectorModePrompt(
     }
     
     // Add composition variety
-    if (artDirectionControls?.compositionPrompt) {
+    if (lane === "place" && !artDirectionControls?.compositionPrompt) {
+      prompt += "COMPOSITION: The set's framing is fixed by Image 1. Place the product as directed above; do not recompose the set.\n";
+    } else if (artDirectionControls?.compositionPrompt) {
       prompt += `COMPOSITION: ${artDirectionControls.compositionPrompt}\n`;
       prompt += "Honor this chosen arrangement over the default composition rotation.\n";
     } else {
@@ -1209,7 +1267,9 @@ function buildDirectorModePrompt(
   prompt += "- No distortion, artifacts, or watermarks\n\n";
 
   // === SECTION 5: BRAND CONTEXT ===
-  if (brandKnowledge?.visualStandards) {
+  // Withheld on the place lane: a palette or lighting mandate would recolour
+  // or relight a set that is meant to be reproduced exactly.
+  if (brandKnowledge?.visualStandards && lane !== "place") {
     const vs = brandKnowledge.visualStandards;
     prompt += "=== BRAND VISUAL STANDARDS (MANDATORY) ===\n";
     
@@ -2119,8 +2179,19 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Lighting lane passes (see buildMatchLightPrompt / GenerationLane).
+    const generationLane = generationLaneForGoal(goalType);
+    if (generationLane) {
+      console.log("🎞️ Lighting lane pass", {
+        lane: generationLane,
+        product: categorizedRefs.product.length,
+        background: categorizedRefs.background.length,
+      });
+    }
+
     // Determine mode: "Essential" (simple) vs "Director" (pro)
     const isDirectorMode = 
+      generationLane === "place" ||
       proModeControls && Object.keys(proModeControls).length > 0 ||
       categorizedRefs.style.length > 0 ||
       categorizedRefs.background.length > 0 ||
@@ -2164,7 +2235,9 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
      */
     let enhancedPrompt: string;
 
-    if (!isRefinement && isBestBottlesStudioMasterRequest && precompiledPromptResolution.prompt) {
+    if (generationLane === "match") {
+      enhancedPrompt = buildMatchLightPrompt(prompt, productData);
+    } else if (!isRefinement && isBestBottlesStudioMasterRequest && precompiledPromptResolution.prompt) {
       enhancedPrompt = precompiledPromptResolution.prompt;
       console.log("[generate-madison-image] Using precompiled Best Bottles prompt", {
         sku: precompiledPromptResolution.sku,
@@ -2213,7 +2286,8 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           backgroundPrompt,
           compositionPresetId,
           compositionPrompt,
-        }
+        },
+        generationLane,
       );
 
       // Add product visual DNA if available
@@ -2362,6 +2436,15 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     const referenceImagesPayload = [];
     let processedProductReferenceCount = 0;
 
+    // Place lane: the set is Image 1 — the canvas — and the product follows.
+    // Everywhere else the product leads (the "star").
+    if (generationLane === "place") {
+      for (const ref of categorizedRefs.background) {
+        const processed = await processReferenceImage(ref.url);
+        if (processed) referenceImagesPayload.push(processed);
+      }
+    }
+
     // Order: Product references first (the "star")
     for (const ref of categorizedRefs.product) {
       const processed = await processReferenceImage(ref.url);
@@ -2393,11 +2476,13 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Then: Background references (the "stage")
-    for (const ref of categorizedRefs.background) {
-      const processed = await processReferenceImage(ref.url);
-      if (processed) {
-        referenceImagesPayload.push(processed);
+    // Then: Background references (the "stage") — already sent first on the place lane.
+    if (generationLane !== "place") {
+      for (const ref of categorizedRefs.background) {
+        const processed = await processReferenceImage(ref.url);
+        if (processed) {
+          referenceImagesPayload.push(processed);
+        }
       }
     }
 
@@ -3223,11 +3308,15 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         savedImageId: savedImage?.id,
         finalPrompt: enhancedPrompt,
         usedProvider,
-        promptMode: isBestBottlesReferenceLocked
-          ? "best-bottles-reference-locked"
-          : isDirectorMode
-            ? "director"
-            : "essential",
+        promptMode: generationLane === "match"
+          ? "match-light"
+          : generationLane === "place"
+            ? "place-product"
+            : isBestBottlesReferenceLocked
+              ? "best-bottles-reference-locked"
+              : isDirectorMode
+                ? "director"
+                : "essential",
         description: `Generated via ${usedProvider}`,
       }),
       {
