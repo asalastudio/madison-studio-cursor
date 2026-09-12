@@ -112,6 +112,7 @@ import {
   type StageInSightGenerationTargets,
 } from "@/lib/bestBottlesStageInSightTargets";
 import { buildBestBottlesShopifyPushItemFromSkuJob } from "@/lib/bestBottlesShopifyPushIdentity";
+import { attachPublishAuthorizations } from "@/lib/bestBottlesShopifyPublishAuthorizationClient";
 import {
   buildMadisonGenerationBatchSections,
   getMadisonGenerationBatchLaneMeta,
@@ -2596,10 +2597,18 @@ export default function BestBottlesPipeline() {
         throw new Error(firstFailure?.message ?? "Shopify dry-run preflight did not resolve every SKU to exactly one variant.");
       }
 
+      // The publish guard short-circuits on dry runs, so a clean preflight does
+      // not imply a writable push. Mint the single-use authorizations it needs
+      // before the real call.
+      const authorizedItems = await attachPublishAuthorizations({
+        organizationId,
+        items: pushItems,
+      });
+
       const { data, error } = await supabase.functions.invoke("push-shopify-product-images", {
         body: {
           organizationId,
-          items: pushItems,
+          items: authorizedItems,
           attachToVariant: true,
           syncBestBottlesConvex: true,
           enforceBestBottlesFinishMatch: true,

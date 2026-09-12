@@ -3,9 +3,10 @@ import { ShopifyConnection } from "./ShopifyConnection";
 import { KlaviyoConnection } from "./KlaviyoConnection";
 import { EtsyConnection } from "./EtsyConnection";
 import { LinkedInConnection } from "./LinkedInConnection";
+import { SocialConnections } from "./SocialConnections";
 import { SanityConnection } from "./SanityConnection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, Bot, Plus, Trash2, Sparkles, Store, Linkedin, Database } from "lucide-react";
+import { Package, Bot, Plus, Trash2, Sparkles, Store, Linkedin, Database, Share2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,6 +156,27 @@ export function IntegrationsTab() {
         </CardHeader>
         <CardContent>
           <KlaviyoConnection />
+        </CardContent>
+      </Card>
+
+      {/* Social publishing */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center">
+              <Share2 className="w-5 h-5 text-pink-500" />
+            </div>
+            <div>
+              <CardTitle>Social publishing</CardTitle>
+              <CardDescription>
+                Connect Instagram, LinkedIn, Pinterest, Facebook and TikTok, then publish or
+                schedule from the calendar
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <SocialConnections />
         </CardContent>
       </Card>
 

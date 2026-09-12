@@ -14,6 +14,7 @@ import {
   type PipelineSkuJobStatus,
 } from "@/lib/bestBottlesPipeline";
 import { buildBestBottlesShopifyPushItemFromSkuJob } from "@/lib/bestBottlesShopifyPushIdentity";
+import { attachPublishAuthorizations } from "@/lib/bestBottlesShopifyPublishAuthorizationClient";
 import { auditProductSeo, type ProductSeoAuditResult } from "@/lib/productSeoAudit";
 import type { ProductHub } from "@/hooks/useProducts";
 
@@ -706,10 +707,17 @@ export function useBestBottlesProductHub(): UseBestBottlesProductHubResult {
         throw new Error("No approved SKU jobs with image URLs are ready to push.");
       }
 
+      // Guarded (Cylinder) SKUs need a single-use publish authorization or the
+      // push function refuses the write.
+      const authorizedItems = await attachPublishAuthorizations({
+        organizationId: currentOrganizationId,
+        items: approvedJobs.map(buildBestBottlesShopifyPushItemFromSkuJob),
+      });
+
       const { data, error } = await supabase.functions.invoke("push-shopify-product-images", {
         body: {
           organizationId: currentOrganizationId,
-          items: approvedJobs.map(buildBestBottlesShopifyPushItemFromSkuJob),
+          items: authorizedItems,
           attachToVariant: true,
           syncBestBottlesConvex: true,
           enforceBestBottlesFinishMatch: true,

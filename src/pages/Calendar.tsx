@@ -9,7 +9,10 @@ import { ScheduleModal } from "@/components/calendar/ScheduleModal";
 import { CalendarSidebar } from "@/components/calendar/CalendarSidebar";
 import { MobileCalendarSheet } from "@/components/calendar/MobileCalendarSheet";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Share2 } from "lucide-react";
+import { SocialComposer } from "@/components/social/SocialComposer";
+import { SocialQueuePanel } from "@/components/social/SocialQueuePanel";
+import { useSocialPosts } from "@/hooks/useSocialPosts";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
@@ -34,6 +37,9 @@ const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerDate, setComposerDate] = useState<Date | null>(null);
+  const { invalidate: refreshSocialQueue } = useSocialPosts();
 
 
 
@@ -190,7 +196,7 @@ const Calendar = () => {
 
         {/* Desktop Schedule Button */}
         {!isMobile && (
-          <div className="mt-6">
+          <div className="mt-6 flex items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -205,6 +211,25 @@ const Calendar = () => {
               </TooltipTrigger>
               <TooltipContent>
                 <p>Add new content to your calendar</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => {
+                    setComposerDate(new Date());
+                    setComposerOpen(true);
+                  }}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Post to social
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Publish or schedule to your connected social accounts</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -251,6 +276,10 @@ const Calendar = () => {
           </div>
         </DragDropContext>
 
+        <div className={cn("mt-6", isMobile && "mt-4")}>
+          <SocialQueuePanel />
+        </div>
+
         {/* Mobile FAB */}
         {isMobile && (
           <Button
@@ -274,6 +303,16 @@ const Calendar = () => {
           selectedDate={selectedDate}
           itemToEdit={selectedItem}
           onSuccess={fetchScheduledContent}
+        />
+
+        <SocialComposer
+          open={composerOpen}
+          onOpenChange={setComposerOpen}
+          initialScheduledFor={composerDate}
+          onPublished={() => {
+            refreshSocialQueue();
+            fetchScheduledContent();
+          }}
         />
       </div>
     </div>

@@ -450,12 +450,19 @@ export function useDAM(options: UseDAMOptions = {}) {
         used_in_data: usedIn,
       });
 
-      // If RPC doesn't exist, fall back to direct update
+      // If RPC doesn't exist, fall back to direct update. There is no
+      // `increment` function in the database either, so read the count and
+      // write it back rather than passing a query builder as a column value.
       if (error && error.code === '42883') {
+        const { data: current } = await supabase
+          .from('dam_assets')
+          .select('usage_count')
+          .eq('id', assetId)
+          .maybeSingle();
         await supabase
           .from('dam_assets')
           .update({
-            usage_count: supabase.rpc('increment', { row_id: assetId }),
+            usage_count: (current?.usage_count ?? 0) + 1,
             last_used_at: new Date().toISOString(),
             last_used_in: usedIn,
           })

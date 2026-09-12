@@ -4251,6 +4251,60 @@ export type Database = {
           },
         ]
       }
+      paper_doll_component_source_intakes: {
+        Row: {
+          component_version_id: string
+          created_at: string
+          family_key: string
+          id: string
+          intake_note: string
+          organization_id: string
+          original_filename: string
+          registrar_display_name: string
+          registrar_user_id: string
+          variant_key: string
+        }
+        Insert: {
+          component_version_id: string
+          created_at?: string
+          family_key: string
+          id?: string
+          intake_note: string
+          organization_id: string
+          original_filename: string
+          registrar_display_name: string
+          registrar_user_id: string
+          variant_key: string
+        }
+        Update: {
+          component_version_id?: string
+          created_at?: string
+          family_key?: string
+          id?: string
+          intake_note?: string
+          organization_id?: string
+          original_filename?: string
+          registrar_display_name?: string
+          registrar_user_id?: string
+          variant_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_doll_component_source_intakes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_doll_component_source_intakes_version_org_fk"
+            columns: ["component_version_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_component_versions"
+            referencedColumns: ["id", "organization_id"]
+          },
+        ]
+      }
       paper_doll_component_versions: {
         Row: {
           alpha_bounds: Json
@@ -4441,6 +4495,52 @@ export type Database = {
           },
         ]
       }
+      paper_doll_family_release_heads: {
+        Row: {
+          family_key: string
+          organization_id: string
+          release_cut_id: string | null
+          release_id: string
+          updated_at: string
+        }
+        Insert: {
+          family_key: string
+          organization_id: string
+          release_cut_id?: string | null
+          release_id: string
+          updated_at?: string
+        }
+        Update: {
+          family_key?: string
+          organization_id?: string
+          release_cut_id?: string | null
+          release_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_doll_family_release_heads_cut_org_fk"
+            columns: ["release_cut_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_release_cuts"
+            referencedColumns: ["id", "organization_id"]
+          },
+          {
+            foreignKeyName: "paper_doll_family_release_heads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_doll_family_release_heads_release_org_fk"
+            columns: ["release_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_family_releases"
+            referencedColumns: ["id", "organization_id"]
+          },
+        ]
+      }
       paper_doll_family_releases: {
         Row: {
           background_hex: string
@@ -4500,44 +4600,296 @@ export type Database = {
           },
         ]
       }
+      paper_doll_placement_approvals: {
+        Row: {
+          approval_note: string
+          approver_display_name: string
+          approver_user_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          placement_version_id: string
+          review_ids: string[]
+        }
+        Insert: {
+          approval_note: string
+          approver_display_name: string
+          approver_user_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          placement_version_id: string
+          review_ids: string[]
+        }
+        Update: {
+          approval_note?: string
+          approver_display_name?: string
+          approver_user_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          placement_version_id?: string
+          review_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_doll_placement_approvals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_doll_placement_approvals_placement_org_fk"
+            columns: ["placement_version_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_placement_versions"
+            referencedColumns: ["id", "organization_id"]
+          },
+        ]
+      }
+      paper_doll_placement_reviews: {
+        Row: {
+          body_component_version_id: string
+          created_at: string
+          gate_key: string
+          id: string
+          organization_id: string
+          placement_version_id: string
+          review_status: string
+          reviewed_by: string
+          reviewer_display_name: string
+        }
+        Insert: {
+          body_component_version_id: string
+          created_at?: string
+          gate_key: string
+          id?: string
+          organization_id: string
+          placement_version_id: string
+          review_status: string
+          reviewed_by: string
+          reviewer_display_name: string
+        }
+        Update: {
+          body_component_version_id?: string
+          created_at?: string
+          gate_key?: string
+          id?: string
+          organization_id?: string
+          placement_version_id?: string
+          review_status?: string
+          reviewed_by?: string
+          reviewer_display_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_doll_placement_reviews_body_org_fk"
+            columns: ["body_component_version_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_component_versions"
+            referencedColumns: ["id", "organization_id"]
+          },
+          {
+            foreignKeyName: "paper_doll_placement_reviews_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_doll_placement_reviews_placement_org_fk"
+            columns: ["placement_version_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_placement_versions"
+            referencedColumns: ["id", "organization_id"]
+          },
+        ]
+      }
+      paper_doll_placement_versions: {
+        Row: {
+          authority_mask_sha256: string
+          calibration_component_version_id: string
+          canvas_height_px: number
+          canvas_width_px: number
+          contact_y_px: number
+          created_at: string
+          created_by: string
+          family_key: string
+          fitment_geometry_key: string
+          id: string
+          mount_axis_x_px: number
+          organization_id: string
+          translate_x_px: number
+          translate_y_px: number
+          uniform_scale: number
+        }
+        Insert: {
+          authority_mask_sha256: string
+          calibration_component_version_id: string
+          canvas_height_px: number
+          canvas_width_px: number
+          contact_y_px: number
+          created_at?: string
+          created_by: string
+          family_key: string
+          fitment_geometry_key: string
+          id?: string
+          mount_axis_x_px: number
+          organization_id: string
+          translate_x_px: number
+          translate_y_px: number
+          uniform_scale: number
+        }
+        Update: {
+          authority_mask_sha256?: string
+          calibration_component_version_id?: string
+          canvas_height_px?: number
+          canvas_width_px?: number
+          contact_y_px?: number
+          created_at?: string
+          created_by?: string
+          family_key?: string
+          fitment_geometry_key?: string
+          id?: string
+          mount_axis_x_px?: number
+          organization_id?: string
+          translate_x_px?: number
+          translate_y_px?: number
+          uniform_scale?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_doll_placement_versions_calibration_org_fk"
+            columns: ["calibration_component_version_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_component_versions"
+            referencedColumns: ["id", "organization_id"]
+          },
+          {
+            foreignKeyName: "paper_doll_placement_versions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paper_doll_publication_approvals: {
+        Row: {
+          approval_note: string
+          approver_display_name: string
+          approver_user_id: string
+          created_at: string
+          expected_draft_sha256: string
+          id: string
+          organization_id: string
+          publish_run_id: string
+          release_cut_id: string
+        }
+        Insert: {
+          approval_note: string
+          approver_display_name: string
+          approver_user_id: string
+          created_at?: string
+          expected_draft_sha256: string
+          id?: string
+          organization_id: string
+          publish_run_id: string
+          release_cut_id: string
+        }
+        Update: {
+          approval_note?: string
+          approver_display_name?: string
+          approver_user_id?: string
+          created_at?: string
+          expected_draft_sha256?: string
+          id?: string
+          organization_id?: string
+          publish_run_id?: string
+          release_cut_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_doll_publication_approvals_cut_org_fk"
+            columns: ["release_cut_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_release_cuts"
+            referencedColumns: ["id", "organization_id"]
+          },
+          {
+            foreignKeyName: "paper_doll_publication_approvals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_doll_publication_approvals_run_org_fk"
+            columns: ["publish_run_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_publish_runs"
+            referencedColumns: ["id", "organization_id"]
+          },
+        ]
+      }
       paper_doll_publish_runs: {
         Row: {
+          attempt_sequence: number
+          completed_at: string | null
           created_at: string
           destination: string
           error_message: string | null
           id: string
           organization_id: string
           publish_status: string
+          release_cut_id: string | null
           release_id: string
           request_sha256: string | null
           result: Json
+          sanity_document_id: string | null
           updated_at: string
         }
         Insert: {
+          attempt_sequence?: number
+          completed_at?: string | null
           created_at?: string
           destination: string
           error_message?: string | null
           id?: string
           organization_id: string
           publish_status: string
+          release_cut_id?: string | null
           release_id: string
           request_sha256?: string | null
           result?: Json
+          sanity_document_id?: string | null
           updated_at?: string
         }
         Update: {
+          attempt_sequence?: number
+          completed_at?: string | null
           created_at?: string
           destination?: string
           error_message?: string | null
           id?: string
           organization_id?: string
           publish_status?: string
+          release_cut_id?: string | null
           release_id?: string
           request_sha256?: string | null
           result?: Json
+          sanity_document_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "paper_doll_publish_runs_cut_org_fk"
+            columns: ["release_cut_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_release_cuts"
+            referencedColumns: ["id", "organization_id"]
+          },
           {
             foreignKeyName: "paper_doll_publish_runs_organization_id_fkey"
             columns: ["organization_id"]
@@ -4608,6 +4960,121 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      paper_doll_release_cuts: {
+        Row: {
+          approval_note: string
+          approver_display_name: string
+          approver_user_id: string
+          created_at: string
+          family_key: string
+          id: string
+          manifest_sha256: string
+          organization_id: string
+          resulting_release_id: string
+          selected_components: Json
+          source_release_id: string
+        }
+        Insert: {
+          approval_note: string
+          approver_display_name: string
+          approver_user_id: string
+          created_at?: string
+          family_key: string
+          id?: string
+          manifest_sha256: string
+          organization_id: string
+          resulting_release_id: string
+          selected_components: Json
+          source_release_id: string
+        }
+        Update: {
+          approval_note?: string
+          approver_display_name?: string
+          approver_user_id?: string
+          created_at?: string
+          family_key?: string
+          id?: string
+          manifest_sha256?: string
+          organization_id?: string
+          resulting_release_id?: string
+          selected_components?: Json
+          source_release_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_doll_release_cuts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_doll_release_cuts_result_org_fk"
+            columns: ["resulting_release_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_family_releases"
+            referencedColumns: ["id", "organization_id"]
+          },
+          {
+            foreignKeyName: "paper_doll_release_cuts_source_org_fk"
+            columns: ["source_release_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_family_releases"
+            referencedColumns: ["id", "organization_id"]
+          },
+        ]
+      }
+      paper_doll_release_sku_readiness: {
+        Row: {
+          created_at: string
+          grace_sku: string
+          id: string
+          mapping_key: string
+          missing_reasons: string[]
+          organization_id: string
+          readiness_status: string
+          release_id: string
+          website_sku: string
+        }
+        Insert: {
+          created_at?: string
+          grace_sku: string
+          id?: string
+          mapping_key: string
+          missing_reasons?: string[]
+          organization_id: string
+          readiness_status: string
+          release_id: string
+          website_sku: string
+        }
+        Update: {
+          created_at?: string
+          grace_sku?: string
+          id?: string
+          mapping_key?: string
+          missing_reasons?: string[]
+          organization_id?: string
+          readiness_status?: string
+          release_id?: string
+          website_sku?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_doll_release_sku_readiness_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_doll_release_sku_readiness_release_org_fk"
+            columns: ["release_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "paper_doll_family_releases"
+            referencedColumns: ["id", "organization_id"]
           },
         ]
       }
@@ -6507,6 +6974,271 @@ export type Database = {
         }
         Relationships: []
       }
+      sanity_connections: {
+        Row: {
+          api_version: string
+          created_at: string
+          dataset: string
+          id: string
+          is_active: boolean
+          last_error: string | null
+          last_schema_inspected_at: string | null
+          last_schema_status: string | null
+          organization_id: string
+          project_id: string
+          schema_profile: string
+          studio_url: string | null
+          updated_at: string
+          write_token_secret_name: string
+        }
+        Insert: {
+          api_version?: string
+          created_at?: string
+          dataset?: string
+          id?: string
+          is_active?: boolean
+          last_error?: string | null
+          last_schema_inspected_at?: string | null
+          last_schema_status?: string | null
+          organization_id: string
+          project_id: string
+          schema_profile?: string
+          studio_url?: string | null
+          updated_at?: string
+          write_token_secret_name: string
+        }
+        Update: {
+          api_version?: string
+          created_at?: string
+          dataset?: string
+          id?: string
+          is_active?: boolean
+          last_error?: string | null
+          last_schema_inspected_at?: string | null
+          last_schema_status?: string | null
+          organization_id?: string
+          project_id?: string
+          schema_profile?: string
+          studio_url?: string | null
+          updated_at?: string
+          write_token_secret_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sanity_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sanity_destination_registry: {
+        Row: {
+          created_at: string
+          description: string | null
+          destination_key: string
+          id: string
+          is_active: boolean
+          organization_id: string | null
+          publish_mode: string
+          required_metadata: Json
+          requires_image: boolean
+          sanity_document_type: string
+          schema_profile: string
+          selector_params: Json
+          selector_query: string
+          target_field_path: string
+          target_list_query: string | null
+          updated_at: string
+          upsert_defaults: Json
+          upsert_id_template: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          destination_key: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string | null
+          publish_mode?: string
+          required_metadata?: Json
+          requires_image?: boolean
+          sanity_document_type: string
+          schema_profile?: string
+          selector_params?: Json
+          selector_query: string
+          target_field_path: string
+          target_list_query?: string | null
+          updated_at?: string
+          upsert_defaults?: Json
+          upsert_id_template?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          destination_key?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string | null
+          publish_mode?: string
+          required_metadata?: Json
+          requires_image?: boolean
+          sanity_document_type?: string
+          schema_profile?: string
+          selector_params?: Json
+          selector_query?: string
+          target_field_path?: string
+          target_list_query?: string | null
+          updated_at?: string
+          upsert_defaults?: Json
+          upsert_id_template?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sanity_destination_registry_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sanity_publish_log: {
+        Row: {
+          connection_id: string | null
+          created_at: string
+          destination_key: string | null
+          error_message: string | null
+          id: string
+          metadata: Json
+          operation: string
+          organization_id: string
+          published_by: string | null
+          request_payload: Json
+          response_payload: Json
+          sanity_asset_id: string | null
+          sanity_document_id: string | null
+          sanity_document_type: string | null
+          source_image_url: string | null
+          status: string
+          target_field_path: string | null
+        }
+        Insert: {
+          connection_id?: string | null
+          created_at?: string
+          destination_key?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          operation: string
+          organization_id: string
+          published_by?: string | null
+          request_payload?: Json
+          response_payload?: Json
+          sanity_asset_id?: string | null
+          sanity_document_id?: string | null
+          sanity_document_type?: string | null
+          source_image_url?: string | null
+          status: string
+          target_field_path?: string | null
+        }
+        Update: {
+          connection_id?: string | null
+          created_at?: string
+          destination_key?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          operation?: string
+          organization_id?: string
+          published_by?: string | null
+          request_payload?: Json
+          response_payload?: Json
+          sanity_asset_id?: string | null
+          sanity_document_id?: string | null
+          sanity_document_type?: string | null
+          source_image_url?: string | null
+          status?: string
+          target_field_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sanity_publish_log_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "sanity_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sanity_publish_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sanity_schema_inspections: {
+        Row: {
+          connection_id: string | null
+          created_at: string
+          dataset: string | null
+          destination_matches: Json
+          error_message: string | null
+          id: string
+          inspected_by: string | null
+          observed_document_types: Json
+          organization_id: string
+          project_id: string | null
+          sampled_documents: Json
+          status: string
+        }
+        Insert: {
+          connection_id?: string | null
+          created_at?: string
+          dataset?: string | null
+          destination_matches?: Json
+          error_message?: string | null
+          id?: string
+          inspected_by?: string | null
+          observed_document_types?: Json
+          organization_id: string
+          project_id?: string | null
+          sampled_documents?: Json
+          status: string
+        }
+        Update: {
+          connection_id?: string | null
+          created_at?: string
+          dataset?: string | null
+          destination_matches?: Json
+          error_message?: string | null
+          id?: string
+          inspected_by?: string | null
+          observed_document_types?: Json
+          organization_id?: string
+          project_id?: string | null
+          sampled_documents?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sanity_schema_inspections_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "sanity_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sanity_schema_inspections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scent_notes: {
         Row: {
           avoid_with: string[] | null
@@ -6964,6 +7696,347 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_connections: {
+        Row: {
+          access_token_cipher: string
+          account_type: string
+          connected_at: string
+          connected_by: string | null
+          created_at: string
+          external_account_avatar_url: string | null
+          external_account_handle: string | null
+          external_account_id: string
+          external_account_name: string | null
+          external_parent_id: string | null
+          external_parent_name: string | null
+          id: string
+          last_published_at: string | null
+          last_verified_at: string | null
+          metadata: Json
+          organization_id: string
+          platform: string
+          refresh_token_cipher: string | null
+          refresh_token_expires_at: string | null
+          scopes: string[]
+          status: string
+          status_detail: string | null
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_cipher: string
+          account_type?: string
+          connected_at?: string
+          connected_by?: string | null
+          created_at?: string
+          external_account_avatar_url?: string | null
+          external_account_handle?: string | null
+          external_account_id: string
+          external_account_name?: string | null
+          external_parent_id?: string | null
+          external_parent_name?: string | null
+          id?: string
+          last_published_at?: string | null
+          last_verified_at?: string | null
+          metadata?: Json
+          organization_id: string
+          platform: string
+          refresh_token_cipher?: string | null
+          refresh_token_expires_at?: string | null
+          scopes?: string[]
+          status?: string
+          status_detail?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_cipher?: string
+          account_type?: string
+          connected_at?: string
+          connected_by?: string | null
+          created_at?: string
+          external_account_avatar_url?: string | null
+          external_account_handle?: string | null
+          external_account_id?: string
+          external_account_name?: string | null
+          external_parent_id?: string | null
+          external_parent_name?: string | null
+          id?: string
+          last_published_at?: string | null
+          last_verified_at?: string | null
+          metadata?: Json
+          organization_id?: string
+          platform?: string
+          refresh_token_cipher?: string | null
+          refresh_token_expires_at?: string | null
+          scopes?: string[]
+          status?: string
+          status_detail?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_oauth_states: {
+        Row: {
+          code_verifier: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          organization_id: string
+          platform: string
+          redirect_url: string
+          requested_scopes: string[]
+          state: string
+          user_id: string
+        }
+        Insert: {
+          code_verifier?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          organization_id: string
+          platform: string
+          redirect_url: string
+          requested_scopes?: string[]
+          state: string
+          user_id: string
+        }
+        Update: {
+          code_verifier?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          organization_id?: string
+          platform?: string
+          redirect_url?: string
+          requested_scopes?: string[]
+          state?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_oauth_states_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_posts: {
+        Row: {
+          attempt_count: number
+          caption: string
+          connection_id: string | null
+          created_at: string
+          created_by: string | null
+          derivative_asset_id: string | null
+          error_code: string | null
+          error_message: string | null
+          external_post_id: string | null
+          first_comment: string | null
+          group_id: string
+          id: string
+          idempotency_key: string | null
+          lease_expires_at: string | null
+          link_url: string | null
+          locked_by: string | null
+          master_content_id: string | null
+          max_attempts: number
+          media: Json
+          options: Json
+          organization_id: string
+          permalink: string | null
+          platform: string
+          publish_after: string | null
+          published_at: string | null
+          scheduled_content_id: string | null
+          scheduled_for: string | null
+          status: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          caption?: string
+          connection_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          derivative_asset_id?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          external_post_id?: string | null
+          first_comment?: string | null
+          group_id?: string
+          id?: string
+          idempotency_key?: string | null
+          lease_expires_at?: string | null
+          link_url?: string | null
+          locked_by?: string | null
+          master_content_id?: string | null
+          max_attempts?: number
+          media?: Json
+          options?: Json
+          organization_id: string
+          permalink?: string | null
+          platform: string
+          publish_after?: string | null
+          published_at?: string | null
+          scheduled_content_id?: string | null
+          scheduled_for?: string | null
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          caption?: string
+          connection_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          derivative_asset_id?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          external_post_id?: string | null
+          first_comment?: string | null
+          group_id?: string
+          id?: string
+          idempotency_key?: string | null
+          lease_expires_at?: string | null
+          link_url?: string | null
+          locked_by?: string | null
+          master_content_id?: string | null
+          max_attempts?: number
+          media?: Json
+          options?: Json
+          organization_id?: string
+          permalink?: string | null
+          platform?: string
+          publish_after?: string | null
+          published_at?: string | null
+          scheduled_content_id?: string | null
+          scheduled_for?: string | null
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connection_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_derivative_asset_id_fkey"
+            columns: ["derivative_asset_id"]
+            isOneToOne: false
+            referencedRelation: "derivative_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_master_content_id_fkey"
+            columns: ["master_content_id"]
+            isOneToOne: false
+            referencedRelation: "master_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_scheduled_content_id_fkey"
+            columns: ["scheduled_content_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_publish_attempts: {
+        Row: {
+          attempt_number: number
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          http_status: number | null
+          id: string
+          organization_id: string
+          outcome: string | null
+          platform: string
+          post_id: string
+          request_summary: Json
+          response_summary: Json
+          started_at: string
+        }
+        Insert: {
+          attempt_number: number
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          http_status?: number | null
+          id?: string
+          organization_id: string
+          outcome?: string | null
+          platform: string
+          post_id: string
+          request_summary?: Json
+          response_summary?: Json
+          started_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          http_status?: number | null
+          id?: string
+          organization_id?: string
+          outcome?: string | null
+          platform?: string
+          post_id?: string
+          request_summary?: Json
+          response_summary?: Json
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_publish_attempts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_publish_attempts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -7588,6 +8661,80 @@ export type Database = {
           },
         ]
       }
+      social_connection_summaries: {
+        Row: {
+          account_type: string | null
+          connected_at: string | null
+          external_account_avatar_url: string | null
+          external_account_handle: string | null
+          external_account_id: string | null
+          external_account_name: string | null
+          external_parent_id: string | null
+          external_parent_name: string | null
+          id: string | null
+          last_published_at: string | null
+          last_verified_at: string | null
+          metadata: Json | null
+          organization_id: string | null
+          platform: string | null
+          scopes: string[] | null
+          status: string | null
+          status_detail: string | null
+          token_expires_at: string | null
+          token_expiring_soon: boolean | null
+        }
+        Insert: {
+          account_type?: string | null
+          connected_at?: string | null
+          external_account_avatar_url?: string | null
+          external_account_handle?: string | null
+          external_account_id?: string | null
+          external_account_name?: string | null
+          external_parent_id?: string | null
+          external_parent_name?: string | null
+          id?: string | null
+          last_published_at?: string | null
+          last_verified_at?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          platform?: string | null
+          scopes?: string[] | null
+          status?: string | null
+          status_detail?: string | null
+          token_expires_at?: string | null
+          token_expiring_soon?: never
+        }
+        Update: {
+          account_type?: string | null
+          connected_at?: string | null
+          external_account_avatar_url?: string | null
+          external_account_handle?: string | null
+          external_account_id?: string | null
+          external_account_name?: string | null
+          external_parent_id?: string | null
+          external_parent_name?: string | null
+          id?: string | null
+          last_published_at?: string | null
+          last_verified_at?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          platform?: string | null
+          scopes?: string[] | null
+          status?: string | null
+          status_detail?: string | null
+          token_expires_at?: string | null
+          token_expiring_soon?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_pending_invitations_for_user: {
@@ -7653,12 +8800,97 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_due_social_posts: {
+        Args: { p_lease_seconds?: number; p_limit?: number; p_worker?: string }
+        Returns: {
+          attempt_count: number
+          caption: string
+          connection_id: string | null
+          created_at: string
+          created_by: string | null
+          derivative_asset_id: string | null
+          error_code: string | null
+          error_message: string | null
+          external_post_id: string | null
+          first_comment: string | null
+          group_id: string
+          id: string
+          idempotency_key: string | null
+          lease_expires_at: string | null
+          link_url: string | null
+          locked_by: string | null
+          master_content_id: string | null
+          max_attempts: number
+          media: Json
+          options: Json
+          organization_id: string
+          permalink: string | null
+          platform: string
+          publish_after: string | null
+          published_at: string | null
+          scheduled_content_id: string | null
+          scheduled_for: string | null
+          status: string
+          timezone: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "social_posts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cleanup_expired_linkedin_oauth_states: { Args: never; Returns: undefined }
+      cleanup_expired_shopify_publish_authorizations: {
+        Args: never
+        Returns: number
+      }
+      cleanup_expired_social_oauth_states: { Args: never; Returns: number }
       cleanup_unsaved_image_sessions: { Args: never; Returns: number }
       create_default_dam_folders: {
         Args: { org_id: string; user_id?: string }
         Returns: undefined
       }
+      cut_paper_doll_release:
+        | {
+            Args: {
+              p_approval_note: string
+              p_approver_display_name: string
+              p_approver_user_id: string
+              p_body_component_version_ids: string[]
+              p_expected_current_release_id: string
+              p_family_key: string
+              p_manifest: Json
+              p_organization_id: string
+              p_release_version: string
+              p_renderer_version: string
+              p_selected_components: Json
+              p_sku_readiness: Json
+              p_source_git_commit: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_approval_note: string
+              p_approver_display_name: string
+              p_approver_user_id: string
+              p_body_component_version_ids: string[]
+              p_expected_current_release_id: string
+              p_family_key: string
+              p_manifest: Json
+              p_organization_id: string
+              p_release_version: string
+              p_renderer_version: string
+              p_sanity_public_document_id: string
+              p_selected_components: Json
+              p_sku_readiness: Json
+              p_source_git_commit: string
+            }
+            Returns: Json
+          }
+      ensure_social_scheduler_secret: { Args: never; Returns: string }
       finalize_paper_doll_candidate_job: {
         Args: {
           p_job_id: string
@@ -7721,6 +8953,15 @@ export type Database = {
       get_org_business_type_config: { Args: { org_id: string }; Returns: Json }
       get_paper_doll_candidate_workbench: {
         Args: { p_family_key: string; p_organization_id: string }
+        Returns: Json
+      }
+      get_paper_doll_family_placement: {
+        Args: {
+          p_authority_mask_sha256: string
+          p_family_key: string
+          p_fitment_geometry_key: string
+          p_organization_id: string
+        }
         Returns: Json
       }
       get_paper_doll_release_workbench: {
@@ -7790,6 +9031,11 @@ export type Database = {
         Args: { framework_uuid: string }
         Returns: undefined
       }
+      install_social_scheduler_cron: { Args: never; Returns: string }
+      invoke_social_edge_function: {
+        Args: { p_body?: Json; p_function: string }
+        Returns: number
+      }
       is_organization_member: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
@@ -7802,6 +9048,25 @@ export type Database = {
           p_pipeline_sku_job_id: string
         }
         Returns: undefined
+      }
+      lock_paper_doll_shared_placement: {
+        Args: {
+          p_approval_note: string
+          p_approver_display_name: string
+          p_approver_user_id: string
+          p_calibration_component_version_id: string
+          p_canvas_height_px: number
+          p_canvas_width_px: number
+          p_compatible_body_component_version_ids: string[]
+          p_expected_authority_mask_sha256: string
+          p_family_key: string
+          p_fitment_geometry_key: string
+          p_organization_id: string
+          p_translate_x_px: number
+          p_translate_y_px: number
+          p_uniform_scale: number
+        }
+        Returns: Json
       }
       match_visual_examples: {
         Args: {
@@ -7853,6 +9118,39 @@ export type Database = {
         }
         Returns: undefined
       }
+      register_paper_doll_approved_source: {
+        Args: {
+          p_component: Json
+          p_organization_id: string
+          p_qa_results: Json
+          p_version: Json
+        }
+        Returns: Json
+      }
+      register_paper_doll_component_source: {
+        Args: {
+          p_component: Json
+          p_family_key: string
+          p_intake_note: string
+          p_organization_id: string
+          p_original_filename: string
+          p_registrar_display_name: string
+          p_registrar_user_id: string
+          p_variant_key: string
+          p_version: Json
+        }
+        Returns: Json
+      }
+      register_paper_doll_release_draft: {
+        Args: {
+          p_manifest: Json
+          p_manifest_sha256: string
+          p_organization_id: string
+          p_renderer_version: string
+          p_source_git_commit: string
+        }
+        Returns: Json
+      }
       save_audit_draft: {
         Args: {
           p_brand_name: string
@@ -7899,6 +9197,11 @@ export type Database = {
         }
       }
       seed_default_stages: { Args: { _org_id: string }; Returns: undefined }
+      social_vault_secret: { Args: { p_name: string }; Returns: string }
+      verify_social_scheduler_secret: {
+        Args: { p_secret: string }
+        Returns: boolean
+      }
     }
     Enums: {
       activity_type:
@@ -7965,12 +9268,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -7994,11 +9297,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8019,11 +9322,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8044,11 +9347,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8061,11 +9364,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

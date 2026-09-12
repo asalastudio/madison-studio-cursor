@@ -71,6 +71,9 @@ type Destination = SanityDestinationRow & {
   sanity_document_type: string;
   selector_query: string;
   target_field_path: string;
+  target_list_query?: string | null;
+  upsert_id_template?: string | null;
+  upsert_defaults?: Record<string, unknown> | null;
 };
 
 type SanityConfig = {
@@ -390,6 +393,70 @@ async function insertPublishLog(
   }
 }
 
+/**
+ * Fills {placeholders} from request metadata. Returns null when any placeholder
+ * is missing, so a half-built document id is never written.
+ */
+function interpolateFromMetadata(
+  template: string,
+  metadata: Record<string, unknown>,
+): string | null {
+  let missing = false;
+  const result = template.replace(
+    /\{([A-Za-z_][A-Za-z0-9_]*)\}/g,
+    (_match, key: string) => {
+      const value = metadata[key];
+      if (typeof value !== "string" || value.trim().length === 0) {
+        missing = true;
+        return "";
+      }
+      return value.trim();
+    },
+  );
+  return missing ? null : result;
+}
+
+/**
+ * Creates the destination document when the selector found nothing and the
+ * registry row declares an upsert template.
+ *
+ * Uses the same deterministic id convention as the site's
+ * scripts/push-sanity-marketing-heroes.mjs so Madison and that CLI converge on
+ * one document per slot. createIfNotExists rather than createOrReplace: an
+ * editor may have changed the title or notes, and a replace would discard it
+ * silently. The image itself is set by the patch that follows.
+ */
+async function upsertDestinationDocument(
+  sanityClient: any,
+  destination: Destination,
+  metadata: Record<string, unknown>,
+): Promise<{ _id: string; _type?: string } | null> {
+  if (!destination.upsert_id_template) return null;
+
+  const documentId = interpolateFromMetadata(
+    destination.upsert_id_template,
+    metadata,
+  );
+  if (!documentId) return null;
+
+  const doc: Record<string, unknown> = {
+    _id: documentId,
+    _type: destination.sanity_document_type,
+  };
+  for (const [key, value] of Object.entries(destination.upsert_defaults ?? {})) {
+    if (key === "_id" || key === "_type") continue;
+    if (typeof value === "string") {
+      const filled = interpolateFromMetadata(value, metadata);
+      if (filled === null) return null;
+      doc[key] = filled;
+    } else {
+      doc[key] = value;
+    }
+  }
+
+  return await sanityClient.createIfNotExists(doc);
+}
+
 async function loadDestinationRows(
   serviceClient: any,
   destinationKey: string,
@@ -611,8 +678,8 @@ serve(async (req) => {
   }
 
   const action = body.action;
-  if (action !== "inspect" && action !== "publish") {
-    return json(400, { error: "action must be inspect or publish." });
+  if (action !== "inspect" && action !== "publish" && action !== "targets") {
+    return json(400, { error: "action must be inspect, publish or targets." });
   }
 
   const organizationId = normalizeOptionalString(body.organizationId);
@@ -648,6 +715,67 @@ serve(async (req) => {
   }
 
   const sanityClient = makeSanityClient(config);
+
+  // "targets" lets the UI offer real, pickable destinations instead of asking a
+  // human to type a Sanity document id. Each registry row may declare a GROQ
+  // list query returning [{label, metadata}]; the chosen item's metadata is what
+  // the caller sends back on publish, where the existing selector_query resolves
+  // it to a document. Read-only.
+  if (action === "targets") {
+    const destinationKey = normalizeDestinationKey(
+      (body as PublishBody).destinationKey,
+    );
+    if (!destinationKey) {
+      return json(400, { error: "destinationKey is required for targets." });
+    }
+
+    let destination: Destination | null = null;
+    try {
+      const destinationRows = await loadDestinationRows(
+        serviceClient,
+        destinationKey,
+      );
+      destination = selectDestinationConfig(
+        destinationRows,
+        destinationKey,
+        config.schemaProfile,
+        organizationId,
+      ) as Destination | null;
+    } catch (error) {
+      return json(500, { error: errorMessage(error) });
+    }
+    if (!destination) {
+      return json(400, {
+        error:
+          `No active Sanity destination registry row found for ${destinationKey} / ${config.schemaProfile}.`,
+      });
+    }
+
+    if (!destination?.target_list_query) {
+      return json(200, {
+        success: true,
+        destinationKey,
+        targets: [],
+        message:
+          `No target list is configured for ${destinationKey}; enter a document id manually.`,
+      });
+    }
+
+    try {
+      const rows = await sanityClient.fetch(destination.target_list_query, {});
+      const targets = Array.isArray(rows) ? rows : [];
+      return json(200, {
+        success: true,
+        destinationKey,
+        documentType: destination.sanity_document_type,
+        targets,
+      });
+    } catch (error) {
+      return json(502, {
+        error: `Sanity target lookup failed: ${errorMessage(error)}`,
+      });
+    }
+  }
 
   if (action === "inspect") {
     const inspection = await inspectSanitySchema(sanityClient);
@@ -856,10 +984,22 @@ serve(async (req) => {
 
   try {
     const selectorParams = buildSelectorParams(destination, metadata);
-    const targetDoc = await sanityClient.fetch(
+    let targetDoc = await sanityClient.fetch(
       destination.selector_query,
       selectorParams,
     );
+    if (!targetDoc?._id && !dryRun) {
+      // marketingHeroAsset.image is Rule.required(), so an empty shell document
+      // would be invalid in Studio. Create the document on first publish
+      // instead of asking anyone to pre-make one.
+      targetDoc = await upsertDestinationDocument(
+        sanityClient,
+        destination,
+        // __imageUrl lets a registry row record provenance (sourceUrl) the same
+        // way scripts/push-sanity-marketing-heroes.mjs does.
+        { ...metadata, __imageUrl: imageUrl },
+      );
+    }
     if (!targetDoc?._id) {
       throw new Error(
         `No Sanity document matched destination ${destinationKey} selector for ${destination.sanity_document_type}.`,

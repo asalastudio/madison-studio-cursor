@@ -86,6 +86,7 @@ import {
   type PipelineSkuJob,
 } from "@/lib/bestBottlesPipeline";
 import { expectedBestBottlesVisualIdentityForProduct } from "@/lib/bestBottlesShopifyPushIdentity";
+import { isCylinderProductSku } from "@/lib/bestBottlesShopifyPublishAuthorization";
 import {
   BEST_BOTTLES_RECONCILIATION_QUERY_KEY,
   indexBestBottlesImageReconciliations,
@@ -1863,6 +1864,23 @@ export default function ImageLibrary() {
       .filter((row) => row.websiteSku);
     if (rowsToPublish.length === 0) return;
 
+    // Cylinder images are only publishable through the governed pipeline path,
+    // which proves the image is the approved one on an approved job. The ad-hoc
+    // library push cannot establish that, so refuse here with a useful message
+    // instead of failing deep inside the publish guard.
+    const guardedRows = rowsToPublish.filter((row) => {
+      const product = resolveBestBottlesProductForSku(row.websiteSku);
+      return [row.websiteSku, product?.graceSku].some(isCylinderProductSku);
+    });
+    if (guardedRows.length > 0) {
+      toast({
+        title: "Push Cylinder images from the pipeline",
+        description: `${guardedRows.length} of ${rowsToPublish.length} selected image(s) are Cylinder SKUs. Publish those from Best Bottles → Pipeline or the Product Hub, which carries the approved job identity the publish guard requires.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setBulkBestBottlesLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("push-shopify-product-images", {
@@ -2364,6 +2382,18 @@ export default function ImageLibrary() {
               ? "Confirm the visual finish and cap height, and make sure the selected finish matches the SKU before pushing."
               : getBestBottlesFinishConflict(unsafeRow.expectedCapColor, product)) ||
             `Declare the image visual identity before pushing to this variant.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const guardedShopifyRows = rowsToPublish.filter((row) =>
+      [row.sku, row.websiteSku, row.graceSku].some(isCylinderProductSku),
+    );
+    if (guardedShopifyRows.length > 0) {
+      toast({
+        title: "Push Cylinder images from the pipeline",
+        description: `${guardedShopifyRows.length} of ${rowsToPublish.length} selected image(s) are Cylinder SKUs. Publish those from Best Bottles → Pipeline or the Product Hub, which carries the approved job identity the publish guard requires.`,
         variant: "destructive",
       });
       return;

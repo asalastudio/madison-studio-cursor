@@ -155,3 +155,50 @@ upscale — identity references, not final images), horizontally centered, foot 
 - Keep good images regardless of origin; quality decides "done", not provenance.
 - Don't push to Shopify or mutate references from the UI build — those are Cowork lanes.
 - The clean/drift-free count is supposed to start at 0. Don't backfill it from legacy.
+
+---
+
+## 9. Shopify publish authorization (Cylinder guard) — added 2026-09-11
+
+Cylinder SKUs (`GB-CYL-*`, `GB-TCYL-*`, `GBCyl*`, `GBTallCyl*`) are covered by a
+publish guard in `supabase/functions/_shared/shopifyPublishGuard.ts`. Before it
+will let an image reach Shopify it requires all of:
+
+- the exact `pipelineSkuJobId` on the push item, matching the job row;
+- the job owned by the org, `status = 'approved'`, with
+  `generated_image_id = approved_image_id = item.imageId`;
+- the image carrying exactly one status tag, `status:approved-keep`;
+- the image URL https and identical to both job image URLs;
+- **a single-use authorization row** in `shopify_publish_authorizations`, passed
+  as `item.publishAuthorizationId` and claimed atomically at push time.
+
+### Getting an authorization
+
+`mint-shopify-publish-authorization` issues them. It runs the *same* guard in
+dry-run mode before writing a row, so minting criteria cannot drift from
+enforcement criteria — a rubber-stamp minter would defeat the guard. Rows are
+single-use, expire after 10 minutes, and are consumed by
+`push-shopify-product-images`.
+
+Client side, call `attachPublishAuthorizations` from
+`src/lib/bestBottlesShopifyPublishAuthorizationClient.ts` **between the dry-run
+preflight and the real push**. It mints only for guarded SKUs and throws rather
+than authorizing a partial batch.
+
+### Two traps to remember
+
+1. **The guard short-circuits on `dryRun`**, returning before the authorization
+   check. A clean preflight therefore does *not* mean the write will succeed.
+   This is why the original break looked like it came out of nowhere.
+2. **Ad-hoc pushes cannot satisfy the guard.** The Image Library bulk push has no
+   pipeline job identity, so it refuses Cylinder SKUs up front and points the
+   user at Pipeline / Product Hub. Do not "fix" that by minting from the library
+   path — the job identity is the whole point of the guard.
+
+### History
+
+The guard shipped in `dbe4c7d` (2026-07-20) but nothing ever minted
+authorizations, and `buildBestBottlesShopifyPushItemFromSkuJob` never set
+`pipelineSkuJobId`. The guarded build went live 2026-09-05 05:45 UTC, 23 minutes
+after the last successful Cylinder push, so the break sat latent — no Cylinder
+job has been in `status = 'approved'` since. Both gaps were closed 2026-09-11.
