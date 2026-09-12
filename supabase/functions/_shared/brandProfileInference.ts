@@ -83,7 +83,7 @@ Return ONLY the JSON object, no markdown, no explanations.`;
       ],
       responseMimeType: 'application/json',
       temperature: 0.3, // Lower temperature for more consistent, factual extraction
-      maxOutputTokens: 2048,
+      maxOutputTokens: 8192,
     });
     
     const responseText = extractTextFromGeminiResponse(aiData);

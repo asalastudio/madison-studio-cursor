@@ -191,7 +191,7 @@ CRITICAL INSTRUCTIONS:
       messages: [{ role: 'user', content: extractionPrompt }],
       temperature: 0.3,
       responseMimeType: 'application/json',
-      maxOutputTokens: 4096,
+      maxOutputTokens: 8192,
     });
 
     const extractedContent = extractTextFromGeminiResponse(data);

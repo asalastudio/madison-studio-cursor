@@ -60,7 +60,7 @@ interface CandidateActionPanelProps {
 
 const PROVIDERS: Array<{ id: CandidateProvider; label: string; detail: string }> = [
   { id: "blender", label: "Blender", detail: "canonical render" },
-  { id: "openai", label: "GPT Image", detail: "gpt-image-2" },
+  { id: "openai", label: "GPT Image", detail: "gpt-image-2.5" },
   { id: "google", label: "Nano Banana", detail: "Gemini image" },
   { id: "manual", label: "Upload", detail: "versioned source" },
 ];
@@ -594,6 +594,12 @@ export function CandidateActionPanel({
       {provider === "google" && (
         <select value={model} onChange={(event) => setModel(event.target.value)} className="w-full rounded border bg-black/20 px-2 py-2 font-mono text-[9px]" style={{ borderColor: "var(--darkroom-border-subtle)", color: "var(--darkroom-text-muted)" }}>
           {CandidateProviderModels.google.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      )}
+
+      {provider === "openai" && (
+        <select value={model} onChange={(event) => setModel(event.target.value)} className="w-full rounded border bg-black/20 px-2 py-2 font-mono text-[9px]" style={{ borderColor: "var(--darkroom-border-subtle)", color: "var(--darkroom-text-muted)" }} aria-label="GPT Image model">
+          {CandidateProviderModels.openai.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
       )}
       <textarea value={instruction} onChange={(event) => setInstruction(event.target.value)} disabled={provider === "blender"} rows={3} className="w-full resize-y rounded border bg-black/20 p-2 text-[9px] leading-4 disabled:opacity-45" style={{ borderColor: "var(--darkroom-border-subtle)", color: "var(--darkroom-text-muted)" }} aria-label="Candidate instruction" />

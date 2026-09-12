@@ -2,9 +2,9 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const CLAUDE_TEXT_MODEL =
-  Deno.env.get("CLAUDE_TEXT_MODEL") ?? "claude-3-sonnet-20240229";
+  Deno.env.get("CLAUDE_TEXT_MODEL") ?? "claude-sonnet-5";
 const GEMINI_TEXT_MODEL =
-  Deno.env.get("GEMINI_TEXT_MODEL") ?? "models/gemini-3-pro-preview";
+  Deno.env.get("GEMINI_TEXT_MODEL") ?? "models/gemini-3.5-flash";
 const GEMINI_IMAGE_MODEL =
   Deno.env.get("GEMINI_IMAGE_MODEL") ??
   "models/gemini-3.1-flash-image-preview";
@@ -128,10 +128,13 @@ export async function callClaude(
     throw new Error("ANTHROPIC_API_KEY not configured");
   }
 
+  // No `temperature` here on purpose: Claude Sonnet 5 (and the rest of the
+  // current generation) removed the sampling parameters and returns 400 if
+  // `temperature`, `top_p`, or `top_k` is sent. `GenerateTextOptions.temperature`
+  // is still honoured by the Gemini path below.
   const body = {
     model: CLAUDE_TEXT_MODEL,
     max_tokens: options.maxOutputTokens ?? 4096,
-    temperature: options.temperature ?? 0.7,
     system: options.systemPrompt ?? "",
     messages: toClaudeMessages(options),
   };
@@ -172,7 +175,7 @@ export async function callGeminiText(
     contents: toGeminiContents(options),
     generationConfig: {
       temperature: options.temperature ?? 0.7,
-      maxOutputTokens: options.maxOutputTokens ?? 2048,
+      maxOutputTokens: options.maxOutputTokens ?? 8192,
     },
   };
 

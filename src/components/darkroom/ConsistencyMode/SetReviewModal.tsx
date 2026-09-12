@@ -332,7 +332,7 @@ export function SetReviewModal({
                   type="button"
                   onClick={handleBulkDownload}
                   title={`Download all ${completedCount} frames`}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-white/[0.06] bg-[var(--camera-body-deep)] text-[10px] font-mono uppercase tracking-wider text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)]/50 hover:text-[var(--darkroom-accent)] transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-white/[0.06] bg-[var(--camera-body-deep)] text-[10px] font-mono uppercase tracking-wider text-[var(--darkroom-text-muted)] hover:border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] hover:text-[var(--darkroom-accent)] transition-colors"
                 >
                   <Download className="w-3 h-3" />
                   Download all
@@ -350,10 +350,10 @@ export function SetReviewModal({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
-                className="absolute inset-0 z-10 bg-[var(--darkroom-bg)]/95 backdrop-blur-md flex flex-col"
+                className="absolute inset-0 z-10 bg-[color-mix(in_srgb,var(--darkroom-bg)_95%,transparent)] backdrop-blur-md flex flex-col"
               >
                 {/* Lightbox header */}
-                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--darkroom-border)] bg-[var(--camera-body)]/80 flex-shrink-0">
+                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body)_80%,transparent)] flex-shrink-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-[9px] font-mono text-[var(--darkroom-text-dim)]">
                       {String((zoomedIndex ?? 0) + 1).padStart(2, "0")}/
@@ -420,7 +420,7 @@ export function SetReviewModal({
                 </div>
 
                 {/* Lightbox actions */}
-                <div className="flex items-center justify-center gap-2 px-4 py-2.5 border-t border-[var(--darkroom-border)] bg-[var(--camera-body)]/80 flex-shrink-0">
+                <div className="flex items-center justify-center gap-2 px-4 py-2.5 border-t border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body)_80%,transparent)] flex-shrink-0">
                   <ZoomAction
                     icon={Heart}
                     label={heroImageIds.has(zoomedItem.savedImageId ?? "") ? "Hero ✓" : "Hero"}
@@ -451,7 +451,7 @@ export function SetReviewModal({
                         : "Use as Master"
                     }
                     active={activeMasterItemId === zoomedItem.savedImageId}
-                    activeClass="border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/15 text-[var(--darkroom-accent)]"
+                    activeClass="border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_15%,transparent)] text-[var(--darkroom-accent)]"
                     onClick={() => onPromoteToMaster(zoomedItem)}
                     title="Use as Master (M)"
                   />
@@ -500,7 +500,7 @@ function SetReviewTile({
     <div
       className={cn(
         "camera-panel flex flex-col overflow-hidden transition-colors",
-        isMaster && "border-[var(--darkroom-accent)]/50",
+        isMaster && "border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)]",
       )}
     >
       <button
@@ -527,7 +527,7 @@ function SetReviewTile({
         {/* Status badges bottom-left */}
         <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1">
           {isMaster && (
-            <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded bg-[var(--darkroom-accent)]/20 text-[var(--darkroom-accent)] border border-[var(--darkroom-accent)]/40">
+            <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded bg-[color-mix(in_srgb,var(--darkroom-accent)_20%,transparent)] text-[var(--darkroom-accent)] border border-[color-mix(in_srgb,var(--darkroom-accent)_40%,transparent)]">
               Master
             </span>
           )}
@@ -587,7 +587,7 @@ function SetReviewTile({
         <TileButton
           icon={Star}
           active={isMaster}
-          activeClass="border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/15 text-[var(--darkroom-accent)]"
+          activeClass="border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_15%,transparent)] text-[var(--darkroom-accent)]"
           onClick={(e) => {
             e.stopPropagation();
             if (!isMaster) onPromoteToMaster();

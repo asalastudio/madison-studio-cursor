@@ -337,7 +337,7 @@ Always maintain brand voice while optimizing for the platform's audience and alg
         systemPrompt: systemContent,
         messages,
         temperature: 0.7,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192,
       });
 
       const content = extractTextFromGeminiResponse(completion) ||

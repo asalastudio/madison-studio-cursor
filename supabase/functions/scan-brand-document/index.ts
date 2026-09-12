@@ -149,7 +149,7 @@ Important:
     console.log(`[Document Scan] Sending to Claude Sonnet`);
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 4096,
       messages: [{
         role: 'user',
@@ -275,7 +275,7 @@ Important:
         ...(existingDNA?.scan_metadata || {}),
         document_analyzed_at: new Date().toISOString(),
         document_name: file.name,
-        claude_model: 'claude-sonnet-4-20250514'
+        claude_model: 'claude-sonnet-5'
       }
     };
 

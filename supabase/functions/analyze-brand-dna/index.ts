@@ -287,7 +287,7 @@ For brandEssence, identify the core personality traits of the brand.`,
           },
         ],
         responseMimeType: "application/json",
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192,
         temperature: 0.2,
       });
 
@@ -410,7 +410,7 @@ Return ONLY valid JSON with this structure:
 }`,
           messages: [{ role: "user", content: `Generate Brand DNA for ${brandName}` }],
           responseMimeType: "application/json",
-          maxOutputTokens: 1024,
+          maxOutputTokens: 8192,
           temperature: 0.4
         });
 

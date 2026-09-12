@@ -44,8 +44,10 @@ import {
 } from "@/integrations/convex/bestBottles";
 import {
   findPipelineGroupByConvexSlug,
+  findPipelineSkuJobByGraceSku,
   updatePipelineGroupStatus,
 } from "@/lib/bestBottlesPipeline";
+import { approveBestBottlesGeneratedMaster } from "@/lib/bestBottlesMasterApproval";
 import "@/styles/darkroom.css";
 import { resolveInitialStudioTab, type BestBottlesStudioTab } from "./bestBottlesStudioPreview";
 
@@ -343,38 +345,86 @@ export default function BestBottlesStudio() {
                         });
                         return;
                       }
+                      if (!result.savedImageId) {
+                        toast({
+                          title: "Cannot approve this master",
+                          description:
+                            "The render has no Image Library id yet, so it cannot be linked to a SKU job. Save it to the Library and approve again.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
                       try {
+                        // Approval has to land on the per-SKU job, not just the group
+                        // tracker: the Shopify push selects jobs by status, approved
+                        // image URL, Shopify SKU, and the approved-keep library tag,
+                        // and only this gate writes all four. Same helper the Pipeline
+                        // page uses, so both lanes clear the identical strict gate.
+                        const skuJob = await findPipelineSkuJobByGraceSku(
+                          currentOrganizationId,
+                          product.graceSku,
+                        );
+                        if (!skuJob) {
+                          toast({
+                            title: "No SKU job to approve against",
+                            description: `${product.graceSku} has no row in the Pipeline SKU table, so it cannot become push-ready. Seed it from the Pipeline page first.`,
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        await approveBestBottlesGeneratedMaster({
+                          organizationId: currentOrganizationId,
+                          pipelineSkuJobId: skuJob.id,
+                          imageId: result.savedImageId,
+                        });
+
+                        // Tracker row second, and only once the gate has passed — a
+                        // green group row over an unpushable SKU is the exact state
+                        // this ordering exists to prevent.
                         const pipelineRow = await findPipelineGroupByConvexSlug(
                           currentOrganizationId,
                           groupSlug,
                         );
-                        if (!pipelineRow) {
-                          toast({
-                            title: "Saved to Library — Pipeline row not found",
-                            description: `No Pipeline row with convex_slug "${groupSlug}". Image is tagged in Library but status won't propagate to the tracker.`,
+                        if (pipelineRow) {
+                          await updatePipelineGroupStatus(pipelineRow.id, {
+                            madison_status: "approved",
+                            madison_approved_image_id: result.savedImageId,
+                            madison_approved_at: new Date().toISOString(),
+                            madison_approved_by: user?.id ?? null,
                           });
-                          return;
                         }
-                        await updatePipelineGroupStatus(pipelineRow.id, {
-                          madison_status: "approved",
-                          madison_approved_image_id: result.savedImageId,
-                          madison_approved_at: new Date().toISOString(),
-                          madison_approved_by: user?.id ?? null,
-                        });
-                        await queryClient.invalidateQueries({
-                          queryKey: ["best-bottles-pipeline-groups"],
-                        });
+
+                        await Promise.all([
+                          queryClient.invalidateQueries({
+                            queryKey: ["best-bottles-pipeline-groups"],
+                          }),
+                          queryClient.invalidateQueries({
+                            queryKey: ["best-bottles-pipeline-sku-jobs"],
+                          }),
+                          queryClient.invalidateQueries({
+                            queryKey: ["best-bottles-approval-status"],
+                          }),
+                        ]);
+
                         toast({
-                          title: `${product.applicator ?? "Applicator"} group approved`,
-                          description: `Pipeline row for this applicator group flipped to APPROVED. Represents the whole group — not just ${product.graceSku}.`,
+                          title: `${product.graceSku} approved and push-ready`,
+                          description: pipelineRow
+                            ? `SKU job is APPROVED with the approved-keep image. Push it to Shopify from the Pipeline page.`
+                            : `SKU job is APPROVED and push-ready. The group tracker was not updated — no Pipeline row with convex_slug "${groupSlug}".`,
                         });
                       } catch (e) {
                         const message =
                           e instanceof Error ? e.message : "Unknown error approving master.";
+                        const alreadyTerminal = /terminal sku job/i.test(message);
                         toast({
-                          title: "Approval write failed",
-                          description: message,
-                          variant: "destructive",
+                          title: alreadyTerminal
+                            ? `${product.graceSku} is already approved`
+                            : "Approval failed",
+                          description: alreadyTerminal
+                            ? "This SKU job already has an approved image. Reject the current one from the Pipeline page before approving a replacement."
+                            : message,
+                          variant: alreadyTerminal ? "default" : "destructive",
                         });
                       }
                     }}

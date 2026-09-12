@@ -1,0 +1,82 @@
+# Nothing ran the test suite before this workflow existed. `deploy.yml` builds
+# the frontend and nothing else, which is how a test asserting the Studio ->
+# Shopify approval wiring stayed red for months without anyone noticing: it was
+# committed, failed immediately, and was never executed again.
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Tests, types, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The affected-functions report diffs against the base branch, and a
+          # three-dot diff needs a common ancestor. actions/checkout defaults to
+          # depth 1, which has none: `fatal: origin/main...HEAD: no merge base`.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Deterministic suites only. Two are deliberately excluded:
+      #
+      #   test:paperdoll:factory  - 11 tests read generated artifacts under
+      #                             outputs/, which is gitignored, so they fail
+      #                             with ENOENT anywhere but a machine that has
+      #                             run the generators. Fixture problem, not a
+      #                             logic problem.
+      #   src/App.routes.test.ts  - one assertion genuinely fails:
+      #                             ReleaseWorkbench is built and exported but
+      #                             never mounted, so the CYL-9ML Studio cannot
+      #                             reach it. Wire it up or retire the
+      #                             assertion, then add this file here.
+      #
+      # 161 of the repo's 293 test files are not referenced by any npm script.
+      # Folding them in is worthwhile, but each needs checking for the same
+      # fixture dependency first.
+      - name: Run test suites
+        run: npm run test:ci
+
+      # ~1,200 pre-existing errors mean a plain `tsc` gate could never be turned
+      # on. The ratchet fails only on signatures absent from the committed
+      # baseline, so the backlog can shrink over time without blocking anyone.
+      - name: Typecheck (no new errors)
+        run: npm run typecheck:ratchet
+
+      - name: Build frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      # Edge functions are bundled per-function with a private copy of whatever
+      # they import from _shared/, so a shared-module change leaves dependents
+      # running stale code until each is redeployed. This prints the set that a
+      # PR would need; it never deploys.
+      - name: Report edge functions this change affects
+        if: github.event_name == 'pull_request'
+        # Advisory only — it prints what a reviewer should redeploy. It must
+        # never be the reason a green change is blocked.
+        continue-on-error: true
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          npm run deploy:affected -- --since "origin/${{ github.base_ref }}" --dry-run

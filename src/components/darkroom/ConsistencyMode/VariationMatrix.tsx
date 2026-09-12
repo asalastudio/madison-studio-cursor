@@ -157,7 +157,7 @@ export function VariationMatrix({
                     className={cn(
                       "rounded border px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider",
                       selectedOptions.length > 0
-                        ? "border-[var(--darkroom-accent)]/35 bg-[var(--darkroom-accent)]/10 text-[var(--darkroom-accent)]"
+                        ? "border-[color-mix(in_srgb,var(--darkroom-accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)] text-[var(--darkroom-accent)]"
                         : "border-white/[0.06] bg-white/[0.03] text-[var(--darkroom-text-dim)]",
                     )}
                   >
@@ -197,7 +197,7 @@ export function VariationMatrix({
                       return (
                         <div
                           key={group.category}
-                          className="rounded border border-white/[0.04] bg-[var(--camera-body-deep)]/40"
+                          className="rounded border border-white/[0.04] bg-[color-mix(in_srgb,var(--camera-body-deep)_40%,transparent)]"
                         >
                           <button
                             type="button"
@@ -258,7 +258,7 @@ export function VariationMatrix({
                       return (
                         <div
                           key={group.id}
-                          className="rounded border border-white/[0.04] bg-[var(--camera-body-deep)]/40"
+                          className="rounded border border-white/[0.04] bg-[color-mix(in_srgb,var(--camera-body-deep)_40%,transparent)]"
                         >
                           <button
                             type="button"
@@ -381,7 +381,7 @@ function VariationChip({
           "group flex items-center gap-1.5 pl-2 pr-1 py-1 rounded border text-[10px] transition-all",
           "disabled:opacity-40 disabled:cursor-not-allowed",
           isSelected
-            ? "border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/10 text-[var(--darkroom-text)]"
+            ? "border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)] text-[var(--darkroom-text)]"
             : "border-white/[0.06] bg-[var(--camera-body-deep)] text-[var(--darkroom-text-muted)] hover:border-white/[0.15] hover:text-[var(--darkroom-text)]",
         )}
       >
@@ -408,7 +408,7 @@ function VariationChip({
           className={cn(
             "ml-1 inline-flex items-center justify-center w-5 h-5 rounded border",
             attachedRef
-              ? "border-[var(--darkroom-accent)]/40 bg-black/40 overflow-hidden p-0"
+              ? "border-[color-mix(in_srgb,var(--darkroom-accent)_40%,transparent)] bg-black/40 overflow-hidden p-0"
               : "border-white/[0.08] bg-black/20 text-[var(--darkroom-text-dim)]",
           )}
         >
@@ -439,9 +439,9 @@ function VariationChip({
         className={cn(
           "absolute top-1/2 -translate-y-1/2 right-1 w-5 h-5 rounded border overflow-hidden",
           attachedRef
-            ? "border-[var(--darkroom-accent)]/40 bg-black/60 text-white"
+            ? "border-[color-mix(in_srgb,var(--darkroom-accent)_40%,transparent)] bg-black/60 text-white"
             : "border-white/[0.08] bg-black/30 text-[var(--darkroom-text-dim)]",
-          "hover:border-[var(--darkroom-accent)]/50 hover:text-[var(--darkroom-accent)] hover:bg-black/50",
+          "hover:border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] hover:text-[var(--darkroom-accent)] hover:bg-black/50",
           "transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
           "flex items-center justify-center group/ref",
         )}
@@ -465,7 +465,7 @@ function VariationChip({
           title={`Remove reference from ${option.label}`}
           className={cn(
             "absolute -top-1 -right-1 z-10 w-3.5 h-3.5 rounded-full border",
-            "border-[var(--led-error)]/60 bg-black text-white",
+            "border-[color-mix(in_srgb,var(--led-error)_60%,transparent)] bg-black text-white",
             "hover:bg-[var(--led-error)] hover:border-[var(--led-error)]",
             "transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
             "flex items-center justify-center",

@@ -290,12 +290,14 @@ export interface AiModelOption {
   group: "auto" | "gemini" | "openai" | "freepik";
 }
 
-export const DEFAULT_IMAGE_AI_PROVIDER = "openai-image-2";
+export const DEFAULT_IMAGE_AI_PROVIDER = "openai-image-2.5-sunburst";
 export const DEFAULT_IMAGE_AI_FALLBACK_LABEL = "Gemini 3.1 Pro";
 
 /** Values must stay in sync with `generate-madison-image` aiProvider mapping. */
 export const AI_MODEL_OPTIONS: AiModelOption[] = [
-  { value: "openai-image-2", label: "GPT Image 2", description: "Default — high-fidelity reference edits", badge: "DEFAULT", group: "openai" },
+  { value: "openai-image-2.5-sunburst", label: "GPT Image 2.5 Sunburst", description: "Default — most capable; editing precision for campaign and product work", badge: "DEFAULT", group: "openai" },
+  { value: "openai-image-2.5-flare", label: "GPT Image 2.5 Flare", description: "Fast 2.5 tier — higher quality than GPT Image 2 at ~half the latency", badge: "NEW", group: "openai" },
+  { value: "openai-image-2", label: "GPT Image 2", description: "Previous flagship; still pinned for the Best Bottles reference-locked lane", badge: null, group: "openai" },
   { value: "openai-gpt-image-1.5", label: "GPT Image 1.5", description: "Previous GPT Image model with reference edits", badge: null, group: "openai" },
   { value: "auto", label: "Auto (GPT Image 2 -> Gemini 3.1 Pro)", description: "Legacy compatibility path", badge: null, group: "auto" },
   { value: "gemini-3.1-flash-image-preview", label: "Nano Banana 2", description: "Fast, improved aspect ratio", badge: "NEW", group: "gemini" },

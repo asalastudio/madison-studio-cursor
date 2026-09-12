@@ -48,6 +48,7 @@ const OPENAI_EXACT_SIZE_ALLOWLIST = new Set([
   "2048x1152",
   "2048x2048",
   "2080x2288",
+  "2688x1152",
   "2160x3840",
   "2880x2880",
   "3840x2160",
@@ -93,12 +94,31 @@ function aspectRatioForCanvas(canvas: { width: number; height: number }): string
   return `${canvas.width / divisor}:${canvas.height / divisor}`;
 }
 
+/**
+ * GPT Image accepts any size meeting its four constraints, so membership of a
+ * hand-maintained list was the wrong test: a perfectly valid canvas that nobody
+ * had thought to add was silently dropped, and the request fell back to a
+ * bucketed size at a different aspect ratio. Validate the constraints instead.
+ *
+ * The allowlist is retained only as the fast path for the sizes we ship.
+ */
 function openAIExactSizeForCanvas(
   canvas: { width: number; height: number } | null,
 ): OpenAIImageSize | undefined {
   if (!canvas) return undefined;
-  const size = `${canvas.width}x${canvas.height}`;
-  return OPENAI_EXACT_SIZE_ALLOWLIST.has(size) ? size as OpenAIImageSize : undefined;
+  const { width, height } = canvas;
+  const size = `${width}x${height}`;
+  if (OPENAI_EXACT_SIZE_ALLOWLIST.has(size)) return size as OpenAIImageSize;
+
+  if (!Number.isInteger(width) || !Number.isInteger(height)) return undefined;
+  if (width % 16 !== 0 || height % 16 !== 0) return undefined;
+  if (width > 3840 || height > 3840) return undefined;
+  const ratio = width / height;
+  if (ratio > 3 || ratio < 1 / 3) return undefined;
+  const totalPixels = width * height;
+  if (totalPixels < 655_360 || totalPixels > 8_294_400) return undefined;
+
+  return size as OpenAIImageSize;
 }
 
 function normalizeOpenAIOutputFormat(value: unknown): OpenAIOutputFormat {
@@ -1125,9 +1145,36 @@ function buildDirectorModePrompt(
     // Randomly select a lighting variation (using timestamp for pseudo-randomness)
     const lightingIndex = Date.now() % lightingVariations.length;
     const selectedLighting = lightingVariations[lightingIndex];
-    
+
+    /**
+     * When the scene already owns the light, a second lighting directive is the
+     * thing that makes a product look pasted on.
+     *
+     * These five are PORTRAIT patterns — named for how they light a face — and
+     * one was appended at random on every non-Pro-Mode generation. Drop a
+     * product into a set whose prompt says "soft directional daylight from
+     * upper camera-left" and then also tell the model "LIGHTING SETUP: Split,
+     * CONTRAST RATIO 5:1", and it lights the product by one instruction and the
+     * scene by the other. The result is a correctly-rendered product that does
+     * not belong to its background, which is exactly the superimposed look.
+     *
+     * The rotation was there to stop repetitive output on bare prompts. That is
+     * still worth having when there is no scene to respect — so it stays for
+     * that case only.
+     */
+    const sceneDescribesItsOwnLight =
+      categorizedRefs.background.length > 0 ||
+      /\b(daylight|sunlight|window light|studio light|backdrop|camera-left|camera-right|shadows fall|lit from|rim light|soft directional)\b/i
+        .test(userPrompt);
+
     if (categorizedRefs.style.length > 0) {
       prompt += "LIGHTING: Match the lighting style from the style reference(s)\n";
+    } else if (sceneDescribesItsOwnLight) {
+      prompt +=
+        "LIGHTING: The scene's own light is authoritative — do not impose a separate studio setup. " +
+        "Light every object from the same direction, at the same colour temperature and the same softness as the set described above. " +
+        "Objects standing in the scene take colour bounce from the surfaces beneath and beside them, cast shadows that agree in direction and length with the set's existing shadows, and show the set reflected in any glossy or polished surface. " +
+        "Nothing may read as a cut-out composited onto a backdrop.\n";
     } else {
       prompt += `LIGHTING SETUP: ${selectedLighting.setup} - Commercial standard\n`;
       prompt += `LIGHT QUALITY: ${selectedLighting.quality} (flattering, commercial look)\n`;
@@ -1666,7 +1713,26 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         effectiveFreepikModel = "classic-fast";
       }
       // OpenAI image models (gpt-image-* family + dall-e-3).
+      // GPT Image 2.5 (2026-09-08): Flare is the fast everyday tier, Sunburst
+      // the editing-precision tier. Both accept the same size grid and add
+      // the `xhigh` / `max` quality settings.
       else if (
+        aiProvider === "openai-image-2.5-flare" ||
+        aiProvider === "openai-gpt-image-2.5-flare" ||
+        aiProvider === "gpt-image-2.5-flare"
+      ) {
+        effectiveProvider = "openai";
+        effectiveOpenAIModel = "gpt-image-2.5-flare";
+      } else if (
+        aiProvider === "openai-image-2.5-sunburst" ||
+        aiProvider === "openai-gpt-image-2.5-sunburst" ||
+        aiProvider === "gpt-image-2.5-sunburst" ||
+        aiProvider === "openai-image-2.5" ||
+        aiProvider === "gpt-image-2.5"
+      ) {
+        effectiveProvider = "openai";
+        effectiveOpenAIModel = "gpt-image-2.5-sunburst";
+      } else if (
         aiProvider === "openai-image-2" ||
         aiProvider === "openai-gpt-image-2" ||
         aiProvider === "gpt-image-2"
@@ -2464,6 +2530,11 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           allowBestBottlesProviderOverride,
         });
 
+    // NOTE: this lane stays pinned to gpt-image-2 on purpose. The Best Bottles
+    // reference-locked contract (canvas, Bone background, ambient-contact
+    // shadow, light contract) was validated against gpt-image-2 output; moving
+    // it to GPT Image 2.5 is a contract change that needs its own re-validation
+    // pass, not a silent model bump. See bestBottlesRenderingContract.ts.
     if (forceBestBottlesOpenAIProvider) {
       if (effectiveProvider !== "openai" || effectiveOpenAIModel !== "gpt-image-2") {
         console.log(
@@ -2749,8 +2820,13 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
 
         let openaiImageBase64 = openaiResult.imageBase64;
         let openaiMimeType = openaiResult.mimeType;
-        const shouldTrustOpenAIExactCanvas =
-          Boolean(exactCanvas && requestedOpenAIExactSize && effectiveOpenAIModel === "gpt-image-2");
+        const shouldTrustOpenAIExactCanvas = Boolean(
+          exactCanvas &&
+            requestedOpenAIExactSize &&
+            (effectiveOpenAIModel === "gpt-image-2" ||
+              effectiveOpenAIModel === "gpt-image-2.5-flare" ||
+              effectiveOpenAIModel === "gpt-image-2.5-sunburst"),
+        );
 
         if (exactCanvas && (isBestBottlesReferenceLocked || shouldTrustOpenAIExactCanvas)) {
           // A 2080×2288 decode + contain + PNG re-encode can exhaust Supabase
@@ -2764,7 +2840,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
             targetCanvas: `${exactCanvas.width}×${exactCanvas.height}`,
             exactSizeRequested: requestedOpenAIExactSize ?? "(none)",
             reason: shouldTrustOpenAIExactCanvas
-              ? "exact GPT Image 2 output size requested; avoid edge WORKER_LIMIT during ImageScript resize/re-encode"
+              ? "exact GPT Image output size requested; avoid edge WORKER_LIMIT during ImageScript resize/re-encode"
               : "avoid edge WORKER_LIMIT during ImageScript resize/re-encode",
           });
         } else {

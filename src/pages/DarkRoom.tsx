@@ -32,6 +32,15 @@ import {
   type DarkroomSchematicPromptMode,
 } from "@/lib/darkroomSchematicPrompts";
 import {
+  HERO_SET_ASPECT_RATIO,
+  HERO_SET_CANVAS,
+  HERO_SET_MODEL,
+  buildHeroSetPrompt,
+  getHeroSetPreset,
+  type HeroSetPopulation,
+  type HeroSetPresetId,
+} from "@/lib/darkroomHeroSetPresets";
+import {
   BEST_BOTTLES_STONE_HERO_PRESETS,
   buildBestBottlesStoneHeroPrompt,
   type BestBottlesStoneHeroArrangement,
@@ -220,6 +229,11 @@ export default function DarkRoom() {
   const [navigationLibraryTags, setNavigationLibraryTags] = useState<string[]>([]);
   const [navigationGenerationMode, setNavigationGenerationMode] = useState<DarkRoomGenerationMode>("standard");
   const [bestBottlesHeroStoneIndex, setBestBottlesHeroStoneIndex] = useState(0);
+  // Set only by a hero-set preset load. Every other prompt path clears it, so
+  // an ultra-wide set canvas can never leak into an unrelated generation.
+  const [exactGenerationCanvas, setExactGenerationCanvas] = useState<
+    { width: number; height: number } | null
+  >(null);
   const [generationCanvasMode, setGenerationCanvasMode] =
     useState<DarkroomGenerationCanvasMode>("preserve-source");
   const [proSettings, setProSettings] = useState<ProModeSettings>({
@@ -671,6 +685,7 @@ export default function DarkRoom() {
       const preserveCanvasMetadata = await readPreserveCanvasGenerationMetadata(preserveCanvasSourceUrl);
       const resolvedGenerationCanvas = resolveDarkroomGenerationCanvas({
         mode: generationCanvasMode,
+        exactCanvas: exactGenerationCanvas,
         sourceAspectRatio: preserveCanvasMetadata.aspectRatio,
         sourceImageConstraints: preserveCanvasMetadata.imageConstraints,
         selectedAspectRatio: proSettings.aspectRatio,
@@ -854,6 +869,7 @@ export default function DarkRoom() {
     navigationGenerationMode,
     isBestBottlesOrg,
     generationCanvasMode,
+    exactGenerationCanvas,
   ]);
 
   // Explicit operator action to load (or replace with) the selected product's
@@ -941,12 +957,62 @@ export default function DarkRoom() {
       return;
     }
 
+    setExactGenerationCanvas(null);
     setGenerationCanvasMode("preserve-source");
     setPrompt(buildDarkroomSchematicPrompt(mode));
     madison.success(
       mode === "exploded" ? "Exploded schematic prompt loaded" : "Whole schematic prompt loaded",
     );
   }, [productImage]);
+
+  /**
+   * Load one of the ten empty hero-set directions. Unlike the stone-hero
+   * prompts these need no product reference: the set is generated empty and
+   * real bottles are composited in later from catalogue dimensions, so a
+   * generated bottle is never part of the deliverable.
+   */
+  /**
+   * Pro-settings changes flow through here so an explicit aspect-ratio choice
+   * can release the hero-set canvas pin. Without this the pin outranks the
+   * picker and a later 9:16 selection still renders 21:9.
+   */
+  const handleProSettingsChange = useCallback<typeof setProSettings>((update) => {
+    setProSettings((prev) => {
+      const next = typeof update === "function" ? update(prev) : update;
+      if (next.aspectRatio !== prev.aspectRatio) setExactGenerationCanvas(null);
+      return next;
+    });
+  }, []);
+
+  const handleUseHeroSetPreset = useCallback((
+    presetId: HeroSetPresetId,
+    options: { population?: HeroSetPopulation } = {},
+  ) => {
+    const preset = getHeroSetPreset(presetId);
+
+    setExactGenerationCanvas({
+      width: HERO_SET_CANVAS.widthPx,
+      height: HERO_SET_CANVAS.heightPx,
+    });
+    setGenerationCanvasMode("selected-aspect");
+    setProSettings((prev) => ({
+      ...prev,
+      aspectRatio: HERO_SET_ASPECT_RATIO,
+      aiProvider: HERO_SET_MODEL,
+    }));
+    setPrompt(buildHeroSetPrompt(presetId, options));
+
+    const populationNote =
+      options.population === "place-product"
+        ? " · your product placed once"
+        : options.population === "mood-mock"
+          ? " · 3 stand-ins"
+          : " · empty set";
+    madison.success(
+      `${preset.label} set loaded`,
+      `${HERO_SET_CANVAS.widthPx}x${HERO_SET_CANVAS.heightPx} · Sunburst${populationNote}`,
+    );
+  }, []);
 
   const handleUseBestBottlesHeroPrompt = useCallback((arrangement: BestBottlesStoneHeroArrangement) => {
     if (!productImage) {
@@ -963,6 +1029,7 @@ export default function DarkRoom() {
         bestBottlesHeroStoneIndex % BEST_BOTTLES_STONE_HERO_PRESETS.length
       ];
 
+    setExactGenerationCanvas(null);
     setGenerationCanvasMode("selected-aspect");
     if (proSettings.aspectRatio !== selectedHeroAspectRatio) {
       setProSettings((prev) => ({
@@ -1061,7 +1128,7 @@ export default function DarkRoom() {
           styleReference={styleReference}
           onStyleReferenceUpload={setStyleReference}
           proSettings={proSettings}
-          onProSettingsChange={setProSettings}
+          onProSettingsChange={handleProSettingsChange}
           backgroundPlateMode={backgroundPlateMode}
           onBackgroundPlateModeChange={setBackgroundPlateMode}
           styleReferenceLibraryOutput={styleReferenceLibraryOutput}
@@ -1159,12 +1226,14 @@ export default function DarkRoom() {
           styleReference={styleReference}
           onStyleReferenceUpload={setStyleReference}
           proSettings={proSettings}
-          onProSettingsChange={setProSettings}
+          onProSettingsChange={handleProSettingsChange}
           isGenerating={isGenerating}
           canGenerate={canGenerate}
           onGenerate={handleGenerate}
           onUseSchematicPrompt={handleUseSchematicPrompt}
           onUseBestBottlesHeroPrompt={handleUseBestBottlesHeroPrompt}
+          onUseHeroSetPreset={handleUseHeroSetPreset}
+          showHeroSetPresets={isBestBottlesOrg}
           sessionCount={images.length}
           maxImages={MAX_IMAGES_PER_SESSION}
           backgroundPlateMode={backgroundPlateMode}
@@ -1206,7 +1275,7 @@ export default function DarkRoom() {
           hasStyle={!!styleReference}
           proSettingsCount={proSettingsCount}
           proSettings={proSettings}
-          onProSettingsChange={setProSettings}
+          onProSettingsChange={handleProSettingsChange}
           isGenerating={isGenerating}
           productSlots={productSlots}
           onProductSlotsChange={setProductSlots}

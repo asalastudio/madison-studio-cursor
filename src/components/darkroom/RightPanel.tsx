@@ -411,7 +411,7 @@ function SuggestionCard({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 px-2 text-xs text-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent)]/10"
+          className="h-7 px-2 text-xs text-[var(--darkroom-accent)] hover:bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)]"
           onClick={(e) => {
             e.stopPropagation();
             onUse();
@@ -843,7 +843,7 @@ export function RightPanel({
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[11px] font-mono uppercase tracking-wide transition-all",
                   activeTab === "compose"
-                    ? "bg-[var(--camera-body)] text-[var(--darkroom-accent)] border border-[var(--darkroom-accent)]/20"
+                    ? "bg-[var(--camera-body)] text-[var(--darkroom-accent)] border border-[color-mix(in_srgb,var(--darkroom-accent)_20%,transparent)]"
                     : "text-[var(--darkroom-text-dim)] hover:text-[var(--darkroom-text-muted)] hover:bg-white/[0.03]"
                 )}
               >
@@ -855,7 +855,7 @@ export function RightPanel({
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[11px] font-mono uppercase tracking-wide transition-all",
                   activeTab === "settings"
-                    ? "bg-[var(--camera-body)] text-[var(--darkroom-accent)] border border-[var(--darkroom-accent)]/20"
+                    ? "bg-[var(--camera-body)] text-[var(--darkroom-accent)] border border-[color-mix(in_srgb,var(--darkroom-accent)_20%,transparent)]"
                     : "text-[var(--darkroom-text-dim)] hover:text-[var(--darkroom-text-muted)] hover:bg-white/[0.03]"
                 )}
               >
@@ -867,7 +867,7 @@ export function RightPanel({
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[11px] font-mono uppercase tracking-wide transition-all",
                   activeTab === "consistency"
-                    ? "bg-[var(--camera-body)] text-[var(--darkroom-accent)] border border-[var(--darkroom-accent)]/20"
+                    ? "bg-[var(--camera-body)] text-[var(--darkroom-accent)] border border-[color-mix(in_srgb,var(--darkroom-accent)_20%,transparent)]"
                     : "text-[var(--darkroom-text-dim)] hover:text-[var(--darkroom-text-muted)] hover:bg-white/[0.03]"
                 )}
                 title="Bulk variation generation: lock the setup and vary product details"
@@ -1069,7 +1069,7 @@ export function RightPanel({
                       className={cn(
                         "py-1.5 px-1.5 rounded text-[10px] transition-all text-center border",
                         proSettings.visualSquad === squad.value
-                          ? "bg-[var(--led-active)]/10 border-[var(--led-active)]/30 text-[var(--led-active)] font-medium"
+                          ? "bg-[color-mix(in_srgb,var(--led-active)_10%,transparent)] border-[color-mix(in_srgb,var(--led-active)_30%,transparent)] text-[var(--led-active)] font-medium"
                           : "bg-[var(--camera-body-deep)] border-white/[0.04] text-[var(--darkroom-text-muted)] hover:border-white/[0.08]"
                       )}
                     >
@@ -1330,7 +1330,7 @@ export function RightPanel({
                         className={cn(
                           "min-h-[78px] p-2 rounded text-left transition-all border group relative overflow-hidden",
                           isSelected
-                            ? "bg-[var(--led-active)]/10 border-[var(--led-active)]/30"
+                            ? "bg-[color-mix(in_srgb,var(--led-active)_10%,transparent)] border-[color-mix(in_srgb,var(--led-active)_30%,transparent)]"
                             : "bg-[var(--camera-body-deep)] border-white/[0.04] hover:border-white/[0.12] hover:bg-white/[0.03]"
                         )}
                         whileHover={{ scale: 1.01 }}
@@ -1367,7 +1367,7 @@ export function RightPanel({
                         </div>
                         <p className={cn(
                           "text-[9px] leading-tight",
-                          isSelected ? "text-[var(--led-active)]/70" : "text-[var(--darkroom-text-dim)]"
+                          isSelected ? "text-[color-mix(in_srgb,var(--led-active)_70%,transparent)]" : "text-[var(--darkroom-text-dim)]"
                         )}>
                           {preset.description}
                         </p>
@@ -1420,7 +1420,7 @@ export function RightPanel({
                         className={cn(
                           "min-h-[78px] p-2 rounded text-left transition-all border group relative overflow-hidden",
                           isSelected
-                            ? "bg-[var(--led-active)]/10 border-[var(--led-active)]/30"
+                            ? "bg-[color-mix(in_srgb,var(--led-active)_10%,transparent)] border-[color-mix(in_srgb,var(--led-active)_30%,transparent)]"
                             : "bg-[var(--camera-body-deep)] border-white/[0.04] hover:border-white/[0.12] hover:bg-white/[0.03]"
                         )}
                         whileHover={{ scale: 1.01 }}
@@ -1457,7 +1457,7 @@ export function RightPanel({
                         </div>
                         <p className={cn(
                           "text-[9px] leading-tight",
-                          isSelected ? "text-[var(--led-active)]/70" : "text-[var(--darkroom-text-dim)]"
+                          isSelected ? "text-[color-mix(in_srgb,var(--led-active)_70%,transparent)]" : "text-[var(--darkroom-text-dim)]"
                         )}>
                           {preset.description}
                         </p>

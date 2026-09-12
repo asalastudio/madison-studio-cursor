@@ -3,9 +3,10 @@ import { decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 
 import { callGeminiImage } from "../_shared/aiProviders.ts";
-import OpenAIProvider, {
-  type OpenAIImageModel,
-} from "../_shared/openaiProvider.ts";
+// Single line on purpose: the Supabase function bundler's asset scanner does
+// not follow a multi-line `default, { named }` import, so the split form made
+// this function fail to deploy with "Module not found … openaiProvider.ts".
+import OpenAIProvider, { type OpenAIImageModel } from "../_shared/openaiProvider.ts";
 import {
   buildCandidateStoragePaths,
   buildProviderPlan,
@@ -184,11 +185,23 @@ async function acquireSource(
   const prompt = requireString(payload.prompt, "requestPayload.prompt");
   const references = await loadReferences(service, payload);
   if (provider === "openai") {
+    // GPT Image 2.5 adds `xhigh` above `high`, and editing precision is the
+    // whole reason Sunburst is the default here. gpt-image-2 caps at `high`,
+    // so it keeps the exact request it has always sent.
+    //
+    // `background` stays "opaque" for every model, including 2.5, which *can*
+    // emit true transparency: clampDecodedMaterialToAuthority overwrites alpha
+    // with the authority mask byte-for-byte, so generated alpha is discarded
+    // anyway, and an opaque render guarantees painted RGB under every mask
+    // pixel instead of sampling unpainted fringe at the silhouette edge.
+    const openAIModel = model as OpenAIImageModel;
+    const isGptImage25 = openAIModel === "gpt-image-2.5-sunburst" ||
+      openAIModel === "gpt-image-2.5-flare";
     const result = await OpenAIProvider.generateImage({
       prompt,
-      model: model as OpenAIImageModel,
+      model: openAIModel,
       size: "2080x2288",
-      quality: "high",
+      quality: isGptImage25 ? "xhigh" : "high",
       background: "opaque",
       referenceImages: references,
       user: String(requestRow.requested_by),

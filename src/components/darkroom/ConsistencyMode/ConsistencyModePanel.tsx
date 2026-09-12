@@ -575,7 +575,7 @@ export function ConsistencyModePanel({
           Pipeline page. Shown at top so operator knows what shape group
           they're running and that row status will auto-update. */}
       {pipelinePrefill && (
-        <div className="camera-panel p-2.5 border-[var(--darkroom-accent)]/40 bg-[var(--darkroom-accent)]/5">
+        <div className="camera-panel p-2.5 border-[color-mix(in_srgb,var(--darkroom-accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_5%,transparent)]">
           <div className="flex items-center gap-2">
             <Layers className="w-3 h-3 text-[var(--darkroom-accent)]" />
             <div className="flex-1 min-w-0">
@@ -591,7 +591,7 @@ export function ConsistencyModePanel({
             </span>
           </div>
           {pipelineRowsMissingProductContext.length > 0 && (
-            <div className="mt-2 flex items-start gap-2 rounded border border-[var(--led-error)]/25 bg-[var(--led-error)]/5 p-2">
+            <div className="mt-2 flex items-start gap-2 rounded border border-[color-mix(in_srgb,var(--led-error)_25%,transparent)] bg-[color-mix(in_srgb,var(--led-error)_5%,transparent)] p-2">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[var(--led-error)]" />
               <div className="min-w-0 text-[10px] leading-relaxed text-[var(--darkroom-text-muted)]">
                 <span className="font-mono uppercase tracking-wider text-[var(--led-error)]">
@@ -689,8 +689,8 @@ export function ConsistencyModePanel({
                 className={cn(
                   "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border",
                   combinations.length > MAX_VARIATION_SET_SIZE
-                    ? "border-[var(--led-error)]/40 text-[var(--led-error)] bg-[var(--led-error)]/10"
-                    : "border-[var(--darkroom-accent)]/30 text-[var(--darkroom-accent)] bg-[var(--darkroom-accent)]/5",
+                    ? "border-[color-mix(in_srgb,var(--led-error)_40%,transparent)] text-[var(--led-error)] bg-[color-mix(in_srgb,var(--led-error)_10%,transparent)]"
+                    : "border-[color-mix(in_srgb,var(--darkroom-accent)_30%,transparent)] text-[var(--darkroom-accent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_5%,transparent)]",
                 )}
                 title={
                   `${selection.bottleColor.length || 1} × ` +
@@ -788,7 +788,7 @@ export function ConsistencyModePanel({
                       "flex items-start gap-2 p-2 rounded border text-left transition-all",
                       "disabled:opacity-40 disabled:cursor-not-allowed",
                       isSelected
-                        ? "border-[var(--darkroom-accent)]/50 bg-[var(--darkroom-accent)]/10"
+                        ? "border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)]"
                         : "border-white/[0.06] bg-[var(--camera-body-deep)] hover:border-white/[0.15]",
                     )}
                   >
@@ -852,7 +852,7 @@ export function ConsistencyModePanel({
 
       {/* 4. Over-limit warning */}
       {combinations.length > MAX_VARIATION_SET_SIZE && (
-        <div className="camera-panel border-[var(--led-error)]/30 p-2.5">
+        <div className="camera-panel border-[color-mix(in_srgb,var(--led-error)_30%,transparent)] p-2.5">
           <p className="text-[10px] text-[var(--led-error)] font-mono uppercase tracking-wider">
             Set exceeds max ({MAX_VARIATION_SET_SIZE}) — trim axes or split into runs
           </p>
@@ -865,7 +865,7 @@ export function ConsistencyModePanel({
           <motion.button
             type="button"
             onClick={cancel}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded border border-[var(--led-error)]/30 bg-[var(--led-error)]/5 text-[var(--led-error)] hover:bg-[var(--led-error)]/10 transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded border border-[color-mix(in_srgb,var(--led-error)_30%,transparent)] bg-[color-mix(in_srgb,var(--led-error)_5%,transparent)] text-[var(--led-error)] hover:bg-[color-mix(in_srgb,var(--led-error)_10%,transparent)] transition-colors"
             whileTap={{ y: 1 }}
           >
             <XCircle size={14} />
@@ -881,7 +881,7 @@ export function ConsistencyModePanel({
             className={cn(
               "w-full flex items-center justify-center gap-2 py-3 rounded border transition-all",
               canGenerate
-                ? "border-[var(--darkroom-accent)]/40 bg-[var(--darkroom-accent)]/10 text-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent)]/15 hover:border-[var(--darkroom-accent)]/60"
+                ? "border-[color-mix(in_srgb,var(--darkroom-accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)] text-[var(--darkroom-accent)] hover:bg-[color-mix(in_srgb,var(--darkroom-accent)_15%,transparent)] hover:border-[color-mix(in_srgb,var(--darkroom-accent)_60%,transparent)]"
                 : "border-white/[0.06] bg-[var(--camera-body-deep)] text-[var(--darkroom-text-dim)] cursor-not-allowed",
             )}
             whileHover={canGenerate ? { y: -1 } : {}}
@@ -922,7 +922,7 @@ export function ConsistencyModePanel({
 
       {/* 6. Error */}
       {error && (
-        <div className="camera-panel border-[var(--led-error)]/30 p-2.5">
+        <div className="camera-panel border-[color-mix(in_srgb,var(--led-error)_30%,transparent)] p-2.5">
           <p className="text-[10px] text-[var(--led-error)]">{error}</p>
         </div>
       )}
@@ -954,7 +954,7 @@ export function ConsistencyModePanel({
                   type="button"
                   onClick={() => setShowReview(true)}
                   title="Open full-screen Set Review"
-                  className="flex items-center gap-1 px-2 py-1 rounded border border-white/[0.08] bg-[var(--camera-body-deep)] text-[9px] font-mono uppercase tracking-wider text-[var(--darkroom-text-muted)] hover:border-[var(--darkroom-accent)]/50 hover:text-[var(--darkroom-accent)] transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 rounded border border-white/[0.08] bg-[var(--camera-body-deep)] text-[9px] font-mono uppercase tracking-wider text-[var(--darkroom-text-muted)] hover:border-[color-mix(in_srgb,var(--darkroom-accent)_50%,transparent)] hover:text-[var(--darkroom-accent)] transition-colors"
                 >
                   <Maximize2 className="w-2.5 h-2.5" />
                   Review

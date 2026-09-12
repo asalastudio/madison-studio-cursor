@@ -281,7 +281,7 @@ Be specific and prioritize recommendations by impact.`;
       messages: [{ role: 'user', content: prompt }],
       // Note: responseMimeType removed for compatibility with gemini-2.0-flash-exp
       temperature: 0.3,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 8192,
     });
     const analysisText = extractTextFromGeminiResponse(aiData);
 

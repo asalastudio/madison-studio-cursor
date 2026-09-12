@@ -100,8 +100,8 @@ export function DarkRoomHeader({
             disabled={isSaving || heroImage.isSaved}
             className={`h-8 px-3 text-[11px] font-medium ${
               heroImage.isSaved 
-                ? "text-[var(--led-ready)] bg-[var(--led-ready)]/10 hover:bg-[var(--led-ready)]/15" 
-                : "text-[var(--darkroom-text-muted)] hover:text-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent)]/10"
+                ? "text-[var(--led-ready)] bg-[color-mix(in_srgb,var(--led-ready)_10%,transparent)] hover:bg-[color-mix(in_srgb,var(--led-ready)_15%,transparent)]" 
+                : "text-[var(--darkroom-text-muted)] hover:text-[var(--darkroom-accent)] hover:bg-[color-mix(in_srgb,var(--darkroom-accent)_10%,transparent)]"
             }`}
           >
             {isSaving ? (

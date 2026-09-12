@@ -83,7 +83,7 @@ Be specific and actionable in your feedback.`;
       messages: [{ role: 'user', content: prompt }],
       responseMimeType: 'application/json',
       temperature: 0.3,
-      maxOutputTokens: 1536,
+      maxOutputTokens: 8192,
     });
     const analysisText = extractTextFromGeminiResponse(aiData);
 

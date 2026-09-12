@@ -17,23 +17,31 @@
  */
 
 import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { resolveGptImageSize } from "./openaiImageSize.ts";
 
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 
 /**
- * Current OpenAI image model family (May 2026):
+ * Current OpenAI image model family (September 2026):
  *
- *   - gpt-image-2      → current flagship. High-fidelity image inputs,
- *                        flexible sizes, and better instruction following.
- *   - gpt-image-1.5    → previous high-fidelity GPT Image model.
+ *   - gpt-image-2.5-sunburst → most capable; built for editing precision
+ *                        (campaign creative, polished product imagery).
+ *                        Slower than Flare.
+ *   - gpt-image-2.5-flare    → OpenAI's default for most applications.
+ *                        Higher quality than gpt-image-2 at ~50% lower latency.
+ *   - gpt-image-2      → previous flagship. Still the pinned model for the
+ *                        Best Bottles reference-locked contract (see
+ *                        bestBottlesRenderingContract.ts) — that lane's canvas,
+ *                        light and shadow policy were validated against it.
+ *   - gpt-image-1.5    → older high-fidelity GPT Image model.
  *   - gpt-image-1      → legacy.
  *   - gpt-image-1-mini → cheaper / faster tier of the 1-series.
  *   - dall-e-3         → legacy, text-only.
  *
- * Default is gpt-image-2 so every caller (Dark Room, Consistency Mode,
- * Best Bottles pipeline) uses the current flagship by default. The
- * OPENAI_IMAGE_MODEL secret lets us flip to a future model without a
- * redeploy.
+ * Default stays gpt-image-2 so the Best Bottles lane and every existing
+ * caller keep byte-comparable output until a 2.5 migration is validated.
+ * The OPENAI_IMAGE_MODEL secret flips the default without a redeploy, and
+ * callers can select a 2.5 model explicitly via `aiProvider`.
  */
 function resolveDefaultOpenAIImageModel(): OpenAIImageModel {
   const raw = Deno.env.get("OPENAI_IMAGE_MODEL")?.trim();
@@ -43,13 +51,21 @@ function resolveDefaultOpenAIImageModel(): OpenAIImageModel {
 // ─── Types ────────────────────────────────────────────────────────────
 
 export type OpenAIImageModel =
-  | "gpt-image-2"        // current flagship
+  | "gpt-image-2.5-sunburst" // most capable; editing precision
+  | "gpt-image-2.5-flare"    // fast, high-quality everyday generation
+  | "gpt-image-2"        // previous flagship (Best Bottles contract pin)
   | "gpt-image-1.5"      // previous high-fidelity GPT Image model
   | "gpt-image-1"        // legacy
   | "gpt-image-1-mini"   // smaller / faster tier of the 1-series
   | "dall-e-3";          // legacy text-only
 
+/**
+ * Any `WIDTHxHEIGHT` the constraints allow, not a fixed menu. GPT Image 2 and
+ * 2.5 accept arbitrary sizes; the named members below are kept for readability
+ * and for the dall-e-3 code path, which really does have a fixed set.
+ */
 export type OpenAIImageSize =
+  | `${number}x${number}`
   | "auto"
   | "1024x1024"   // 1:1 square
   | "1024x1536"   // portrait (2:3 family)
@@ -57,11 +73,16 @@ export type OpenAIImageSize =
   // dall-e-3 legacy sizes (kept for the dall-e-3 code path)
   | "1792x1024"
   | "1024x1792"
-  // gpt-image-2 — additional sizes (Image API; Best Bottles edits pass 2080x2288).
+  // gpt-image-2 / gpt-image-2.5 — additional sizes (Image API; Best Bottles
+  // edits pass 2080x2288). Both families share the same constraints: both
+  // edges multiples of 16, aspect between 1:3 and 3:1, neither edge over
+  // 3840px, and 655,360–8,294,400 total pixels. OpenAI marks anything above
+  // 2560x1440 "experimental" for 2.5, which covers every entry below 2048².
   | "1152x2048"
   | "2048x1152"
   | "2048x2048"
   | "2080x2288"
+  | "2688x1152"   // 21:9 hero set (Best Bottles homepage banner)
   | "2160x3840"
   | "2880x2880"
   | "3840x2160";
@@ -71,6 +92,9 @@ export type OpenAIImageQuality =
   | "low"
   | "medium"
   | "high"
+  // GPT Image 2.5 only — rejected by gpt-image-2 and earlier.
+  | "xhigh"
+  | "max"
   // dall-e-3 aliases (kept for backward compatibility with that model)
   | "standard"
   | "hd";
@@ -167,7 +191,20 @@ function sanitizeMimeType(mime: string | undefined): string {
 /**
  * gpt-image-2 does not support transparent backgrounds (OpenAI docs).
  * Coerce so /generations and /edits don't 400 and silently fall back to Gemini.
+ *
+ * GPT Image 2.5 *does* support `background: "transparent"` (with
+ * `output_format` png or webp), so it is deliberately not coerced here.
  */
+/** True for the GPT Image 2.5 family (Sunburst + Flare). */
+export function isGptImage25Model(model: OpenAIImageModel): boolean {
+  return model === "gpt-image-2.5-sunburst" || model === "gpt-image-2.5-flare";
+}
+
+/** Models that accept the wide gpt-image-2-era size grid. */
+function supportsWideSizeGrid(model: OpenAIImageModel): boolean {
+  return model === "gpt-image-2" || isGptImage25Model(model);
+}
+
 function effectiveBackground(
   model: OpenAIImageModel,
   requested: OpenAIImageBackground | undefined,
@@ -183,11 +220,21 @@ function effectiveBackground(
 }
 
 /**
- * gpt-image-2 accepts many output sizes; map Madison resolution + aspect to
- * documented 2K/4K presets on the generations endpoint. Best Bottles
- * reference-locked edits pass the exact 2080x2288 master size explicitly.
+ * gpt-image-2 and gpt-image-2.5 accept many output sizes; map Madison
+ * resolution + aspect to documented 2K/4K presets on the generations
+ * endpoint. Best Bottles reference-locked edits pass the exact 2080x2288
+ * master size explicitly.
  */
-function mapGptImage2GenerationSize(
+function mapWideGridGenerationSize(
+  aspectRatio: string | undefined,
+  resolution: string | undefined,
+): OpenAIImageSize {
+  // Solved exactly for the requested ratio — see openaiImageSize.ts.
+  return resolveGptImageSize(aspectRatio, resolution) as OpenAIImageSize;
+}
+
+/** Retained for reference; superseded by the solver above. */
+function legacyBucketedGenerationSize(
   aspectRatio: string | undefined,
   resolution: string | undefined,
 ): OpenAIImageSize {
@@ -198,7 +245,7 @@ function mapGptImage2GenerationSize(
     : "standard";
 
   if (tier === "standard") {
-    return mapAspectRatioToSize(aspectRatio, "gpt-image-2");
+    return mapAspectRatioToSize(aspectRatio, "gpt-image-2");  // 1K tier is model-agnostic
   }
 
   const r = (aspectRatio ?? "").trim().toLowerCase();
@@ -279,8 +326,13 @@ export function mapAspectRatioToSize(
 
 /**
  * Map Madison's "standard" | "high" | "4k" label to OpenAI's quality enum.
- * OpenAI caps at `high` for gpt-image-1, so "4k" maps there. DALL-E 3 uses
+ * GPT Image 2 and earlier cap at `high`, so "4k" maps there. DALL-E 3 uses
  * "standard" | "hd".
+ *
+ * GPT Image 2.5 adds `xhigh` and `max`. "4k" maps to `xhigh`, not `max`:
+ * `max` is the slowest and most expensive setting and image output is billed
+ * per token at $30/1M, so it stays an explicit opt-in through the `quality`
+ * override rather than something a resolution label can trigger.
  */
 export function mapResolutionToQuality(
   resolution: string | undefined,
@@ -289,7 +341,13 @@ export function mapResolutionToQuality(
   if (model === "dall-e-3") {
     return resolution === "high" || resolution === "4k" ? "hd" : "standard";
   }
-  // GPT Image models
+  if (isGptImage25Model(model)) {
+    if (resolution === "4k") return "xhigh";
+    if (resolution === "high") return "high";
+    if (resolution === "standard") return "medium";
+    return "auto";
+  }
+  // GPT Image 2 and earlier
   if (resolution === "4k") return "high";
   if (resolution === "high") return "high";
   if (resolution === "standard") return "medium";
@@ -326,8 +384,8 @@ async function generateViaGenerations(
   model: OpenAIImageModel,
 ): Promise<OpenAIImageResult> {
   const size = params.size ??
-    (model === "gpt-image-2"
-      ? mapGptImage2GenerationSize(params.aspectRatio, params.resolution)
+    (supportsWideSizeGrid(model)
+      ? mapWideGridGenerationSize(params.aspectRatio, params.resolution)
       : mapAspectRatioToSize(params.aspectRatio, model));
   const quality = params.quality ?? mapResolutionToQuality(params.resolution, model);
   const outputFormat = params.outputFormat ?? "png";
@@ -517,9 +575,23 @@ export async function generateImage(
 
 export const OPENAI_IMAGE_MODELS = [
   {
+    id: "gpt-image-2.5-flare",
+    name: "GPT Image 2.5 Flare",
+    description: "Fast, high-quality everyday generation (OpenAI's default 2.5 tier)",
+    badge: "NEW",
+    supportsReferences: true,
+  },
+  {
+    id: "gpt-image-2.5-sunburst",
+    name: "GPT Image 2.5 Sunburst",
+    description: "Most capable; built for editing precision and campaign creative",
+    badge: "BEST",
+    supportsReferences: true,
+  },
+  {
     id: "gpt-image-2",
     name: "GPT Image 2",
-    description: "OpenAI flagship with high-fidelity image inputs",
+    description: "Previous flagship; pinned model for the Best Bottles contract",
     badge: "DEFAULT",
     supportsReferences: true,
   },
@@ -561,3 +633,5 @@ export const OpenAIProvider = {
 };
 
 export default OpenAIProvider;
+
+export { resolveGptImageSize } from "./openaiImageSize.ts";
