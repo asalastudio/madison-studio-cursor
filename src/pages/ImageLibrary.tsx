@@ -3333,6 +3333,43 @@ export default function ImageLibrary() {
                             <Eye className="w-4 h-4 mr-2" />
                             View & Edit
                           </DropdownMenuItem>
+                          {/* Straight into the Dark Room with this image attached — as the
+                              product to shoot, or as the set to shoot into. The Dark Room
+                              reads both from navigation state. */}
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate("/darkroom", {
+                                state: {
+                                  productImage: {
+                                    url: image.image_url,
+                                    name: image.session_name || "Library image",
+                                  },
+                                },
+                              });
+                            }}
+                            className="text-[var(--darkroom-text)] focus:bg-[var(--darkroom-border)]"
+                          >
+                            <Camera className="w-4 h-4 mr-2" />
+                            Use as product in Dark Room
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate("/darkroom", {
+                                state: {
+                                  backgroundImage: {
+                                    url: image.image_url,
+                                    name: image.session_name || "Library image",
+                                  },
+                                },
+                              });
+                            }}
+                            className="text-[var(--darkroom-text)] focus:bg-[var(--darkroom-border)]"
+                          >
+                            <Layers className="w-4 h-4 mr-2" />
+                            Use as set in Dark Room
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
