@@ -39,7 +39,7 @@
     "bestbottles:image-ops:diagnose": "tsx scripts/bestBottlesImageOpsDiagnostic.ts",
     "bestbottles:image-ops:repair": "tsx scripts/bestBottlesImageOpsRepair.ts",
     "typecheck:ratchet": "tsx scripts/typecheck-ratchet.ts",
-    "test:ci": "npm run test:bestbottles:image-coverage && npm run test:bestbottles:catalog-scale && npm run test:bestbottles:psd-audit && npm run test:local-generation-importer && npm run test:paperdoll && npm run test:paperdoll:cyl9-caps && tsx --test src/lib/storageThumbnails.test.ts src/lib/darkroomHeroSetPresets.test.ts src/lib/darkroomGenerationCanvas.test.ts supabase/functions/_shared/openaiImageSize.test.ts",
+    "test:ci": "npm run test:bestbottles:image-coverage && npm run test:bestbottles:catalog-scale && npm run test:bestbottles:psd-audit && npm run test:local-generation-importer && npm run test:paperdoll && npm run test:paperdoll:cyl9-caps && tsx --test src/lib/storageThumbnails.test.ts src/lib/darkroomHeroSetPresets.test.ts src/lib/darkroomGenerationCanvas.test.ts supabase/functions/_shared/openaiImageSize.test.ts src/lib/sanityPlacementUi.test.ts supabase/functions/_shared/sanityPlacement.test.ts",
     "deploy:affected": "tsx scripts/deploy-affected-edge-functions.ts",
     "bestbottles:shopify:preflight": "tsx scripts/bestBottlesShopifyPublishPreflight.ts",
     "bestbottles:measurements:intake": "tsx scripts/bestBottlesMeasurementIntake.ts",

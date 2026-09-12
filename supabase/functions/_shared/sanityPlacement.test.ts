@@ -6,8 +6,13 @@ import {
   buildImageField,
   buildPatchSet,
   buildSelectorParams,
+  draftDocumentId,
+  isSafeFieldPath,
   needsProfileSpecificDestination,
   normalizeDestinationKey,
+  normalizeTargetList,
+  publishedDocumentId,
+  resolveTargetFieldPath,
   selectDestinationConfig,
   validatePlacementRequest,
 } from "./sanityPlacement";
@@ -142,5 +147,77 @@ describe("sanity placement rules", () => {
       caption: "Approved Madison render",
     });
     assert.deepEqual(buildPatchSet("heroImage", image), { heroImage: image });
+  });
+});
+
+describe("keyed field paths and target lists", () => {
+  it("accepts keyed array segments and rejects everything else", () => {
+    assert.equal(isSafeFieldPath('heroSlides[_key=="k9x-1"].image'), true);
+    assert.equal(isSafeFieldPath("megaMenuPanels.bottles.featuredImage"), true);
+    assert.equal(isSafeFieldPath("heroSlides[0].image"), false);
+    assert.equal(isSafeFieldPath('heroSlides[_key=="a"]"].image'), false);
+    assert.equal(isSafeFieldPath("a..b"), false);
+    assert.equal(isSafeFieldPath("heroSlides[_key==$slideKey].image"), false);
+  });
+
+  it("resolves a template from the picked target's metadata", () => {
+    assert.deepEqual(
+      resolveTargetFieldPath("heroSlides[_key==$slideKey].image", { slideKey: "k9x-1" }),
+      { ok: true, path: 'heroSlides[_key=="k9x-1"].image' },
+    );
+    assert.deepEqual(
+      resolveTargetFieldPath("megaMenuPanels.$panel.featuredImage", { panel: "closures" }),
+      { ok: true, path: "megaMenuPanels.closures.featuredImage" },
+    );
+    assert.deepEqual(resolveTargetFieldPath("image", {}), { ok: true, path: "image" });
+  });
+
+  it("refuses missing or unsafe template values", () => {
+    const missing = resolveTargetFieldPath("heroSlides[_key==$slideKey].image", {});
+    assert.equal(missing.ok, false);
+    assert.match(missing.ok ? "" : missing.error, /metadata\.slideKey is required/);
+
+    const unsafe = resolveTargetFieldPath("heroSlides[_key==$slideKey].image", {
+      slideKey: 'x"]||true',
+    });
+    assert.equal(unsafe.ok, false);
+
+    const badPanel = resolveTargetFieldPath("megaMenuPanels.$panel.featuredImage", {
+      panel: "bottles.evil",
+    });
+    assert.equal(badPanel.ok, false);
+  });
+
+  it("validates a templated destination path before publish", () => {
+    const result = validatePlacementRequest(
+      { imageUrl: "https://example.com/hero.png", metadata: { slideKey: "abc" } },
+      {
+        destination_key: "homepage_hero",
+        required_metadata: ["slideKey"],
+        target_field_path: "heroSlides[_key==$slideKey].image",
+      },
+    );
+    assert.deepEqual(result, { ok: true, errors: [] });
+  });
+
+  it("derives draft and published ids without doubling prefixes", () => {
+    assert.equal(draftDocumentId("abc"), "drafts.abc");
+    assert.equal(draftDocumentId("drafts.abc"), "drafts.abc");
+    assert.equal(publishedDocumentId("drafts.abc"), "abc");
+  });
+
+  it("normalizes a target list and drops entries with no metadata", () => {
+    assert.deepEqual(
+      normalizeTargetList([
+        { label: "Beautifully Contained", metadata: { slideKey: "k1" }, hasImage: true },
+        { metadata: { cardKey: "c2", familySlug: "Cylinder" } },
+        { label: "no metadata" },
+        "junk",
+      ]),
+      [
+        { label: "Beautifully Contained", metadata: { slideKey: "k1" }, hasImage: true },
+        { label: "c2 · Cylinder", metadata: { cardKey: "c2", familySlug: "Cylinder" }, hasImage: false },
+      ],
+    );
   });
 });

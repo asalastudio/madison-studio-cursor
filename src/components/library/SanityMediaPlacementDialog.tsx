@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Loader2, RefreshCw, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,7 +16,9 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -25,7 +27,9 @@ import {
   getDefaultSanityPlacementDestination,
   getSanityPlacementDestination,
   SANITY_PLACEMENT_DESTINATIONS,
+  SANITY_PLACEMENT_GROUPS,
   type SanityPlacementDestinationKey,
+  type SanityPlacementTargetChoice,
   validateSanityPlacementForm,
 } from "@/lib/sanityPlacementUi";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +40,7 @@ type SanityMediaPlacementDialogProps = {
   onOpenChange: (open: boolean) => void;
   organizationId?: string | null;
   image: {
+    id?: string | null;
     image_url: string;
     session_name?: string | null;
     final_prompt?: string | null;
@@ -46,6 +51,11 @@ type SanityMediaPlacementDialogProps = {
   initialGraceSku?: string | null;
 };
 
+type TargetsState =
+  | { status: "idle" | "loading"; targets: SanityPlacementTargetChoice[] }
+  | { status: "ready"; targets: SanityPlacementTargetChoice[] }
+  | { status: "error"; targets: SanityPlacementTargetChoice[]; message: string };
+
 function errorText(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   if (error && typeof error === "object" && "message" in error) {
@@ -55,12 +65,26 @@ function errorText(error: unknown, fallback: string) {
   return fallback;
 }
 
-type PlacementTarget = {
-  label: string;
-  metadata?: Record<string, unknown> | null;
-  hasImage?: boolean;
-};
+/** Stable identity for a picked target: its metadata is what addresses the field. */
+function targetKey(target: SanityPlacementTargetChoice): string {
+  return Object.entries(target.metadata)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+}
 
+const fieldClassName =
+  "bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]";
+
+/**
+ * Push one library image into one Sanity field.
+ *
+ * The destination decides where; the target decides which one. Homepage and
+ * editorial destinations list their targets (a slide, a card, a post) from
+ * the registry, so nobody types a document ID — that box asked for something
+ * no destination actually used. Product destinations still take the SKU
+ * truth the pipeline needs.
+ */
 export function SanityMediaPlacementDialog({
   open,
   onOpenChange,
@@ -75,12 +99,8 @@ export function SanityMediaPlacementDialog({
   const [destinationKey, setDestinationKey] = useState<SanityPlacementDestinationKey>(
     getDefaultSanityPlacementDestination({ familySlug: initialFamilySlug }),
   );
-  const [documentId, setDocumentId] = useState("");
-  // Server-offered targets, so nobody has to know a Sanity document id.
-  const [targets, setTargets] = useState<PlacementTarget[]>([]);
-  const [targetsLoading, setTargetsLoading] = useState(false);
-  const [targetsError, setTargetsError] = useState<string | null>(null);
-  const [selectedTargetIndex, setSelectedTargetIndex] = useState<string>("");
+  const [target, setTarget] = useState<SanityPlacementTargetChoice | null>(null);
+  const [targetsState, setTargetsState] = useState<TargetsState>({ status: "idle", targets: [] });
   const [altText, setAltText] = useState("");
   const [caption, setCaption] = useState("");
   const [familySlug, setFamilySlug] = useState(initialFamilySlug ?? "");
@@ -92,11 +112,8 @@ export function SanityMediaPlacementDialog({
 
   useEffect(() => {
     if (!open) return;
-    const nextDestination = getDefaultSanityPlacementDestination({
-      familySlug: initialFamilySlug,
-    });
-    setDestinationKey(nextDestination);
-    setDocumentId("");
+    setDestinationKey(getDefaultSanityPlacementDestination({ familySlug: initialFamilySlug }));
+    setTarget(null);
     setAltText(image?.session_name || image?.final_prompt || "");
     setCaption("");
     setFamilySlug(initialFamilySlug ?? "");
@@ -113,47 +130,43 @@ export function SanityMediaPlacementDialog({
     open,
   ]);
 
-  // Ask the server which documents this destination can actually target. The
-  // picker replaces the old free-text "Sanity document ID" field; the chosen
-  // item's metadata is what the publisher's selector_query consumes.
-  useEffect(() => {
-    if (!open || !organizationId || !destinationKey) return;
-    let cancelled = false;
-
-    setTargetsLoading(true);
-    setTargetsError(null);
-    setTargets([]);
-    setSelectedTargetIndex("");
-
-    supabase.functions
-      .invoke("push-sanity-placement", {
-        body: { action: "targets", organizationId, destinationKey },
-      })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        const rows: PlacementTarget[] = Array.isArray(data?.targets) ? data.targets : [];
-        setTargets(rows);
-        if (rows.length === 1) setSelectedTargetIndex("0");
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setTargetsError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (!cancelled) setTargetsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, organizationId, destinationKey]);
-
   const destination = useMemo(
     () => getSanityPlacementDestination(destinationKey),
     [destinationKey],
   );
+
+  const loadTargets = useCallback(async () => {
+    if (!organizationId || !destination?.pickTarget) {
+      setTargetsState({ status: "idle", targets: [] });
+      return;
+    }
+    setTargetsState({ status: "loading", targets: [] });
+    try {
+      const { data, error } = await supabase.functions.invoke("push-sanity-placement", {
+        body: { action: "targets", organizationId, destinationKey: destination.key },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const targets = Array.isArray(data?.targets)
+        ? (data.targets as SanityPlacementTargetChoice[])
+        : [];
+      setTargetsState({ status: "ready", targets });
+      // One target is no choice; pre-select it. Several is a decision.
+      setTarget(targets.length === 1 ? targets[0] : null);
+    } catch (error) {
+      setTargetsState({
+        status: "error",
+        targets: [],
+        message: errorText(error, "Could not load targets from Sanity."),
+      });
+    }
+  }, [destination?.key, destination?.pickTarget, organizationId]);
+
+  useEffect(() => {
+    if (!open) return;
+    setTarget(null);
+    void loadTargets();
+  }, [open, loadTargets]);
 
   const handlePush = async () => {
     if (!image?.image_url) {
@@ -175,7 +188,7 @@ export function SanityMediaPlacementDialog({
 
     const validation = validateSanityPlacementForm({
       destinationKey,
-      documentId,
+      target,
       altText,
       caption,
       familySlug,
@@ -197,26 +210,15 @@ export function SanityMediaPlacementDialog({
     try {
       const metadata = buildSanityPlacementMetadata({
         destinationKey,
-        documentId,
+        target,
         altText,
         caption,
         familySlug,
         role,
         websiteSku,
         graceSku,
+        generatedImageId: image.id ?? null,
       });
-
-      // The picked target carries whatever the destination's selector needs
-      // (slug, groupSlug + kind, ...). Explicit form fields still win.
-      const picked = selectedTargetIndex ? targets[Number(selectedTargetIndex)] : null;
-      if (picked?.metadata) {
-        for (const [key, value] of Object.entries(picked.metadata)) {
-          // The metadata payload is string-valued; targets only ever carry
-          // identifying strings (slug, groupSlug, kind).
-          if (typeof value !== "string" || value.length === 0) continue;
-          if (metadata[key] == null || metadata[key] === "") metadata[key] = value;
-        }
-      }
       const { data, error } = await supabase.functions.invoke(
         "push-sanity-placement",
         {
@@ -233,11 +235,18 @@ export function SanityMediaPlacementDialog({
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      const landedAsDraft = data?.publishMode === "draft";
       toast({
-        title: dryRun ? "Sanity dry run passed" : "Pushed to Sanity",
+        title: dryRun
+          ? "Sanity dry run passed"
+          : landedAsDraft
+            ? "Saved as a draft in Sanity"
+            : "Pushed to Sanity",
         description: dryRun
-          ? "The destination resolved without writing media."
-          : "The image was uploaded and patched into the configured Sanity field.",
+          ? `Resolved ${target?.label ?? destination?.label ?? "the destination"} without writing media.`
+          : landedAsDraft
+            ? `${target?.label ?? "The target"} now has this image on its draft. Publish it in Sanity Studio to make it live.`
+            : "The image was uploaded and patched into the configured Sanity field.",
       });
       onOpenChange(false);
     } catch (error) {
@@ -251,14 +260,16 @@ export function SanityMediaPlacementDialog({
     }
   };
 
+  const selectedTargetKey = target ? targetKey(target) : "";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] max-w-lg">
         <DialogHeader>
           <DialogTitle>Push to Sanity</DialogTitle>
           <DialogDescription className="text-[var(--darkroom-text)]/70">
-            Send this media to a configured Sanity document field. Sanity remains the publishing
-            surface for homepage, family, and editorial decisions.
+            Pick where on the site this image goes. Homepage changes land as drafts;
+            an editor publishes them in Sanity Studio.
           </DialogDescription>
         </DialogHeader>
 
@@ -267,7 +278,7 @@ export function SanityMediaPlacementDialog({
             <img
               src={image.image_url}
               alt=""
-              className="w-20 h-20 rounded-md object-cover border border-[var(--darkroom-border)] shrink-0"
+              className="w-20 h-20 rounded-md object-contain bg-[var(--darkroom-bg)] border border-[var(--darkroom-border)] shrink-0"
             />
             <p className="text-xs text-[var(--darkroom-text)]/60 line-clamp-4">
               {destination?.description}
@@ -280,83 +291,94 @@ export function SanityMediaPlacementDialog({
             <Label htmlFor="sanity-placement-destination">Destination</Label>
             <Select
               value={destinationKey}
-              onValueChange={(value) => setDestinationKey(value as SanityPlacementDestinationKey)}
+              onValueChange={(value) => {
+                setDestinationKey(value as SanityPlacementDestinationKey);
+                setTarget(null);
+              }}
               disabled={isPushing}
             >
-              <SelectTrigger
-                id="sanity-placement-destination"
-                className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
-              >
+              <SelectTrigger id="sanity-placement-destination" className={fieldClassName}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SANITY_PLACEMENT_DESTINATIONS.map((destinationOption) => (
-                  <SelectItem key={destinationOption.key} value={destinationOption.key}>
-                    {destinationOption.label}
-                  </SelectItem>
+                {SANITY_PLACEMENT_GROUPS.map((group) => (
+                  <SelectGroup key={group}>
+                    <SelectLabel>{group}</SelectLabel>
+                    {SANITY_PLACEMENT_DESTINATIONS.filter((option) => option.group === group).map(
+                      (option) => (
+                        <SelectItem key={option.key} value={option.key}>
+                          {option.label}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          {destination?.pickTarget && (
             <div className="space-y-2">
-              <Label htmlFor="sanity-target">Where it goes</Label>
-              {targetsLoading ? (
-                <div className="flex h-10 items-center gap-2 rounded-md border border-[var(--darkroom-border)] bg-[var(--darkroom-bg)] px-3 text-sm text-[var(--darkroom-text-dim)]">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Loading destinations…
+              <div className="flex items-center justify-between">
+                <Label htmlFor="sanity-placement-target">Where on the site</Label>
+                {targetsState.status === "ready" && (
+                  <span className="text-[11px] text-[var(--darkroom-text)]/50">
+                    {targetsState.targets.length} target{targetsState.targets.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+              {targetsState.status === "loading" ? (
+                <div className="flex items-center gap-2 text-sm text-[var(--darkroom-text)]/60">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Reading targets from Sanity…
                 </div>
-              ) : targets.length > 0 ? (
+              ) : targetsState.status === "error" ? (
+                <div className="flex items-start justify-between gap-3 rounded-md border border-[var(--darkroom-border)] p-2 text-xs text-[var(--darkroom-text)]/70">
+                  <span>{targetsState.message}</span>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => void loadTargets()}>
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    Retry
+                  </Button>
+                </div>
+              ) : targetsState.status === "ready" && targetsState.targets.length === 0 ? (
+                <p className="rounded-md border border-[var(--darkroom-border)] p-2 text-xs text-[var(--darkroom-text)]/70">
+                  Nothing to push into yet — add the slide, card or post in Sanity Studio first,
+                  then come back and pick it here.
+                </p>
+              ) : (
                 <Select
-                  value={selectedTargetIndex}
-                  onValueChange={setSelectedTargetIndex}
-                  disabled={isPushing}
+                  value={selectedTargetKey}
+                  onValueChange={(value) =>
+                    setTarget(targetsState.targets.find((entry) => targetKey(entry) === value) ?? null)
+                  }
+                  disabled={isPushing || targetsState.status !== "ready"}
                 >
-                  <SelectTrigger
-                    id="sanity-target"
-                    className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
-                  >
-                    <SelectValue placeholder="Choose where this image goes" />
+                  <SelectTrigger id="sanity-placement-target" className={fieldClassName}>
+                    <SelectValue placeholder="Choose a target" />
                   </SelectTrigger>
                   <SelectContent>
-                    {targets.map((target, index) => (
-                      <SelectItem key={`${target.label}-${index}`} value={String(index)}>
-                        {target.label}
-                        {target.hasImage ? " · replaces current image" : ""}
+                    {targetsState.targets.map((entry) => (
+                      <SelectItem key={targetKey(entry)} value={targetKey(entry)}>
+                        {entry.label}
+                        {entry.hasImage ? " · replaces current image" : " · empty"}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              ) : (
-                <div className="space-y-2">
-                  <Input
-                    id="sanity-target"
-                    value={documentId}
-                    onChange={(event) => setDocumentId(event.target.value)}
-                    placeholder="Sanity document ID"
-                    className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
-                    disabled={isPushing}
-                  />
-                  <p className="text-xs text-[var(--darkroom-text-dim)]">
-                    {targetsError
-                      ? `Could not load destinations: ${targetsError}`
-                      : "No documents exist for this destination yet — create one in Sanity Studio, or enter a document ID."}
-                  </p>
-                </div>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="sanity-alt-text">Alt text</Label>
-              <Input
-                id="sanity-alt-text"
-                value={altText}
-                onChange={(event) => setAltText(event.target.value)}
-                placeholder="Describe the image"
-                className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
-                disabled={isPushing}
-              />
-            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="sanity-alt-text">Alt text</Label>
+            <Input
+              id="sanity-alt-text"
+              value={altText}
+              onChange={(event) => setAltText(event.target.value)}
+              placeholder="Describe the image"
+              className={fieldClassName}
+              disabled={isPushing}
+            />
           </div>
 
           {(destination?.requiresFamilySlug || destination?.requiresRole) && (
@@ -369,7 +391,7 @@ export function SanityMediaPlacementDialog({
                     value={familySlug}
                     onChange={(event) => setFamilySlug(event.target.value)}
                     placeholder="e.g. sleek-5ml-clear-13-415-rollon"
-                    className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+                    className={fieldClassName}
                     disabled={isPushing}
                   />
                 </div>
@@ -382,7 +404,7 @@ export function SanityMediaPlacementDialog({
                     value={role}
                     onChange={(event) => setRole(event.target.value)}
                     placeholder="e.g. cap, pump, bottle"
-                    className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+                    className={fieldClassName}
                     disabled={isPushing}
                   />
                 </div>
@@ -399,7 +421,7 @@ export function SanityMediaPlacementDialog({
                   value={websiteSku}
                   onChange={(event) => setWebsiteSku(event.target.value)}
                   placeholder="e.g. GB09BlackCapApp"
-                  className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+                  className={fieldClassName}
                   disabled={isPushing}
                 />
               </div>
@@ -410,7 +432,7 @@ export function SanityMediaPlacementDialog({
                   value={graceSku}
                   onChange={(event) => setGraceSku(event.target.value)}
                   placeholder="e.g. GB-CYL-CLR-9ML-T-01"
-                  className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+                  className={fieldClassName}
                   disabled={isPushing}
                 />
               </div>
@@ -424,7 +446,7 @@ export function SanityMediaPlacementDialog({
               value={caption}
               onChange={(event) => setCaption(event.target.value)}
               placeholder="Optional"
-              className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+              className={fieldClassName}
               disabled={isPushing}
             />
           </div>
@@ -439,11 +461,10 @@ export function SanityMediaPlacementDialog({
           </label>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter>
           <Button
             type="button"
-            variant="outline"
-            className="border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+            variant="ghost"
             onClick={() => onOpenChange(false)}
             disabled={isPushing}
           >
@@ -451,21 +472,16 @@ export function SanityMediaPlacementDialog({
           </Button>
           <Button
             type="button"
-            className="bg-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent-hover)] text-[var(--darkroom-bg)]"
-            onClick={() => void handlePush()}
-            disabled={isPushing}
+            onClick={handlePush}
+            disabled={isPushing || !image || (destination?.pickTarget && !target)}
+            className="bg-brand-brass text-black hover:bg-brand-brass/90"
           >
             {isPushing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Pushing...
-              </>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Push to Sanity
-              </>
+              <Upload className="mr-2 h-4 w-4" />
             )}
+            {dryRun ? "Test destination" : destination?.pickTarget ? "Push as draft" : "Push to Sanity"}
           </Button>
         </DialogFooter>
       </DialogContent>

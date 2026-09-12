@@ -15,8 +15,12 @@ import {
   buildImageField,
   buildPatchSet,
   buildSelectorParams,
+  draftDocumentId,
   needsProfileSpecificDestination,
   normalizeDestinationKey,
+  normalizeTargetList,
+  requiredMetadataKeys,
+  resolveTargetFieldPath,
   type SanityDestinationRow,
   selectDestinationConfig,
   validatePlacementRequest,
@@ -46,7 +50,22 @@ type PublishBody = {
   dryRun?: unknown;
 };
 
-type RequestBody = InspectBody | PublishBody;
+/** The destinations this org can publish to, resolved per its schema profile. */
+type DestinationsBody = {
+  action: "destinations";
+  organizationId?: unknown;
+  connectionId?: unknown;
+};
+
+/** The concrete targets (slides, cards, posts) of one destination, from its registry GROQ. */
+type TargetsBody = {
+  action: "targets";
+  organizationId?: unknown;
+  connectionId?: unknown;
+  destinationKey?: unknown;
+};
+
+type RequestBody = InspectBody | PublishBody | DestinationsBody | TargetsBody;
 
 type User = {
   id: string;
@@ -71,10 +90,85 @@ type Destination = SanityDestinationRow & {
   sanity_document_type: string;
   selector_query: string;
   target_field_path: string;
-  target_list_query?: string | null;
+  /** Create the target document on first publish (id from {placeholders}). */
   upsert_id_template?: string | null;
   upsert_defaults?: Record<string, unknown> | null;
 };
+
+/**
+ * Fills {placeholders} from request metadata. Returns null when any placeholder
+ * is missing, so a half-built document id is never written.
+ */
+function interpolateFromMetadata(
+  template: string,
+  metadata: Record<string, unknown>,
+): string | null {
+  let missing = false;
+  const result = template.replace(
+    /\{([A-Za-z_][A-Za-z0-9_]*)\}/g,
+    (_match, key: string) => {
+      const value = metadata[key];
+      if (typeof value !== "string" || value.trim().length === 0) {
+        missing = true;
+        return "";
+      }
+      return value.trim();
+    },
+  );
+  return missing ? null : result;
+}
+
+/**
+ * Creates the destination document when the selector found nothing and the
+ * registry row declares an upsert template (standalone asset documents such
+ * as a campaign hero). createIfNotExists rather than createOrReplace: an
+ * editor may have changed the title or notes, and a replace would discard it
+ * silently. The image itself is set by the patch that follows. Destinations
+ * that address an element of an existing document leave the template null.
+ */
+async function upsertDestinationDocument(
+  sanityClient: any,
+  destination: Destination,
+  metadata: Record<string, unknown>,
+): Promise<{ _id: string; _type?: string } | null> {
+  if (!destination.upsert_id_template) return null;
+
+  const documentId = interpolateFromMetadata(
+    destination.upsert_id_template,
+    metadata,
+  );
+  if (!documentId) return null;
+
+  const doc: Record<string, unknown> = {
+    _id: documentId,
+    _type: destination.sanity_document_type,
+  };
+  for (const [key, value] of Object.entries(destination.upsert_defaults ?? {})) {
+    if (key === "_id" || key === "_type") continue;
+    if (typeof value === "string") {
+      const filled = interpolateFromMetadata(value, metadata);
+      if (filled === null) return null;
+      doc[key] = filled;
+    } else {
+      doc[key] = value;
+    }
+  }
+
+  return await sanityClient.createIfNotExists(doc);
+}
+
+/** What the client is told about a destination — never the raw GROQ. */
+function publicDestination(destination: Destination) {
+  return {
+    key: normalizeDestinationKey(destination.destination_key),
+    description: destination.description ?? null,
+    documentType: destination.sanity_document_type,
+    targetFieldPath: destination.target_field_path,
+    publishMode: destination.publish_mode === "draft" ? "draft" : "patch",
+    requiredMetadata: requiredMetadataKeys(destination.required_metadata),
+    hasTargetList: Boolean(destination.target_list_query?.trim()),
+  };
+}
 
 type SanityConfig = {
   connectionId: string | null;
@@ -217,7 +311,7 @@ async function loadConnection(
 
 function resolveSanityConfig(
   connection: SanityConnection | null,
-  body: InspectBody | PublishBody,
+  body: RequestBody,
 ): SanityConfig {
   if (connection) {
     const token = cleanSecret(Deno.env.get(connection.write_token_secret_name));
@@ -277,9 +371,9 @@ async function inspectSanitySchema(sanityClient: any) {
       sections
     },
     "destinationMatches": {
-      "blog_post": *[_type in ["post", "article", "blog_article", "journalEntry", "fieldJournal"] && !(_id in path("drafts.**"))][0...10]{_id,_type,title,name,"slug": slug.current,featuredImage,heroImage,mainImage},
-      "homepage_hero": *[_type in ["homePage", "homepage", "siteSettings", "settings", "landingPage"] && !(_id in path("drafts.**"))][0...10]{_id,_type,title,name,heroImage,hero,mainImage},
-      "product_family_hero": *[_type in ["productFamily", "productGroup", "collection", "category"] && !(_id in path("drafts.**"))][0...10]{_id,_type,title,name,"slug": slug.current,heroImage,mainImage,image},
+      "blog_post": *[_type in ["post", "article", "blog_article", "journalEntry", "fieldJournal", "journal"] && !(_id in path("drafts.**"))][0...10]{_id,_type,title,name,"slug": slug.current,featuredImage,heroImage,mainImage,image},
+      "homepage_hero": *[_type in ["homePage", "homepage", "homepagePage", "siteSettings", "settings", "landingPage"] && !(_id in path("drafts.**"))][0...10]{_id,_type,title,name,heroImage,hero,mainImage,"heroSlides": count(heroSlides)},
+      "product_family_hero": *[_type in ["productFamily", "productGroup", "collection", "category", "homepagePage"] && !(_id in path("drafts.**"))][0...10]{_id,_type,title,name,"slug": slug.current,heroImage,mainImage,image,"designFamilyCards": count(designFamilyCards)},
       "product_main_image": *[_type in ["product", "tarifeProduct"] && !(_id in path("drafts.**"))][0...10]{_id,_type,title,name,"slug": slug.current,mainImage,heroImage,featuredImage},
       "paper_doll_component": *[_type in ["paperDollComponent", "componentAsset", "productComponent"] && !(_id in path("drafts.**"))][0...10]{_id,_type,title,name,cohortSlug,role,image,mainImage}
     }
@@ -393,68 +487,17 @@ async function insertPublishLog(
   }
 }
 
-/**
- * Fills {placeholders} from request metadata. Returns null when any placeholder
- * is missing, so a half-built document id is never written.
- */
-function interpolateFromMetadata(
-  template: string,
-  metadata: Record<string, unknown>,
-): string | null {
-  let missing = false;
-  const result = template.replace(
-    /\{([A-Za-z_][A-Za-z0-9_]*)\}/g,
-    (_match, key: string) => {
-      const value = metadata[key];
-      if (typeof value !== "string" || value.trim().length === 0) {
-        missing = true;
-        return "";
-      }
-      return value.trim();
-    },
-  );
-  return missing ? null : result;
-}
-
-/**
- * Creates the destination document when the selector found nothing and the
- * registry row declares an upsert template.
- *
- * Uses the same deterministic id convention as the site's
- * scripts/push-sanity-marketing-heroes.mjs so Madison and that CLI converge on
- * one document per slot. createIfNotExists rather than createOrReplace: an
- * editor may have changed the title or notes, and a replace would discard it
- * silently. The image itself is set by the patch that follows.
- */
-async function upsertDestinationDocument(
-  sanityClient: any,
-  destination: Destination,
-  metadata: Record<string, unknown>,
-): Promise<{ _id: string; _type?: string } | null> {
-  if (!destination.upsert_id_template) return null;
-
-  const documentId = interpolateFromMetadata(
-    destination.upsert_id_template,
-    metadata,
-  );
-  if (!documentId) return null;
-
-  const doc: Record<string, unknown> = {
-    _id: documentId,
-    _type: destination.sanity_document_type,
-  };
-  for (const [key, value] of Object.entries(destination.upsert_defaults ?? {})) {
-    if (key === "_id" || key === "_type") continue;
-    if (typeof value === "string") {
-      const filled = interpolateFromMetadata(value, metadata);
-      if (filled === null) return null;
-      doc[key] = filled;
-    } else {
-      doc[key] = value;
-    }
+async function loadAllDestinationRows(
+  serviceClient: any,
+): Promise<Destination[]> {
+  const { data, error } = await serviceClient
+    .from("sanity_destination_registry")
+    .select("*")
+    .eq("is_active", true);
+  if (error) {
+    throw new Error(`Sanity destination lookup failed: ${error.message}`);
   }
-
-  return await sanityClient.createIfNotExists(doc);
+  return (data ?? []) as Destination[];
 }
 
 async function loadDestinationRows(
@@ -678,8 +721,13 @@ serve(async (req) => {
   }
 
   const action = body.action;
-  if (action !== "inspect" && action !== "publish" && action !== "targets") {
-    return json(400, { error: "action must be inspect, publish or targets." });
+  if (
+    action !== "inspect" && action !== "publish" &&
+    action !== "destinations" && action !== "targets"
+  ) {
+    return json(400, {
+      error: "action must be inspect, publish, destinations or targets.",
+    });
   }
 
   const organizationId = normalizeOptionalString(body.organizationId);
@@ -715,67 +763,6 @@ serve(async (req) => {
   }
 
   const sanityClient = makeSanityClient(config);
-
-  // "targets" lets the UI offer real, pickable destinations instead of asking a
-  // human to type a Sanity document id. Each registry row may declare a GROQ
-  // list query returning [{label, metadata}]; the chosen item's metadata is what
-  // the caller sends back on publish, where the existing selector_query resolves
-  // it to a document. Read-only.
-  if (action === "targets") {
-    const destinationKey = normalizeDestinationKey(
-      (body as PublishBody).destinationKey,
-    );
-    if (!destinationKey) {
-      return json(400, { error: "destinationKey is required for targets." });
-    }
-
-    let destination: Destination | null = null;
-    try {
-      const destinationRows = await loadDestinationRows(
-        serviceClient,
-        destinationKey,
-      );
-      destination = selectDestinationConfig(
-        destinationRows,
-        destinationKey,
-        config.schemaProfile,
-        organizationId,
-      ) as Destination | null;
-    } catch (error) {
-      return json(500, { error: errorMessage(error) });
-    }
-    if (!destination) {
-      return json(400, {
-        error:
-          `No active Sanity destination registry row found for ${destinationKey} / ${config.schemaProfile}.`,
-      });
-    }
-
-    if (!destination?.target_list_query) {
-      return json(200, {
-        success: true,
-        destinationKey,
-        targets: [],
-        message:
-          `No target list is configured for ${destinationKey}; enter a document id manually.`,
-      });
-    }
-
-    try {
-      const rows = await sanityClient.fetch(destination.target_list_query, {});
-      const targets = Array.isArray(rows) ? rows : [];
-      return json(200, {
-        success: true,
-        destinationKey,
-        documentType: destination.sanity_document_type,
-        targets,
-      });
-    } catch (error) {
-      return json(502, {
-        error: `Sanity target lookup failed: ${errorMessage(error)}`,
-      });
-    }
-  }
 
   if (action === "inspect") {
     const inspection = await inspectSanitySchema(sanityClient);
@@ -822,9 +809,92 @@ serve(async (req) => {
 
   if (!connection) {
     return json(400, {
-      error: "publish requires an active org-scoped Sanity connection.",
+      error: `${action} requires an active org-scoped Sanity connection.`,
     });
   }
+
+  // Read-only: what can this org publish to, and where exactly. Neither
+  // writes anything, so neither needs the write token.
+  if (action === "destinations") {
+    try {
+      const rows = await loadAllDestinationRows(serviceClient);
+      const keys = Array.from(
+        new Set(
+          rows
+            .map((row) => normalizeDestinationKey(row.destination_key))
+            .filter((key): key is NonNullable<typeof key> => key !== null),
+        ),
+      );
+      const destinations = keys
+        .map((key) => {
+          const destination = selectDestinationConfig(
+            rows,
+            key,
+            config.schemaProfile,
+            organizationId,
+          ) as Destination | null;
+          if (
+            !destination ||
+            needsProfileSpecificDestination(destination, config.schemaProfile)
+          ) {
+            return null;
+          }
+          return publicDestination(destination);
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+      return json(200, {
+        success: true,
+        schemaProfile: config.schemaProfile,
+        destinations,
+      });
+    } catch (error) {
+      return json(500, { error: errorMessage(error) });
+    }
+  }
+
+  if (action === "targets") {
+    const targetsKey = normalizeDestinationKey(
+      (body as TargetsBody).destinationKey,
+    );
+    if (!targetsKey) {
+      return json(400, { error: "Unknown Sanity destinationKey." });
+    }
+    try {
+      const rows = await loadDestinationRows(serviceClient, targetsKey);
+      const destination = selectDestinationConfig(
+        rows,
+        targetsKey,
+        config.schemaProfile,
+        organizationId,
+      ) as Destination | null;
+      if (
+        !destination ||
+        needsProfileSpecificDestination(destination, config.schemaProfile)
+      ) {
+        return json(400, {
+          error:
+            `No active Sanity destination registry row found for ${targetsKey} / ${config.schemaProfile}.`,
+        });
+      }
+      const listQuery = destination.target_list_query?.trim();
+      if (!listQuery) {
+        return json(200, {
+          success: true,
+          destination: publicDestination(destination),
+          targets: [],
+        });
+      }
+      const raw = await sanityClient.fetch(listQuery);
+      return json(200, {
+        success: true,
+        destination: publicDestination(destination),
+        targets: normalizeTargetList(raw),
+      });
+    } catch (error) {
+      return json(500, { error: errorMessage(error) });
+    }
+  }
+
   if (!config.token) {
     return json(500, {
       error:
@@ -989,14 +1059,12 @@ serve(async (req) => {
       selectorParams,
     );
     if (!targetDoc?._id && !dryRun) {
-      // marketingHeroAsset.image is Rule.required(), so an empty shell document
-      // would be invalid in Studio. Create the document on first publish
-      // instead of asking anyone to pre-make one.
+      // Standalone asset documents are created on first publish instead of
+      // asking anyone to pre-make them. __imageUrl lets a registry row record
+      // provenance (sourceUrl) the way the site's hero script does.
       targetDoc = await upsertDestinationDocument(
         sanityClient,
         destination,
-        // __imageUrl lets a registry row record provenance (sourceUrl) the same
-        // way scripts/push-sanity-marketing-heroes.mjs does.
         { ...metadata, __imageUrl: imageUrl },
       );
     }
@@ -1005,6 +1073,41 @@ serve(async (req) => {
         `No Sanity document matched destination ${destinationKey} selector for ${destination.sanity_document_type}.`,
       );
     }
+
+    // The registry stores a template (`heroSlides[_key==$slideKey].image`);
+    // the picked target's metadata names the element. Resolve and re-validate
+    // before anything touches a patch.
+    const resolvedPath = resolveTargetFieldPath(
+      destination.target_field_path,
+      metadata,
+    );
+    if (!resolvedPath.ok) {
+      await insertPublishLog(serviceClient, {
+        organizationId,
+        connectionId: config.connectionId,
+        operation: "publish",
+        destinationKey,
+        status: "blocked",
+        sourceImageUrl: imageUrl,
+        sanityDocumentId: targetDoc._id,
+        targetFieldPath: destination.target_field_path,
+        metadata,
+        requestPayload: { destinationKey, imageUrl, metadata, dryRun },
+        errorMessage: resolvedPath.error,
+        publishedBy: user.id,
+      });
+      return json(400, { error: resolvedPath.error });
+    }
+    const targetFieldPath = resolvedPath.path;
+
+    // "draft" destinations land on drafts.<id> so an editor publishes from
+    // Studio; "patch" writes the live document, as the blog lane always has.
+    const publishMode = destination.publish_mode === "draft"
+      ? "draft"
+      : "patch";
+    const patchDocumentId = publishMode === "draft"
+      ? draftDocumentId(targetDoc._id)
+      : targetDoc._id;
 
     if (dryRun) {
       await insertPublishLog(serviceClient, {
@@ -1016,7 +1119,7 @@ serve(async (req) => {
         sourceImageUrl: imageUrl,
         sanityDocumentId: targetDoc._id,
         sanityDocumentType: targetDoc._type ?? destination.sanity_document_type,
-        targetFieldPath: destination.target_field_path,
+        targetFieldPath,
         metadata,
         requestPayload: {
           destinationKey,
@@ -1025,16 +1128,18 @@ serve(async (req) => {
           dryRun,
           selectorParams,
         },
-        responsePayload: { targetDoc },
+        responsePayload: { targetDoc, publishMode, patchDocumentId },
         publishedBy: user.id,
       });
       return json(200, {
         success: true,
         dryRun: true,
         destinationKey,
+        publishMode,
         sanityDocumentId: targetDoc._id,
+        sanityPatchedDocumentId: patchDocumentId,
         sanityDocumentType: targetDoc._type ?? destination.sanity_document_type,
-        targetFieldPath: destination.target_field_path,
+        targetFieldPath,
       });
     }
 
@@ -1043,13 +1148,51 @@ serve(async (req) => {
       metadata.filename,
       `${destinationKey}-${targetDoc._id}-${Date.now()}.png`,
     );
+    // Asset metadata is what makes 1,000 uploads findable later: every Madison
+    // asset carries a title naming its destination and target, the alt text as
+    // its description, and source.name = "madison-studio".
+    const targetLabel = metadataText(metadata, "targetLabel");
     const asset = await sanityClient.assets.upload("image", imageBlob, {
       filename,
+      title: `${destinationKey} · ${targetLabel || targetDoc._id}`,
+      description: metadataText(metadata, "altText") || undefined,
+      source: {
+        name: "madison-studio",
+        id: metadataText(metadata, "generatedImageId") || imageUrl,
+        url: imageUrl,
+      },
     });
     const imageField = buildImageField(asset._id, metadata);
-    const patchSet = buildPatchSet(destination.target_field_path, imageField);
-    const patchResult = await sanityClient.patch(targetDoc._id).set(patchSet)
-      .commit();
+    const patchSet = buildPatchSet(targetFieldPath, imageField);
+    let patchResult: unknown;
+    if (publishMode === "draft" && patchDocumentId !== targetDoc._id) {
+      // Seed the draft from the published document when none exists, then
+      // patch the draft. createIfNotExists is a no-op on an existing draft, so
+      // an editor's in-progress changes are never overwritten.
+      const published = await sanityClient.getDocument(targetDoc._id);
+      if (!published) {
+        throw new Error(
+          `Published document ${targetDoc._id} disappeared before patch.`,
+        );
+      }
+      const {
+        _rev: _ignoredRev,
+        _updatedAt: _ignoredUpdatedAt,
+        _createdAt: _ignoredCreatedAt,
+        ...draftSeed
+      } = published as Record<string, unknown>;
+      const draftType = typeof draftSeed._type === "string" && draftSeed._type
+        ? draftSeed._type
+        : String(targetDoc._type ?? destination.sanity_document_type);
+      patchResult = await sanityClient
+        .transaction()
+        .createIfNotExists({ ...draftSeed, _id: patchDocumentId, _type: draftType })
+        .patch(patchDocumentId, (patch: any) => patch.set(patchSet))
+        .commit();
+    } else {
+      patchResult = await sanityClient.patch(patchDocumentId).set(patchSet)
+        .commit();
+    }
 
     await insertPublishLog(serviceClient, {
       organizationId,
@@ -1059,22 +1202,29 @@ serve(async (req) => {
       status: "success",
       sourceImageUrl: imageUrl,
       sanityAssetId: asset._id,
-      sanityDocumentId: targetDoc._id,
+      sanityDocumentId: patchDocumentId,
       sanityDocumentType: targetDoc._type ?? destination.sanity_document_type,
-      targetFieldPath: destination.target_field_path,
+      targetFieldPath,
       metadata,
       requestPayload: { destinationKey, imageUrl, metadata, selectorParams },
-      responsePayload: { assetId: asset._id, patchResult },
+      responsePayload: {
+        assetId: asset._id,
+        patchResult,
+        publishMode,
+        publishedDocumentId: targetDoc._id,
+      },
       publishedBy: user.id,
     });
 
     return json(200, {
       success: true,
       destinationKey,
+      publishMode,
       sanityAssetId: asset._id,
       sanityDocumentId: targetDoc._id,
+      sanityPatchedDocumentId: patchDocumentId,
       sanityDocumentType: targetDoc._type ?? destination.sanity_document_type,
-      targetFieldPath: destination.target_field_path,
+      targetFieldPath,
       patchResult,
     });
   } catch (error) {
