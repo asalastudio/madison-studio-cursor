@@ -2,6 +2,12 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { encode, decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  accessDeniedResponse,
+  authorizeOrganization,
+  edgeAuthEnv,
+  resolveCaller,
+} from "../_shared/edgeAuth.ts";
 import { formatVisualContext } from "../_shared/productFieldFilters.ts";
 import { callGeminiImage } from "../_shared/aiProviders.ts";
 import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
@@ -1503,7 +1509,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     const {
       prompt,
       organizationId,
-      userId,
+      userId: requestedUserId,
       goalType,
       aspectRatio,
       outputFormat = "png",
@@ -1571,6 +1577,35 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       productContext,
       precompiledPromptRecord,
     } = body;
+
+    /**
+     * 1b. Who is calling? This function runs with the service role and is
+     * deployed with gateway JWT verification off, so nothing in the body can
+     * be trusted until the bearer token has been resolved: a signed-in user
+     * acts as themselves, and only service-role callers (batch scripts,
+     * sibling functions) may name a user in the body.
+     */
+    const authEnv = edgeAuthEnv((name) => Deno.env.get(name));
+    const caller = await resolveCaller(req, authEnv);
+    if (caller.kind === "anonymous") {
+      console.warn("[auth] rejected unauthenticated generate-madison-image call:", caller.reason);
+      return accessDeniedResponse(
+        { status: 401, error: "Authentication required." },
+        corsHeaders,
+        { reason: caller.reason },
+      );
+    }
+    if (caller.kind === "user" && requestedUserId && requestedUserId !== caller.userId) {
+      console.warn("[auth] body userId ignored: it does not match the bearer token", {
+        requestedUserId,
+        callerUserId: caller.userId,
+      });
+    }
+    const userId: string | undefined = caller.kind === "user"
+      ? caller.userId
+      : typeof requestedUserId === "string" && requestedUserId
+        ? requestedUserId
+        : undefined;
     let requestedOutputCanvas = parseRequestedOutputCanvas(imageConstraints);
     let generationAspectRatio = requestedOutputCanvas
       ? aspectRatioForCanvas(requestedOutputCanvas)
@@ -1894,31 +1929,6 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Last resort: check if user created any organizations
-    if (!resolvedOrgId && userId) {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("created_by", userId)
-        .limit(1)
-        .single();
-
-      if (error) {
-        console.log("⚠️ Could not fetch from organizations:", error.message);
-      }
-      if (data?.id) {
-        resolvedOrgId = data.id;
-        console.log("✅ Resolved org from created_by:", resolvedOrgId);
-        
-        // Auto-create the missing membership
-        await supabase.from("organization_members").upsert({
-          organization_id: resolvedOrgId,
-          user_id: userId,
-        }, { onConflict: "organization_id,user_id" });
-        console.log("✅ Auto-created missing organization membership");
-      }
-    }
-
     if (!resolvedOrgId) {
       console.error("❌ Could not resolve organization for user:", userId);
       return new Response(
@@ -1930,7 +1940,16 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       );
     }
     
-    console.log("✅ Final resolved organization:", resolvedOrgId);
+    const access = await authorizeOrganization(caller, authEnv, resolvedOrgId);
+    if (!access.ok) {
+      console.warn("[auth] organization access denied:", {
+        status: access.status,
+        organizationId: resolvedOrgId,
+        userId,
+      });
+      return accessDeniedResponse(access, corsHeaders, { organizationId: resolvedOrgId });
+    }
+    console.log("✅ Final resolved organization:", resolvedOrgId, { via: access.via });
 
     /**
      * 4. Load Brand Knowledge
