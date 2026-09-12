@@ -15,6 +15,21 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@sanity/client@6.8.6";
+import {
+  markdownToPortableText as journalMarkdownToPortableText,
+} from "../_shared/markdownToPortableText.ts";
+import {
+  buildJournalDocument,
+  cleanTitle,
+  isJournalCategory,
+  JOURNAL_CATEGORIES,
+  journalDocumentId,
+  placeInlineImages,
+  slugify,
+  type JournalContentNode,
+  type SanityImageBlock,
+  type SanityImageValue,
+} from "../_shared/journalPost.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +54,217 @@ interface PushRequest {
   publish?: boolean;
   fieldMapping?: Record<string, string>; // Custom field mapping
   category?: string; // Journal category (field-notes, behind-the-blend, etc.)
+  /** Journal lane: the post's hero image (journal.image). */
+  heroImageUrl?: string;
+  /** Journal lane: images to place inside the body as image blocks. */
+  inlineImages?: Array<{ url: string; alt?: string; caption?: string }>;
+}
+
+/**
+ * Org-scoped Sanity connection, the same row the image placement lane uses.
+ * When the org's schema profile is "best-bottles" the request takes the
+ * journal lane below instead of the legacy Tarife-shaped push.
+ */
+type OrgSanityConnection = {
+  project_id: string;
+  dataset: string;
+  api_version: string | null;
+  write_token_secret_name: string;
+  schema_profile: string | null;
+};
+
+async function loadOrgSanityConnection(
+  supabaseUrl: string,
+  supabaseKey: string,
+  organizationId: string,
+): Promise<OrgSanityConnection | null> {
+  const url =
+    `${supabaseUrl}/rest/v1/sanity_connections?organization_id=eq.${encodeURIComponent(organizationId)}` +
+    `&is_active=eq.true&select=project_id,dataset,api_version,write_token_secret_name,schema_profile&limit=1`;
+  const response = await fetch(url, {
+    headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+  });
+  if (!response.ok) {
+    console.warn(`[push-to-sanity] sanity_connections lookup failed: ${response.status}`);
+    return null;
+  }
+  const rows = (await response.json()) as OrgSanityConnection[];
+  return rows?.[0] ?? null;
+}
+
+function jsonResponse(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * The journal lane.
+ *
+ * Builds a `journal` document the Best Bottles site actually lists and
+ * renders: title, unique slug, one of the schema's six categories, excerpt
+ * and read time from the body, Portable Text content with any images
+ * uploaded and placed, an optional hero image, and the Madison provenance
+ * fields. Lands as a draft unless `publish` is set; a re-push of a
+ * published post keeps its original publishedAt.
+ */
+async function pushJournalPost(params: {
+  connection: OrgSanityConnection;
+  content: any;
+  contentType: string;
+  contentId: string;
+  /** Overrides the row's own title (derivatives have none). */
+  title?: string;
+  category: string | undefined;
+  publish: boolean;
+  heroImageUrl?: string;
+  inlineImages?: Array<{ url: string; alt?: string; caption?: string }>;
+}): Promise<Response> {
+  const { connection, content, contentType, contentId, publish } = params;
+
+  const token = Deno.env.get(connection.write_token_secret_name)?.trim().replace(/^['"]|['"]$/g, "");
+  if (!token) {
+    return jsonResponse(500, {
+      error: `Sanity write token secret "${connection.write_token_secret_name}" is not configured.`,
+    });
+  }
+  if (!isJournalCategory(params.category)) {
+    return jsonResponse(400, {
+      error: `category must be one of: ${JOURNAL_CATEGORIES.join(", ")}.`,
+    });
+  }
+  const category = params.category;
+
+  const markdown: string = contentType === "master"
+    ? content.full_content
+    : content.generated_content || content.content || "";
+  if (!markdown || !markdown.trim()) {
+    return jsonResponse(400, { error: "This content has no text to publish." });
+  }
+
+  const title = cleanTitle(params.title || content.title);
+  const sanityClient = createClient({
+    projectId: connection.project_id,
+    dataset: connection.dataset,
+    token,
+    apiVersion: connection.api_version || "2024-10-01",
+    useCdn: false,
+  });
+
+  // Every upload is tagged so the asset library stays navigable.
+  const uploads = new Map<string, string>();
+  const uploadImage = async (url: string, label: string): Promise<string> => {
+    const cached = uploads.get(url);
+    if (cached) return cached;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Image fetch failed (${response.status}) for ${url}`);
+    const blob = await response.blob();
+    const filename = (url.split("?")[0].split("/").pop() || "image").replace(/[^a-z0-9._-]+/gi, "-").slice(0, 80);
+    const asset = await sanityClient.assets.upload("image", blob, {
+      filename,
+      title: `${title} · ${label}`,
+      source: { name: "madison-studio", id: url, url },
+    });
+    uploads.set(url, asset._id);
+    return asset._id;
+  };
+  const imageValue = (ref: string, alt?: string, caption?: string): SanityImageValue => ({
+    _type: "image",
+    asset: { _type: "reference", _ref: ref },
+    ...(alt ? { alt } : {}),
+    ...(caption ? { caption } : {}),
+  });
+
+  const nodes = journalMarkdownToPortableText(markdown, { title });
+
+  // Images written into the Markdown itself.
+  const resolved: JournalContentNode[] = [];
+  for (const node of nodes) {
+    if (node._type === "image") {
+      try {
+        const ref = await uploadImage(node.sourceUrl, node.alt || "inline image");
+        resolved.push({ _key: node._key, ...imageValue(ref, node.alt, node.caption) });
+      } catch (error) {
+        console.warn(`[push-to-sanity] skipping inline image ${node.sourceUrl}:`, error);
+      }
+    } else {
+      resolved.push(node);
+    }
+  }
+
+  // Images chosen from the Library at push time.
+  const extra: SanityImageBlock[] = [];
+  const requested = (params.inlineImages ?? []).filter((img) => img && typeof img.url === "string" && img.url).slice(0, 8);
+  for (const [index, img] of requested.entries()) {
+    const ref = await uploadImage(img.url, `inline ${index + 1}`);
+    extra.push({ _key: `lib${index + 1}`, ...imageValue(ref, img.alt || title, img.caption) });
+  }
+  const contentNodes = placeInlineImages(resolved, extra) as JournalContentNode[];
+
+  let heroImage: SanityImageValue | null = null;
+  if (params.heroImageUrl) {
+    heroImage = imageValue(await uploadImage(params.heroImageUrl, "hero"), title);
+  }
+
+  const publishedId = journalDocumentId(contentId);
+  const draftId = `drafts.${publishedId}`;
+  const existingPublished = await sanityClient.getDocument(publishedId).catch(() => null) as
+    | { publishedAt?: string }
+    | null;
+  const publishedAt = publish
+    ? existingPublished?.publishedAt ?? new Date().toISOString()
+    : existingPublished?.publishedAt ?? null;
+
+  const doc = buildJournalDocument({
+    contentId,
+    title,
+    category,
+    content: contentNodes,
+    heroImage,
+    publishedAt,
+  });
+
+  // A slug must be unique across every other journal post.
+  const base = slugify(title);
+  let slug = base;
+  for (let attempt = 2; attempt <= 6; attempt++) {
+    const clashes = await sanityClient.fetch(
+      `count(*[_type == "journal" && slug.current == $slug && !(_id in [$id, $draftId])])`,
+      { slug, id: publishedId, draftId },
+    );
+    if (!clashes) break;
+    slug = `${base}-${attempt}`;
+  }
+  doc.slug.current = slug;
+
+  if (publish) {
+    await sanityClient.createOrReplace({ ...doc, _id: publishedId });
+    await sanityClient.delete(draftId).catch(() => undefined);
+  } else {
+    await sanityClient.createOrReplace({ ...doc, _id: draftId });
+  }
+
+  console.log("[push-to-sanity] journal lane:", {
+    id: publish ? publishedId : draftId,
+    slug,
+    blocks: contentNodes.length,
+    images: uploads.size,
+    projectId: connection.project_id,
+    dataset: connection.dataset,
+  });
+
+  return jsonResponse(200, {
+    success: true,
+    mode: "journal",
+    sanityDocumentId: publish ? publishedId : draftId,
+    slug,
+    published: publish,
+    blocks: contentNodes.length,
+    images: uploads.size,
+    projectId: connection.project_id,
+    dataset: connection.dataset,
+  });
 }
 
 /**
@@ -457,6 +683,8 @@ serve(async (req) => {
       publish = false,
       fieldMapping,
       category,
+      heroImageUrl,
+      inlineImages,
     }: PushRequest = await req.json();
 
     if (!contentId || !contentType || !sanityDocumentType) {
@@ -488,6 +716,33 @@ serve(async (req) => {
     console.log("[push-to-sanity] Fetching content from table...");
     const content = await fetchContent(supabaseUrl, supabaseKey, contentId, contentType);
     console.log("[push-to-sanity] Content fetched:", content?.title || content?.id);
+
+    // Org-scoped lane: Best Bottles gets a real `journal` document. The row
+    // itself knows its organization, so a client that omits it still lands
+    // in the right lane instead of the legacy one.
+    const resolvedOrganizationId: string | undefined = organizationId || content?.organization_id || undefined;
+    if (resolvedOrganizationId) {
+      const connection = await loadOrgSanityConnection(supabaseUrl, supabaseKey, resolvedOrganizationId);
+      if (connection?.schema_profile === "best-bottles") {
+        // Derivatives carry no title of their own; borrow the master's.
+        let title: string | undefined = content?.title;
+        if (!title && contentType === "derivative" && content?.master_content_id) {
+          const master = await fetchContent(supabaseUrl, supabaseKey, content.master_content_id, "master").catch(() => null);
+          title = master?.title;
+        }
+        return await pushJournalPost({
+          connection,
+          content,
+          contentType,
+          contentId,
+          title,
+          category,
+          publish,
+          heroImageUrl,
+          inlineImages,
+        });
+      }
+    }
 
     // Get Sanity config
     const sanityConfig = await getSanityConfig(organizationId);
