@@ -49,13 +49,6 @@ const AI_PROVIDER_OPTIONS = [
   { value: "gemini-3-pro-image", label: "Gemini 3.1 Pro", description: "Latest Gemini image fallback", badge: "BEST", group: "gemini" },
   { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Fast & reliable", badge: "FREE", group: "gemini" },
   // Freepik Premium Models
-  { value: "freepik-seedream-4", label: "Seedream 4", description: "Best quality, 4K capable", badge: "4K", group: "freepik" },
-  { value: "freepik-flux-pro", label: "Flux Pro v1.1", description: "Premium Flux model", badge: "NEW", group: "freepik" },
-  { value: "freepik-hyperflux", label: "Hyperflux", description: "Ultra-fast Flux variant", badge: "FAST", group: "freepik" },
-  { value: "freepik-flux", label: "Flux Dev", description: "Community favorite", badge: "POPULAR", group: "freepik" },
-  { value: "freepik-seedream", label: "Seedream", description: "Exceptional creativity", badge: null, group: "freepik" },
-  { value: "freepik-mystic", label: "Mystic", description: "Freepik AI at 2K", badge: null, group: "freepik" },
-  { value: "freepik-classic", label: "Classic Fast", description: "Quick generation", badge: null, group: "freepik" },
 ];
 
 // Resolution/Quality options
@@ -348,8 +341,8 @@ export function ProSettings({ settings, onChange, disabled = false }: ProSetting
                       </TooltipTrigger>
                       <TooltipContent side="left" className="max-w-[220px]">
                         <p className="text-xs">
-                          Freepik models require Studio or Signature plan.
-                          Seedream 4 4K supports reference images for best product accuracy.
+                          4K output is served by Gemini 3.1 Pro on the Signature plan.
+                          GPT Image 2.5 Sunburst supports reference images for best product accuracy.
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -428,7 +421,7 @@ export function ProSettings({ settings, onChange, disabled = false }: ProSetting
                       <TooltipContent side="left" className="max-w-[200px]">
                         <p className="text-xs">
                           Higher resolution uses more credits.
-                          4K requires Signature plan and Seedream 4 4K model.
+                          4K requires the Signature plan and routes to Gemini 3.1 Pro.
                         </p>
                       </TooltipContent>
                     </Tooltip>
