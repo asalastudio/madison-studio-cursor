@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { guardOrganization } from "../_shared/edgeAuth.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -442,32 +444,6 @@ async function verifyConvexAssignment(params: {
   return { matched, readbackImageUrl, error };
 }
 
-async function isAuthorized(req: Request): Promise<boolean> {
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace(/^Bearer\s+/i, "").trim() ?? "";
-  if (!token) return false;
-
-  const serviceRoleKey =
-    cleanSecret(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) ||
-    cleanSecret(Deno.env.get("SUPABASE_SERVICE_KEY"));
-  if (serviceRoleKey && token === serviceRoleKey) return true;
-  try {
-    const [, payload] = token.split(".");
-    const parsed = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as {
-      role?: unknown;
-    };
-    if (parsed.role === "service_role") return true;
-  } catch {
-    // Fall through to user-token validation.
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-  );
-  const { data: { user } } = await supabase.auth.getUser(token);
-  return Boolean(user);
-}
 
 function skuMatches(row: PipelineSkuJob, skus: Set<string>): boolean {
   if (skus.size === 0) return true;
@@ -597,10 +573,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
-  if (!(await isAuthorized(req))) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
-  }
-
   let body: BackfillBody;
   try {
     body = await req.json();
@@ -612,6 +584,10 @@ serve(async (req) => {
   if (!organizationId) {
     return jsonResponse({ error: "organizationId is required" }, 400);
   }
+
+  // Service callers (ops scripts) and members or super admins of this org only.
+  const guard = await guardOrganization(req, organizationId, corsHeaders);
+  if ("response" in guard) return guard.response;
 
   const bbConvexUrl = getBestBottlesConvexUrl();
   if (!bbConvexUrl) {
