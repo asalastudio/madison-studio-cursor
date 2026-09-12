@@ -641,3 +641,83 @@
     font-size: 1.25rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Output ratio strip — sits between the tabs and the tab content and governs
+   the next Refine, Variations or Ad. Same brass / bone literals as the rest
+   of this sheet.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.light-table-ratio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem 0;
+  flex-shrink: 0;
+}
+
+.light-table-ratio-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.light-table-ratio-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  background: rgba(26, 24, 22, 0.8);
+  border: 1px solid rgba(184, 149, 106, 0.2);
+  border-radius: 999px;
+  color: rgba(245, 240, 230, 0.6);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.light-table-ratio-chip:hover:not(:disabled) {
+  border-color: rgba(184, 149, 106, 0.5);
+  color: rgba(245, 240, 230, 0.85);
+}
+
+.light-table-ratio-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.light-table-ratio-chip--active {
+  background: rgba(184, 149, 106, 0.15);
+  border-color: #b8956a;
+  color: #b8956a;
+}
+
+.light-table-ratio-chip-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.light-table-ratio-reset {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.65rem;
+  color: rgba(184, 149, 106, 0.8);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.light-table-ratio-reset:hover {
+  color: #b8956a;
+}
+
+.light-table-ratio-note {
+  margin: 0;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: rgba(245, 240, 230, 0.45);
+}

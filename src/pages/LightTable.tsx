@@ -50,9 +50,18 @@ import { useCurrentOrganizationId } from "@/hooks/useIndustryConfig";
 import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 import { ImageEditorModal, type ImageEditorImage } from "@/components/image-editor/ImageEditorModal";
 import {
+  readImageCanvasSize,
   readPreserveCanvasGenerationMetadata,
   resolveGenerationCanvasMetadata,
+  toCanvasAspectRatio,
 } from "@/lib/imageCanvasMetadata";
+import {
+  buildOutputRatioChips,
+  buildReframePrompt,
+  canonicalizeAspectRatio,
+  resolveLightTableOutput,
+  sameAspectRatio,
+} from "@/lib/lightTableOutputRatio";
 import {
   getSupabaseFunctionErrorMessage,
   resolveEdgeSafeImageSettings,
@@ -209,6 +218,10 @@ export default function LightTable() {
 
   // Refine state
   const [refinementPrompt, setRefinementPrompt] = useState("");
+  // Output ratio for the next generation from this image. null keeps the
+  // source ratio. Reset with the selection: a reframe is a decision about one
+  // image, not a sticky mode.
+  const [outputRatioOverride, setOutputRatioOverride] = useState<string | null>(null);
 
   // Variations state
   const [variations, setVariations] = useState<Variation[]>([]);
@@ -295,8 +308,37 @@ export default function LightTable() {
   useEffect(() => {
     if (selectedImage) {
       setRefinementPrompt("");
+      setOutputRatioOverride(null);
     }
   }, [selectedImage?.id]);
+
+  // Older session images and library imports carry no recorded ratio. Measure
+  // once and record it, so the picker can mark the source chip and every later
+  // edit reads the recorded value instead of re-measuring.
+  useEffect(() => {
+    if (!selectedImage || selectedImage.aspectRatio) return;
+    const { id, imageUrl } = selectedImage;
+    let cancelled = false;
+    readImageCanvasSize(imageUrl).then((canvas) => {
+      const ratio = canonicalizeAspectRatio(toCanvasAspectRatio(canvas));
+      if (cancelled || !ratio) return;
+      setImages((prev) =>
+        prev.map((img) => (img.id === id && !img.aspectRatio ? { ...img, aspectRatio: ratio } : img)),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedImage?.id, selectedImage?.aspectRatio, selectedImage?.imageUrl]);
+
+  // The picker. Chips compare by value, so a 2688×1152 hero ("7:3") lights
+  // the 21:9 chip as its source instead of looking like a reframe.
+  const sourceRatio = selectedImage?.aspectRatio ?? null;
+  const outputRatioChips = useMemo(() => buildOutputRatioChips(sourceRatio), [sourceRatio]);
+  const sourceRatioLabel = canonicalizeAspectRatio(sourceRatio);
+  const outputRatio = outputRatioOverride ?? sourceRatio;
+  const reframeTarget =
+    outputRatioOverride && !sameAspectRatio(outputRatioOverride, sourceRatio) ? outputRatioOverride : null;
 
   // Handle no images - redirect back to Dark Room
   useEffect(() => {
@@ -333,8 +375,8 @@ export default function LightTable() {
       return;
     }
 
-    if (!refinementPrompt.trim()) {
-      toast.error("Please enter a refinement prompt");
+    if (!refinementPrompt.trim() && !reframeTarget) {
+      toast.error("Describe an edit, or pick a new output ratio to reframe");
       return;
     }
     if (isLikelyPromptBlock(refinementPrompt)) {
@@ -362,16 +404,26 @@ export default function LightTable() {
       // The recorded ratio wins over a measurement: readImageCanvasSize
       // resolves null on any load failure, and `null || "1:1"` was silently
       // squaring ultra-wide and portrait images on edit.
-      const refinementAspectRatio =
-        selectedImage.aspectRatio
-        || generationCanvasMetadata.aspectRatio
-        || "1:1";
       if (!selectedImage.aspectRatio && !generationCanvasMetadata.aspectRatio) {
         console.warn(
           "[LightTable] No recorded or measurable aspect ratio — defaulting to 1:1.",
           { imageId: selectedImage.id },
         );
       }
+      // A reframe (picker set to a different ratio) sends the new ratio with no
+      // preserve-source pin and folds the reframe instruction into the prompt;
+      // otherwise the source canvas is kept exactly as before.
+      const output = resolveLightTableOutput({
+        sourceAspectRatio: selectedImage.aspectRatio || generationCanvasMetadata.aspectRatio,
+        sourceImageConstraints: generationCanvasMetadata.imageConstraints,
+        outputRatioOverride,
+        prompt: refinementPrompt,
+      });
+      if (!output.prompt.trim()) {
+        toast.error(`Nothing to change — this image is already ${output.aspectRatio}`);
+        return;
+      }
+      const refinementAspectRatio = output.aspectRatio;
       const edgeSafeSettings = resolveEdgeSafeImageSettings({
         aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
         resolution: "standard",
@@ -383,7 +435,7 @@ export default function LightTable() {
 
       const { data, error } = await supabase.functions.invoke("generate-madison-image", {
         body: {
-          prompt: refinementPrompt,
+          prompt: output.prompt,
           referenceImages: [
             {
               url: selectedImage.imageUrl,
@@ -398,7 +450,7 @@ export default function LightTable() {
           outputFormat: edgeSafeSettings.outputFormat,
           aiProvider: edgeSafeSettings.aiProvider,
           resolution: edgeSafeSettings.resolution,
-          imageConstraints: generationCanvasMetadata.imageConstraints,
+          imageConstraints: output.imageConstraints,
         },
       });
 
@@ -423,9 +475,11 @@ export default function LightTable() {
         const newImage: SessionImage = {
           id: data.savedImageId || uuidv4(),
           imageUrl: data.imageUrl,
-          prompt: refinementPrompt,
+          // A reframe-only edit inherits the source prompt: same scene, new frame.
+          prompt: refinementPrompt.trim() || selectedImage.prompt,
           timestamp: Date.now(),
           isSaved: true,
+          aspectRatio: refinementAspectRatio,
         };
 
         // Add to images and select it
@@ -444,19 +498,19 @@ export default function LightTable() {
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedImage, user, orgId, refinementPrompt]);
+  }, [selectedImage, user, orgId, refinementPrompt, outputRatioOverride, reframeTarget]);
 
   // Handle Enter key in textarea
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        if (!isGenerating && refinementPrompt.trim()) {
+        if (!isGenerating && (refinementPrompt.trim() || reframeTarget)) {
           handleRefine();
         }
       }
     },
-    [handleRefine, isGenerating, refinementPrompt]
+    [handleRefine, isGenerating, refinementPrompt, reframeTarget]
   );
 
   const refinePromptLooksBlocked =
@@ -510,16 +564,25 @@ export default function LightTable() {
       // The recorded ratio wins over a measurement: readImageCanvasSize
       // resolves null on any load failure, and `null || "1:1"` was silently
       // squaring ultra-wide and portrait images on edit.
-      const variationAspectRatio =
-        selectedImage.aspectRatio
-        || generationCanvasMetadata.aspectRatio
-        || "1:1";
       if (!selectedImage.aspectRatio && !generationCanvasMetadata.aspectRatio) {
         console.warn(
           "[LightTable] No recorded or measurable aspect ratio — defaulting to 1:1.",
           { imageId: selectedImage.id },
         );
       }
+      const output = resolveLightTableOutput({
+        sourceAspectRatio: selectedImage.aspectRatio || generationCanvasMetadata.aspectRatio,
+        sourceImageConstraints: generationCanvasMetadata.imageConstraints,
+        outputRatioOverride,
+        prompt: "",
+      });
+      const variationAspectRatio = output.aspectRatio;
+      // Reframing: every variation carries the reframe clause after its own
+      // style direction, and none of them pins the source canvas.
+      const reframe = output.reframe;
+      const framedVariationPrompts = reframe
+        ? variationPrompts.map((prompt) => buildReframePrompt(prompt, reframe))
+        : variationPrompts;
       const edgeSafeSettings = resolveEdgeSafeImageSettings({
         aiProvider: DEFAULT_IMAGE_AI_PROVIDER,
         resolution: "standard",
@@ -530,7 +593,7 @@ export default function LightTable() {
       });
 
       const newVariations: Variation[] = [];
-      for (const [index, prompt] of variationPrompts.entries()) {
+      for (const [index, prompt] of framedVariationPrompts.entries()) {
         console.log(`  → Variation ${index + 1} starting...`);
 
         try {
@@ -551,7 +614,7 @@ export default function LightTable() {
               outputFormat: edgeSafeSettings.outputFormat,
               aiProvider: edgeSafeSettings.aiProvider,
               resolution: edgeSafeSettings.resolution,
-              imageConstraints: generationCanvasMetadata.imageConstraints,
+              imageConstraints: output.imageConstraints,
             },
           });
 
@@ -596,6 +659,7 @@ export default function LightTable() {
         prompt: selectedImage.prompt + " (variation)",
         timestamp: Date.now(),
         isSaved: true,
+        aspectRatio: variationAspectRatio,
       }));
       setImages((prev) => [...prev, ...newImages]);
 
@@ -611,7 +675,7 @@ export default function LightTable() {
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedImage, user, orgId]);
+  }, [selectedImage, user, orgId, outputRatioOverride]);
 
   // Create video from this image
   const handleCreateVideo = useCallback(() => {
@@ -847,6 +911,10 @@ Generate a polished, publication-ready advertisement image where the product and
         hasEditorialDirection: !!editorialDirection,
       });
 
+      // The picker governs the ad too: an ad from a 21:9 hero is 21:9 unless
+      // a different output ratio was chosen for this image.
+      const adAspectRatio = outputRatioOverride ?? selectedImage.aspectRatio ?? "1:1";
+
       // Call the image generation function with ad-specific parameters
       const { data, error } = await supabase.functions.invoke("generate-madison-image", {
         body: {
@@ -855,9 +923,7 @@ Generate a polished, publication-ready advertisement image where the product and
           organizationId: orgId,
           sessionId,
           goalType: "product_advertisement",
-          // Was hardcoded to "1:1" regardless of the source image. An ad built
-          // from a 21:9 hero came back square.
-          aspectRatio: selectedImage.aspectRatio || "1:1",
+          aspectRatio: adAspectRatio,
           aiProvider: "gemini-3-pro-image", // Force Gemini 3.0 Pro
           resolution: "high", // Use high res for ads
           referenceImages: [
@@ -888,6 +954,7 @@ Generate a polished, publication-ready advertisement image where the product and
         prompt: `Ad: ${adConfig.headline || adConfig.subtext || "Product Advertisement"}`,
         timestamp: Date.now(),
         isSaved: true,
+        aspectRatio: adAspectRatio,
       };
 
       setImages((prev) => [...prev, newAdImage]);
@@ -910,6 +977,7 @@ Generate a polished, publication-ready advertisement image where the product and
     sessionId,
     adConfig,
     editorialDirection,
+    outputRatioOverride,
     handleResetAdConfig,
   ]);
 
@@ -1143,6 +1211,65 @@ Generate a polished, publication-ready advertisement image where the product and
               </button>
             </div>
 
+            {/* Output ratio — governs the next Refine, Variations or Ad. The
+                Text tab is a client-side overlay, so it has no ratio. */}
+            {activeTab !== "text" && (
+              <div className="light-table-ratio">
+                <div className="light-table-label">
+                  <span>
+                    Output ratio{" "}
+                    <span className="light-table-hint">
+                      {reframeTarget
+                        ? `reframes ${sourceRatioLabel ?? "source"} → ${reframeTarget}`
+                        : sourceRatioLabel
+                          ? `source ${sourceRatioLabel}`
+                          : "measuring source…"}
+                    </span>
+                  </span>
+                  {reframeTarget && (
+                    <button
+                      type="button"
+                      className="light-table-ratio-reset"
+                      onClick={() => setOutputRatioOverride(null)}
+                    >
+                      Keep {sourceRatioLabel ?? "source"}
+                    </button>
+                  )}
+                </div>
+                <div className="light-table-ratio-chips" role="group" aria-label="Output aspect ratio">
+                  {outputRatioChips.map((chip) => {
+                    const selected = sameAspectRatio(chip.value, outputRatio);
+                    return (
+                      <button
+                        key={chip.value}
+                        type="button"
+                        aria-pressed={selected}
+                        disabled={isGenerating || isGeneratingAd}
+                        title={`${chip.label} ${chip.value} — ${chip.description}`}
+                        onClick={() => setOutputRatioOverride(chip.isSource ? null : chip.value)}
+                        className={cn(
+                          "light-table-ratio-chip",
+                          selected && "light-table-ratio-chip--active",
+                        )}
+                      >
+                        <span>{chip.label}</span>
+                        <span className="light-table-ratio-chip-value">
+                          {chip.value}
+                          {chip.isSource && chip.label !== "Original" ? " · source" : ""}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {reframeTarget && (
+                  <p className="light-table-ratio-note">
+                    The set extends to fill the new frame; the product stays as it is.
+                    {activeTab === "refine" ? " Leave the box empty to reframe only." : ""}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Tab Content */}
             <div className="light-table-tab-content">
               {activeTab === "refine" && (
@@ -1154,7 +1281,11 @@ Generate a polished, publication-ready advertisement image where the product and
                     value={refinementPrompt}
                     onChange={(e) => setRefinementPrompt(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Short edit only, e.g. soften the contact shadow and clean the cream background"
+                    placeholder={
+                      reframeTarget
+                        ? "Optional edit — leave empty to reframe only"
+                        : "Short edit only, e.g. soften the contact shadow and clean the cream background"
+                    }
                     className="light-table-textarea"
                     rows={3}
                   />
@@ -1166,7 +1297,7 @@ Generate a polished, publication-ready advertisement image where the product and
                   <Button
                     variant="brass"
                     onClick={handleRefine}
-                    disabled={isGenerating || !refinementPrompt.trim() || refinePromptLooksBlocked}
+                    disabled={isGenerating || refinePromptLooksBlocked || (!refinementPrompt.trim() && !reframeTarget)}
                     className="light-table-generate-btn"
                   >
                     {isGenerating ? (
@@ -1174,7 +1305,13 @@ Generate a polished, publication-ready advertisement image where the product and
                     ) : (
                       <Wand2 className="w-4 h-4 mr-2" />
                     )}
-                    {isGenerating ? "Generating..." : "Refine Image"}
+                    {isGenerating
+                      ? "Generating..."
+                      : reframeTarget
+                        ? refinementPrompt.trim()
+                          ? `Refine · reframe to ${reframeTarget}`
+                          : `Reframe to ${reframeTarget}`
+                        : "Refine Image"}
                   </Button>
                 </div>
               )}
@@ -1182,7 +1319,7 @@ Generate a polished, publication-ready advertisement image where the product and
               {activeTab === "variations" && (
                 <div className="light-table-variations">
                   <div className="light-table-variations-header">
-                    <span>Generate 3 style variations</span>
+                    <span>Generate 3 style variations{reframeTarget ? ` at ${reframeTarget}` : ""}</span>
                     <Button
                       variant="brass"
                       size="sm"
