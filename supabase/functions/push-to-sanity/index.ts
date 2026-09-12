@@ -31,6 +31,8 @@ import {
   type SanityImageValue,
 } from "../_shared/journalPost.ts";
 
+import { guardOrganization } from "../_shared/edgeAuth.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -720,7 +722,13 @@ serve(async (req) => {
     // Org-scoped lane: Best Bottles gets a real `journal` document. The row
     // itself knows its organization, so a client that omits it still lands
     // in the right lane instead of the legacy one.
-    const resolvedOrganizationId: string | undefined = organizationId || content?.organization_id || undefined;
+    // Authorize against the content's own organization — the owner of the row
+    // being published — not a body-supplied org id the caller could choose.
+    const contentOrganizationId: string | undefined = content?.organization_id ?? undefined;
+    const guard = await guardOrganization(req, contentOrganizationId ?? organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+
+    const resolvedOrganizationId: string | undefined = contentOrganizationId || organizationId || undefined;
     if (resolvedOrganizationId) {
       const connection = await loadOrgSanityConnection(supabaseUrl, supabaseKey, resolvedOrganizationId);
       if (connection?.schema_profile === "best-bottles") {

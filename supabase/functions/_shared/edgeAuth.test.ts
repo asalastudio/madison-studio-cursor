@@ -6,6 +6,7 @@ import {
   bearerToken,
   edgeAuthEnv,
   firstMemberOrganization,
+  guardOrganization,
   isOrgMember,
   isSuperAdmin,
   resolveCaller,
@@ -132,5 +133,33 @@ describe("edgeAuth", () => {
     assert.equal(res.status, 403);
     assert.equal(res.headers.get("Access-Control-Allow-Origin"), "*");
     assert.deepEqual(await res.json(), { error: "no", reason: "test" });
+  });
+
+  it("guardOrganization returns the caller when access is allowed and a Response when denied", async () => {
+    const routes = {
+      "https://proj.supabase.co/auth/v1/user": (_url: string, init?: RequestInit) => {
+        const auth = new Headers(init?.headers).get("Authorization");
+        return auth === "Bearer member-jwt" ? json({ id: USER }) : json({ msg: "no" }, 401);
+      },
+      "https://proj.supabase.co/rest/v1/organization_members": (url: string) =>
+        json(url.includes(`user_id=eq.${USER}`) && url.includes(`organization_id=eq.${ORG}`) ? [{ organization_id: ORG }] : []),
+      "https://proj.supabase.co/rest/v1/super_admins": () => json([]),
+    };
+    const get = (name: string) =>
+      ({ SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "anon-key", SUPABASE_SERVICE_ROLE_KEY: "service-key" } as Record<string, string>)[name];
+    const opts = { get, fetch: fakeFetch(routes) };
+    const cors = { "Access-Control-Allow-Origin": "*" };
+
+    const ok = await guardOrganization(request("Bearer member-jwt"), ORG, cors, opts);
+    assert.ok("caller" in ok && ok.via === "member");
+
+    const foreign = await guardOrganization(request("Bearer member-jwt"), OTHER_ORG, cors, opts);
+    assert.ok("response" in foreign && foreign.response.status === 403);
+
+    const anon = await guardOrganization(request(), ORG, cors, opts);
+    assert.ok("response" in anon && anon.response.status === 401);
+
+    const svc = await guardOrganization(request("Bearer service-key"), OTHER_ORG, cors, opts);
+    assert.ok("caller" in svc && svc.via === "service");
   });
 });

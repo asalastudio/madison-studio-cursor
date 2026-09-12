@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { guardOrganization } from "../_shared/edgeAuth.ts";
 import {
   generateGeminiContent,
   extractTextFromGeminiResponse,
@@ -186,6 +187,12 @@ serve(async (req) => {
     };
 
     console.log('Marketplace assistant request:', { platform, actionType, hasProduct: !!productId, organizationId, productId });
+
+    // The user is authenticated above; make sure they may read this org's data.
+    if (organizationId) {
+      const guard = await guardOrganization(req, organizationId, corsHeaders);
+      if ("response" in guard) return guard.response;
+    }
 
     // Gather context
     const [madisonConfig, brandKnowledge, productData] = await Promise.all([

@@ -4,6 +4,7 @@ import {
   generateGeminiContent,
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
+import { guardOrganization } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,6 +25,10 @@ serve(async (req) => {
     // Check if a specific organizationId was provided
     const body = await req.json().catch(() => ({}));
     const targetOrgId = body?.organizationId;
+
+    const guard = await guardOrganization(req, targetOrgId, corsHeaders);
+    if ("response" in guard) return guard.response;
+
 
     // Get enabled organizations (filter by targetOrgId if provided)
     let query = supabase
