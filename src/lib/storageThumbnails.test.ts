@@ -8,12 +8,12 @@ const OBJECT_URL =
 test("rewrites a public storage object URL to a sized webp rendition", () => {
   assert.equal(
     storageThumbnailUrl(OBJECT_URL, { width: 500, quality: 75 }),
-    "https://likkskifwsrvszxdvufw.supabase.co/storage/v1/render/image/public/generated-images/org/abc.png?width=500&quality=75&format=webp",
+    "https://likkskifwsrvszxdvufw.supabase.co/storage/v1/render/image/public/generated-images/org/abc.png?width=500&quality=75&format=webp&resize=contain",
   );
 });
 
 test("defaults to 500px webp at quality 75", () => {
-  assert.match(storageThumbnailUrl(OBJECT_URL), /\?width=500&quality=75&format=webp$/);
+  assert.match(storageThumbnailUrl(OBJECT_URL), /\?width=500&quality=75&format=webp&resize=contain$/);
 });
 
 test("leaves non-Supabase URLs untouched", () => {

@@ -12,6 +12,12 @@
  * `quality` alone does almost nothing to a PNG; `format=webp` is what makes
  * the difference, so both are always sent together here.
  *
+ * `resize` defaults to `cover` on the render endpoint, and with only a width
+ * given that does NOT preserve the aspect ratio: the same 2080×2288 source
+ * came back as 400×2288 — a full-height strip cropped to 400px wide, which
+ * is why every grid showed a sliver of bottle instead of the frame.
+ * `resize=contain` scales the whole image (400×440 here) and is always sent.
+ *
  * Transformations are served from `/storage/v1/render/image/public/...`, which
  * is enabled on this project. Anything that is not a public Supabase Storage
  * object URL is returned untouched, so callers can pass Shopify CDN URLs,
@@ -48,5 +54,5 @@ export function storageThumbnailUrl(
   const quality = Math.round(options.quality ?? 75);
   if (!Number.isFinite(width) || width <= 0) return url;
 
-  return `${url.replace(PUBLIC_OBJECT_SEGMENT, RENDER_SEGMENT)}?width=${width}&quality=${quality}&format=webp`;
+  return `${url.replace(PUBLIC_OBJECT_SEGMENT, RENDER_SEGMENT)}?width=${width}&quality=${quality}&format=webp&resize=contain`;
 }
