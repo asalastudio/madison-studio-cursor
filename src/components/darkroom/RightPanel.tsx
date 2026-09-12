@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, type ReactNode } from "react";
 import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
 import { Chip, ChipRow } from "./Chip";
 import { Disclosure } from "./Disclosure";
+import { LIGHTING_LANE_OPTIONS, type LightingLane } from "@/lib/darkroomLightingLane";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Lightbulb,
@@ -328,6 +329,9 @@ interface RightPanelProps {
   // Pro Settings (NEW)
   proSettings?: ProModeSettings;
   onProSettingsChange?: (settings: ProModeSettings) => void;
+  /** How the product meets the set's light — see darkroomLightingLane. */
+  lightingLane?: LightingLane;
+  onLightingLaneChange?: (lane: LightingLane) => void;
   isGenerating?: boolean;
 
   // Multi-product slots for compositing
@@ -614,6 +618,8 @@ export function RightPanel({
   proSettingsCount,
   proSettings,
   onProSettingsChange,
+  lightingLane = "single",
+  onLightingLaneChange,
   isGenerating = false,
   productSlots,
   onProductSlotsChange,
@@ -782,6 +788,53 @@ export function RightPanel({
             })}
           </div>
         </div>
+
+        {onLightingLaneChange && (
+          <div className="camera-panel p-2.5 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <LEDIndicator state={lightingLane !== "single" ? "active" : "off"} size="sm" />
+              <Sun className="w-3 h-3 text-[var(--darkroom-accent)]" />
+              <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Light</span>
+              <InlineHelp>
+                How the product meets the set&apos;s light. 1 pass shoots set and product together. Set + Place shoots the set first, then places the product into it with the set&apos;s light as the only authority. + Match adds a final relight of the product alone. Each pass is one generation. Needs a product reference; empty sets and style references shoot in one pass regardless.
+              </InlineHelp>
+            </div>
+            <div className="flex gap-1">
+              {LIGHTING_LANE_OPTIONS.map((option) => {
+                const isSelected = lightingLane === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => onLightingLaneChange(option.value)}
+                    disabled={isGenerating}
+                    title={option.description}
+                    className={cn(
+                      "flex-1 py-2 px-1.5 rounded transition-all text-center border",
+                      isSelected
+                        ? "bg-white/[0.06] border-white/[0.12]"
+                        : "bg-[var(--camera-body-deep)] border-white/[0.04] hover:border-white/[0.08]"
+                    )}
+                  >
+                    <span className={cn(
+                      "text-[11px] font-medium block",
+                      isSelected ? "text-[var(--darkroom-text)]" : "text-[var(--darkroom-text-muted)]"
+                    )}>
+                      {option.label}
+                    </span>
+                    <span className="text-[9px] font-mono text-[var(--darkroom-text-dim)] block">
+                      {option.passes}×
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[9px] leading-snug text-[var(--darkroom-text-dim)]">
+              {LIGHTING_LANE_OPTIONS.find((option) => option.value === lightingLane)?.description}
+            </p>
+          </div>
+        )}
       </>
     ) : null;
 

@@ -36,6 +36,8 @@ interface CenterCanvasProps {
 
   // State
   isGenerating: boolean;
+  /** Lighting-lane progress while generating: "Place 2/3". */
+  generationStage?: { index: number; total: number; label: string } | null;
   isSaving: boolean;
   canGenerate: boolean;
 
@@ -204,6 +206,7 @@ export function CenterCanvas({
   onPromptChange,
   onGenerate,
   isGenerating,
+  generationStage = null,
   isSaving,
   canGenerate,
   proSettingsCount,
@@ -273,7 +276,13 @@ export function CenterCanvas({
                     ? "text-[var(--led-ready)]" 
                     : "text-[var(--darkroom-text-muted)]"
               )}>
-                {isGenerating ? "Capturing" : heroImage ? "Ready" : "Standby"}
+                {isGenerating
+                  ? generationStage
+                    ? `${generationStage.label} ${generationStage.index}/${generationStage.total}`
+                    : "Capturing"
+                  : heroImage
+                    ? "Ready"
+                    : "Standby"}
               </span>
             </div>
           </div>

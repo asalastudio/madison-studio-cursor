@@ -41,6 +41,17 @@ import {
   type HeroSetPresetId,
 } from "@/lib/darkroomHeroSetPresets";
 import {
+  buildPlacePrompt,
+  buildSetPrompt,
+  LIGHTING_LANE_STORAGE_KEY,
+  MATCH_LIGHT_PROMPT,
+  planLightingLane,
+  readLightingLane,
+  splitPlacementAddon,
+  STAGE_LABEL,
+  type LightingLane,
+} from "@/lib/darkroomLightingLane";
+import {
   BEST_BOTTLES_STONE_HERO_PRESETS,
   buildBestBottlesStoneHeroPrompt,
   type BestBottlesStoneHeroArrangement,
@@ -128,11 +139,7 @@ interface GeneratedImage {
   timestamp: number;
   isSaved: boolean;
   isHero?: boolean;
-  /**
-   * The ratio this image was actually generated at. Carried so downstream
-   * surfaces — the Light Table above all — never have to re-derive it by
-   * loading the pixels, which fails silently and squares the image.
-   */
+  /** The ratio this image was generated at; carried so downstream surfaces never re-measure. */
   aspectRatio?: string;
 }
 
@@ -215,6 +222,17 @@ export default function DarkRoom() {
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [heroImageId, setHeroImageId] = useState<string | null>(null);
   const [newlyGeneratedId, setNewlyGeneratedId] = useState<string | null>(null);
+  // Lighting lane: how the product meets the set's light. Remembered per
+  // browser; "single" is today's one-request shot.
+  const [lightingLane, setLightingLane] = useState<LightingLane>(() => readLightingLane());
+  const [generationStage, setGenerationStage] = useState<{ index: number; total: number; label: string } | null>(null);
+  useEffect(() => {
+    try {
+      localStorage.setItem(LIGHTING_LANE_STORAGE_KEY, lightingLane);
+    } catch {
+      // Per-browser convenience only.
+    }
+  }, [lightingLane]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   // Inputs
@@ -748,80 +766,193 @@ export default function DarkRoom() {
         extraLibraryTags,
       }, null, 2));
 
-      // Call the edge function
-      const { data, error } = await supabase.functions.invoke("generate-madison-image", {
-        body: {
+      // One request, or the lighting lane's passes. Every pass lands as its
+      // own frame so the set, the placement and the light-match can be
+      // compared side by side in the strip.
+      const basePayload = {
+        userId: user.id,
+        organizationId: orgId,
+        sessionId,
+        outputFormat: edgeSafeSettings.outputFormat,
+        proModeControls: proModePayload,
+        product_id: backgroundPlateMode ? undefined : selectedProduct?.id,
+        aiProvider: requestedAiProvider,
+        resolution: edgeSafeSettings.resolution,
+        visualSquad: proSettings.visualSquad,
+        generationMode: navigationGenerationMode,
+        productContext:
+          !backgroundPlateMode && selectedProduct
+            ? enrichedProductContext ?? undefined
+            : undefined,
+      };
+
+      const describeInvokeError = async (error: unknown): Promise<string> => {
+        const errorMsg = await getSupabaseFunctionErrorMessage(error);
+        const status = (error as { status?: number } | null)?.status;
+        if (errorMsg.includes("Rate limit") || status === 429) {
+          return "Rate limit reached — please wait a moment before generating another image.";
+        }
+        if (errorMsg.includes("credits") || status === 402) {
+          return "AI credits depleted — please add credits in Settings.";
+        }
+        if (errorMsg.includes("organization") || errorMsg.includes("onboarding")) {
+          return "Setup incomplete — please complete onboarding to start generating images.";
+        }
+        return errorMsg.substring(0, 200);
+      };
+
+      const invokeGeneration = async (label: string, overrides: Record<string, unknown>) => {
+        const { data, error } = await supabase.functions.invoke("generate-madison-image", {
+          body: { ...basePayload, ...overrides },
+        });
+        if (error) {
+          console.error(`❌ Generation error (${label}):`, error);
+          throw new Error(await describeInvokeError(error));
+        }
+        if (!data?.imageUrl || !data?.savedImageId) {
+          console.error(`❌ No imageUrl in response (${label}):`, data);
+          throw new Error(`No image returned from server (${label}).`);
+        }
+        return data as { imageUrl: string; savedImageId: string };
+      };
+
+      const commitFrame = (
+        data: { imageUrl: string; savedImageId: string },
+        frame: { prompt: string; aspectRatio: string; hero: boolean },
+      ) => {
+        const newImage: GeneratedImage = {
+          id: data.savedImageId,
+          imageUrl: data.imageUrl,
+          prompt: frame.prompt,
+          timestamp: Date.now(),
+          isSaved: true, // Backend already saved
+          isHero: frame.hero,
+          aspectRatio: frame.aspectRatio,
+        };
+        setImages((prev) => [...prev, newImage]);
+        if (frame.hero) {
+          setHeroImageId(newImage.id);
+          setNewlyGeneratedId(newImage.id); // Track for developing animation
+          setTimeout(() => setNewlyGeneratedId(null), 3000);
+        }
+        // Save to DAM (fire-and-forget — don't block the UI)
+        supabase.functions.invoke("mark-generated-image-saved", {
+          body: { imageId: data.savedImageId, userId: user.id, createRecipe: false },
+        }).catch((err) => console.warn("DAM save failed (non-critical):", err));
+        return newImage;
+      };
+
+      const stages = planLightingLane({
+        lane: lightingLane,
+        hasProductReference: !backgroundPlateMode && (!!productImage || activeProductSlots.length > 0),
+        hasSetImage: !backgroundPlateMode && !!backgroundImage,
+        backgroundPlateMode,
+        styleReferenceMode: Boolean(styleReferenceLibraryOutput && styleReference),
+      });
+
+      if (stages.length === 0) {
+        const data = await invokeGeneration("shot", {
           prompt: effectivePrompt,
-          userId: user.id,
-          organizationId: orgId,
-          sessionId,
           goalType,
           aspectRatio: generationAspectRatio,
-          outputFormat: edgeSafeSettings.outputFormat,
           referenceImages,
           imageConstraints: generationImageConstraints,
-          proModeControls: proModePayload,
-          product_id: backgroundPlateMode ? undefined : selectedProduct?.id,
-          aiProvider: requestedAiProvider,
-          resolution: edgeSafeSettings.resolution,
-          visualSquad: proSettings.visualSquad,
           backgroundPresetId: selectedBackgroundPreset,
           backgroundPrompt: appliedBackgroundPrompt || undefined,
           compositionPresetId: backgroundPlateMode ? undefined : selectedCompositionPreset,
           compositionPrompt: backgroundPlateMode ? undefined : appliedCompositionPrompt || undefined,
           extraLibraryTags,
-          generationMode: navigationGenerationMode,
-          productContext:
-            !backgroundPlateMode && selectedProduct
-              ? enrichedProductContext ?? undefined
-              : undefined,
-        },
-      });
+        });
+        commitFrame(data, { prompt: effectivePrompt, aspectRatio: generationAspectRatio, hero: true });
+      } else {
+        const { scenePrompt, hasPlacementAddon } = splitPlacementAddon(effectivePrompt);
+        const productReferences = referenceImages.filter(
+          (ref) => ref.label !== "Background" && ref.label !== "Style Reference",
+        );
+        const styleReferences = referenceImages.filter((ref) => ref.label === "Style Reference");
+        const setLibraryTags = Array.from(
+          new Set([BACKGROUND_SCENE_TAG, LIBRARY_ROLE_BACKGROUND_SCENE, ...navigationLibraryTags]),
+        );
 
-      if (error) {
-        console.error("❌ Generation error:", error);
-        console.error("❌ Error details:", JSON.stringify(error, null, 2));
-        const errorMsg = await getSupabaseFunctionErrorMessage(error);
+        let setUrl = backgroundImage?.url ?? null;
+        let passAspectRatio = generationAspectRatio;
+        let passConstraints = generationImageConstraints;
+        let latestUrl: string | null = null;
 
-        if (errorMsg.includes("Rate limit") || (error as any).status === 429) {
-          madison.error("Rate limit reached", "Please wait a moment before generating another image.");
-        } else if (errorMsg.includes("credits") || (error as any).status === 402) {
-          madison.error("AI credits depleted", "Please add credits in Settings.");
-        } else if (errorMsg.includes("organization") || errorMsg.includes("onboarding")) {
-          madison.error("Setup incomplete", "Please complete onboarding to start generating images.");
-        } else {
-          madison.error("Generation failed", errorMsg.substring(0, 200));
+        console.log("🎞️ Lighting lane:", { lane: lightingLane, stages, heroFraming: hasPlacementAddon });
+
+        for (const [index, stage] of stages.entries()) {
+          const isLast = index === stages.length - 1;
+          setGenerationStage({ index: index + 1, total: stages.length, label: STAGE_LABEL[stage] });
+
+          if (stage === "set") {
+            const data = await invokeGeneration("set", {
+              prompt: buildSetPrompt(scenePrompt),
+              goalType: "background_scene",
+              aspectRatio: generationAspectRatio,
+              referenceImages: styleReferences,
+              imageConstraints: generationImageConstraints,
+              backgroundPresetId: selectedBackgroundPreset,
+              backgroundPrompt: appliedBackgroundPrompt || undefined,
+              extraLibraryTags: setLibraryTags,
+            });
+            commitFrame(data, { prompt: buildSetPrompt(scenePrompt), aspectRatio: generationAspectRatio, hero: false });
+            setUrl = data.imageUrl;
+            latestUrl = data.imageUrl;
+            // The placement pass reproduces the set pixel for pixel, so it is
+            // shot at the set's exact canvas — measured, not assumed.
+            const setCanvas = await readPreserveCanvasGenerationMetadata(setUrl);
+            passAspectRatio = setCanvas.aspectRatio ?? generationAspectRatio;
+            passConstraints = setCanvas.imageConstraints ?? generationImageConstraints;
+          } else if (stage === "place") {
+            if (!setUrl) throw new Error("The set pass returned no image to place the product into.");
+            if (index === 0) {
+              // A loaded background plate: measure it the same way.
+              const setCanvas = await readPreserveCanvasGenerationMetadata(setUrl);
+              passAspectRatio = setCanvas.aspectRatio ?? generationAspectRatio;
+              passConstraints = setCanvas.imageConstraints ?? generationImageConstraints;
+            }
+            const data = await invokeGeneration("place", {
+              prompt: buildPlacePrompt(scenePrompt, { heroFraming: hasPlacementAddon }),
+              goalType: "place-product",
+              aspectRatio: passAspectRatio,
+              referenceImages: [
+                {
+                  url: setUrl,
+                  label: "Background",
+                  description: "The finished set. Reproduce it exactly and place the product into it.",
+                },
+                ...productReferences,
+              ],
+              imageConstraints: passConstraints,
+              compositionPresetId: selectedCompositionPreset,
+              compositionPrompt: appliedCompositionPrompt || undefined,
+              extraLibraryTags,
+            });
+            commitFrame(data, { prompt: effectivePrompt, aspectRatio: passAspectRatio, hero: isLast });
+            latestUrl = data.imageUrl;
+          } else if (stage === "match") {
+            if (!latestUrl) throw new Error("The placement pass returned no image to relight.");
+            const compositeCanvas = await readPreserveCanvasGenerationMetadata(latestUrl);
+            const data = await invokeGeneration("match", {
+              prompt: MATCH_LIGHT_PROMPT,
+              goalType: "match-light",
+              aspectRatio: compositeCanvas.aspectRatio ?? passAspectRatio,
+              referenceImages: [
+                {
+                  url: latestUrl,
+                  label: "Scene composite",
+                  description: "The composite to relight in place.",
+                },
+              ],
+              imageConstraints: compositeCanvas.imageConstraints ?? passConstraints,
+              extraLibraryTags,
+            });
+            commitFrame(data, { prompt: effectivePrompt, aspectRatio: compositeCanvas.aspectRatio ?? passAspectRatio, hero: true });
+            latestUrl = data.imageUrl;
+          }
         }
-        return;
       }
-
-      if (!data?.imageUrl || !data?.savedImageId) {
-        madison.error("Generation failed", "No image returned from server.");
-        return;
-      }
-
-      // Add to session
-      const newImage: GeneratedImage = {
-        id: data.savedImageId,
-        imageUrl: data.imageUrl,
-        prompt: effectivePrompt,
-        timestamp: Date.now(),
-        isSaved: true, // Backend already saved
-        isHero: true,
-        aspectRatio: generationAspectRatio,
-      };
-
-      setImages((prev) => [...prev, newImage]);
-      setHeroImageId(newImage.id);
-      setNewlyGeneratedId(newImage.id); // Track for developing animation
-
-      // Clear newly generated after animation completes (3 seconds)
-      setTimeout(() => setNewlyGeneratedId(null), 3000);
-
-      // Save to DAM (fire-and-forget — don't block the UI)
-      supabase.functions.invoke("mark-generated-image-saved", {
-        body: { imageId: data.savedImageId, userId: user.id, createRecipe: false },
-      }).catch((err) => console.warn("DAM save failed (non-critical):", err));
 
       // Add to history
       setHistory((prev) => [
@@ -837,20 +968,28 @@ export default function DarkRoom() {
       queryClient.invalidateQueries({ queryKey: ["image-library-hook"] });
 
       madison.success(
-        backgroundPlateMode ? "Background plate saved" : "Image created!",
+        backgroundPlateMode
+          ? "Background plate saved"
+          : stages.length > 1
+            ? `Shot complete — ${stages.length} passes`
+            : "Image created!",
         backgroundPlateMode
           ? "Tagged for Background Scene — pick it from Library on the left."
-          : "Your image has been saved to the library.",
+          : stages.length > 1
+            ? "Each pass is a frame in the strip: the set, the placement, and the light-matched final."
+            : "Your image has been saved to the library.",
       );
     } catch (err) {
       console.error("❌ Unexpected error:", err);
-      madison.error("Something went wrong");
+      madison.error("Generation failed", err instanceof Error ? err.message : undefined);
     } finally {
       setIsGenerating(false);
+      setGenerationStage(null);
     }
   }, [
     user,
     canGenerate,
+    lightingLane,
     prompt,
     productImage,
     backgroundImage,
@@ -1252,6 +1391,7 @@ export default function DarkRoom() {
           onPromptChange={setPrompt}
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
+          generationStage={generationStage}
           isSaving={isSaving}
           canGenerate={canGenerate}
           proSettingsCount={proSettingsCount}
@@ -1261,6 +1401,8 @@ export default function DarkRoom() {
 
         {/* Right Panel: Madison Assistant + Settings */}
         <RightPanel
+          lightingLane={lightingLane}
+          onLightingLaneChange={setLightingLane}
           suggestions={suggestions}
           onUseSuggestion={handleUseSuggestion}
           history={history}
