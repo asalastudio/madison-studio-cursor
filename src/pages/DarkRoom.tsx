@@ -128,6 +128,12 @@ interface GeneratedImage {
   timestamp: number;
   isSaved: boolean;
   isHero?: boolean;
+  /**
+   * The ratio this image was actually generated at. Carried so downstream
+   * surfaces — the Light Table above all — never have to re-derive it by
+   * loading the pixels, which fails silently and squares the image.
+   */
+  aspectRatio?: string;
 }
 
 type DarkRoomGenerationMode = "standard" | "missing-variant-asset" | "finish-correct-revision";
@@ -799,6 +805,7 @@ export default function DarkRoom() {
         timestamp: Date.now(),
         isSaved: true, // Backend already saved
         isHero: true,
+        aspectRatio: generationAspectRatio,
       };
 
       setImages((prev) => [...prev, newImage]);
