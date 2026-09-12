@@ -4,6 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { guardOrganization } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,6 +39,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const guard = await guardOrganization(req, organization_id, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     const projectId = sanity_project_id || "8h5l91ut";
     const dataset = sanity_dataset || "production";

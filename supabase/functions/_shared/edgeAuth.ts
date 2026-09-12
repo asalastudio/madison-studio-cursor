@@ -140,6 +140,51 @@ export async function authorizeOrganization(
   return { ok: false, status: 403, error: "You are not a member of this organization." };
 }
 
+/**
+ * One-call gate for a handler that runs with the service role and takes an
+ * organization id from the request body. Resolve the caller, confirm they may
+ * act in that organization, and hand back either a ready-to-return error
+ * Response or the authorized caller. Reads the env itself.
+ *
+ *   const guard = await guardOrganization(req, organizationId, corsHeaders);
+ *   if ("response" in guard) return guard.response;
+ *   // guard.caller is a service caller or a member/super-admin of organizationId
+ */
+export interface GuardOrganizationOptions {
+  /** Env getter; defaults to Deno.env.get. */
+  get?: (name: string) => string | undefined;
+  /** Injected fetch for tests; defaults to the global fetch. */
+  fetch?: typeof fetch;
+}
+
+export async function guardOrganization(
+  req: Request,
+  organizationId: string | null | undefined,
+  corsHeaders: Record<string, string>,
+  options: GuardOrganizationOptions = {},
+): Promise<{ caller: EdgeCaller; via: "service" | "member" | "super_admin" } | { response: Response }> {
+  const get = options.get ?? ((name: string) =>
+    (globalThis as { Deno?: { env: { get(n: string): string | undefined } } }).Deno?.env.get(name));
+  let env: EdgeAuthEnv;
+  try {
+    env = { ...edgeAuthEnv(get), ...(options.fetch ? { fetch: options.fetch } : {}) };
+  } catch (error) {
+    console.error("[auth] edge auth is not configured:", error instanceof Error ? error.message : error);
+    return { response: accessDeniedResponse({ status: 401, error: "Authentication is not configured." }, corsHeaders) };
+  }
+  const caller = await resolveCaller(req, env);
+  const access = await authorizeOrganization(caller, env, organizationId);
+  if (!access.ok) {
+    if (caller.kind === "anonymous") {
+      console.warn("[auth] unauthenticated call rejected:", caller.reason);
+    } else {
+      console.warn("[auth] organization access denied:", { status: access.status, organizationId });
+    }
+    return { response: accessDeniedResponse(access, corsHeaders, { organizationId: organizationId ?? null }) };
+  }
+  return { caller, via: access.via };
+}
+
 export function accessDeniedResponse(
   access: Extract<OrganizationAccess, { ok: false }> | { status: 401 | 403; error: string },
   headers: Record<string, string>,

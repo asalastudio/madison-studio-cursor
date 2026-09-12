@@ -4,6 +4,7 @@ import {
   generateGeminiContent,
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
+import { guardOrganization } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +30,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const guard = await guardOrganization(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
