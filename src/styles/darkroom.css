@@ -3426,7 +3426,12 @@
 @media (prefers-reduced-motion: reduce) {
   .darkroom-exposing-frame::before,
   .darkroom-exposing-pulse,
-  .darkroom-exposing-text {
+  .darkroom-exposing-text,
+  .led-indicator--processing,
+  .led-indicator--processing::after,
+  .film-active-glow,
+  .upload-glow-border,
+  .animate-pulse-glow {
     animation: none;
   }
   .darkroom-exposing-text {
@@ -3538,7 +3543,7 @@
     0 0 10px rgba(255, 204, 0, 0.7),
     0 0 20px rgba(255, 204, 0, 0.4),
     0 0 30px rgba(255, 204, 0, 0.2);
-  animation: led-pulse 1.5s ease-in-out infinite;
+  /* Steady. Selected is a state, not an event — see LEDIndicator.tsx. */
 }
 
 .led-indicator--active::after {
@@ -3548,7 +3553,6 @@
     rgba(255, 204, 0, 0.15) 40%,
     transparent 70%
   );
-  animation: led-halo-pulse 1.5s ease-in-out infinite;
 }
 
 /* Processing state - neon amber, fast pulse, extra bright */
@@ -4533,7 +4537,6 @@
 .module-connection-indicator--pending {
   background: var(--led-active);
   box-shadow: var(--led-glow-active);
-  animation: led-pulse 1.5s ease-in-out infinite;
 }
 
 /* -----------------------------------------------------------------------------

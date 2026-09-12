@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, type ReactNode } from "react";
 import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
 import { Chip, ChipRow } from "./Chip";
+import { Disclosure } from "./Disclosure";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Lightbulb,
@@ -26,7 +27,7 @@ import {
   Plus,
   ImagePlus,
   Layers,
-  Sparkles,
+  Grid3x3,
   Info,
 } from "lucide-react";
 import {
@@ -626,6 +627,17 @@ export function RightPanel({
 }: RightPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  // Compose disclosures. Scene and Composite start closed; their headers carry
+  // a readout of the current value, so closing them never hides a live setting.
+  const [showScene, setShowScene] = useState(false);
+  const [showComposite, setShowComposite] = useState(false);
+  const [showGuidance, setShowGuidance] = useState(false);
+  const slotCount = productSlots?.length ?? 6;
+  const filledSlotCount = (productSlots ?? []).filter((slot) => slot.imageUrl).length;
+  const sceneSummary = [
+    selectedBackgroundPreset && BACKGROUND_PRESETS.find((preset) => preset.id === selectedBackgroundPreset)?.label,
+    selectedCompositionPreset && COMPOSITION_PRESETS.find((preset) => preset.id === selectedCompositionPreset)?.label,
+  ].filter(Boolean).join(" · ") || null;
   const [activeTab, setActiveTab] = useState<RightPanelTab>("compose");
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
 
@@ -1080,196 +1092,7 @@ export function RightPanel({
           {/* === COMPOSE TAB - Multi-Product & Aspect Ratio === */}
           {activeTab === "compose" && (
             <div className="space-y-2">
-              <div className="camera-panel p-2.5 space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <LEDIndicator state="ready" size="sm" />
-                  <Wand2 className="w-3 h-3 text-[var(--darkroom-accent)]" />
-                  <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Shot Recipe</span>
-                  <InlineHelp>
-                    Compose is the normal single-image workflow. Use it to choose format, background style, arrangement, and optional composite slots before exposing a frame.
-                  </InlineHelp>
-                </div>
-                <p className="text-[10px] leading-relaxed text-[var(--darkroom-text-muted)]">
-                  Compose the image here: output quality, product slots for composites, aspect ratio, background style, and arrangement.
-                </p>
-              </div>
-
               {aiModelAndResolutionSection}
-
-              {/*
-                Recent prompts. `history`, `onRestoreFromHistory` and
-                formatTimeAgo all already existed and were wired end to end —
-                the panel destructured `history` and never rendered it, so the
-                feature shipped as dead weight. Session-local by design: it is
-                useState, so it is empty until the first generation and gone on
-                reload, which is why the whole block is guarded on length.
-              */}
-              {recentPromptChips.length > 0 && (
-                <div className="camera-panel p-2.5 space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <History className="w-3 h-3 text-[var(--darkroom-accent)]" />
-                    <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Recent prompts</span>
-                    <InlineHelp>
-                      Prompts you have exposed this session. Tap one to load it back into the shot description. Cleared on reload.
-                    </InlineHelp>
-                  </div>
-                  <ChipRow>
-                    {recentPromptChips.map((item) => (
-                      <Chip
-                        key={item.id}
-                        label={item.prompt.length > 40 ? `${item.prompt.slice(0, 40)}\u2026` : item.prompt}
-                        title={item.prompt}
-                        meta={formatTimeAgo(item.timestamp)}
-                        onClick={() => onRestoreFromHistory(item)}
-                      />
-                    ))}
-                  </ChipRow>
-                </div>
-              )}
-
-              {/* Context Tips */}
-              {contextTips.length > 0 && (
-                <div className="camera-panel p-2.5 space-y-2 border-l-2 border-l-[var(--darkroom-accent)]">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Wand2 className="w-3 h-3 text-[var(--darkroom-accent)]" />
-                    <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Next Best Steps</span>
-                  </div>
-                  <div className="space-y-1">
-                    {contextTips.map((tip, i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[10px] text-[var(--darkroom-text-muted)] leading-relaxed">
-                        <ArrowRight className="mt-0.5 h-2.5 w-2.5 flex-shrink-0 text-[var(--darkroom-accent)]" />
-                        <span>{tip}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Generated Suggestions */}
-              {suggestions.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-[9px] text-[var(--darkroom-text-dim)] uppercase tracking-wider px-1">Creative Suggestions</span>
-                  {suggestions.map((suggestion) => (
-                    <SuggestionCard
-                      key={suggestion.id}
-                      suggestion={suggestion}
-                      onUse={() => onUseSuggestion(suggestion)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Multi-Product Upload Grid */}
-              <div className="camera-panel p-2.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <LEDIndicator
-                      state={productSlots?.some(s => s.imageUrl) ? "active" : "ready"}
-                      size="sm"
-                    />
-                    <Layers className="w-3 h-3 text-[var(--darkroom-accent)]" />
-                    <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Product Slots</span>
-                    <InlineHelp>
-                      Product Slots are only for composite scenes with multiple products. A single hero product should usually use the Product Reference Image on the left.
-                    </InlineHelp>
-                  </div>
-                  <span className="text-[9px] font-mono text-[var(--darkroom-text-dim)]">
-                    {productSlots?.filter(s => s.imageUrl).length || 0}/6
-                  </span>
-                </div>
-
-                {/* 3x2 Grid of Drop Zones */}
-                <div className="grid grid-cols-3 gap-1.5">
-                  {Array.from({ length: 6 }).map((_, index) => {
-                    const slot = productSlots?.[index];
-                    const hasImage = slot?.imageUrl;
-
-                    const handleRemove = (e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      if (onProductSlotsChange && productSlots) {
-                        const newSlots = [...productSlots];
-                        newSlots[index] = { id: slot?.id || `slot-${index}`, imageUrl: null };
-                        onProductSlotsChange(newSlots);
-                        toast.success(`Product ${index + 1} removed`);
-                      }
-                    };
-
-                    return (
-                      <div key={index} className="relative">
-                        <motion.button
-                          type="button"
-                          onClick={() => setActiveSlotIndex(index)}
-                          disabled={isGenerating || !onProductSlotsChange}
-                          title={hasImage ? `Replace product in slot ${index + 1}` : `Add product to slot ${index + 1}`}
-                          className={cn(
-                            "aspect-square w-full rounded flex items-center justify-center cursor-pointer transition-all border overflow-hidden",
-                            hasImage
-                              ? "border-white/[0.12] bg-black"
-                              : "border-dashed border-white/[0.06] bg-[var(--camera-body-deep)] hover:border-white/[0.12] hover:bg-white/[0.03]",
-                            (isGenerating || !onProductSlotsChange) && "cursor-not-allowed opacity-50"
-                          )}
-                          whileHover={{ scale: 1.01 }}
-                          whileTap={{ scale: 0.99 }}
-                        >
-                          {hasImage ? (
-                            <img
-                              src={slot.imageUrl!}
-                              alt={`Product ${index + 1}`}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <Plus className="w-3 h-3 text-[var(--darkroom-text-dim)]" />
-                              <span className="text-[8px] font-mono text-[var(--darkroom-text-dim)]">{index + 1}</span>
-                            </div>
-                          )}
-                        </motion.button>
-
-                        {/* Remove button */}
-                        {hasImage && (
-                          <motion.button
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            onClick={handleRemove}
-                            title={`Remove product from slot ${index + 1}`}
-                            className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[var(--led-error)] text-white flex items-center justify-center hover:bg-red-500 transition-colors z-10"
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </motion.button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Helper text */}
-                <p className="text-[9px] text-[var(--darkroom-text-dim)]">
-                  For multi-product scenes. For one hero product, use the Product Reference Image on the left.
-                </p>
-              </div>
-
-              {/* Image Library Modal for product slots */}
-              <ImageLibraryModal
-                open={activeSlotIndex !== null}
-                onOpenChange={(open) => { if (!open) setActiveSlotIndex(null); }}
-                title={activeSlotIndex !== null ? `Product Slot ${activeSlotIndex + 1}` : "Select Image"}
-                onSelectImage={(image) => {
-                  if (activeSlotIndex === null || !onProductSlotsChange) return;
-                  const newSlots = [...(productSlots || [])];
-                  while (newSlots.length <= activeSlotIndex) {
-                    newSlots.push({ id: `slot-${newSlots.length}`, imageUrl: null });
-                  }
-                  newSlots[activeSlotIndex] = {
-                    id: productSlots?.[activeSlotIndex]?.id || `slot-${activeSlotIndex}`,
-                    imageUrl: image.url,
-                    name: image.name,
-                  };
-                  onProductSlotsChange(newSlots);
-                  toast.success(`Product ${activeSlotIndex + 1} added`);
-                  setActiveSlotIndex(null);
-                }}
-              />
 
               {/* Quick Aspect Ratios — uses the canonical COMMON_ASPECT_RATIOS
                   list so this is the ONLY picker in the UI. */}
@@ -1319,16 +1142,50 @@ export function RightPanel({
                 </div>
               </div>
 
-              {/* Background Presets - E-commerce Best Practices */}
-              <div className="camera-panel p-2.5 space-y-2">
+              {/*
+                Recent prompts. `history`, `onRestoreFromHistory` and
+                formatTimeAgo all already existed and were wired end to end —
+                the panel destructured `history` and never rendered it, so the
+                feature shipped as dead weight. Session-local by design: it is
+                useState, so it is empty until the first generation and gone on
+                reload, which is why the whole block is guarded on length.
+              */}
+              {recentPromptChips.length > 0 && (
+                <div className="camera-panel p-2.5 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <History className="w-3 h-3 text-[var(--darkroom-accent)]" />
+                    <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Recent prompts</span>
+                    <InlineHelp>
+                      Prompts you have exposed this session. Tap one to load it back into the shot description. Cleared on reload.
+                    </InlineHelp>
+                  </div>
+                  <ChipRow>
+                    {recentPromptChips.map((item) => (
+                      <Chip
+                        key={item.id}
+                        label={item.prompt.length > 40 ? `${item.prompt.slice(0, 40)}\u2026` : item.prompt}
+                        title={item.prompt}
+                        meta={formatTimeAgo(item.timestamp)}
+                        onClick={() => onRestoreFromHistory(item)}
+                      />
+                    ))}
+                  </ChipRow>
+                </div>
+              )}
+
+              {/* Scene: set + placement presets. Closed by default; the header reads the
+                  current selection, so a closed menu never hides a live setting. */}
+              <Disclosure
+                label="Scene"
+                icon={<Layers />}
+                open={showScene}
+                onToggle={() => setShowScene((v) => !v)}
+                active={Boolean(selectedBackgroundPreset || selectedCompositionPreset)}
+                summary={sceneSummary}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <LEDIndicator
-                      state={selectedBackgroundPreset ? "active" : "ready"}
-                      size="sm"
-                    />
-                    <Sparkles className="w-3 h-3 text-[var(--darkroom-accent)]" />
-                    <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Set Prompt</span>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--darkroom-text-muted)]">Set Prompt</span>
                     <InlineHelp>
                       Set Prompt is a baked scene modifier. Selecting one does not generate by itself; it is appended to the next Capture payload.
                     </InlineHelp>
@@ -1407,18 +1264,10 @@ export function RightPanel({
                 <p className="text-[9px] text-[var(--darkroom-text-dim)] pt-1 border-t border-white/[0.04]">
                   Adds a baked background prompt on Capture. Leave off for SKU-locked PDP masters unless the set is intentional.
                 </p>
-              </div>
-
-              {/* Composition Presets - How to arrange products */}
-              <div className="camera-panel p-2.5 space-y-2">
+                <div className="border-t border-white/[0.04]" />
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <LEDIndicator
-                      state={selectedCompositionPreset ? "active" : "ready"}
-                      size="sm"
-                    />
-                    <Layers className="w-3 h-3 text-[var(--darkroom-accent)]" />
-                    <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Placement Prompt</span>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--darkroom-text-muted)]">Placement Prompt</span>
                     <InlineHelp>
                       Placement Prompt is a baked composition modifier. It is appended on Capture and only applies when a product reference or product slots are attached.
                     </InlineHelp>
@@ -1497,7 +1346,152 @@ export function RightPanel({
                 <p className="text-[9px] text-[var(--darkroom-text-dim)] pt-1 border-t border-white/[0.04]">
                   Adds a baked placement prompt on Capture. Centered Hero is the safest PDP starting point.
                 </p>
-              </div>
+              </Disclosure>
+
+              {/* Composite: multi-product slots. The header count replaces the old n/6 readout. */}
+              <Disclosure
+                label="Composite"
+                icon={<Grid3x3 />}
+                open={showComposite}
+                onToggle={() => setShowComposite((v) => !v)}
+                active={filledSlotCount > 0}
+                summary={filledSlotCount > 0 ? `${filledSlotCount} of ${slotCount} slots` : null}
+              >
+                {/* 3x2 Grid of Drop Zones */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {Array.from({ length: 6 }).map((_, index) => {
+                    const slot = productSlots?.[index];
+                    const hasImage = slot?.imageUrl;
+
+                    const handleRemove = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      if (onProductSlotsChange && productSlots) {
+                        const newSlots = [...productSlots];
+                        newSlots[index] = { id: slot?.id || `slot-${index}`, imageUrl: null };
+                        onProductSlotsChange(newSlots);
+                        toast.success(`Product ${index + 1} removed`);
+                      }
+                    };
+
+                    return (
+                      <div key={index} className="relative">
+                        <motion.button
+                          type="button"
+                          onClick={() => setActiveSlotIndex(index)}
+                          disabled={isGenerating || !onProductSlotsChange}
+                          title={hasImage ? `Replace product in slot ${index + 1}` : `Add product to slot ${index + 1}`}
+                          className={cn(
+                            "aspect-square w-full rounded flex items-center justify-center cursor-pointer transition-all border overflow-hidden",
+                            hasImage
+                              ? "border-white/[0.12] bg-black"
+                              : "border-dashed border-white/[0.06] bg-[var(--camera-body-deep)] hover:border-white/[0.12] hover:bg-white/[0.03]",
+                            (isGenerating || !onProductSlotsChange) && "cursor-not-allowed opacity-50"
+                          )}
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
+                        >
+                          {hasImage ? (
+                            <img
+                              src={slot.imageUrl!}
+                              alt={`Product ${index + 1}`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <Plus className="w-3 h-3 text-[var(--darkroom-text-dim)]" />
+                              <span className="text-[8px] font-mono text-[var(--darkroom-text-dim)]">{index + 1}</span>
+                            </div>
+                          )}
+                        </motion.button>
+
+                        {/* Remove button */}
+                        {hasImage && (
+                          <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            onClick={handleRemove}
+                            title={`Remove product from slot ${index + 1}`}
+                            className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[var(--led-error)] text-white flex items-center justify-center hover:bg-red-500 transition-colors z-10"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </motion.button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Helper text */}
+                <p className="text-[9px] text-[var(--darkroom-text-dim)]">
+                  For multi-product scenes. For one hero product, use the Product Reference Image on the left.
+                </p>
+              </Disclosure>
+
+              {/* Image Library Modal for product slots */}
+              <ImageLibraryModal
+                open={activeSlotIndex !== null}
+                onOpenChange={(open) => { if (!open) setActiveSlotIndex(null); }}
+                title={activeSlotIndex !== null ? `Product Slot ${activeSlotIndex + 1}` : "Select Image"}
+                onSelectImage={(image) => {
+                  if (activeSlotIndex === null || !onProductSlotsChange) return;
+                  const newSlots = [...(productSlots || [])];
+                  while (newSlots.length <= activeSlotIndex) {
+                    newSlots.push({ id: `slot-${newSlots.length}`, imageUrl: null });
+                  }
+                  newSlots[activeSlotIndex] = {
+                    id: productSlots?.[activeSlotIndex]?.id || `slot-${activeSlotIndex}`,
+                    imageUrl: image.url,
+                    name: image.name,
+                  };
+                  onProductSlotsChange(newSlots);
+                  toast.success(`Product ${activeSlotIndex + 1} added`);
+                  setActiveSlotIndex(null);
+                }}
+              />
+
+
+              {/* Guidance: next steps and prompt ideas. Informational, so it starts closed. */}
+              {(contextTips.length > 0 || suggestions.length > 0) && (
+                <Disclosure
+                  label="Guidance"
+                  icon={<Lightbulb />}
+                  open={showGuidance}
+                  onToggle={() => setShowGuidance((v) => !v)}
+                  summary={`${contextTips.length + suggestions.length} ideas`}
+                >
+                  {/* Context Tips */}
+                  {contextTips.length > 0 && (
+                    <div className="camera-panel p-2.5 space-y-2 border-l-2 border-l-[var(--darkroom-accent)]">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Wand2 className="w-3 h-3 text-[var(--darkroom-accent)]" />
+                        <span className="text-[11px] font-medium text-[var(--darkroom-text)]">Next Best Steps</span>
+                      </div>
+                      <div className="space-y-1">
+                        {contextTips.map((tip, i) => (
+                          <div key={i} className="flex items-start gap-1.5 text-[10px] text-[var(--darkroom-text-muted)] leading-relaxed">
+                            <ArrowRight className="mt-0.5 h-2.5 w-2.5 flex-shrink-0 text-[var(--darkroom-accent)]" />
+                            <span>{tip}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Generated Suggestions */}
+                  {suggestions.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-[9px] text-[var(--darkroom-text-dim)] uppercase tracking-wider px-1">Creative Suggestions</span>
+                      {suggestions.map((suggestion) => (
+                        <SuggestionCard
+                          key={suggestion.id}
+                          suggestion={suggestion}
+                          onUse={() => onUseSuggestion(suggestion)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </Disclosure>
+              )}
             </div>
           )}
 
