@@ -3,6 +3,7 @@ import { Edit2, Send, Copy, Check, FileDown, Calendar, MessageSquare, Download, 
 import { ImageLibraryPicker } from "@/components/email-composer/ImageLibraryPicker";
 import { PublishToLinkedIn } from "./PublishToLinkedIn";
 import { PublishToSanity } from "./PublishToSanity";
+import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ export function ContentDetailModal({
   onSchedule,
   onEditWithMadison,
 }: ContentDetailModalProps) {
+  const { enabled: isBestBottlesOrg } = useGridPipelineFeatureFlag();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState("");
@@ -779,7 +781,8 @@ export function ContentDetailModal({
                 contentType={category === 'master' ? 'master' : category === 'derivative' ? 'derivative' : 'output'}
                 variant="outline"
                 size="sm"
-                buttonText="Publish to Sanity"
+                buttonText={isBestBottlesOrg ? "Publish to journal" : "Publish to Sanity"}
+                bestBottles={isBestBottlesOrg}
               />
 
               <Button

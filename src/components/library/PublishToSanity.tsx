@@ -27,8 +27,49 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductSelector } from "@/components/forge/ProductSelector";
 import type { Product } from "@/hooks/useProducts";
-import { Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ExternalLink, ImagePlus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
+
+/** The Best Bottles journal's six categories — the site's schema, verbatim. */
+const JOURNAL_CATEGORIES: Array<{ value: string; label: string }> = [
+  { value: "packaging-101", label: "Packaging 101" },
+  { value: "fragrance-guides", label: "Fragrance Guides" },
+  { value: "brand-stories", label: "Brand Stories" },
+  { value: "ingredient-science", label: "Ingredient Science" },
+  { value: "how-to", label: "How-To" },
+  { value: "industry-news", label: "Industry News" },
+];
+
+type PickedImage = { url: string; name: string };
+
+/**
+ * The Library names untitled images by date ("Image 9/12/2026"). That is no
+ * alt text; leave it empty so the post falls back to its own title.
+ */
+function altTextFor(image: PickedImage): string | undefined {
+  const name = image.name.trim();
+  if (!name || /^Image \d/.test(name) || name === "Library image") return undefined;
+  return name;
+}
+
+/**
+ * supabase-js wraps a non-2xx reply in a FunctionsHttpError and hides the
+ * body; the edge function puts the real reason in `{ error }`. Surface it.
+ */
+async function describeFunctionError(error: unknown): Promise<string> {
+  const fallback = error instanceof Error && error.message ? error.message : "Failed to push to Sanity";
+  const context = (error as { context?: unknown } | null)?.context;
+  if (context instanceof Response) {
+    try {
+      const body = await context.clone().json();
+      if (body && typeof body.error === "string" && body.error.trim()) return body.error;
+    } catch {
+      // Not a JSON body; fall through to the generic message.
+    }
+  }
+  return fallback;
+}
 
 interface PublishToSanityProps {
   content: any;
@@ -36,6 +77,13 @@ interface PublishToSanityProps {
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg";
   buttonText?: string;
+  /**
+   * Best Bottles: the push builds a `journal` document (the site's blog
+   * schema) with a hero image and inline images, instead of the legacy
+   * Tarife journal entry. The edge function routes by the org's Sanity
+   * connection; this flag only shapes the form.
+   */
+  bestBottles?: boolean;
 }
 
 const SANITY_DOCUMENT_TYPES = {
@@ -63,6 +111,7 @@ export function PublishToSanity({
   variant = "outline",
   size = "sm",
   buttonText = "Publish to Sanity",
+  bestBottles = false,
 }: PublishToSanityProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -74,16 +123,32 @@ export function PublishToSanity({
   const [syncStatus, setSyncStatus] = useState<{
     success: boolean;
     sanityDocumentId?: string;
+    slug?: string;
+    mode?: string;
+    published?: boolean;
     error?: string;
   } | null>(null);
+  // Journal lane images: one hero, up to eight inline.
+  const [heroImage, setHeroImage] = useState<PickedImage | null>(null);
+  const [inlineImages, setInlineImages] = useState<PickedImage[]>([]);
+  const [pickerTarget, setPickerTarget] = useState<"hero" | "inline" | null>(null);
 
   const availableTypes = SANITY_DOCUMENT_TYPES[contentType] || [];
 
   const handlePush = async () => {
-    if (!sanityDocumentType) {
+    const documentType = bestBottles ? "journal" : sanityDocumentType;
+    if (!documentType) {
       toast({
         title: "Select document type",
         description: "Please choose a Sanity document type",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (bestBottles && !category) {
+      toast({
+        title: "Choose a category",
+        description: "The journal needs one of its six categories before it can list the post.",
         variant: "destructive",
       });
       return;
@@ -97,13 +162,17 @@ export function PublishToSanity({
         body: {
           contentId: content.id,
           contentType,
-          sanityDocumentType,
+          sanityDocumentType: documentType,
           // Pass category if selected
           category: category || undefined,
           organizationId: content.organization_id,
           linkedProductId: selectedProduct?.id,
           linkedProductName: selectedProduct?.name,
           publish,
+          heroImageUrl: bestBottles ? heroImage?.url : undefined,
+          inlineImages: bestBottles
+            ? inlineImages.map((image) => ({ url: image.url, alt: altTextFor(image) }))
+            : undefined,
         },
       });
 
@@ -116,11 +185,20 @@ export function PublishToSanity({
       setSyncStatus({
         success: true,
         sanityDocumentId: data?.sanityDocumentId,
+        slug: data?.slug,
+        mode: data?.mode,
+        published: Boolean(data?.published),
       });
 
       toast({
-        title: "✅ Published to Sanity",
-        description: `Content successfully synced to Sanity${publish ? " and published" : " as draft"}`,
+        title: data?.mode === "journal"
+          ? data?.published ? "Published to the journal" : "Saved as a journal draft"
+          : "✅ Published to Sanity",
+        description: data?.mode === "journal"
+          ? data?.published
+            ? `Live at /blog/${data?.slug}.`
+            : `Draft "${data?.slug}" is waiting in Sanity Studio — publish it there to make it live.`
+          : `Content successfully synced to Sanity${publish ? " and published" : " as draft"}`,
       });
 
       // Auto-close after 2 seconds on success
@@ -128,16 +206,17 @@ export function PublishToSanity({
         setOpen(false);
         setSyncStatus(null);
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error pushing to Sanity:", error);
+      const message = await describeFunctionError(error);
       setSyncStatus({
         success: false,
-        error: error.message || "Failed to push to Sanity",
+        error: message,
       });
 
       toast({
         title: "❌ Failed to publish",
-        description: error.message || "Unable to sync content to Sanity",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -176,7 +255,9 @@ export function PublishToSanity({
           <DialogHeader>
             <DialogTitle>Publish to Sanity</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-2">
-              Push this content to your Sanity.io project. Choose the document type and publishing option.
+              {bestBottles
+                ? "Creates a journal post on the Best Bottles site: category, excerpt and read time are derived here; images go in as a hero and inline pictures. Saved as a draft unless you publish."
+                : "Push this content to your Sanity.io project. Choose the document type and publishing option."}
             </DialogDescription>
           </DialogHeader>
 
@@ -192,6 +273,7 @@ export function PublishToSanity({
             </div>
 
             {/* Product Linking */}
+            {!bestBottles && (
             <div className="space-y-2">
               <Label>Link to Product (Optional)</Label>
               <ProductSelector
@@ -205,8 +287,10 @@ export function PublishToSanity({
                 Linking to a product helps Sanity display this entry on that fragrance's page.
               </p>
             </div>
+            )}
 
             {/* Document Type Selection */}
+            {!bestBottles && (
             <div className="space-y-2">
               <Label htmlFor="sanity-type">Sanity Document Type</Label>
               <Select
@@ -226,9 +310,10 @@ export function PublishToSanity({
                 </SelectContent>
               </Select>
             </div>
+            )}
 
             {/* Category Selection (Conditional) */}
-            {showCategorySelector && (
+            {(bestBottles || showCategorySelector) && (
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
@@ -240,12 +325,70 @@ export function PublishToSanity({
                     <SelectValue placeholder="Select journal category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="field-notes">Field Notes</SelectItem>
-                    <SelectItem value="behind-the-blend">Behind the Blend</SelectItem>
-                    <SelectItem value="territory-spotlight">Territory Spotlight</SelectItem>
-                    <SelectItem value="collector-archives">Collector Archives</SelectItem>
+                    {bestBottles ? (
+                      JOURNAL_CATEGORIES.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="field-notes">Field Notes</SelectItem>
+                        <SelectItem value="behind-the-blend">Behind the Blend</SelectItem>
+                        <SelectItem value="territory-spotlight">Territory Spotlight</SelectItem>
+                        <SelectItem value="collector-archives">Collector Archives</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {/* Images (journal lane) */}
+            {bestBottles && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Hero image</Label>
+                  {heroImage ? (
+                    <div className="flex items-center gap-3 rounded-lg border border-border p-2">
+                      <img src={heroImage.url} alt="" className="h-12 w-12 rounded object-cover" />
+                      <span className="min-w-0 flex-1 truncate text-xs">{heroImage.name}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setHeroImage(null)} disabled={isPushing} aria-label="Remove hero image">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={() => setPickerTarget("hero")} disabled={isPushing}>
+                      <ImagePlus className="h-4 w-4" />
+                      Choose from Library
+                    </Button>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">Shown at the top of the post and in the journal listing. Optional.</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Inline images</Label>
+                    <span className="text-[10px] text-muted-foreground">{inlineImages.length}/8</span>
+                  </div>
+                  {inlineImages.length > 0 && (
+                    <ul className="space-y-1">
+                      {inlineImages.map((image, index) => (
+                        <li key={`${image.url}-${index}`} className="flex items-center gap-3 rounded-lg border border-border p-2">
+                          <img src={image.url} alt="" className="h-10 w-10 rounded object-cover" />
+                          <span className="min-w-0 flex-1 truncate text-xs">{index + 1}. {image.name}</span>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setInlineImages((prev) => prev.filter((_, i) => i !== index))} disabled={isPushing} aria-label={`Remove image ${index + 1}`}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={() => setPickerTarget("inline")} disabled={isPushing || inlineImages.length >= 8}>
+                    <ImagePlus className="h-4 w-4" />
+                    Add an image
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground">Placed one per section after its first paragraph, in this order. Any image already written into the text is kept too.</p>
+                </div>
               </div>
             )}
 
@@ -261,7 +404,9 @@ export function PublishToSanity({
                 htmlFor="publish"
                 className="text-sm font-normal cursor-pointer"
               >
-                Publish immediately (otherwise saved as draft)
+                {bestBottles
+                  ? "Publish now (otherwise saved as a draft to review in Sanity Studio)"
+                  : "Publish immediately (otherwise saved as draft)"}
               </Label>
             </div>
 
@@ -287,7 +432,9 @@ export function PublishToSanity({
                     </div>
                     {syncStatus.success && syncStatus.sanityDocumentId && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        Document ID: {syncStatus.sanityDocumentId}
+                        {syncStatus.mode === "journal" && syncStatus.slug
+                          ? `${syncStatus.published ? "Live at" : "Draft for"} /blog/${syncStatus.slug}`
+                          : `Document ID: ${syncStatus.sanityDocumentId}`}
                       </div>
                     )}
                     {syncStatus.error && (
@@ -314,7 +461,7 @@ export function PublishToSanity({
             </Button>
             <Button
               onClick={handlePush}
-              disabled={isPushing || !sanityDocumentType}
+              disabled={isPushing || (bestBottles ? !category : !sanityDocumentType)}
               className="gap-2"
             >
               {isPushing ? (
@@ -331,7 +478,7 @@ export function PublishToSanity({
             </Button>
           </DialogFooter>
 
-          {syncStatus?.success && syncStatus.sanityDocumentId && (
+          {!bestBottles && syncStatus?.success && syncStatus.sanityDocumentId && (
             <div className="pt-2 border-t">
               <Button
                 variant="ghost"
@@ -346,6 +493,25 @@ export function PublishToSanity({
           )}
         </DialogContent>
       </Dialog>
+      {bestBottles && (
+        <ImageLibraryModal
+          open={pickerTarget !== null}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setPickerTarget(null);
+          }}
+          title={pickerTarget === "hero" ? "Choose the hero image" : "Add an image to the post"}
+          allowDesktopUpload={false}
+          onSelectImage={(image) => {
+            const picked: PickedImage = { url: image.url, name: image.name || "Library image" };
+            if (pickerTarget === "hero") {
+              setHeroImage(picked);
+            } else {
+              setInlineImages((prev) => [...prev, picked].slice(0, 8));
+            }
+            setPickerTarget(null);
+          }}
+        />
+      )}
     </>
   );
 }
