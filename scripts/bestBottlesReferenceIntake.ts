@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -92,8 +93,11 @@ export interface ReferenceIntakePlanRow extends ReferenceIntakeSkuRow {
 export interface ReferenceIntakePlan {
   generatedAt: string;
   localRoots: string[];
+  missingLocalRoots?: string[];
   summary: ReferenceIntakeSummary;
   rows: ReferenceIntakePlanRow[];
+  flatPngSources?: FlatPngIntakeSourceRow[];
+  cylinderCanonicalManifest?: CylinderCanonicalStorefrontManifest;
 }
 
 export interface ReferenceIntakeSummary {
@@ -106,12 +110,102 @@ export interface ReferenceIntakeSummary {
   conversionRequired: number;
   byFamily: Array<{ family: string; total: number; local: number; live: number; unresolved: number }>;
   byNextAction: Record<BestBottlesNeedsWorkAction, number>;
+  /** Task 3: flat-PNG readiness matrix (loaded / classified / blocked). */
+  flatPngFamilyReadiness?: FlatPngFamilyReadinessSummary;
+  /** Task 3: Cylinder canonical storefront-group generation budget. */
+  cylinderStorefrontGeneration?: CanonicalStorefrontGenerationBudget;
+}
+
+export const CYLINDER_CANONICAL_STOREFRONT_TARGET_COUNT = 47;
+
+export interface CylinderCanonicalStorefrontTarget {
+  productGroupId: string;
+  family: string;
+  capacityMl: number | null;
+  color: string | null;
+  neckThreadSize: string | null;
+  applicator: string | null;
+  representativeGraceSku: string;
+  representativeWebsiteSku: string | null;
+}
+
+export interface CylinderCanonicalStorefrontExclusion {
+  productGroupId: string;
+  reason: "plastic-cylinder" | "duplicate-tall-cylinder-9ml-clear-13-415";
+  representativeGraceSku: string | null;
+}
+
+export interface CylinderCanonicalStorefrontManifest {
+  sourceGroupCount: number;
+  excluded: CylinderCanonicalStorefrontExclusion[];
+  targets: CylinderCanonicalStorefrontTarget[];
+}
+
+export interface CanonicalStorefrontGenerationBudget {
+  totalTargets: number;
+  missingRepresentatives: number;
+  alreadyGenerated: number;
+}
+
+export type FlatPngClassificationStatus = "classified" | "unclassified" | "rejected";
+
+export interface FlatPngIntakeSourceRow {
+  absolutePath: string;
+  relativePath: string;
+  sourceSha256: string;
+  family: string | null;
+  bodyIdentityKey: string | null;
+  physicalFitmentKey: string | null;
+  productGroupId: string | null;
+  classificationStatus: FlatPngClassificationStatus;
+  rejectionReason: string | null;
+}
+
+export interface FlatPngFamilyReadinessRow {
+  family: string;
+  loaded: number;
+  classified: number;
+  blocked: number;
+  rejected: number;
+  ready: boolean;
+}
+
+export interface FlatPngFamilyReadinessSummary {
+  byFamily: FlatPngFamilyReadinessRow[];
+  allReady: boolean;
+  loaded: number;
+  classified: number;
+  blocked: number;
+  rejected: number;
+}
+
+export interface ReferenceLocalRootsReport {
+  configuredRoots: string[];
+  existingRoots: string[];
+  missingRoots: string[];
+}
+
+interface CatalogProductGroupSeed {
+  productGroupId?: string | null;
+  family?: string | null;
+  itemName?: string | null;
+  graceSku?: string | null;
+  websiteSku?: string | null;
+  capacityMl?: number | string | null;
+  color?: string | null;
+  neckThreadSize?: string | null;
+  applicator?: string | null;
+  capColor?: string | null;
 }
 
 interface BuildReferenceIntakePlanParams {
   rows: ReferenceIntakeSkuRow[];
   localRoots: string[];
   generatedAt?: string;
+  missingLocalRoots?: string[];
+  catalogProducts?: CatalogProductGroupSeed[];
+  flatPngRejections?: Array<{ absolutePath?: string; sourceSha256?: string; reason: string }>;
+  alreadyGeneratedProductGroupIds?: Iterable<string>;
 }
 
 export interface ReferenceIntakeApplySelectionOptions {
@@ -186,6 +280,330 @@ export function defaultReferenceLocalRoots(): string[] {
     DEFAULT_CANONICAL_RENDER_ROOT,
     DEFAULT_LEGACY_REFERENCE_ROOT,
   ];
+}
+
+export function inspectReferenceLocalRoots(roots: string[]): ReferenceLocalRootsReport {
+  const configuredRoots = roots.map((root) => resolve(root));
+  const existingRoots: string[] = [];
+  const missingRoots: string[] = [];
+  for (const root of configuredRoots) {
+    if (existsSync(root) && statSync(root).isDirectory()) existingRoots.push(root);
+    else missingRoots.push(root);
+  }
+  return { configuredRoots, existingRoots, missingRoots };
+}
+
+function normalizedFamily(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+export function isPlasticCylinderCatalogGroup(rows: CatalogProductGroupSeed[]): boolean {
+  return rows.some((row) => /plastic\s+cylinder\s+shaped/i.test(String(row.itemName ?? "")));
+}
+
+export function isDuplicateTallCylinder9MlClear13415Group(rows: CatalogProductGroupSeed[]): boolean {
+  if (rows.length === 0) return false;
+  if (!rows.every((row) => normalizedFamily(row.family) === "tall cylinder")) return false;
+  const sample = rows[0];
+  const capacity = asFiniteNumber(sample?.capacityMl);
+  const color = String(sample?.color ?? "").trim().toLowerCase();
+  const neck = String(sample?.neckThreadSize ?? "").trim().toLowerCase().replace(/[.\s_/]+/g, "-");
+  return capacity === 9 && color === "clear" && (neck === "13-415" || neck === "13415");
+}
+
+export function buildCylinderCanonicalStorefrontManifest(
+  products: CatalogProductGroupSeed[],
+): CylinderCanonicalStorefrontManifest {
+  const byGroup = new Map<string, CatalogProductGroupSeed[]>();
+  for (const product of products) {
+    const family = normalizedFamily(product.family);
+    if (family !== "cylinder" && family !== "tall cylinder") continue;
+    const productGroupId = String(product.productGroupId ?? "").trim();
+    if (!productGroupId) continue;
+    const existing = byGroup.get(productGroupId) ?? [];
+    existing.push(product);
+    byGroup.set(productGroupId, existing);
+  }
+
+  const excluded: CylinderCanonicalStorefrontExclusion[] = [];
+  const targets: CylinderCanonicalStorefrontTarget[] = [];
+
+  for (const [productGroupId, rows] of [...byGroup.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const sortedRows = [...rows].sort((a, b) =>
+      String(a.graceSku ?? "").localeCompare(String(b.graceSku ?? "")),
+    );
+    const representative = sortedRows[0];
+    const representativeGraceSku = String(representative?.graceSku ?? "").trim() || null;
+
+    if (isPlasticCylinderCatalogGroup(rows)) {
+      excluded.push({
+        productGroupId,
+        reason: "plastic-cylinder",
+        representativeGraceSku,
+      });
+      continue;
+    }
+    if (isDuplicateTallCylinder9MlClear13415Group(rows)) {
+      excluded.push({
+        productGroupId,
+        reason: "duplicate-tall-cylinder-9ml-clear-13-415",
+        representativeGraceSku,
+      });
+      continue;
+    }
+
+    if (!representativeGraceSku) {
+      throw new Error(`Cylinder product group ${productGroupId} has no representative Grace SKU.`);
+    }
+
+    targets.push({
+      productGroupId,
+      family: String(representative?.family ?? "Cylinder"),
+      capacityMl: asFiniteNumber(representative?.capacityMl),
+      color: representative?.color == null ? null : String(representative.color),
+      neckThreadSize: representative?.neckThreadSize == null ? null : String(representative.neckThreadSize),
+      applicator: representative?.applicator == null ? null : String(representative.applicator),
+      representativeGraceSku,
+      representativeWebsiteSku: representative?.websiteSku == null ? null : String(representative.websiteSku),
+    });
+  }
+
+  return {
+    sourceGroupCount: byGroup.size,
+    excluded,
+    targets,
+  };
+}
+
+export function computeCanonicalStorefrontGenerationBudget(
+  manifest: CylinderCanonicalStorefrontManifest,
+  alreadyGeneratedProductGroupIds: Iterable<string> = [],
+): CanonicalStorefrontGenerationBudget {
+  const generated = new Set(
+    [...alreadyGeneratedProductGroupIds].map((id) => String(id).trim()).filter(Boolean),
+  );
+  let alreadyGenerated = 0;
+  for (const target of manifest.targets) {
+    if (generated.has(target.productGroupId)) alreadyGenerated += 1;
+  }
+  return {
+    totalTargets: manifest.targets.length,
+    alreadyGenerated,
+    missingRepresentatives: Math.max(0, manifest.targets.length - alreadyGenerated),
+  };
+}
+
+export function dedupeFlatPngSourcesBySha(rows: FlatPngIntakeSourceRow[]): {
+  unique: FlatPngIntakeSourceRow[];
+  duplicateCount: number;
+} {
+  const seen = new Map<string, FlatPngIntakeSourceRow>();
+  let duplicateCount = 0;
+  for (const row of rows) {
+    const sha = String(row.sourceSha256 ?? "").toLowerCase();
+    if (!sha) continue;
+    if (seen.has(sha)) {
+      duplicateCount += 1;
+      continue;
+    }
+    seen.set(sha, row);
+  }
+  return {
+    unique: Array.from(seen.values()),
+    duplicateCount,
+  };
+}
+
+export function summarizeFlatPngFamilyReadiness(
+  rows: FlatPngIntakeSourceRow[],
+): FlatPngFamilyReadinessSummary {
+  const byFamily = new Map<string, FlatPngFamilyReadinessRow>();
+  let loaded = 0;
+  let classified = 0;
+  let blocked = 0;
+  let rejected = 0;
+
+  for (const row of rows) {
+    const family = row.family?.trim() || "(blank)";
+    const current = byFamily.get(family) ?? {
+      family,
+      loaded: 0,
+      classified: 0,
+      blocked: 0,
+      rejected: 0,
+      ready: true,
+    };
+    current.loaded += 1;
+    loaded += 1;
+    if (row.classificationStatus === "classified") {
+      current.classified += 1;
+      classified += 1;
+    } else if (row.classificationStatus === "rejected") {
+      current.rejected += 1;
+      rejected += 1;
+    } else {
+      current.blocked += 1;
+      blocked += 1;
+    }
+    current.ready = current.blocked === 0;
+    byFamily.set(family, current);
+  }
+
+  const familyRows = Array.from(byFamily.values()).sort(
+    (a, b) => b.loaded - a.loaded || a.family.localeCompare(b.family),
+  );
+  return {
+    byFamily: familyRows,
+    allReady: familyRows.every((row) => row.ready),
+    loaded,
+    classified,
+    blocked,
+    rejected,
+  };
+}
+
+export function assertFlatPngFamiliesReadyForBulkGeneration(
+  readiness: FlatPngFamilyReadinessSummary,
+): void {
+  if (readiness.allReady) return;
+  const blockedFamilies = readiness.byFamily
+    .filter((row) => !row.ready)
+    .map((row) => `${row.family} (${row.blocked} unclassified)`)
+    .join(", ");
+  throw new Error(
+    `Flat-PNG families are not ready for bulk generation; blocked unclassified rows remain: ${blockedFamilies}`,
+  );
+}
+
+export function buildBodyIdentityKey(input: {
+  family?: string | null;
+  capacityMl?: number | string | null;
+  color?: string | null;
+}): string {
+  return [
+    safeSegment(input.family),
+    asFiniteNumber(input.capacityMl) ?? "unknown",
+    safeSegment(input.color),
+  ].join("|");
+}
+
+function sha256File(absolutePath: string): string {
+  return createHash("sha256").update(readFileSync(absolutePath)).digest("hex");
+}
+
+/**
+ * Inventory every flat PNG under the configured roots, hash bytes, and assign
+ * family / body / physical-fitment cohorts when an exact SKU key match exists.
+ * Unmatched rows stay unclassified (fail-closed) until classified or rejected.
+ */
+export function buildFlatPngIntakeSourceRows(params: {
+  localRoots: string[];
+  catalogProducts: CatalogProductGroupSeed[];
+  rejections?: Array<{ absolutePath?: string; sourceSha256?: string; reason: string }>;
+}): FlatPngIntakeSourceRow[] {
+  const candidates = scanReferenceFiles(params.localRoots);
+  const catalogByKey = new Map<string, CatalogProductGroupSeed>();
+  for (const product of params.catalogProducts) {
+    for (const raw of [product.graceSku, product.websiteSku]) {
+      const key = normalizeKey(raw);
+      if (key && !catalogByKey.has(key)) catalogByKey.set(key, product);
+    }
+  }
+  const rejectionByPath = new Map<string, string>();
+  const rejectionBySha = new Map<string, string>();
+  for (const rejection of params.rejections ?? []) {
+    if (rejection.absolutePath) rejectionByPath.set(resolve(rejection.absolutePath), rejection.reason);
+    if (rejection.sourceSha256) rejectionBySha.set(rejection.sourceSha256.toLowerCase(), rejection.reason);
+  }
+
+  const rows: FlatPngIntakeSourceRow[] = [];
+  for (const candidate of candidates) {
+    if (candidate.extension !== ".png") continue;
+    const sourceSha256 = sha256File(candidate.absolutePath);
+    const explicitRejection =
+      rejectionByPath.get(candidate.absolutePath) ??
+      rejectionBySha.get(sourceSha256) ??
+      null;
+
+    let matched: CatalogProductGroupSeed | null = null;
+    for (const key of candidate.keys) {
+      const hit = catalogByKey.get(key);
+      if (hit) {
+        matched = hit;
+        break;
+      }
+    }
+
+    if (explicitRejection) {
+      rows.push({
+        absolutePath: candidate.absolutePath,
+        relativePath: candidate.relativePath,
+        sourceSha256,
+        family: matched?.family == null ? null : String(matched.family),
+        bodyIdentityKey: null,
+        physicalFitmentKey: null,
+        productGroupId: matched?.productGroupId == null ? null : String(matched.productGroupId),
+        classificationStatus: "rejected",
+        rejectionReason: explicitRejection,
+      });
+      continue;
+    }
+
+    if (!matched) {
+      rows.push({
+        absolutePath: candidate.absolutePath,
+        relativePath: candidate.relativePath,
+        sourceSha256,
+        family: null,
+        bodyIdentityKey: null,
+        physicalFitmentKey: null,
+        productGroupId: null,
+        classificationStatus: "unclassified",
+        rejectionReason: null,
+      });
+      continue;
+    }
+
+    const finishColor = String(
+      (matched as { capColor?: string | null }).capColor ??
+        matched.color ??
+        "unspec",
+    );
+    rows.push({
+      absolutePath: candidate.absolutePath,
+      relativePath: candidate.relativePath,
+      sourceSha256,
+      family: matched.family == null ? null : String(matched.family),
+      bodyIdentityKey: buildBodyIdentityKey({
+        family: matched.family == null ? null : String(matched.family),
+        capacityMl: matched.capacityMl,
+        color: matched.color == null ? null : String(matched.color),
+      }),
+      physicalFitmentKey: [
+        safeSegment(matched.neckThreadSize),
+        safeSegment(matched.applicator),
+        safeSegment(finishColor),
+        "assembled-cap-on",
+      ].join("|"),
+      productGroupId: matched.productGroupId == null ? null : String(matched.productGroupId),
+      classificationStatus: "classified",
+      rejectionReason: null,
+    });
+  }
+  return rows;
 }
 
 function normalizeKey(value: string | null | undefined): string {
@@ -685,11 +1103,39 @@ export function buildReferenceIntakePlan(params: BuildReferenceIntakePlanParams)
   const rows = params.rows
     .filter(rowNeedsReference)
     .map((row) => toPlanRow(row, findLocalMatch(row, index)));
+  const summary = summarizeReferenceIntake(rows);
+
+  let flatPngSources: FlatPngIntakeSourceRow[] | undefined;
+  let cylinderCanonicalManifest: CylinderCanonicalStorefrontManifest | undefined;
+  if (params.catalogProducts) {
+    const rawFlat = buildFlatPngIntakeSourceRows({
+      localRoots: params.localRoots,
+      catalogProducts: params.catalogProducts,
+      rejections: params.flatPngRejections,
+    });
+    const deduped = dedupeFlatPngSourcesBySha(rawFlat);
+    flatPngSources = deduped.unique;
+    summary.flatPngFamilyReadiness = summarizeFlatPngFamilyReadiness(flatPngSources);
+    // Surface SHA duplicates on the SKU-intake duplicate counter when present.
+    if (deduped.duplicateCount > 0) {
+      summary.duplicateCandidates += deduped.duplicateCount;
+    }
+
+    cylinderCanonicalManifest = buildCylinderCanonicalStorefrontManifest(params.catalogProducts);
+    summary.cylinderStorefrontGeneration = computeCanonicalStorefrontGenerationBudget(
+      cylinderCanonicalManifest,
+      params.alreadyGeneratedProductGroupIds ?? [],
+    );
+  }
+
   return {
     generatedAt: params.generatedAt ?? new Date().toISOString(),
     localRoots: params.localRoots.map((root) => resolve(root)),
-    summary: summarizeReferenceIntake(rows),
+    missingLocalRoots: (params.missingLocalRoots ?? []).map((root) => resolve(root)),
+    summary,
     rows,
+    flatPngSources,
+    cylinderCanonicalManifest,
   };
 }
 
@@ -1007,6 +1453,14 @@ async function applyReferenceIntake(
   plan: ReferenceIntakePlan,
   params: { organizationId: string } & ReferenceIntakeApplySelectionOptions,
 ): Promise<void> {
+  if (plan.summary.flatPngFamilyReadiness) {
+    assertFlatPngFamiliesReadyForBulkGeneration(plan.summary.flatPngFamilyReadiness);
+  } else {
+    throw new Error(
+      "Flat-PNG family readiness is missing; refuse --apply until the intake manifest includes a 100% classified (or explicitly rejected) flat-PNG inventory.",
+    );
+  }
+
   const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
@@ -1106,14 +1560,37 @@ async function main(): Promise<void> {
     },
   });
 
-  const localRoots = (values["local-root"] as string[]).filter((root) => existsSync(root) && statSync(root).isDirectory());
+  const configuredLocalRoots = values["local-root"] as string[];
+  const rootReport = inspectReferenceLocalRoots(configuredLocalRoots);
+  const localRoots = rootReport.existingRoots;
+  if (rootReport.missingRoots.length > 0) {
+    console.warn(
+      `[reference-intake] missing flat-PNG roots (${rootReport.missingRoots.length}):\n` +
+        rootReport.missingRoots.map((root) => `  - ${root}`).join("\n"),
+    );
+  }
+
+  const catalogPath = values.catalog ? resolve(values.catalog as string) : null;
+  let catalogProducts: CatalogProductGroupSeed[] = [];
+  if (catalogPath && existsSync(catalogPath)) {
+    const catalogJson = JSON.parse(readFileSync(catalogPath, "utf8")) as {
+      products?: CatalogProductGroupSeed[];
+    };
+    catalogProducts = Array.isArray(catalogJson.products) ? catalogJson.products : [];
+  }
+
   const rows = buildRowsFromCliInputs({
     readinessPath: resolve(values.readiness as string),
     pipelinePath: resolve(values.pipeline as string),
     liveAuditPath: values["live-audit"] ? resolve(values["live-audit"] as string) : null,
-    catalogPath: values.catalog ? resolve(values.catalog as string) : null,
+    catalogPath,
   });
-  const initialPlan = buildReferenceIntakePlan({ rows, localRoots });
+  const planOptions = {
+    localRoots,
+    missingLocalRoots: rootReport.missingRoots,
+    catalogProducts: catalogProducts.length > 0 ? catalogProducts : undefined,
+  };
+  const initialPlan = buildReferenceIntakePlan({ rows, ...planOptions });
   const selectedSkuKeys = new Set((values.sku as string[]).map(normalizeKey).filter(Boolean));
   const firecrawlSkuKeys = new Set<string>();
   for (const row of initialPlan.rows) {
@@ -1133,15 +1610,23 @@ async function main(): Promise<void> {
       errors: [],
     },
   };
-  if (firecrawlSkuKeys.size > 0) {
+  // Dry-run default: no Firecrawl provider spend unless --firecrawl is left on
+  // AND --apply is requested. Explicit --no-firecrawl always wins.
+  const allowFirecrawl =
+    Boolean(values.apply) && Boolean(values.firecrawl) && !Boolean(values["no-firecrawl"]);
+  if (firecrawlSkuKeys.size > 0 && allowFirecrawl) {
     firecrawlResult = await sourceReferenceRowsWithFirecrawl(rows, {
-      enabled: Boolean(values.firecrawl) && !Boolean(values["no-firecrawl"]),
+      enabled: true,
       skuKeys: firecrawlSkuKeys,
       limit: Math.max(0, Number.parseInt(values["firecrawl-limit"] as string, 10) || 0),
       timeoutMs: Math.max(1000, Number.parseInt(values["firecrawl-timeout-ms"] as string, 10) || 15000),
     });
+  } else if (firecrawlSkuKeys.size > 0 && !allowFirecrawl) {
+    console.log(
+      `[reference-intake] dry-run: skipped Firecrawl for ${firecrawlSkuKeys.size} unresolved SKU key(s); no provider spend`,
+    );
   }
-  const plan = buildReferenceIntakePlan({ rows: firecrawlResult.rows, localRoots });
+  const plan = buildReferenceIntakePlan({ rows: firecrawlResult.rows, ...planOptions });
   writePlanOutputs(
     plan,
     resolve(values["out-json"] as string),
@@ -1159,6 +1644,27 @@ async function main(): Promise<void> {
       `conversion: ${plan.summary.conversionRequired}`,
     ].join(" · "),
   );
+  if (plan.summary.flatPngFamilyReadiness) {
+    const readiness = plan.summary.flatPngFamilyReadiness;
+    console.log(
+      [
+        `Flat-PNG readiness: loaded ${readiness.loaded}`,
+        `classified ${readiness.classified}`,
+        `blocked ${readiness.blocked}`,
+        `rejected ${readiness.rejected}`,
+        readiness.allReady ? "READY" : "BLOCKED",
+      ].join(" · "),
+    );
+  }
+  if (plan.summary.cylinderStorefrontGeneration) {
+    const budget = plan.summary.cylinderStorefrontGeneration;
+    console.log(
+      `Cylinder storefront generation budget: ${budget.missingRepresentatives} missing of ${budget.totalTargets} canonical groups`,
+    );
+  }
+  if (plan.missingLocalRoots && plan.missingLocalRoots.length > 0) {
+    console.warn(`[reference-intake] plan recorded ${plan.missingLocalRoots.length} missing root(s)`);
+  }
   if (firecrawlResult.summary.targeted > 0) {
     if (firecrawlResult.summary.skippedNoApiKey) {
       console.warn(
