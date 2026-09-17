@@ -103,30 +103,41 @@ Sharp/browser canvas, GPT Image 2.5 Sunburst.
 - [ ] Load approved references only after the manifest reaches 100% classified or
   each remaining row has an explicit rejection reason.
 
-### Task 4: Sunburst lock and deterministic body-scale gate
+### Task 4: Sunburst provider lock
 
 **Files:**
 - Modify: `supabase/functions/generate-madison-image/index.ts`
 - Modify/add focused provider-policy tests beside the rendering contract.
 - Modify: `scripts/best-bottles/generate-family-batch.ts`
-- Modify: `src/lib/product-image/rigPostprocess.ts`
-- Modify: `src/lib/product-image/rigPostprocess.test.ts`
 
 **Interfaces:**
 - Best Bottles scale-card requests resolve only to
   `provider=openai`, `model=gpt-image-2.5-sunburst`.
-- Postprocess consumes body-control bounds and scales the entire assembly about
-  the glass foot to `targetGlassHeightPx`.
 
 - [ ] Write failing tests proving the old GPT Image 2 force and capacity-based batch
   default are rejected.
+- [ ] Lock provider policy and batch default to Sunburst.
+- [ ] Reject a non-Sunburst resolved model before Best Bottles provider spend;
+  do not fall back to GPT Image 2, Flare, Gemini, or an environment-selected
+  model.
+- [ ] Re-run provider-policy and batch request tests.
+
+### Task 5: Deterministic body-scale gate
+
+**Files:**
+- Modify: `src/lib/product-image/rigPostprocess.ts`
+- Modify: `src/lib/product-image/rigPostprocess.test.ts`
+
+**Interfaces:**
+- Postprocess consumes body-control bounds and scales the entire assembly about
+  the glass foot to `targetGlassHeightPx`.
+
 - [ ] Write a failing transform test using separate glass-body control bounds and
   full-assembly bounds.
-- [ ] Lock provider policy and batch default to Sunburst.
 - [ ] Add the body-control transform; fail closed when exact body bounds are absent.
-- [ ] Re-run provider, family rig, and postprocess tests.
+- [ ] Re-run family rig and postprocess tests.
 
-### Task 5: Localhost Cylinder proof
+### Task 6: Localhost Cylinder proof
 
 **Files:**
 - Create: `src/pages/BestBottlesScaleCardPilot.tsx`
