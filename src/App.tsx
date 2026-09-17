@@ -48,6 +48,7 @@ const ImageEditor = lazy(() => import("./pages/ImageEditor"));
 const DarkRoom = lazy(() => import("./pages/DarkRoom"));
 const BestBottlesPipeline = lazy(() => import("./pages/BestBottlesPipeline"));
 const BestBottlesStudio = lazy(() => import("./pages/BestBottlesStudio"));
+const BestBottlesScaleCardPilot = lazy(() => import("./pages/BestBottlesScaleCardPilot"));
 const LightTable = lazy(() => import("./pages/LightTable"));
 // const VideoProject = lazy(() => import("./pages/VideoProject")); // Removed from project
 const ImageLibrary = lazy(() => import("./pages/ImageLibrary"));
@@ -381,6 +382,7 @@ const AppContent = () => {
                     <Route path="/best-bottles/pipeline" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Pipeline"><BestBottlesPipeline /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/best-bottles/studio/:groupSlug" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Studio"><BestBottlesStudio /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/best-bottles/studio/:groupSlug/public" element={<RouteErrorBoundary routeName="Best Bottles Public Studio"><BestBottlesPublicStudio /></RouteErrorBoundary>} />
+                    <Route path="/best-bottles/scale-card-pilot" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Scale Card Pilot"><BestBottlesScaleCardPilot /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/light-table" element={<ProtectedRoute><RouteErrorBoundary routeName="Light Table"><LightTable /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/image-library" element={<ProtectedRoute><RouteErrorBoundary routeName="Image Library"><ImageLibrary /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/dam" element={<ProtectedRoute><RouteErrorBoundary routeName="Asset Library"><DAMLibrary /></RouteErrorBoundary></ProtectedRoute>} />
@@ -444,6 +446,7 @@ const AppContent = () => {
                 <Route path="/best-bottles/pipeline" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Pipeline"><BestBottlesPipeline /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/best-bottles/studio/:groupSlug" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Studio"><BestBottlesStudio /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/best-bottles/studio/:groupSlug/public" element={<RouteErrorBoundary routeName="Best Bottles Public Studio"><BestBottlesPublicStudio /></RouteErrorBoundary>} />
+                <Route path="/best-bottles/scale-card-pilot" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Scale Card Pilot"><BestBottlesScaleCardPilot /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/light-table" element={<ProtectedRoute><RouteErrorBoundary routeName="Light Table"><LightTable /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/image-library" element={<ProtectedRoute><RouteErrorBoundary routeName="Image Library"><ImageLibrary /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/dam" element={<ProtectedRoute><RouteErrorBoundary routeName="Asset Library"><DAMLibrary /></RouteErrorBoundary></ProtectedRoute>} />

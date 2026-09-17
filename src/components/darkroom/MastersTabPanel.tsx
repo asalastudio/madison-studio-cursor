@@ -321,6 +321,7 @@ import { resolveBestBottlesShadowPolicy } from "@/lib/bestBottlesShadowPolicy";
 import { resolveBestBottlesDottedCapComponentSku } from "@/lib/bestBottlesDottedCapReference";
 import { RigReviewPanel } from "@/components/bestbottles/RigReviewPanel";
 import { ShadowSmokeComparisonPanel } from "@/components/bestbottles/ShadowSmokeComparisonPanel";
+import { ScaleProofPanel } from "@/components/best-bottles/ScaleProofPanel";
 import { useBestBottlesApprovedComparison } from "@/hooks/useBestBottlesApprovedComparison";
 import {
   EMPTY_RIG_MANUAL_CHECKS,
@@ -5599,6 +5600,15 @@ export function MastersTabPanel({
               candidateImageUrl={result.imageUrl}
             />
           )}
+          <ScaleProofPanel
+            label={selectedProduct.itemName}
+            heightWithoutCapMm={parseDimensionMm(selectedProduct.heightWithoutCap)}
+            measuredGlassHeightPct={
+              result.rigReview?.framingQa?.measurements.fillHeightPct ?? null
+            }
+            beforeImageUrl={approvedComparisonUrl ?? null}
+            afterImageUrl={result.imageUrl}
+          />
           <RigReviewPanel
             imageUrl={result.imageUrl}
             imageAlt={selectedProduct.itemName}
