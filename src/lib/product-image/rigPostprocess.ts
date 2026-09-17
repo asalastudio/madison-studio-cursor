@@ -1756,10 +1756,100 @@ export function resolveRigShadowOwner(
   }).owner;
 }
 
-function parseLeadingMm(value: string | null | undefined): number | null {
+function parseLeadingMm(value: string | number | null | undefined): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
   const match = String(value ?? "").match(/[\d.]+/);
   const parsed = match ? Number(match[0]) : Number.NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+/**
+ * Derive exact glass foot-to-rim bounds from a measured vessel envelope by
+ * scaling vessel height with heightWithoutCap / heightWithCap. Never returns
+ * the full assembly envelope as glass — only a foot-anchored glass sub-band.
+ */
+export function deriveGlassBodyControlBounds(input: {
+  vesselBounds: RigStrongBounds | null | undefined;
+  detectedBaselineYPx: number;
+  heightWithoutCap?: string | number | null;
+  heightWithCap?: string | number | null;
+}): RigStrongBounds | null {
+  const vessel = input.vesselBounds;
+  if (
+    !vessel ||
+    typeof vessel.left !== "number" ||
+    typeof vessel.right !== "number" ||
+    !(vessel.right > vessel.left)
+  ) {
+    return null;
+  }
+  const glassMm = parseLeadingMm(input.heightWithoutCap);
+  const assembledMm = parseLeadingMm(input.heightWithCap);
+  if (glassMm == null || assembledMm == null || !(assembledMm > 0)) {
+    return null;
+  }
+  const foot = Math.max(vessel.bottom, Math.round(input.detectedBaselineYPx));
+  const vesselHeightPx = foot - vessel.top;
+  if (!(vesselHeightPx > 0)) return null;
+  const glassRatio = Math.min(1, glassMm / assembledMm);
+  if (!(glassRatio > 0)) return null;
+  const glassHeightPx = Math.max(1, Math.round(vesselHeightPx * glassRatio));
+  return {
+    top: foot - glassHeightPx,
+    bottom: foot,
+    left: vessel.left,
+    right: vessel.right,
+  };
+}
+
+function resolveBodyControlBoundsForTransform(input: {
+  provided?: RigStrongBounds | null;
+  primaryBounds?: RigStrongBounds | null;
+  strongBounds?: RigStrongBounds | null;
+  detectedBaselineYPx: number;
+  capState?: RigCapState;
+  heightWithoutCap?: string | number | null;
+  heightWithCap?: string | number | null;
+}): RigStrongBounds | null {
+  if (isExactBodyControlBounds(input.provided)) {
+    return input.provided;
+  }
+  const vessel =
+    input.capState === "detached"
+      ? input.primaryBounds ?? input.strongBounds
+      : input.strongBounds ?? input.primaryBounds;
+  return deriveGlassBodyControlBounds({
+    vesselBounds: vessel,
+    detectedBaselineYPx: input.detectedBaselineYPx,
+    heightWithoutCap: input.heightWithoutCap,
+    heightWithCap: input.heightWithCap,
+  });
+}
+
+function transformBodyControlBounds(
+  bounds: RigStrongBounds | null | undefined,
+  scale: number,
+  shiftYPx: number,
+  width: number,
+  hScaleX = 1,
+): RigStrongBounds | null {
+  if (!isExactBodyControlBounds(bounds)) return null;
+  const scaleXAboutCenter = (value: number): number =>
+    Math.round((value - width / 2) * hScaleX + width / 2);
+  return {
+    top: Math.round(bounds.top * scale + shiftYPx),
+    bottom: Math.round(bounds.bottom * scale + shiftYPx),
+    left:
+      typeof bounds.left === "number"
+        ? scaleXAboutCenter(bounds.left * scale)
+        : undefined,
+    right:
+      typeof bounds.right === "number"
+        ? scaleXAboutCenter(bounds.right * scale)
+        : undefined,
+  };
 }
 
 /**
@@ -2572,14 +2662,36 @@ export async function normalizeBestBottlesRigBaseline(
     const sourceImageData = modelShadowAnalysis
       ? new Uint8ClampedArray(imageData.data)
       : null;
+    const resolvedBodyControlBounds = resolveBodyControlBoundsForTransform({
+      provided: options.bodyControlBounds,
+      primaryBounds,
+      strongBounds: maskBounds,
+      detectedBaselineYPx: detectedBaseline,
+      capState,
+      heightWithoutCap: options.heightWithoutCap,
+      heightWithCap: options.heightWithCap,
+    });
+    let transformRig = rig;
+    if (
+      typeof rig.targetBodyHeightPx === "number" &&
+      rig.targetBodyHeightPx > 0 &&
+      !isExactBodyControlBounds(resolvedBodyControlBounds)
+    ) {
+      // Fail closed without throwing after provider spend: drop body-scale gate
+      // and record the miss so callers can review instead of crashing the lane.
+      qaIssues.push(
+        "Exact glass body-control bounds could not be derived; refusing scale-card body sizing and keeping provider/legacy scale.",
+      );
+      transformRig = { ...rig, targetBodyHeightPx: undefined };
+    }
     const transform = computeRigFrameTransform({
       width,
       height,
-      rig,
+      rig: transformRig,
       detectedBaselineYPx: detectedBaseline,
       strongBounds: maskBounds,
       primaryBounds,
-      bodyControlBounds: options.bodyControlBounds,
+      bodyControlBounds: resolvedBodyControlBounds,
       capState,
       preserveGeneratedScale: options.preserveGeneratedScale,
     });
@@ -2673,6 +2785,13 @@ export async function normalizeBestBottlesRigBaseline(
         rig,
         bounds: finalPrimaryBounds,
         primaryBounds: finalPrimaryBounds,
+        bodyControlBounds: transformBodyControlBounds(
+          resolvedBodyControlBounds,
+          transform.scale,
+          appliedShiftYPx,
+          width,
+          appliedHScaleX,
+        ),
         baselineYPx: finalBaseline,
         capState,
         expectedPrimaryAspectRatio,
@@ -2995,14 +3114,35 @@ export async function normalizeBestBottlesRigBaseline(
         detectedBaseline,
       )
     : strongBounds;
+  const resolvedBodyControlBounds = resolveBodyControlBoundsForTransform({
+    provided: options.bodyControlBounds,
+    primaryBounds,
+    strongBounds,
+    detectedBaselineYPx: detectedBaseline,
+    capState,
+    heightWithoutCap: options.heightWithoutCap,
+    heightWithCap: options.heightWithCap,
+  });
+  const bodyControlMissIssues: string[] = [];
+  let transformRig = rig;
+  if (
+    typeof rig.targetBodyHeightPx === "number" &&
+    rig.targetBodyHeightPx > 0 &&
+    !isExactBodyControlBounds(resolvedBodyControlBounds)
+  ) {
+    bodyControlMissIssues.push(
+      "Exact glass body-control bounds could not be derived; refusing scale-card body sizing and keeping provider/legacy scale.",
+    );
+    transformRig = { ...rig, targetBodyHeightPx: undefined };
+  }
   const transform = computeRigFrameTransform({
     width,
     height,
-    rig,
+    rig: transformRig,
     detectedBaselineYPx: detectedBaseline,
     strongBounds,
     primaryBounds,
-    bodyControlBounds: options.bodyControlBounds,
+    bodyControlBounds: resolvedBodyControlBounds,
     capState,
     preserveGeneratedScale: options.preserveGeneratedScale,
   });
@@ -3125,6 +3265,13 @@ export async function normalizeBestBottlesRigBaseline(
       rig,
       bounds: finalPrimaryBounds,
       primaryBounds: finalPrimaryBounds,
+      bodyControlBounds: transformBodyControlBounds(
+        resolvedBodyControlBounds,
+        transform.scale,
+        appliedShiftYPx,
+        width,
+        appliedHScaleX,
+      ),
       baselineYPx: finalBaseline,
       capState,
       expectedPrimaryAspectRatio,
@@ -3252,6 +3399,7 @@ export async function normalizeBestBottlesRigBaseline(
     targetBaselineYPx: targetBaseline,
     maskControlled: false,
     qaIssues: [
+      ...bodyControlMissIssues,
       ...(capState === "detached" && !primaryBounds
         ? ["Primary bottle bounds were unresolved for detached topology."]
         : []),

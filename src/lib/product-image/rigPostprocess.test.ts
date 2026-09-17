@@ -698,6 +698,24 @@ describe("computeRigFrameTransform", () => {
     );
   });
 
+  it("derives glass body-control bounds from vessel × heightWithoutCap/heightWithCap", async () => {
+    const { deriveGlassBodyControlBounds } = await import("./rigPostprocess");
+    const vessel = { top: 600, bottom: 2000, left: 900, right: 1180 };
+    const derived = deriveGlassBodyControlBounds({
+      vesselBounds: vessel,
+      detectedBaselineYPx: 2000,
+      heightWithoutCap: "70 mm",
+      heightWithCap: "98 mm",
+    });
+    assert.ok(derived);
+    assert.equal(derived.bottom, 2000);
+    assert.equal(derived.left, 900);
+    assert.equal(derived.right, 1180);
+    // 1400 * (70/98) ≈ 1000
+    assert.equal(derived.top, 2000 - Math.round(1400 * (70 / 98)));
+    assert.notEqual(derived.top, vessel.top);
+  });
+
   it("reduces a 9 ml PDP sidecar so bare glass lands on targetBodyHeightPx", () => {
     const rig = getFamilyRigForProduct({
       graceSku: "GB-CYL-CLR-9ML-T-21",
