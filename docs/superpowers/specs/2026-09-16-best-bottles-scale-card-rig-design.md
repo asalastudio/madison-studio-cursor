@@ -40,18 +40,25 @@ capacity-based assembled-height scale for Best Bottles catalog masters.
 
 ## Generation flow
 
-1. Read verified `heightWithoutCap`.
-2. Resolve scale-card percent, target glass pixels, and S-tag.
-3. Add the exact glass target and baseline to the GPT prompt.
-4. Generate with `gpt-image-2.5-sunburst`; reject any other resolved model
+1. Inventory and load every approved flat PNG reference into its exact family,
+   body, and fitment cohort before generation.
+2. Deduplicate fitments only by physical identity:
+   `neckThreadSize × applicator geometry × finish/color × cap state`.
+3. Read verified `heightWithoutCap`.
+4. Resolve scale-card percent, target glass pixels, and S-tag.
+5. Add the exact glass target and baseline to the GPT prompt.
+6. Generate one canonical example per physical fitment cohort with
+   `gpt-image-2.5-sunburst`; reject any other resolved model
    before provider spend.
-5. Use source/body control geometry to scale the whole assembly about the
+7. Use source/body control geometry to scale the whole assembly about the
    glass foot until bare glass lands on the exact target.
-6. Reject missing or disputed measurements, missing body control geometry,
+8. Reuse an approved, SHA-pinned fitment master across matching family variants
+   instead of spending on duplicate generations.
+9. Reject missing or disputed measurements, missing body control geometry,
    geometry drift, baseline drift, wrong canvas, or wrong background.
-7. Produce same-zoom before/after proofs with current percent, target percent,
+10. Produce same-zoom before/after proofs with current percent, target percent,
    millimetres, and S-tag.
-8. Publish only after Jordan approves the proof.
+11. Publish only after Jordan approves the proof.
 
 ## First vertical slice
 
@@ -59,6 +66,12 @@ The localhost review surface covers five Cylinder bodies selected to expose the
 largest scale changes: 5 ml, 9 ml Classic, 9 ml Slim, 50 ml, and 100 ml. It
 shows current and proposed framing side by side and identifies whether each
 record has enough body-control evidence for deterministic generation.
+
+The same review surface includes a family reference-readiness matrix. A family
+cannot enter bulk generation until all approved flat PNGs are loaded, hashed,
+classified, and either assigned to a body/fitment cohort or explicitly rejected.
+Its generation budget is the count of missing approved physical fitment cohorts,
+not its raw SKU count.
 
 No live GPT generation, Supabase write, Shopify write, Convex write, or
 storefront hero swap happens from the preview without a separate explicit
@@ -73,4 +86,8 @@ approval.
 - Capacity never participates in scale calculation.
 - Missing or invalid bare-glass measurements fail closed.
 - Browser and Deno contract copies return identical results.
+- Every family reaches 100% classified flat-PNG reference coverage before bulk
+  provider spend.
+- Fitment reuse never crosses a physical cohort boundary.
+- The batch manifest spends at most once per unapproved physical fitment cohort.
 - The localhost proof is readable at one zoom and labels every change.

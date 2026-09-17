@@ -26,6 +26,9 @@ Sharp/browser canvas, GPT Image 2.5 Sunburst.
 - Missing/disputed measurements or missing body-control geometry fail closed.
 - No Supabase, Shopify, Convex, or storefront writes during localhost proof.
 - Every size change gets same-zoom before/after proof with the number.
+- Load and classify all approved flat PNGs before any bulk provider spend.
+- Generate at most one canonical master for each physical fitment cohort:
+  `neckThreadSize × applicator geometry × finish/color × cap state`.
 
 ---
 
@@ -71,7 +74,36 @@ Sharp/browser canvas, GPT Image 2.5 Sunburst.
 - [ ] Wire the resolver into both family-rig runtimes; capacity must not participate.
 - [ ] Re-run targeted tests and confirm browser/Deno parity.
 
-### Task 3: Sunburst lock and deterministic body-scale gate
+### Task 3: Cross-family flat-PNG intake and fitment cohorts
+
+**Files:**
+- Modify: `scripts/bestBottlesReferenceIntake.ts`
+- Modify: `scripts/bestBottlesReferenceIntake.test.ts`
+- Modify: `src/lib/paperDoll/componentRegistry.ts`
+- Modify: `src/lib/paperDoll/componentRegistry.test.ts`
+- Modify: `src/components/darkroom/ComponentsTabPanel.tsx`
+- Modify: `src/pages/BestBottlesPipeline.tsx`
+
+**Interfaces:**
+- Intake manifest assigns every approved flat PNG to family, body identity, source
+  SHA, and physical fitment cohort.
+- Family readiness is blocked until every source is classified or explicitly
+  rejected.
+- Batch budget equals missing approved cohort masters, not raw SKU count.
+
+- [ ] Write failing tests for family totals, SHA dedupe, and physical fitment keys
+  including neck size and cap state.
+- [ ] Extend the intake artifact with by-family loaded/classified/blocked counts
+  and canonical cohort assignments.
+- [ ] Fix Components tab slot keys so equal labels on different neck sizes or cap
+  states cannot collapse into one fitment.
+- [ ] Expose the family readiness matrix and cohort generation count on localhost.
+- [ ] Run intake in dry-run mode across all configured flat-PNG roots and inspect
+  unresolved/duplicate rows before any upload or provider spend.
+- [ ] Load approved references only after the manifest reaches 100% classified or
+  each remaining row has an explicit rejection reason.
+
+### Task 4: Sunburst lock and deterministic body-scale gate
 
 **Files:**
 - Modify: `supabase/functions/generate-madison-image/index.ts`
@@ -94,7 +126,7 @@ Sharp/browser canvas, GPT Image 2.5 Sunburst.
 - [ ] Add the body-control transform; fail closed when exact body bounds are absent.
 - [ ] Re-run provider, family rig, and postprocess tests.
 
-### Task 4: Localhost Cylinder proof
+### Task 5: Localhost Cylinder proof
 
 **Files:**
 - Create: `src/pages/BestBottlesScaleCardPilot.tsx`
