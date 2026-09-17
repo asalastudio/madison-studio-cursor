@@ -4,6 +4,7 @@ import {
   type FamilyRigConfig,
 } from "./familyRig.ts";
 import {
+  BEST_BOTTLES_COMPARISON_PROVIDER_TAG,
   BEST_BOTTLES_PRODUCTION_MODEL,
   shouldForceBestBottlesOpenAIProvider,
 } from "./bestBottlesProviderRouting.ts";
@@ -703,7 +704,7 @@ function libraryTagsForContract(contract: Omit<BestBottlesRenderingContract, "li
     `canvas:${contract.canvas.width}x${contract.canvas.height}`,
     `qa-policy:${contract.qaPolicy.kind}`,
     contract.providerPolicy.comparisonOnly
-      ? "contract-provider:comparison"
+      ? BEST_BOTTLES_COMPARISON_PROVIDER_TAG
       : "contract-provider:openai-image-2.5-sunburst",
     contract.sku ? `sku:${contract.sku}` : null,
     contract.rig?.profileId ? `profile:${contract.rig.profileId}` : null,

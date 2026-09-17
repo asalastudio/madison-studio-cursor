@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   BEST_BOTTLES_PRODUCTION_MODEL,
   BEST_BOTTLES_PRODUCTION_PROVIDER,
+  buildBestBottlesPersistedLibraryTags,
   getBestBottlesProductionProviderIssue,
   resolveBestBottlesProductionResolution,
   shouldForceBestBottlesOpenAIProvider,
@@ -74,6 +75,36 @@ describe("Best Bottles provider routing", () => {
       }),
       null,
     );
+  });
+
+  it("strips stale and malicious production tags from the final comparison tag set", () => {
+    const persistedTags = buildBestBottlesPersistedLibraryTags({
+      comparisonOnly: true,
+      existing: ["studio-master", "sku:GB-SPR-CLR-3ML-BLK"],
+      parent: [
+        "contract-provider:openai-image-2.5-sunburst",
+        "contract-provider:openai-image-2",
+        "family:cylinder",
+      ],
+      pipeline: ["brand:best-bottles", "reference-lineage:clean"],
+      contract: ["contract-provider:comparison", "contract-status:ready"],
+      caller: [
+        "studio-master",
+        "family-batch:live",
+        "contract-provider:openai-image-2.5-sunburst",
+        "identity:sealed-product",
+      ],
+    });
+
+    assert.deepEqual(persistedTags, [
+      "sku:GB-SPR-CLR-3ML-BLK",
+      "family:cylinder",
+      "brand:best-bottles",
+      "reference-lineage:clean",
+      "contract-provider:comparison",
+      "contract-status:ready",
+      "identity:sealed-product",
+    ]);
   });
 
   it("does not force OpenAI for non-Best-Bottles requests", () => {

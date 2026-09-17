@@ -31,6 +31,7 @@ import { resolveBestBottlesPrecompiledPrompt } from "../_shared/bestBottlesPreco
 import {
   BEST_BOTTLES_PRODUCTION_MODEL,
   BEST_BOTTLES_PRODUCTION_PROVIDER,
+  buildBestBottlesPersistedLibraryTags,
   getBestBottlesProductionProviderIssue,
   resolveBestBottlesProductionResolution,
   shouldForceBestBottlesOpenAIProvider,
@@ -3303,15 +3304,14 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       const existing = Array.isArray(insertPayload.library_tags)
         ? (insertPayload.library_tags as string[])
         : [];
-      insertPayload.library_tags = Array.from(
-        new Set([
-          ...existing,
-          ...parentImageTags,
-          ...(pipelineMeta ? pipelineMeta.libraryTags : []),
-          ...(bestBottlesRenderingContract ? bestBottlesRenderingContract.libraryTags : []),
-          ...callerExtraTags,
-        ]),
-      );
+      insertPayload.library_tags = buildBestBottlesPersistedLibraryTags({
+        comparisonOnly: bestBottlesComparisonOnly,
+        existing,
+        parent: parentImageTags,
+        pipeline: pipelineMeta ? pipelineMeta.libraryTags : [],
+        contract: bestBottlesRenderingContract ? bestBottlesRenderingContract.libraryTags : [],
+        caller: callerExtraTags,
+      });
     }
 
     const savedImage = await insertGeneratedImageRecord(

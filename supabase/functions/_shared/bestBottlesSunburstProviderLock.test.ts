@@ -38,4 +38,19 @@ describe("Best Bottles Sunburst production lock", () => {
       /const aiProvider = process\.env\.BB_GEN_AI_PROVIDER\?\.trim\(\) \|\| "openai-image-2"/,
     );
   });
+
+  it("applies the comparison-only filter to the final persisted tag merge", () => {
+    const persistence = edgeSource.slice(
+      edgeSource.indexOf("// Auto-tag pipeline-originated images"),
+      edgeSource.indexOf("const savedImage = await insertGeneratedImageRecord"),
+    );
+
+    assert.match(
+      persistence,
+      /insertPayload\.library_tags = buildBestBottlesPersistedLibraryTags\(\{/,
+    );
+    assert.match(persistence, /comparisonOnly: bestBottlesComparisonOnly/);
+    assert.match(persistence, /parent: parentImageTags/);
+    assert.match(persistence, /caller: callerExtraTags/);
+  });
 });

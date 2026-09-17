@@ -10,6 +10,46 @@ export interface BestBottlesResolutionRoutingInput {
 
 export const BEST_BOTTLES_PRODUCTION_PROVIDER = "openai" as const;
 export const BEST_BOTTLES_PRODUCTION_MODEL = "gpt-image-2.5-sunburst" as const;
+export const BEST_BOTTLES_COMPARISON_PROVIDER_TAG = "contract-provider:comparison" as const;
+
+export const BEST_BOTTLES_PRODUCTION_ONLY_LIBRARY_TAGS: ReadonlySet<string> = new Set([
+  "studio-master",
+  "family-batch:live",
+]);
+
+export interface BestBottlesPersistedLibraryTagSources {
+  comparisonOnly: boolean;
+  existing: readonly string[];
+  parent: readonly string[];
+  pipeline: readonly string[];
+  contract: readonly string[];
+  caller: readonly string[];
+}
+
+export function isBestBottlesProductionOnlyLibraryTag(tag: string): boolean {
+  const normalized = tag.trim().toLowerCase();
+  return BEST_BOTTLES_PRODUCTION_ONLY_LIBRARY_TAGS.has(normalized)
+    || (
+      normalized.startsWith("contract-provider:")
+      && normalized !== BEST_BOTTLES_COMPARISON_PROVIDER_TAG
+    );
+}
+
+export function buildBestBottlesPersistedLibraryTags(
+  input: BestBottlesPersistedLibraryTagSources,
+): string[] {
+  const merged = [
+    ...input.existing,
+    ...input.parent,
+    ...input.pipeline,
+    ...input.contract,
+    ...input.caller,
+  ];
+  const safeTags = input.comparisonOnly
+    ? merged.filter((tag) => !isBestBottlesProductionOnlyLibraryTag(tag))
+    : merged;
+  return Array.from(new Set(safeTags));
+}
 
 export interface BestBottlesResolvedProviderInput {
   isBestBottlesReferenceLocked: boolean;
