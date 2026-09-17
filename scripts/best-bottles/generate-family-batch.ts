@@ -47,7 +47,7 @@
  * marked `rendered` in the manifest. Pass --manifest <path> to pin the file.
  *
  * Env (mirrors live-cylinder-smoke.ts where noted):
- *   BB_GEN_AI_PROVIDER        default openai-image-2   (smoke: BB_SMOKE_AI_PROVIDER)
+ *   BB_GEN_AI_PROVIDER        default openai-image-2.5-sunburst   (smoke: BB_SMOKE_AI_PROVIDER)
  *   BB_GEN_PROMPT_MODE        canon-framing | canon-only
  *   BB_GEN_RESOLUTION         standard | high | 4k
  *   BB_GEN_PROMPT_ADDENDUM    (optional smoke addendum id)
@@ -135,7 +135,7 @@ const USER_ID =
 const preset = IMAGE_PRESETS["grid-card-exploded-2000x2200"];
 if (!preset) throw new Error("Missing grid-card-exploded-2000x2200 preset.");
 
-const aiProvider = process.env.BB_GEN_AI_PROVIDER?.trim() || "openai-image-2";
+const aiProvider = process.env.BB_GEN_AI_PROVIDER?.trim() || "openai-image-2.5-sunburst";
 const allowBestBottlesProviderOverride = !/^openai|^gpt-image|^dall-e/i.test(aiProvider);
 const skipRigPostprocess = process.env.BB_GEN_SKIP_RIG_POSTPROCESS === "1";
 const promptAddendum = getSmokePromptAddendum(process.env.BB_GEN_PROMPT_ADDENDUM);

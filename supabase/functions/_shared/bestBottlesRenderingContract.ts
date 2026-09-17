@@ -3,7 +3,10 @@ import {
   isCylinderFamilyAlias,
   type FamilyRigConfig,
 } from "./familyRig.ts";
-import { shouldForceBestBottlesOpenAIProvider } from "./bestBottlesProviderRouting.ts";
+import {
+  BEST_BOTTLES_PRODUCTION_MODEL,
+  shouldForceBestBottlesOpenAIProvider,
+} from "./bestBottlesProviderRouting.ts";
 
 export type BestBottlesRenderingLane =
   | "bottle_catalog"
@@ -117,7 +120,7 @@ export interface BestBottlesRenderingContract {
   rig: FamilyRigConfig | null;
   providerPolicy: {
     provider: "openai" | "requested";
-    model: "gpt-image-2" | null;
+    model: "gpt-image-2.5-sunburst" | null;
     comparisonOnly: boolean;
   };
   qaPolicy: {
@@ -216,7 +219,7 @@ const BLOCKED_CONTRACT = {
   rig: null,
   providerPolicy: {
     provider: "openai" as const,
-    model: "gpt-image-2" as const,
+    model: BEST_BOTTLES_PRODUCTION_MODEL,
     comparisonOnly: false,
   },
   qaPolicy: {
@@ -670,7 +673,7 @@ function resolveProviderPolicy(
   if (forceOpenAI) {
     return {
       provider: "openai",
-      model: "gpt-image-2",
+      model: BEST_BOTTLES_PRODUCTION_MODEL,
       comparisonOnly: false,
     };
   }
@@ -699,7 +702,9 @@ function libraryTagsForContract(contract: Omit<BestBottlesRenderingContract, "li
     `prompt-profile:${contract.promptProfile}`,
     `canvas:${contract.canvas.width}x${contract.canvas.height}`,
     `qa-policy:${contract.qaPolicy.kind}`,
-    contract.providerPolicy.comparisonOnly ? "contract-provider:comparison" : "contract-provider:openai-image-2",
+    contract.providerPolicy.comparisonOnly
+      ? "contract-provider:comparison"
+      : "contract-provider:openai-image-2.5-sunburst",
     contract.sku ? `sku:${contract.sku}` : null,
     contract.rig?.profileId ? `profile:${contract.rig.profileId}` : null,
     contract.rig?.relativeScaleZoneId ? `scale-zone:${contract.rig.relativeScaleZoneId}` : null,

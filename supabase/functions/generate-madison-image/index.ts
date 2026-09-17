@@ -29,6 +29,9 @@ import {
 import { formatBestBottlesBodyMaterialSkuLock } from "../_shared/bestBottlesBodyMaterialPrompt.ts";
 import { resolveBestBottlesPrecompiledPrompt } from "../_shared/bestBottlesPrecompiledPrompt.ts";
 import {
+  BEST_BOTTLES_PRODUCTION_MODEL,
+  BEST_BOTTLES_PRODUCTION_PROVIDER,
+  getBestBottlesProductionProviderIssue,
   resolveBestBottlesProductionResolution,
   shouldForceBestBottlesOpenAIProvider,
 } from "../_shared/bestBottlesProviderRouting.ts";
@@ -2643,29 +2646,44 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           allowBestBottlesProviderOverride,
         });
 
-    // NOTE: this lane stays pinned to gpt-image-2 on purpose. The Best Bottles
-    // reference-locked contract (canvas, Bone background, ambient-contact
-    // shadow, light contract) was validated against gpt-image-2 output; moving
-    // it to GPT Image 2.5 is a contract change that needs its own re-validation
-    // pass, not a silent model bump. See bestBottlesRenderingContract.ts.
+    const bestBottlesComparisonOnly = bestBottlesRenderingContract
+      ? bestBottlesRenderingContract.providerPolicy.comparisonOnly
+      : isBestBottlesReferenceLocked && !forceBestBottlesOpenAIProvider;
+
     if (forceBestBottlesOpenAIProvider) {
-      if (effectiveProvider !== "openai" || effectiveOpenAIModel !== "gpt-image-2") {
+      if (
+        effectiveProvider !== BEST_BOTTLES_PRODUCTION_PROVIDER
+        || effectiveOpenAIModel !== BEST_BOTTLES_PRODUCTION_MODEL
+      ) {
         console.log(
-          "Best Bottles reference-locked master -> forcing OpenAI GPT Image 2; no Gemini/Freepik fallback on this path.",
+          "Best Bottles reference-locked master -> locking OpenAI GPT Image 2.5 Sunburst; no alternate provider or model fallback on this path.",
           {
             requestedProvider: effectiveProvider,
             requestedModel: aiProvider ?? provider ?? "(none)",
           },
         );
       }
-      effectiveProvider = "openai";
-      effectiveOpenAIModel = "gpt-image-2";
+      effectiveProvider = BEST_BOTTLES_PRODUCTION_PROVIDER;
+      effectiveOpenAIModel = BEST_BOTTLES_PRODUCTION_MODEL;
     } else if (isBestBottlesReferenceLocked) {
       console.log("Best Bottles reference-locked provider override enabled for comparison run.", {
         requestedProvider: effectiveProvider,
         requestedModel: aiProvider ?? provider ?? "(none)",
         contractStatus: bestBottlesRenderingContract?.status ?? "(none)",
       });
+    }
+
+    const bestBottlesProviderIssue = getBestBottlesProductionProviderIssue({
+      isBestBottlesReferenceLocked,
+      comparisonOnly: bestBottlesComparisonOnly,
+      provider: effectiveProvider,
+      model: effectiveProvider === "openai" ? effectiveOpenAIModel : effectiveProvider,
+    });
+    if (bestBottlesProviderIssue) {
+      return new Response(
+        JSON.stringify({ error: bestBottlesProviderIssue }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (effectiveProvider === "auto") {
@@ -2692,19 +2710,19 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     }
 
     // Determine which provider to use based on tier and request.
-    // Best Bottles reference-locked masters are OpenAI GPT Image 2 only.
+    // Best Bottles production masters are OpenAI GPT Image 2.5 Sunburst only.
     // Other modes keep the broader Madison fallback behavior.
     let selectedProvider: "gemini" | "freepik" | "openai" = "gemini";
     let tierRestrictionApplied = false;
 
     if (effectiveProvider === "openai") {
-      // OpenAI GPT Image 2 is the Darkroom default and primary path.
+      // OpenAI is the Darkroom default and primary path.
       if (Deno.env.get("OPENAI_API_KEY")) {
         selectedProvider = "openai";
       } else if (isBestBottlesReferenceLocked) {
         return new Response(
           JSON.stringify({
-            error: "Best Bottles reference-locked master generation requires OPENAI_API_KEY for GPT Image 2.",
+            error: `Best Bottles reference-locked master generation requires OPENAI_API_KEY for ${BEST_BOTTLES_PRODUCTION_MODEL}.`,
           }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );

@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  BEST_BOTTLES_PRODUCTION_MODEL,
+  BEST_BOTTLES_PRODUCTION_PROVIDER,
+  getBestBottlesProductionProviderIssue,
   resolveBestBottlesProductionResolution,
   shouldForceBestBottlesOpenAIProvider,
 } from "./bestBottlesProviderRouting";
@@ -24,6 +27,52 @@ describe("Best Bottles provider routing", () => {
         allowBestBottlesProviderOverride: true,
       }),
       false,
+    );
+  });
+
+  it("locks production routing to OpenAI GPT Image 2.5 Sunburst", () => {
+    assert.equal(BEST_BOTTLES_PRODUCTION_PROVIDER, "openai");
+    assert.equal(BEST_BOTTLES_PRODUCTION_MODEL, "gpt-image-2.5-sunburst");
+    assert.equal(
+      getBestBottlesProductionProviderIssue({
+        isBestBottlesReferenceLocked: true,
+        comparisonOnly: false,
+        provider: "openai",
+        model: "gpt-image-2.5-sunburst",
+      }),
+      null,
+    );
+  });
+
+  it("rejects every non-Sunburst resolution before production spend", () => {
+    for (const [provider, model] of [
+      ["openai", "gpt-image-2"],
+      ["openai", "gpt-image-2.5-flare"],
+      ["gemini", "gemini"],
+      ["freepik", "mystic"],
+      ["auto", "gpt-image-2.5-sunburst"],
+    ] as const) {
+      assert.match(
+        getBestBottlesProductionProviderIssue({
+          isBestBottlesReferenceLocked: true,
+          comparisonOnly: false,
+          provider,
+          model,
+        }) ?? "",
+        /requires provider=openai and model=gpt-image-2\.5-sunburst/,
+      );
+    }
+  });
+
+  it("keeps explicit comparison routing outside the production-safe lock", () => {
+    assert.equal(
+      getBestBottlesProductionProviderIssue({
+        isBestBottlesReferenceLocked: true,
+        comparisonOnly: true,
+        provider: "gemini",
+        model: "gemini",
+      }),
+      null,
     );
   });
 

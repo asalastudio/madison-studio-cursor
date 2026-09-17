@@ -411,13 +411,15 @@ describe("BestBottlesRenderingContract", () => {
     assert.equal(contract.rig?.relativeScaleZoneId, "sample-vial");
     assert.deepEqual(contract.rig?.fillHeightRangePct, { min: 55, max: 60 });
     assert.equal(contract.providerPolicy.provider, "openai");
-    assert.equal(contract.providerPolicy.model, "gpt-image-2");
+    assert.equal(contract.providerPolicy.model, "gpt-image-2.5-sunburst");
     assert.equal(contract.providerPolicy.comparisonOnly, false);
     assert.equal(contract.qaPolicy.enforceFillHeight, true);
     assert.deepEqual(contract.qaPolicy.allowedDecisions, ["pass", "normalize", "reject"]);
     assert.ok(contract.libraryTags.includes("rendering-lane:bottle_catalog"));
     assert.ok(contract.libraryTags.includes("profile:sample-vial"));
     assert.ok(contract.libraryTags.includes("scale-zone:sample-vial"));
+    assert.ok(contract.libraryTags.includes("contract-provider:openai-image-2.5-sunburst"));
+    assert.ok(!contract.libraryTags.includes("contract-provider:openai-image-2"));
   });
 
   it("uses Convex measurements to separate regular 9ml roll-ons from slim 9ml sprayers", async () => {
@@ -713,5 +715,6 @@ describe("BestBottlesRenderingContract", () => {
     assert.equal(contract.status, "ready");
     assert.equal(contract.providerPolicy.comparisonOnly, true);
     assert.ok(contract.libraryTags.includes("contract-provider:comparison"));
+    assert.ok(!contract.libraryTags.includes("contract-provider:openai-image-2.5-sunburst"));
   });
 });
