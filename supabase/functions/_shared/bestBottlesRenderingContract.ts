@@ -495,6 +495,8 @@ function resolveRig(
     diameter: product.diameter,
     capState: textValue(inputContext?.capState) || null,
     mode: textValue(inputContext?.mode) || null,
+    // Bottle catalog masters are the scale-card fail-closed lane.
+    requireScaleCard: true,
   });
 }
 

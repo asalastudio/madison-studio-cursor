@@ -410,6 +410,9 @@ describe("BestBottlesRenderingContract", () => {
     assert.equal(contract.rig?.profileId, "sample-vial");
     assert.equal(contract.rig?.relativeScaleZoneId, "sample-vial");
     assert.deepEqual(contract.rig?.fillHeightRangePct, { min: 55, max: 60 });
+    assert.deepEqual(contract.rig?.glassHeightRangePct, { min: 30, max: 34 });
+    assert.equal(contract.rig?.glassHeightPct, 32);
+    assert.equal(contract.rig?.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
     assert.equal(contract.providerPolicy.provider, "openai");
     assert.equal(contract.providerPolicy.model, "gpt-image-2.5-sunburst");
     assert.equal(contract.providerPolicy.comparisonOnly, false);
@@ -543,7 +546,7 @@ describe("BestBottlesRenderingContract", () => {
     for (const [key, value] of Object.entries(roleFields)) {
       assert.equal(contract.productContext[key], value, key);
     }
-    assert.equal(contract.rig?.scaleContractVersion, "best-bottles-catalog-scale-v1");
+    assert.equal(contract.rig?.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
   });
 
   it("keeps caller sidecar authority when stale Convex role fields conflict", async () => {
@@ -581,8 +584,9 @@ describe("BestBottlesRenderingContract", () => {
     for (const [key, value] of Object.entries(callerSidecar)) {
       assert.equal(contract.productContext[key], value, key);
     }
-    assert.equal(contract.rig?.scaleContractVersion, "best-bottles-catalog-scale-v1");
+    assert.equal(contract.rig?.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
     assert.equal(contract.rig?.targetBodyHeightPx != null, true);
+    assert.equal(contract.rig?.glassHeightPct, 32);
   });
 
   it("fails closed on self-sealed malformed canonical dimensions", async () => {

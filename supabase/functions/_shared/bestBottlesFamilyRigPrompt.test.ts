@@ -25,8 +25,11 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
     assert.match(adjustment.taskLine, /Composition is set by the imposed studio rig/i);
     assert.match(sourceTruth, /source foreground size is not product truth/i);
     assert.match(composition, /IMPOSED STUDIO RIG/);
-    assert.match(composition, /~62% of the canvas height/i);
-    assert.match(composition, /approved 60-64% fill-height range/i);
+    assert.match(composition, /SCALE-CARD BARE GLASS/i);
+    assert.match(composition, /foot-to-rim glass height = 40\.7%/i);
+    assert.match(composition, /tag S60/);
+    assert.doesNotMatch(composition, /Fit the full assembly within ~40\.7%/i);
+    assert.match(composition, /Assembled framing hint/i);
     assert.doesNotMatch(fullPromptPart, /uploaded reference canvas is the placement lock/i);
     assert.doesNotMatch(fullPromptPart, /canvas placement, centerline, baseline, crop, camera distance, and scale are locked/i);
   });
@@ -46,9 +49,10 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
     assert.match(adjustment.sourceTruthLines.join("\n"), /source foreground size is not product truth/i);
     assert.doesNotMatch(adjustment.sourceTruthLines.join("\n"), /bounding-box footprint, centerline, baseline, crop, camera distance, and relative scale/i);
     assert.match(adjustment.canvasCompositionLines.join("\n"), /IMPOSED STUDIO RIG/);
-    assert.match(adjustment.canvasCompositionLines.join("\n"), /resolved Cylinder Tall PDP framing target/i);
-    assert.match(adjustment.canvasCompositionLines.join("\n"), /~82% of the canvas height/i);
-    assert.match(adjustment.canvasCompositionLines.join("\n"), /approved 80-84% fill-height range/i);
+    assert.match(adjustment.canvasCompositionLines.join("\n"), /resolved Cylinder Tall PDP framing target|SCALE-CARD BARE GLASS/i);
+    assert.match(adjustment.canvasCompositionLines.join("\n"), /foot-to-rim glass height = 80%/i);
+    assert.match(adjustment.canvasCompositionLines.join("\n"), /tag S200/);
+    assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Fit the full assembly within ~80%/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Do NOT vary the on-canvas size by ml capacity/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Fixed-family QA target/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /uploaded reference canvas is the placement lock/i);
@@ -66,6 +70,7 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
     assert.match(adjustment.taskLine, /Composition is set by the imposed studio rig/i);
     assert.match(adjustment.sourceTruthLines.join("\n"), /source foreground size is not product truth/i);
     assert.match(adjustment.canvasCompositionLines.join("\n"), /UNIVERSAL PDP/);
+    assert.match(adjustment.canvasCompositionLines.join("\n"), /SCALE-CARD BARE GLASS/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Do NOT vary the on-canvas size by ml capacity/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /uploaded reference canvas is the placement lock/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Fixed-family QA target/i);
@@ -96,6 +101,7 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
 
     assert.equal(adjustment.rigImposed, true);
     assert.match(adjustment.canvasCompositionLines.join("\n"), /IMPOSED STUDIO RIG/);
+    assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /SCALE-CARD BARE GLASS/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /uploaded reference canvas is the placement lock/i);
   });
 
@@ -130,7 +136,10 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
 
     const composition = adjustment.canvasCompositionLines.join("\n");
     assert.equal(adjustment.rigImposed, true);
-    assert.match(composition, /~69% of the canvas height/i);
+    assert.match(composition, /SCALE-CARD BARE GLASS/i);
+    assert.match(composition, /foot-to-rim glass height = 47\.8%/i);
+    assert.match(composition, /tag S70/);
+    assert.doesNotMatch(composition, /Fit the full assembly within ~47\.8%/i);
     assert.doesNotMatch(composition, /6 px per canonical millimeter/i);
     assert.match(composition, /8-10% up from the canvas bottom/i);
     assert.doesNotMatch(composition, /~25\.7% of the canvas height/i);

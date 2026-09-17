@@ -78,9 +78,9 @@ describe("Deno familyRig twin", () => {
     assert.equal(rig.profileId, "cylinder-standard");
     assert.equal(rig.relativeScaleZoneId, "standard-cylinder");
     assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(rig.fillHeightPct, 65.5);
+    assert.equal(rig.glassHeightPct, 65.5);
     assert.equal(rig.targetBodyHeightPx, Math.round(0.655 * 2288));
-    assert.equal(rig.fillHeightPct, nodeRig.fillHeightPct);
+    assert.equal(rig.glassHeightPct, nodeRig.glassHeightPct);
     assert.equal(rig.targetBodyHeightPx, nodeRig.targetBodyHeightPx);
   });
 
@@ -125,11 +125,11 @@ describe("Deno familyRig twin", () => {
     assert.ok(fiveMl);
     assert.ok(regular9Ml);
     assert.ok(slim9Ml);
-    assert.equal(fiveMl.fillHeightPct, 39.2);
-    assert.equal(regular9Ml.fillHeightPct, 47.8);
-    assert.equal(slim9Ml.fillHeightPct, 65.5);
-    assert.ok(fiveMl.fillHeightPct < regular9Ml.fillHeightPct);
-    assert.ok(regular9Ml.fillHeightPct < slim9Ml.fillHeightPct);
+    assert.equal(fiveMl.glassHeightPct, 39.2);
+    assert.equal(regular9Ml.glassHeightPct, 47.8);
+    assert.equal(slim9Ml.glassHeightPct, 65.5);
+    assert.ok(fiveMl.glassHeightPct! < regular9Ml.glassHeightPct!);
+    assert.ok(regular9Ml.glassHeightPct! < slim9Ml.glassHeightPct!);
   });
 
   it("uses the scale-card bare-glass curve for detached Cylinder sidecars", () => {
@@ -153,20 +153,23 @@ describe("Deno familyRig twin", () => {
     assert.ok(nodeRig);
     assert.equal(rig.geometryScaleVersion, undefined);
     assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(rig.fillHeightPct, 47.8);
+    assert.equal(rig.glassHeightPct, 47.8);
     assert.equal(rig.targetBodyHeightPx, Math.round(0.478 * 2288));
     assert.equal(rig.baselinePct, 9);
-    assert.equal(rig.fillHeightPct, nodeRig.fillHeightPct);
+    assert.equal(rig.glassHeightPct, nodeRig.glassHeightPct);
     assert.equal(rig.targetBodyHeightPx, nodeRig.targetBodyHeightPx);
 
     const block = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig });
     assert.ok(block);
-    assert.match(block, /~47\.8% of the canvas height/i);
+    assert.match(block, /SCALE-CARD BARE GLASS/i);
+    assert.match(block, /foot-to-rim glass height = 47\.8%/i);
+    assert.match(block, /tag S70/);
+    assert.doesNotMatch(block, /Fit the full assembly within ~47\.8%/i);
     assert.doesNotMatch(block, /6 px per canonical millimeter/i);
     assert.match(block, /Do not leave the product tiny with excessive empty margins/i);
   });
 
-  it("rejects missing, empty, and non-positive heightWithoutCap instead of capacity sidecar fallback", () => {
+  it("fails closed on missing heightWithoutCap only when requireScaleCard is set", () => {
     const base = {
       family: "Cylinder",
       bottleCollection: "Cylinder",
@@ -178,41 +181,46 @@ describe("Deno familyRig twin", () => {
       mode: "fitment-attached-cap-right-sidecar",
     } as const;
 
+    const legacy = getFamilyRigForProduct({ ...base, heightWithoutCap: null });
+    assert.ok(legacy);
+    assert.equal(legacy.glassHeightPct, undefined);
+    assert.equal(legacy.targetBodyHeightPx, undefined);
+
     assert.throws(
-      () => getFamilyRigForProduct({ ...base }),
+      () => getFamilyRigForProduct({ ...base, requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: null }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: null, requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "" }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "0" }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "0", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: 0 }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: 0, requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: -5 }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: -5, requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "-5 mm" }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "-5 mm", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
 
     assert.throws(
-      () => getNodeFamilyRigForProduct({ ...base }),
+      () => getNodeFamilyRigForProduct({ ...base, requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getNodeFamilyRigForProduct({ ...base, heightWithoutCap: "0 mm" }),
+      () => getNodeFamilyRigForProduct({ ...base, heightWithoutCap: "0 mm", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
   });

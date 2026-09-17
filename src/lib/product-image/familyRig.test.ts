@@ -56,10 +56,14 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.ok(assembled);
     assert.ok(detached);
     assert.equal(assembled.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(assembled.fillHeightPct, 70.3);
+    assert.equal(assembled.glassHeightPct, 70.3);
     assert.equal(assembled.targetBodyHeightPx, Math.round(0.703 * 2288));
-    assert.equal(detached.fillHeightPct, assembled.fillHeightPct);
+    assert.equal(assembled.scaleTag, "S130");
+    assert.equal(assembled.bareGlassHeightMm, 130);
+    assert.equal(detached.glassHeightPct, assembled.glassHeightPct);
     assert.equal(detached.targetBodyHeightPx, assembled.targetBodyHeightPx);
+    // Assembled framing stays on the legacy profile; bare glass is separate.
+    assert.notEqual(assembled.fillHeightPct, assembled.glassHeightPct);
   });
 
   it("derives the Cylinder rig glass target from heightWithoutCap only", () => {
@@ -74,8 +78,10 @@ describe("family rig (profile-aware fit-to-box)", () => {
     });
     assert.ok(rig);
     assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(rig.fillHeightPct, 65.5);
+    assert.equal(rig.glassHeightPct, 65.5);
     assert.equal(rig.targetBodyHeightPx, Math.round(0.655 * 2288));
+    assert.equal(rig.scaleTag, "S110");
+    assert.equal(rig.bareGlassHeightMm, 106);
   });
 
   it("keeps a detached 9 ml Classic sidecar on the scale-card bare-glass contract", () => {
@@ -91,13 +97,18 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.ok(rig);
     assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
     assert.equal(rig.geometryScaleVersion, undefined);
-    assert.equal(rig.fillHeightPct, 47.8);
+    assert.equal(rig.glassHeightPct, 47.8);
     assert.equal(rig.targetBodyHeightPx, Math.round(0.478 * 2288));
     assert.equal(rig.baselinePct, 9);
+    assert.equal(rig.scaleTag, "S70");
 
     const block = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig });
     assert.ok(block);
-    assert.match(block, /~47\.8% of the canvas height/i);
+    assert.match(block, /SCALE-CARD BARE GLASS/i);
+    assert.match(block, /foot-to-rim glass height = 47\.8%/i);
+    assert.match(block, /tag S70/);
+    assert.match(block, /Assembled framing hint/i);
+    assert.doesNotMatch(block, /Fit the full assembly within ~47\.8%/i);
     assert.doesNotMatch(block, /6 px per canonical millimeter/i);
     assert.match(block, /Do not leave the product tiny with excessive empty margins/i);
   });
@@ -117,12 +128,12 @@ describe("family rig (profile-aware fit-to-box)", () => {
     });
     assert.ok(fiveMl);
     assert.ok(nineMl);
-    assert.equal(fiveMl.fillHeightPct, nineMl.fillHeightPct);
+    assert.equal(fiveMl.glassHeightPct, nineMl.glassHeightPct);
     assert.equal(fiveMl.targetBodyHeightPx, nineMl.targetBodyHeightPx);
-    assert.equal(fiveMl.fillHeightPct, 47.8);
+    assert.equal(fiveMl.glassHeightPct, 47.8);
   });
 
-  it("rejects missing, empty, and non-positive heightWithoutCap instead of capacity fallback", () => {
+  it("fails closed on missing heightWithoutCap only when requireScaleCard is set", () => {
     const base = {
       family: "Cylinder",
       capacityMl: 9,
@@ -130,32 +141,38 @@ describe("family rig (profile-aware fit-to-box)", () => {
       diameter: "20 ±0.5 mm",
     } as const;
 
+    const legacy = getFamilyRigForProduct({ ...base, heightWithoutCap: null });
+    assert.ok(legacy);
+    assert.equal(legacy.targetBodyHeightPx, undefined);
+    assert.equal(legacy.glassHeightPct, undefined);
+    assert.notEqual(legacy.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
+
     assert.throws(
-      () => getFamilyRigForProduct({ ...base }),
+      () => getFamilyRigForProduct({ ...base, requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: null }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: null, requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "" }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "   " }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "   ", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "0 mm" }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "0 mm", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "-5 mm" }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "-5 mm", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "not-a-measurement" }),
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "not-a-measurement", requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
   });
@@ -200,8 +217,10 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.equal(rig.relativeScaleZoneId, "roller-tall");
     // Scale card owns bare-glass height (81 mm → 54.0%), not capacity or zone band.
     assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(rig.fillHeightPct, 54.0);
+    assert.equal(rig.glassHeightPct, 54.0);
     assert.equal(rig.targetBodyHeightPx, Math.round(0.54 * 2288));
+    assert.equal(rig.scaleTag, "S80");
+    assert.notEqual(rig.fillHeightPct, rig.glassHeightPct);
   });
 
   it("builds a profile-capable imposed rig block with composition authority", () => {
