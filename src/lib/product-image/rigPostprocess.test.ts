@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { FAMILY_RIG, getFamilyRigForProduct } from "./familyRig";
-import * as rigPostprocess from "./rigPostprocess";
 import {
   addDeterministicContactShadow,
   applyMaskControlledForegroundMatte,
@@ -110,7 +109,6 @@ describe("primary bottle transform authority", () => {
         ...FAMILY_RIG.cylinder,
         fillHeightPct: 79,
         fillWidthPct: 96,
-        targetBodyHeightPx: 1400,
       },
       detectedBaselineYPx: 2000,
       strongBounds: { top: 200, bottom: 2000, left: 400, right: 1900 },
@@ -616,6 +614,7 @@ describe("computeRigFrameTransform", () => {
         ...FAMILY_RIG.cylinder,
         fillHeightPct: 69,
         fillHeightRangePct: { min: 67, max: 71 },
+        targetBodyHeightPx: 1094,
       },
       detectedBaselineYPx: 1980,
       strongBounds: { top: 250, bottom: 1980, left: 650, right: 1450 },
@@ -629,7 +628,48 @@ describe("computeRigFrameTransform", () => {
     assert.equal(result.shiftYPx, 102);
   });
 
-  it("uses the assembled profile target for a detached primary product without a body mask", () => {
+  it("scales the full assembly about the glass foot from body-control bounds, not the assembly envelope", () => {
+    const canvasHeight = 2288;
+    const targetBodyHeightPx = Math.round(0.478 * canvasHeight); // 9 ml Classic scale-card target
+    // Glass-only body is shorter than the seated sprayer + glass assembly envelope.
+    const bodyControlBounds = { top: 1100, bottom: 2000, left: 900, right: 1180 }; // 900px glass
+    const assemblyBounds = { top: 600, bottom: 2000, left: 900, right: 1180 }; // 1400px assembly
+    const result = computeRigFrameTransform({
+      width: 2080,
+      height: canvasHeight,
+      rig: {
+        ...FAMILY_RIG.cylinder,
+        fillHeightPct: 47.8,
+        targetBodyHeightPx,
+        fillHeightRangePct: { min: 45.8, max: 49.8 },
+      },
+      detectedBaselineYPx: 2000,
+      strongBounds: assemblyBounds,
+      primaryBounds: assemblyBounds,
+      bodyControlBounds,
+      capState: "attached",
+    });
+
+    const measuredBodyHeightPx = bodyControlBounds.bottom - bodyControlBounds.top;
+    const scaledBodyHeightPx = measuredBodyHeightPx * result.scale;
+    assert.ok(
+      Math.abs(scaledBodyHeightPx - targetBodyHeightPx) <= 1,
+      `expected body ${targetBodyHeightPx}px, got ${scaledBodyHeightPx.toFixed(1)}px`,
+    );
+
+    const assemblyEnvelopeScale = (canvasHeight * (47.8 / 100)) / (assemblyBounds.bottom - assemblyBounds.top);
+    assert.ok(
+      Math.abs(result.scale - assemblyEnvelopeScale) > 0.05,
+      "must not size from the taller assembly envelope",
+    );
+    assert.equal(
+      Math.round(result.detectedBaselineYPx * result.scale + result.shiftYPx),
+      2082,
+      "glass foot must remain on the shared baseline",
+    );
+  });
+
+  it("fails closed when scale-card body target lacks exact body-control bounds", () => {
     const rig = getFamilyRigForProduct({
       graceSku: "GB-CYL-BLU-9ML-MRL-MCPR",
       family: "Cylinder",
@@ -641,31 +681,24 @@ describe("computeRigFrameTransform", () => {
       diameter: "20 ±0.5 mm",
     });
     assert.ok(rig);
+    assert.ok(rig.targetBodyHeightPx);
 
-    // Reproduces the geometry behind the worst manifest failure: a bottle plus
-    // right-side cap produces a 1,287px-wide full envelope. Detached topology
-    // must size from the bottle-only bounds, not from that combined width.
-    const primaryBounds = { top: 800, bottom: 1800, left: 620, right: 920 };
-    const result = computeRigFrameTransform({
-      width: 2080,
-      height: 2288,
-      rig,
-      detectedBaselineYPx: 1800,
-      strongBounds: { top: 800, bottom: 1800, left: 396, right: 1682 },
-      primaryBounds,
-      capState: "detached",
-    });
-    const transformedPrimaryHeightPx =
-      (primaryBounds.bottom - primaryBounds.top) * result.scale;
-    const expectedPrimaryHeightPx = 2288 * (rig.fillHeightPct / 100);
-
-    assert.ok(
-      Math.abs(transformedPrimaryHeightPx - expectedPrimaryHeightPx) <= 1,
-      `expected ${expectedPrimaryHeightPx.toFixed(1)}px primary target, got ${transformedPrimaryHeightPx.toFixed(1)}px`,
+    assert.throws(
+      () =>
+        computeRigFrameTransform({
+          width: 2080,
+          height: 2288,
+          rig,
+          detectedBaselineYPx: 1800,
+          strongBounds: { top: 800, bottom: 1800, left: 396, right: 1682 },
+          primaryBounds: { top: 800, bottom: 1800, left: 620, right: 920 },
+          capState: "detached",
+        }),
+      /body-control bounds/i,
     );
   });
 
-  it("reduces a 9 ml PDP sidecar to the global ecommerce-scale envelope", () => {
+  it("reduces a 9 ml PDP sidecar so bare glass lands on targetBodyHeightPx", () => {
     const rig = getFamilyRigForProduct({
       graceSku: "GB-CYL-CLR-9ML-T-21",
       family: "Cylinder",
@@ -679,7 +712,10 @@ describe("computeRigFrameTransform", () => {
       mode: "fitment-attached-cap-right-sidecar",
     });
     assert.ok(rig);
-    const primaryBounds = { top: 250, bottom: 1980, left: 700, right: 1050 };
+    assert.ok(rig.targetBodyHeightPx);
+    // Assembly includes seated sprayer above glass; body-control is glass only.
+    const bodyControlBounds = { top: 480, bottom: 1980, left: 700, right: 1050 }; // 1500px glass
+    const primaryBounds = { top: 250, bottom: 1980, left: 700, right: 1050 }; // 1730px primary
     const result = computeRigFrameTransform({
       width: 2080,
       height: 2288,
@@ -687,11 +723,12 @@ describe("computeRigFrameTransform", () => {
       detectedBaselineYPx: 1980,
       strongBounds: { top: 250, bottom: 1980, left: 700, right: 1600 },
       primaryBounds,
+      bodyControlBounds,
       capState: "detached",
     });
 
-    assert.ok(result.scale > 0.85 && result.scale < 0.95);
-    assert.ok(Math.abs((primaryBounds.bottom - primaryBounds.top) * result.scale - 1579) <= 1);
+    const scaledBodyHeightPx = (bodyControlBounds.bottom - bodyControlBounds.top) * result.scale;
+    assert.ok(Math.abs(scaledBodyHeightPx - rig.targetBodyHeightPx!) <= 1);
     assert.equal(Math.round(result.detectedBaselineYPx * result.scale + result.shiftYPx), 2082);
   });
 

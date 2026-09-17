@@ -71,6 +71,12 @@ export interface RigBaselineNormalizeOptions {
   /** Production masters keep provider-rendered scale; the rig may translate and QA but never resize. */
   preserveGeneratedScale?: boolean;
   /**
+   * Exact glass-body (foot-to-rim) control bounds from source/reference geometry.
+   * Required when the resolved rig carries `targetBodyHeightPx` and scale may
+   * change — never invent from capacity or the assembly envelope.
+   */
+  bodyControlBounds?: RigStrongBounds | null;
+  /**
    * Truth H/W ratio for the primary bottle. When omitted, cap-on lanes fall
    * back to canonical mm (heightWithCap / diameter); detached-sidecar lanes
    * have no canonical assembled-cap-off height so the caller should measure
@@ -109,6 +115,12 @@ export interface RigFrameTransformInput {
   strongBounds: RigStrongBounds | null;
   /** Bottle-only bounds. Required for detached topology to prevent sidecar shrink. */
   primaryBounds?: RigStrongBounds | null;
+  /**
+   * Exact glass-body (foot-to-rim) bounds. When `rig.targetBodyHeightPx` is set,
+   * vertical scale is derived from these bounds alone — never from the full
+   * assembly envelope or capacity.
+   */
+  bodyControlBounds?: RigStrongBounds | null;
   capState?: RigCapState;
   /** Keep provider-rendered scale and use this pass for baseline/center translation plus QA only. */
   preserveGeneratedScale?: boolean;
@@ -1593,19 +1605,55 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function isExactBodyControlBounds(bounds: RigStrongBounds | null | undefined): bounds is RigStrongBounds {
+  return !!bounds && bounds.bottom > bounds.top;
+}
+
+/**
+ * Scale-card body gate: when `targetBodyHeightPx` is set, vertical scale must
+ * come from exact glass-body control bounds (foot-to-rim). Never fall back to
+ * capacity, fillHeightPct, primaryBounds, or the full assembly envelope.
+ */
+function resolveBodyControlIdealScale(input: RigFrameTransformInput): number | null {
+  const targetBodyHeightPx = input.rig.targetBodyHeightPx;
+  if (
+    input.preserveGeneratedScale
+    || typeof targetBodyHeightPx !== "number"
+    || !(targetBodyHeightPx > 0)
+  ) {
+    return null;
+  }
+  if (!isExactBodyControlBounds(input.bodyControlBounds)) {
+    throw new Error(
+      "Exact glass body-control bounds are required for scale-card body sizing; refusing assembly-envelope or capacity fallback.",
+    );
+  }
+  const measuredBodyHeightPx = input.bodyControlBounds.bottom - input.bodyControlBounds.top;
+  if (!(measuredBodyHeightPx > 0)) {
+    throw new Error(
+      "Exact glass body-control bounds are required for scale-card body sizing; refusing assembly-envelope or capacity fallback.",
+    );
+  }
+  return targetBodyHeightPx / measuredBodyHeightPx;
+}
+
 export function computeRigFrameTransform(input: RigFrameTransformInput): RigFrameTransform {
   const targetBaseline = Math.round(input.height * (1 - input.rig.baselinePct / 100));
   const fullBounds = input.strongBounds;
+  // Width/center authority: detached lanes size horizontally from the primary
+  // bottle, not the bottle+sidecar union. Vertical body scale (below) uses
+  // bodyControlBounds when the scale-card target is present.
   const bounds = input.capState === "detached"
     ? input.primaryBounds ?? fullBounds
     : fullBounds;
+  const bodyIdealScale = resolveBodyControlIdealScale(input);
   const baselineToTop = bounds ? input.detectedBaselineYPx - bounds.top : 0;
-  // `primaryBounds` is the whole visible primary product (body plus any seated
-  // applicator), not a body-only segmentation mask. Use the assembled/profile
-  // target here. Applying targetBodyHeightPx to this envelope falsely shrinks
-  // cap-off sidecars whose raw glass body is already at canonical scale.
+  // Legacy path (no targetBodyHeightPx): fit the visible primary/assembly
+  // envelope to fillHeightPct. Scale-card masters never take this path —
+  // resolveBodyControlIdealScale fails closed without exact body bounds.
   const targetFillHeight = input.height * (input.rig.fillHeightPct / 100);
-  const idealScale = baselineToTop > 0 ? targetFillHeight / baselineToTop : 1;
+  const envelopeIdealScale = baselineToTop > 0 ? targetFillHeight / baselineToTop : 1;
+  const idealScale = bodyIdealScale ?? envelopeIdealScale;
   const scaleNeedsCorrection = Math.abs(idealScale - 1) > 0.025;
   const minimumScale = 0.5;
   let scale = input.preserveGeneratedScale
@@ -1623,11 +1671,17 @@ export function computeRigFrameTransform(input: RigFrameTransformInput): RigFram
         scale = Math.min(scale, widthScale);
       }
     }
+    // Body-control scale must keep the full assembly on-canvas (seated caps /
+    // taller envelopes). Legacy fillHeight sizing keeps prior air authority.
+    const airBounds = bodyIdealScale != null ? (fullBounds ?? bounds) : bounds;
+    const airBaselineToTop = airBounds ? input.detectedBaselineYPx - airBounds.top : 0;
     const minTopAir = Math.round(input.height * 0.06);
-    const topLimitScale = baselineToTop > 0
-      ? (targetBaseline - minTopAir) / baselineToTop
+    const topLimitScale = airBaselineToTop > 0
+      ? (targetBaseline - minTopAir) / airBaselineToTop
       : scale;
-    const baselineToBottom = Math.max(0, bounds.bottom - input.detectedBaselineYPx);
+    const baselineToBottom = airBounds
+      ? Math.max(0, airBounds.bottom - input.detectedBaselineYPx)
+      : 0;
     const bottomLimitScale = baselineToBottom > 0
       ? (input.height - 12 - targetBaseline) / baselineToBottom
       : scale;
@@ -1635,6 +1689,8 @@ export function computeRigFrameTransform(input: RigFrameTransformInput): RigFram
     scale = clamp(scale, minimumScale, 2.5);
   }
 
+  // Seat the glass foot (detectedBaselineYPx) on the shared baseline after
+  // uniform scale — this is scale-about-foot in canvas space.
   let shiftY = targetBaseline - input.detectedBaselineYPx * scale;
   if (Math.abs(scale - 1) <= 0.005 && Math.abs(shiftY) <= 8) {
     scale = 1;
@@ -2523,6 +2579,7 @@ export async function normalizeBestBottlesRigBaseline(
       detectedBaselineYPx: detectedBaseline,
       strongBounds: maskBounds,
       primaryBounds,
+      bodyControlBounds: options.bodyControlBounds,
       capState,
       preserveGeneratedScale: options.preserveGeneratedScale,
     });
@@ -2945,6 +3002,7 @@ export async function normalizeBestBottlesRigBaseline(
     detectedBaselineYPx: detectedBaseline,
     strongBounds,
     primaryBounds,
+    bodyControlBounds: options.bodyControlBounds,
     capState,
     preserveGeneratedScale: options.preserveGeneratedScale,
   });
