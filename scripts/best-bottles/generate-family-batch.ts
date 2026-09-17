@@ -554,18 +554,28 @@ async function rigPostprocessOutput(input: {
   if (rigged.detectedBaselineYPx === null || rigged.targetBaselineYPx === null) {
     throw new Error(`${input.sku} rig postprocess failed: baseline was not detectable.`);
   }
-  if (rigged.qaIssues.length > 0) {
+  // Soft / recoverable issues must not burn another Sunburst call:
+  // - body-control derivation miss already fell back inside normalize
+  // - framingQa "warn" is reviewable; only "fail" regenerates
+  const blockingQaIssues = rigged.qaIssues.filter(
+    (issue) => !/body-control bounds could not be derived/i.test(issue),
+  );
+  if (blockingQaIssues.length > 0) {
     // Surface QA failures to the retry loop so they trigger a regeneration.
-    throw new Error(`${input.sku} rig postprocess failed: ${rigged.qaIssues.join(" ")}`);
+    throw new Error(`${input.sku} rig postprocess failed: ${blockingQaIssues.join(" ")}`);
   }
-  if (rigged.framingQa?.status !== "pass") {
+  if (rigged.framingQa?.status === "fail") {
     throw new Error(`${input.sku} rig postprocess failed: framing QA did not pass.`);
   }
   // A shadow-only miss is not an identity or geometry failure. Preserve the
   // generated asset and route it to explicit review without spending another
   // model call on the same identity-locked bottle.
+  const bodyControlReviewPending = rigged.qaIssues.some((issue) =>
+    /body-control bounds could not be derived/i.test(issue),
+  );
   const shadowReviewPending =
-    rigged.shadowOwner === "model" && rigged.shadowQa?.status !== "pass";
+    (rigged.shadowOwner === "model" && rigged.shadowQa?.status !== "pass")
+    || bodyControlReviewPending;
 
   const base64 = rigged.dataUrl.replace(/^data:image\/png;base64,/, "");
   const bytes = Buffer.from(base64, "base64");
@@ -611,6 +621,7 @@ async function rigPostprocessOutput(input: {
       detectedBaselineYPx: rigged.detectedBaselineYPx,
       targetBaselineYPx: rigged.targetBaselineYPx,
       fillHeightPct: rigged.framingQa?.measurements.fillHeightPct ?? null,
+      glassHeightPct: rigged.framingQa?.measurements.glassHeightPct ?? null,
       centerXPct: rigged.framingQa?.measurements.centerXPct ?? null,
       targetCenterXPct: rigged.framingQa?.measurements.targetCenterXPct ?? null,
       centerDeltaPct: rigged.framingQa?.measurements.centerDeltaPct ?? null,

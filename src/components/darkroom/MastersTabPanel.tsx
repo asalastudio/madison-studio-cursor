@@ -5615,7 +5615,9 @@ export function MastersTabPanel({
             label={selectedProduct.itemName}
             heightWithoutCapMm={parseDimensionMm(selectedProduct.heightWithoutCap)}
             measuredGlassHeightPct={
-              result.rigReview?.framingQa?.measurements.fillHeightPct ?? null
+              result.rigReview?.framingQa?.measurements.glassHeightPct
+              ?? result.rigReview?.framingQa?.measurements.fillHeightPct
+              ?? null
             }
             beforeImageUrl={approvedComparisonUrl ?? null}
             afterImageUrl={result.imageUrl}
