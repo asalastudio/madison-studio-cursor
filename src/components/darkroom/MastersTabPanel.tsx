@@ -88,24 +88,34 @@ const CYLINDER_MASK_CONTROL_ENABLED = false;
 
 const MASTER_IMAGE_MODEL_OPTIONS = [
   {
+    value: "openai-image-2.5-sunburst",
+    label: "GPT Image 2.5 Sunburst",
+    description: "Best Bottles PDP default — scale-card masters lock to Sunburst server-side",
+  },
+  {
+    value: "openai-image-2.5-flare",
+    label: "GPT Image 2.5 Flare",
+    description: "Faster 2.5 tier — PDP masters still force Sunburst on the Best Bottles path",
+  },
+  {
     value: "openai-image-2",
     label: "GPT Image 2",
-    description: "Primary high-fidelity reference edit model",
+    description: "Legacy high-fidelity model — Best Bottles reference-locked path still forces Sunburst",
   },
   // Google image models — supported server side (aiProvider mapping → Gemini).
-  // Provider policy (Jordan 2026-07-20): PDP masters ALWAYS render on GPT
-  // Image 2 — the server force is unconditional and these selections do not
+  // Provider policy: Best Bottles PDP masters always render on GPT Image 2.5
+  // Sunburst — the server force is unconditional and these selections do not
   // override it. Nano Banana is for hero thumbnails and marketing assets,
   // where the rig contract is not geometry-locked.
   {
     value: "nano-banana-pro",
     label: "Nano Banana Pro (Gemini 3 Pro Image)",
-    description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2",
+    description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2.5 Sunburst",
   },
   {
     value: "nano-banana-2",
     label: "Nano Banana 2 (Gemini 3.1 Flash Image)",
-    description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2",
+    description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2.5 Sunburst",
   },
 ] as const;
 
@@ -5089,9 +5099,10 @@ export function MastersTabPanel({
                   </div>
                 </div>
               </div>
-              {masterAiProvider !== "openai-image-2" && (
+              {masterAiProvider !== "openai-image-2.5-sunburst" &&
+                masterAiProvider !== "openai-image-2" && (
                 <div className="text-[10px] leading-snug text-amber-300">
-                  Pricing shown is for GPT Image 2. The selected model is {selectedImageModel.label}.
+                  Pricing shown is for GPT Image. The selected model is {selectedImageModel.label}.
                 </div>
               )}
             </div>
