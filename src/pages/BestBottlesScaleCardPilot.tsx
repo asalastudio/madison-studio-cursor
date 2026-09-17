@@ -4,7 +4,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { buildBestBottlesScaleCardPilot } from "./bestBottlesScaleCardPilot";
+import { buildBestBottlesScaleCardPilot } from "./bestBottlesScaleCardPilotModel";
 import { ScaleProofPanel } from "@/components/best-bottles/ScaleProofPanel";
 
 function formatDelta(deltaPct: number): string {

@@ -4,7 +4,7 @@ import {
   BEST_BOTTLES_SCALE_CARD_PILOT_ROWS,
   buildBestBottlesScaleCardPilot,
   type ScaleCardPilotRow,
-} from "./bestBottlesScaleCardPilot";
+} from "./bestBottlesScaleCardPilotModel";
 import { resolveBestBottlesGlassScale } from "@/config/bestBottlesCatalogScale";
 
 const EXPECTED_PILOTS = [

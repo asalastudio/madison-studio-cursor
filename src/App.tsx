@@ -48,7 +48,7 @@ const ImageEditor = lazy(() => import("./pages/ImageEditor"));
 const DarkRoom = lazy(() => import("./pages/DarkRoom"));
 const BestBottlesPipeline = lazy(() => import("./pages/BestBottlesPipeline"));
 const BestBottlesStudio = lazy(() => import("./pages/BestBottlesStudio"));
-const BestBottlesScaleCardPilot = lazy(() => import("./pages/BestBottlesScaleCardPilot"));
+const BestBottlesScaleCardPilot = lazy(() => import("./pages/BestBottlesScaleCardPilot.tsx"));
 const LightTable = lazy(() => import("./pages/LightTable"));
 // const VideoProject = lazy(() => import("./pages/VideoProject")); // Removed from project
 const ImageLibrary = lazy(() => import("./pages/ImageLibrary"));
