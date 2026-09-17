@@ -34,16 +34,14 @@ export interface FamilyRigProductInput {
   applicator?: string | null;
   capacity?: string | null;
   capacityMl?: number | null;
-  heightWithCap?: string | null;
-  heightWithoutCap?: string | null;
+  heightWithCap?: string | number | null;
+  heightWithoutCap?: string | number | null;
   diameter?: string | null;
   capState?: string | null;
   mode?: string | null;
 }
 
 const BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX = 2288;
-/** @deprecated Prefer BEST_BOTTLES_SCALE_CARD_VERSION for catalog masters. */
-const BEST_BOTTLES_CATALOG_SCALE_VERSION = "best-bottles-catalog-scale-v1";
 
 export const BEST_BOTTLES_SCALE_CARD_VERSION =
   "best-bottles-scale-card-v1-2026-09-16" as const;
@@ -342,44 +340,6 @@ export function resolveBestBottlesGlobalScalePct(capacityMl: number): number {
   return last.assembledHeightPct;
 }
 
-function withGlobalCylinderSidecarScale(
-  input: FamilyRigProductInput,
-  rig: FamilyRigConfig,
-): FamilyRigConfig {
-  if (!isCylinderProduct(input)) return rig;
-  const capStateText = `${input.capState ?? ""} ${input.mode ?? ""}`;
-  if (!/\b(?:detached|cap[-_\s]?off|sidecar)\b/i.test(capStateText)) return rig;
-
-  const capacityMl = getCapacityMl(input);
-  const heightWithCapMm = parseFirstNumber(input.heightWithCap);
-  const heightWithoutCapMm = parseFirstNumber(input.heightWithoutCap);
-  if (
-    capacityMl == null
-    || heightWithCapMm == null
-    || heightWithoutCapMm == null
-    || heightWithoutCapMm > heightWithCapMm
-  ) {
-    return rig;
-  }
-
-  const fillHeightPct = resolveBestBottlesGlobalScalePct(capacityMl);
-  return {
-    ...rig,
-    scaleContractVersion: BEST_BOTTLES_CATALOG_SCALE_VERSION,
-    geometryScaleVersion: undefined,
-    fillHeightPct,
-    targetBodyHeightPx: Math.round(
-      BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX
-        * (fillHeightPct / 100)
-        * (heightWithoutCapMm / heightWithCapMm),
-    ),
-    fillHeightRangePct: {
-      min: Math.max(0, fillHeightPct - 2),
-      max: Math.min(100, fillHeightPct + 2),
-    },
-  };
-}
-
 function isSampleVialProduct(input: FamilyRigProductInput): boolean {
   const capacityMl = getCapacityMl(input);
   if (capacityMl != null && capacityMl <= 4) return true;
@@ -485,6 +445,10 @@ function cylinderProfile(input: FamilyRigProductInput): FamilyRigConfig {
 export function getFamilyRigForProduct(input?: FamilyRigProductInput | null): FamilyRigConfig | null {
   if (!input) return null;
 
+  // Scale-card v1: bare glass is mandatory. Never fall back to capacity or
+  // heightWithCap sidecar rails when heightWithoutCap is missing or invalid.
+  const heightWithoutCapMm = requireBareGlassHeightMm(input.heightWithoutCap);
+
   let rig: FamilyRigConfig | null = null;
   if (isSampleVialProduct(input)) {
     rig = cylinderProfile(input);
@@ -508,14 +472,28 @@ export function getFamilyRigForProduct(input?: FamilyRigProductInput | null): Fa
   }
 
   if (!rig) return null;
+  return applyScaleCardGlassTarget(rig, heightWithoutCapMm);
+}
 
-  const heightWithoutCapMm = parseFirstNumber(input.heightWithoutCap);
-  if (heightWithoutCapMm != null && heightWithoutCapMm > 0) {
-    // Scale-card v1: bare glass only. Same target for every cap state / fitment.
-    return applyScaleCardGlassTarget(rig, heightWithoutCapMm);
+function requireBareGlassHeightMm(value: string | number | null | undefined): number {
+  if (value == null || (typeof value === "string" && value.trim() === "")) {
+    throw new Error("A verified positive bare-glass heightWithoutCap is required.");
   }
-
-  return withGlobalCylinderSidecarScale(input, rig);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error("A verified positive bare-glass heightWithoutCap is required.");
+    }
+    return value;
+  }
+  const match = value.match(/(-?\d+(?:\.\d+)?)/);
+  if (!match) {
+    throw new Error("A verified positive bare-glass heightWithoutCap is required.");
+  }
+  const parsed = Number.parseFloat(match[1]!);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("A verified positive bare-glass heightWithoutCap is required.");
+  }
+  return parsed;
 }
 
 export function hasFamilyRig(family?: string | null): boolean {

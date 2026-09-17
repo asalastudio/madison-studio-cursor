@@ -129,57 +129,53 @@ export function getFamilyRig(family?: string | null): FamilyRigConfig | null {
 export function getFamilyRigForProduct(
   input: BestBottlesFamilyProfileProductInput | null | undefined,
 ): FamilyRigConfig | null {
+  if (!input) return null;
+
+  // Scale-card v1: bare glass is mandatory. Never fall back to capacity or
+  // assembled-height rails when heightWithoutCap is missing or invalid.
+  const bodyHeightMm = requireBareGlassHeightMm(input.heightWithoutCap);
+  const glassScale = resolveBestBottlesGlassScale(bodyHeightMm);
+
   const profile = getBestBottlesFamilyProfileForProduct(input);
-  if (!profile) return getFamilyRig(input?.family ?? input?.bottleCollection);
-  const bodyHeightMm = parseFirstNumber(input?.heightWithoutCap);
-  // Scale-card v1: bare glass only. Same target for every cap state / fitment.
-  // Capacity must not participate in the resolved glass size.
-  if (bodyHeightMm != null) {
-    const glassScale = resolveBestBottlesGlassScale(bodyHeightMm);
-    return {
-      family: profile.family,
-      profileId: profile.id,
-      profileLabel: profile.label,
-      relativeScaleZoneId: profile.relativeScaleZoneId,
-      relativeScaleZoneLabel: profile.relativeScaleZoneLabel,
-      scaleContractVersion: BEST_BOTTLES_SCALE_CARD_VERSION,
-      globalTargetProductHeightPct: glassScale.glassHeightPct,
-      familyScaleCorrectionPct: 0,
-      geometryScaleVersion: undefined,
-      fillHeightPct: glassScale.glassHeightPct,
-      targetBodyHeightPx: glassScale.targetGlassHeightPx,
-      fillHeightRangePct: {
-        min: Math.max(0, glassScale.glassHeightPct - 2),
-        max: Math.min(100, glassScale.glassHeightPct + 2),
-      },
-      fillWidthPct: profile.fillWidthPct,
-      baselinePct: profile.baselinePct,
-      primaryObjectCenterXPct: profile.primaryObjectCenterXPct,
-    };
-  }
+  const fallback = getFamilyRig(input.family ?? input.bottleCollection);
+  if (!profile && !fallback) return null;
+
   return {
-    family: profile.family,
-    profileId: profile.id,
-    profileLabel: profile.label,
-    relativeScaleZoneId: profile.relativeScaleZoneId,
-    relativeScaleZoneLabel: profile.relativeScaleZoneLabel,
-    scaleContractVersion: profile.scaleContractVersion,
-    globalTargetProductHeightPct: profile.globalTargetProductHeightPct,
-    familyScaleCorrectionPct: profile.familyScaleCorrectionPct,
-    geometryScaleVersion: profile.geometryScaleVersion,
-    fillHeightPct: profile.targetProductHeightPct,
-    fillHeightRangePct: profile.targetProductHeightRangePct,
-    fillWidthPct: profile.fillWidthPct,
-    baselinePct: profile.baselinePct,
-    primaryObjectCenterXPct: profile.primaryObjectCenterXPct,
+    family: profile?.family ?? fallback!.family,
+    profileId: profile?.id,
+    profileLabel: profile?.label,
+    relativeScaleZoneId: profile?.relativeScaleZoneId,
+    relativeScaleZoneLabel: profile?.relativeScaleZoneLabel,
+    scaleContractVersion: BEST_BOTTLES_SCALE_CARD_VERSION,
+    globalTargetProductHeightPct: glassScale.glassHeightPct,
+    familyScaleCorrectionPct: 0,
+    geometryScaleVersion: undefined,
+    fillHeightPct: glassScale.glassHeightPct,
+    targetBodyHeightPx: glassScale.targetGlassHeightPx,
+    fillHeightRangePct: {
+      min: Math.max(0, glassScale.glassHeightPct - 2),
+      max: Math.min(100, glassScale.glassHeightPct + 2),
+    },
+    fillWidthPct: profile?.fillWidthPct ?? fallback!.fillWidthPct,
+    baselinePct: profile?.baselinePct ?? fallback!.baselinePct,
+    primaryObjectCenterXPct:
+      profile?.primaryObjectCenterXPct ?? fallback!.primaryObjectCenterXPct,
   };
 }
 
-function parseFirstNumber(value: string | null | undefined): number | null {
-  const match = value?.match(/(\d+(?:\.\d+)?)/);
-  if (!match) return null;
-  const parsed = Number.parseFloat(match[1]);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+function requireBareGlassHeightMm(value: string | null | undefined): number {
+  if (value == null || value.trim() === "") {
+    throw new Error("A verified positive bare-glass heightWithoutCap is required.");
+  }
+  const match = value.match(/(-?\d+(?:\.\d+)?)/);
+  if (!match) {
+    throw new Error("A verified positive bare-glass heightWithoutCap is required.");
+  }
+  const parsed = Number.parseFloat(match[1]!);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("A verified positive bare-glass heightWithoutCap is required.");
+  }
+  return parsed;
 }
 
 function formatFamilyLabel(cfg: FamilyRigConfig): string {

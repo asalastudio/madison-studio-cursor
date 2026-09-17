@@ -166,6 +166,57 @@ describe("Deno familyRig twin", () => {
     assert.match(block, /Do not leave the product tiny with excessive empty margins/i);
   });
 
+  it("rejects missing, empty, and non-positive heightWithoutCap instead of capacity sidecar fallback", () => {
+    const base = {
+      family: "Cylinder",
+      bottleCollection: "Cylinder",
+      capacityMl: 9,
+      heightWithCap: "98 ±1 mm",
+      diameter: "20 ±0.5 mm",
+      applicator: "Fine Mist Sprayer",
+      capState: "detached",
+      mode: "fitment-attached-cap-right-sidecar",
+    } as const;
+
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: null }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "" }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "0" }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: 0 }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: -5 }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "-5 mm" }),
+      /bare-glass heightWithoutCap/i,
+    );
+
+    assert.throws(
+      () => getNodeFamilyRigForProduct({ ...base }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getNodeFamilyRigForProduct({ ...base, heightWithoutCap: "0 mm" }),
+      /bare-glass heightWithoutCap/i,
+    );
+  });
+
   it("builds the same imposed rig language shape for edge prompts", () => {
     const block = buildImposedRigBlock({
       family: "Cylinder",

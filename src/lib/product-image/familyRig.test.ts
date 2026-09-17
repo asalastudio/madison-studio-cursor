@@ -122,6 +122,45 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.equal(fiveMl.fillHeightPct, 47.8);
   });
 
+  it("rejects missing, empty, and non-positive heightWithoutCap instead of capacity fallback", () => {
+    const base = {
+      family: "Cylinder",
+      capacityMl: 9,
+      heightWithCap: "98 ±1 mm",
+      diameter: "20 ±0.5 mm",
+    } as const;
+
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: null }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "" }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "   " }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "0 mm" }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "-5 mm" }),
+      /bare-glass heightWithoutCap/i,
+    );
+    assert.throws(
+      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "not-a-measurement" }),
+      /bare-glass heightWithoutCap/i,
+    );
+  });
+
+
   it("scales the primary bottle without sidecar width participation", () => {
     const scale = computePrimaryBottleRigScale({
       primaryBoxWidthPx: 300,
