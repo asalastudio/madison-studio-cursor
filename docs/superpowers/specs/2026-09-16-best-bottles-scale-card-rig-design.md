@@ -42,18 +42,18 @@ capacity-based assembled-height scale for Best Bottles catalog masters.
 
 1. Inventory and load every approved flat PNG reference into its exact family,
    body, and fitment cohort before generation.
-2. Deduplicate fitments only by physical identity:
-   `neckThreadSize × applicator geometry × finish/color × cap state`.
+2. Resolve references into canonical storefront product groups while preserving
+   physical fitment identity inside each group.
 3. Read verified `heightWithoutCap`.
 4. Resolve scale-card percent, target glass pixels, and S-tag.
 5. Add the exact glass target and baseline to the GPT prompt.
-6. Generate one canonical example per physical fitment cohort with
+6. Generate one canonical representative hero per storefront product group with
    `gpt-image-2.5-sunburst`; reject any other resolved model
    before provider spend.
 7. Use source/body control geometry to scale the whole assembly about the
    glass foot until bare glass lands on the exact target.
-8. Reuse an approved, SHA-pinned fitment master across matching family variants
-   instead of spending on duplicate generations.
+8. Reuse the approved representative across all SKU variants in that storefront
+   group instead of spending on duplicate generations.
 9. Reject missing or disputed measurements, missing body control geometry,
    geometry drift, baseline drift, wrong canvas, or wrong background.
 10. Produce same-zoom before/after proofs with current percent, target percent,
@@ -70,8 +70,10 @@ record has enough body-control evidence for deterministic generation.
 The same review surface includes a family reference-readiness matrix. A family
 cannot enter bulk generation until all approved flat PNGs are loaded, hashed,
 classified, and either assigned to a body/fitment cohort or explicitly rejected.
-Its generation budget is the count of missing approved physical fitment cohorts,
-not its raw SKU count.
+Its generation budget is the count of canonical storefront product groups, not
+its raw SKU count. Cylinder resolves to 47 targets: 51 source product-group IDs,
+minus three plastic Cylinder groups, minus one duplicate Tall Cylinder 9 ml
+Clear 13-415 group.
 
 No live GPT generation, Supabase write, Shopify write, Convex write, or
 storefront hero swap happens from the preview without a separate explicit
@@ -88,6 +90,7 @@ approval.
 - Browser and Deno contract copies return identical results.
 - Every family reaches 100% classified flat-PNG reference coverage before bulk
   provider spend.
-- Fitment reuse never crosses a physical cohort boundary.
-- The batch manifest spends at most once per unapproved physical fitment cohort.
+- Fitment reuse never crosses a storefront product-group boundary.
+- The Cylinder batch manifest contains exactly 47 canonical target groups and
+  spends at most once per target group.
 - The localhost proof is readable at one zoom and labels every change.

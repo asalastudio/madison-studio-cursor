@@ -27,8 +27,10 @@ Sharp/browser canvas, GPT Image 2.5 Sunburst.
 - No Supabase, Shopify, Convex, or storefront writes during localhost proof.
 - Every size change gets same-zoom before/after proof with the number.
 - Load and classify all approved flat PNGs before any bulk provider spend.
-- Generate at most one canonical master for each physical fitment cohort:
-  `neckThreadSize × applicator geometry × finish/color × cap state`.
+- Generate one canonical representative hero per storefront product group while
+  preserving physical fitment identity within that group.
+- Cylinder has exactly 47 targets: 51 source product-group IDs minus three
+  plastic groups and one duplicate Tall Cylinder 9 ml Clear 13-415 group.
 
 ---
 
@@ -89,15 +91,17 @@ Sharp/browser canvas, GPT Image 2.5 Sunburst.
   SHA, and physical fitment cohort.
 - Family readiness is blocked until every source is classified or explicitly
   rejected.
-- Batch budget equals missing approved cohort masters, not raw SKU count.
+- Batch budget equals missing canonical storefront-group representatives, not raw
+  SKU count.
 
-- [ ] Write failing tests for family totals, SHA dedupe, and physical fitment keys
-  including neck size and cap state.
+- [ ] Write failing tests for family totals, SHA dedupe, physical fitment keys,
+  and the exact 47-target Cylinder group manifest.
 - [ ] Extend the intake artifact with by-family loaded/classified/blocked counts
   and canonical cohort assignments.
 - [ ] Fix Components tab slot keys so equal labels on different neck sizes or cap
   states cannot collapse into one fitment.
-- [ ] Expose the family readiness matrix and cohort generation count on localhost.
+- [ ] Expose the family readiness matrix and product-group generation count on
+  localhost.
 - [ ] Run intake in dry-run mode across all configured flat-PNG roots and inspect
   unresolved/duplicate rows before any upload or provider spend.
 - [ ] Load approved references only after the manifest reaches 100% classified or
