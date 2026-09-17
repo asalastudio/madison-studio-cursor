@@ -2,7 +2,10 @@ import {
   getBestBottlesFamilyProfileForProduct,
   type BestBottlesFamilyProfileProductInput,
 } from "@/config/bestBottlesFamilyProfiles";
-import { deriveBestBottlesBodyTargetPx } from "@/config/bestBottlesCatalogScale";
+import {
+  BEST_BOTTLES_SCALE_CARD_VERSION,
+  resolveBestBottlesGlassScale,
+} from "@/config/bestBottlesCatalogScale";
 
 /**
  * IMPOSED STUDIO RIG — single source of truth (Vite / Node runtime).
@@ -129,18 +132,31 @@ export function getFamilyRigForProduct(
   const profile = getBestBottlesFamilyProfileForProduct(input);
   if (!profile) return getFamilyRig(input?.family ?? input?.bottleCollection);
   const bodyHeightMm = parseFirstNumber(input?.heightWithoutCap);
-  const assembledHeightMm = parseFirstNumber(input?.heightWithCap);
-  const targetBodyHeightPx =
-    bodyHeightMm != null
-    && assembledHeightMm != null
-    && bodyHeightMm <= assembledHeightMm
-      ? deriveBestBottlesBodyTargetPx({
-          canvasHeightPx: profile.canvas.heightPx,
-          assembledHeightPct: profile.targetProductHeightPct,
-          verifiedBodyHeightMm: bodyHeightMm,
-          verifiedAssembledHeightMm: assembledHeightMm,
-        })
-      : undefined;
+  // Scale-card v1: bare glass only. Same target for every cap state / fitment.
+  // Capacity must not participate in the resolved glass size.
+  if (bodyHeightMm != null) {
+    const glassScale = resolveBestBottlesGlassScale(bodyHeightMm);
+    return {
+      family: profile.family,
+      profileId: profile.id,
+      profileLabel: profile.label,
+      relativeScaleZoneId: profile.relativeScaleZoneId,
+      relativeScaleZoneLabel: profile.relativeScaleZoneLabel,
+      scaleContractVersion: BEST_BOTTLES_SCALE_CARD_VERSION,
+      globalTargetProductHeightPct: glassScale.glassHeightPct,
+      familyScaleCorrectionPct: 0,
+      geometryScaleVersion: undefined,
+      fillHeightPct: glassScale.glassHeightPct,
+      targetBodyHeightPx: glassScale.targetGlassHeightPx,
+      fillHeightRangePct: {
+        min: Math.max(0, glassScale.glassHeightPct - 2),
+        max: Math.min(100, glassScale.glassHeightPct + 2),
+      },
+      fillWidthPct: profile.fillWidthPct,
+      baselinePct: profile.baselinePct,
+      primaryObjectCenterXPct: profile.primaryObjectCenterXPct,
+    };
+  }
   return {
     family: profile.family,
     profileId: profile.id,
@@ -152,7 +168,6 @@ export function getFamilyRigForProduct(
     familyScaleCorrectionPct: profile.familyScaleCorrectionPct,
     geometryScaleVersion: profile.geometryScaleVersion,
     fillHeightPct: profile.targetProductHeightPct,
-    targetBodyHeightPx,
     fillHeightRangePct: profile.targetProductHeightRangePct,
     fillWidthPct: profile.fillWidthPct,
     baselinePct: profile.baselinePct,

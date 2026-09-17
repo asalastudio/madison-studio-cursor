@@ -38,21 +38,31 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.ok(approx(scale, Math.min(sH, sW)));
   });
 
-  it("derives one persistent body target for cap-on and cap-off states", () => {
-    const rig = getFamilyRigForProduct({
+  it("derives one persistent bare-glass target for cap-on and cap-off states", () => {
+    const base = {
       family: "Cylinder",
       capacityMl: 100,
       heightWithCap: "150 ±2 mm",
       heightWithoutCap: "130 ±2 mm",
       diameter: "42 ±0.5 mm",
+    } as const;
+    const assembled = getFamilyRigForProduct(base);
+    const detached = getFamilyRigForProduct({
+      ...base,
+      capState: "detached",
+      mode: "fitment-attached-cap-right-sidecar",
     });
 
-    assert.ok(rig);
-    assert.equal(rig.fillHeightPct, 79);
-    assert.equal(rig.targetBodyHeightPx, 1567);
+    assert.ok(assembled);
+    assert.ok(detached);
+    assert.equal(assembled.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
+    assert.equal(assembled.fillHeightPct, 70.3);
+    assert.equal(assembled.targetBodyHeightPx, Math.round(0.703 * 2288));
+    assert.equal(detached.fillHeightPct, assembled.fillHeightPct);
+    assert.equal(detached.targetBodyHeightPx, assembled.targetBodyHeightPx);
   });
 
-  it("derives the Cylinder rig body target from the global catalog curve and body ratio", () => {
+  it("derives the Cylinder rig glass target from heightWithoutCap only", () => {
     const rig = getFamilyRigForProduct({
       family: "Tall Cylinder",
       bottleCollection: "Cylinder",
@@ -63,11 +73,12 @@ describe("family rig (profile-aware fit-to-box)", () => {
       applicator: "Fine Mist Sprayer",
     });
     assert.ok(rig);
-    assert.equal(rig.fillHeightPct, 69);
-    assert.equal(rig.targetBodyHeightPx, 1508);
+    assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
+    assert.equal(rig.fillHeightPct, 65.5);
+    assert.equal(rig.targetBodyHeightPx, Math.round(0.655 * 2288));
   });
 
-  it("keeps a detached 9 ml sidecar on the global PDP catalog-scale contract", () => {
+  it("keeps a detached 9 ml Classic sidecar on the scale-card bare-glass contract", () => {
     const rig = getFamilyRigForProduct({
       family: "Cylinder",
       capacityMl: 9,
@@ -78,17 +89,37 @@ describe("family rig (profile-aware fit-to-box)", () => {
       mode: "fitment-attached-cap-right-sidecar",
     });
     assert.ok(rig);
-    assert.equal(rig.scaleContractVersion, "best-bottles-catalog-scale-v1");
+    assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
     assert.equal(rig.geometryScaleVersion, undefined);
-    assert.equal(rig.fillHeightPct, 69);
-    assert.equal(rig.targetBodyHeightPx, 1128);
+    assert.equal(rig.fillHeightPct, 47.8);
+    assert.equal(rig.targetBodyHeightPx, Math.round(0.478 * 2288));
     assert.equal(rig.baselinePct, 9);
 
     const block = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig });
     assert.ok(block);
-    assert.match(block, /~69% of the canvas height/i);
+    assert.match(block, /~47\.8% of the canvas height/i);
     assert.doesNotMatch(block, /6 px per canonical millimeter/i);
     assert.match(block, /Do not leave the product tiny with excessive empty margins/i);
+  });
+
+  it("ignores capacity when two SKUs share glass height but differ in millilitres", () => {
+    const fiveMl = getFamilyRigForProduct({
+      family: "Cylinder",
+      capacityMl: 5,
+      heightWithoutCap: "70 ±1 mm",
+      heightWithCap: "83 ±1 mm",
+    });
+    const nineMl = getFamilyRigForProduct({
+      family: "Cylinder",
+      capacityMl: 9,
+      heightWithoutCap: "70 ±1 mm",
+      heightWithCap: "98 ±1 mm",
+    });
+    assert.ok(fiveMl);
+    assert.ok(nineMl);
+    assert.equal(fiveMl.fillHeightPct, nineMl.fillHeightPct);
+    assert.equal(fiveMl.targetBodyHeightPx, nineMl.targetBodyHeightPx);
+    assert.equal(fiveMl.fillHeightPct, 47.8);
   });
 
   it("scales the primary bottle without sidecar width participation", () => {
@@ -128,11 +159,10 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.ok(rig);
     assert.equal(rig.profileId, "roller-bottle");
     assert.equal(rig.relativeScaleZoneId, "roller-tall");
-    // Zone-owned roller scale, tall band trimmed to 74-77 (Jordan 2026-07-20):
-    // 100mm-with-cap sits at the band floor, below the 118mm tall 9ml at 77.
-    assert.equal(rig.fillHeightPct, 74);
-    assert.equal(rig.fillHeightRangePct?.min, 74);
-    assert.equal(rig.fillHeightRangePct?.max, 77);
+    // Scale card owns bare-glass height (81 mm → 54.0%), not capacity or zone band.
+    assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
+    assert.equal(rig.fillHeightPct, 54.0);
+    assert.equal(rig.targetBodyHeightPx, Math.round(0.54 * 2288));
   });
 
   it("builds a profile-capable imposed rig block with composition authority", () => {
