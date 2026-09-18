@@ -5,6 +5,7 @@
 
 import { Link } from "react-router-dom";
 import { buildBestBottlesScaleCardPilot } from "./bestBottlesScaleCardPilotModel";
+import { ScaleCalibrationWorkbench } from "@/components/best-bottles/ScaleCalibrationWorkbench";
 import { ScaleProofPanel } from "@/components/best-bottles/ScaleProofPanel";
 
 function formatDelta(deltaPct: number): string {
@@ -77,8 +78,8 @@ export default function BestBottlesScaleCardPilot() {
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">Cylinder scale proof</h1>
             <p className="mt-1 max-w-2xl text-sm text-[#a3a3a3]">
-              Same zoom for current (approved today) vs target (bare-glass PCHIP).
-              Foot on the 91% baseline. No generation — localhost review only.
+              Annotate reusable glass and fitment landmarks, then compare current
+              framing with the bare-glass PCHIP target. Foot stays on the 91% baseline.
             </p>
           </div>
           <div className="text-right text-[11px] text-[#8b8b8b]">
@@ -92,6 +93,8 @@ export default function BestBottlesScaleCardPilot() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-8 px-6 py-8">
+        <ScaleCalibrationWorkbench />
+
         <section className="overflow-x-auto rounded border border-[#2a2a2a]">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="bg-[#171717] text-[11px] uppercase tracking-wider text-[#8b8b8b]">

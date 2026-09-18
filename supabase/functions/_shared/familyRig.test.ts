@@ -31,7 +31,7 @@ describe("Deno familyRig twin", () => {
 
   it("pins the scale-card version and every control point identically across runtimes", () => {
     assert.equal(DENO_SCALE_CARD_VERSION, NODE_SCALE_CARD_VERSION);
-    assert.equal(DENO_SCALE_CARD_VERSION, "best-bottles-scale-card-v1-2026-09-16");
+    assert.equal(DENO_SCALE_CARD_VERSION, "best-bottles-scale-card-v2-2026-09-18");
     assert.deepEqual(DENO_CONTROL_POINTS, NODE_CONTROL_POINTS);
     for (const point of NODE_CONTROL_POINTS) {
       assert.deepEqual(
@@ -77,10 +77,11 @@ describe("Deno familyRig twin", () => {
     assert.ok(nodeRig);
     assert.equal(rig.profileId, "cylinder-standard");
     assert.equal(rig.relativeScaleZoneId, "standard-cylinder");
-    assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(rig.glassHeightPct, 65.5);
-    assert.equal(rig.targetBodyHeightPx, Math.round(0.655 * 2288));
-    assert.equal(rig.glassHeightPct, nodeRig.glassHeightPct);
+    assert.equal(rig.scaleContractVersion, "shoulder-lock-2026-09-07");
+    assert.equal(rig.glassBodyKey, "cylinder:9-tall");
+    assert.equal(rig.shoulderTargetPct, 62.5);
+    assert.equal(rig.targetBodyHeightPx, Math.round(0.625 * 2288));
+    assert.equal(rig.shoulderTargetPct, nodeRig.shoulderTargetPct);
     assert.equal(rig.targetBodyHeightPx, nodeRig.targetBodyHeightPx);
   });
 
@@ -125,11 +126,11 @@ describe("Deno familyRig twin", () => {
     assert.ok(fiveMl);
     assert.ok(regular9Ml);
     assert.ok(slim9Ml);
-    assert.equal(fiveMl.glassHeightPct, 39.2);
-    assert.equal(regular9Ml.glassHeightPct, 47.8);
-    assert.equal(slim9Ml.glassHeightPct, 65.5);
-    assert.ok(fiveMl.glassHeightPct! < regular9Ml.glassHeightPct!);
-    assert.ok(regular9Ml.glassHeightPct! < slim9Ml.glassHeightPct!);
+    assert.equal(fiveMl.shoulderTargetPct, 36.5);
+    assert.equal(regular9Ml.shoulderTargetPct, 43.5);
+    assert.equal(slim9Ml.shoulderTargetPct, 62.5);
+    assert.ok(fiveMl.shoulderTargetPct! < regular9Ml.shoulderTargetPct!);
+    assert.ok(regular9Ml.shoulderTargetPct! < slim9Ml.shoulderTargetPct!);
   });
 
   it("uses the scale-card bare-glass curve for detached Cylinder sidecars", () => {
@@ -152,24 +153,26 @@ describe("Deno familyRig twin", () => {
     assert.ok(rig);
     assert.ok(nodeRig);
     assert.equal(rig.geometryScaleVersion, undefined);
-    assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(rig.glassHeightPct, 47.8);
-    assert.equal(rig.targetBodyHeightPx, Math.round(0.478 * 2288));
+    assert.equal(rig.scaleContractVersion, "shoulder-lock-2026-09-07");
+    assert.equal(rig.shoulderTargetPct, 43.5);
+    assert.equal(rig.targetBodyHeightPx, Math.round(0.435 * 2288));
     assert.equal(rig.baselinePct, 9);
-    assert.equal(rig.glassHeightPct, nodeRig.glassHeightPct);
+    assert.equal(rig.shoulderTargetPct, nodeRig.shoulderTargetPct);
     assert.equal(rig.targetBodyHeightPx, nodeRig.targetBodyHeightPx);
 
     const block = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig });
     assert.ok(block);
-    assert.match(block, /SCALE-CARD BARE GLASS/i);
-    assert.match(block, /foot-to-rim glass height = 47\.8%/i);
-    assert.match(block, /tag S70/);
-    assert.doesNotMatch(block, /Fit the full assembly within ~47\.8%/i);
+    assert.match(block, /SHOULDER LOCK/i);
+    assert.match(block, /MUST land at 43\.5%/i);
+    assert.match(block, /cylinder:9-standard/);
+    assert.doesNotMatch(block, /SCALE-CARD BARE GLASS/i);
+    assert.doesNotMatch(block, /Fit the full assembly within ~64%/i);
     assert.doesNotMatch(block, /6 px per canonical millimeter/i);
-    assert.match(block, /Do not leave the product tiny with excessive empty margins/i);
+    assert.match(block, /Ecommerce fill is mandatory/i);
+    assert.match(block, /SHOULDER LOCK horizon/i);
   });
 
-  it("fails closed on missing heightWithoutCap only when requireScaleCard is set", () => {
+  it("applies the Cylinder lock without heightWithoutCap and fails closed on unknown bodies", () => {
     const base = {
       family: "Cylinder",
       bottleCollection: "Cylinder",
@@ -181,46 +184,36 @@ describe("Deno familyRig twin", () => {
       mode: "fitment-attached-cap-right-sidecar",
     } as const;
 
-    const legacy = getFamilyRigForProduct({ ...base, heightWithoutCap: null });
-    assert.ok(legacy);
-    assert.equal(legacy.glassHeightPct, undefined);
-    assert.equal(legacy.targetBodyHeightPx, undefined);
+    const locked = getFamilyRigForProduct({ ...base, heightWithoutCap: null });
+    assert.ok(locked);
+    assert.equal(locked.scaleContractVersion, "shoulder-lock-2026-09-07");
+    assert.equal(locked.shoulderTargetPct, 43.5);
 
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
+      () => getFamilyRigForProduct({
+        family: "Cylinder",
+        capacityMl: 15,
+        heightWithoutCap: "80 mm",
+        requireScaleCard: true,
+      }),
+      /Shoulder lock is required for Cylinder masters/i,
     );
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: null, requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "", requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "0", requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: 0, requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: -5, requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "-5 mm", requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
+      () => getNodeFamilyRigForProduct({
+        family: "Cylinder",
+        capacityMl: 15,
+        heightWithoutCap: "80 mm",
+        requireScaleCard: true,
+      }),
+      /Shoulder lock is required for Cylinder masters/i,
     );
 
     assert.throws(
-      () => getNodeFamilyRigForProduct({ ...base, requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getNodeFamilyRigForProduct({ ...base, heightWithoutCap: "0 mm", requireScaleCard: true }),
+      () => getFamilyRigForProduct({
+        family: "Boston Round",
+        capacityMl: 100,
+        requireScaleCard: true,
+      }),
       /bare-glass heightWithoutCap/i,
     );
   });

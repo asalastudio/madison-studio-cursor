@@ -28,6 +28,8 @@ import {
   type BestBottlesFamilyProfile,
 } from "@/config/bestBottlesFamilyProfiles";
 import { BEST_BOTTLES_CATALOG_SCALE_VERSION } from "@/config/bestBottlesCatalogScale";
+import { isAssembledOnlyVintageBulbIdentity } from "./bestBottlesAssembledOnlyProduct";
+import { resolveShoulderLock, type ResolvedShoulderLock } from "./bestBottlesShoulderLock";
 
 type ProductLike = {
   graceSku?: string | null;
@@ -56,6 +58,7 @@ type ProductLike = {
   heightWithoutCap?: string | null;
   heightWithCap?: string | null;
   diameter?: string | null;
+  neckThreadSize?: string | null;
 };
 
 export type BestBottlesPromptPreflightStatus = "ok" | "warn" | "error";
@@ -421,14 +424,26 @@ function buildSpecialGeometryNotes(product: ProductLike, family: string, closure
     notes.push("Do not merge the white pump, gold/silver collar, clear/white over-cap, or internal dip tube into the body; each component must stay visually separate.");
     notes.push("Clear or white over-cap must remain visible with rim ellipse, sidewall edge, top lip, inner back edge, and local shadow separation.");
   }
-  if (product.heightWithoutCap || product.diameter) {
-    notes.push(`Measurement hint: body height ${product.heightWithoutCap || "unknown"}, diameter/width ${product.diameter || "unknown"}.`);
+  const spec = glassBodyPromptSpec(product, resolveProductShoulderLock(product));
+  if (spec.bareMm != null || spec.diameterMm != null || spec.neck) {
+    notes.push(
+      `Measurement hint: body height ${spec.bareMm != null ? `${spec.bareMm} mm` : "unknown"}, diameter/width ${spec.diameterMm != null ? `${spec.diameterMm} mm` : "unknown"}${spec.neck ? `, neck ${spec.neck}` : ""}.`,
+    );
   }
   return notes.join(" ");
 }
 
 function selectedCanvasLabel(sku: PromptSku): string {
   return `${sku.output_canvas_width}x${sku.output_canvas_height}`;
+}
+
+function isTopologyWideCanvas(product: ProductLike, sku: PromptSku): boolean {
+  return (
+    selectedCanvasLabel(sku) === "1536x1024"
+    && /\b(?:tassel|antique\s+bulb|vintage\s+bulb)\b/i.test(
+      skuOrCatalogText(product),
+    )
+  );
 }
 
 function buildCanvasPreflight(product: ProductLike, sku: PromptSku): BestBottlesCanvasPreflight {
@@ -445,13 +460,18 @@ function buildCanvasPreflight(product: ProductLike, sku: PromptSku): BestBottles
   const ratioText = ratio == null ? "unknown" : ratio.toFixed(2);
   const recommendedCanvas = `${profile.canvas.widthPx}x${profile.canvas.heightPx}`;
 
-  qaChecklist.push("canvas_recommendation:fixed_studio_2080x2288");
+  if (isTopologyWideCanvas(product, sku)) {
+    qaChecklist.push("canvas_contract:topology-wide-v1");
+    qaChecklist.push("primary_object_centerline:65pct");
+  } else {
+    qaChecklist.push("canvas_recommendation:fixed_studio_2080x2288");
+    qaChecklist.push("primary_object_centerline:canvas_center");
+  }
   qaChecklist.push(`cylinder_family_profile:${profile.id}`);
   qaChecklist.push(`relative_scale_zone:${profile.relativeScaleZoneId}`);
-  qaChecklist.push("primary_object_centerline:canvas_center");
   qaChecklist.push("detached_component_sidecar:right_does_not_shift_primary");
 
-  if (selectedCanvas !== recommendedCanvas) {
+  if (selectedCanvas !== recommendedCanvas && !isTopologyWideCanvas(product, sku)) {
     warnings.push(
       `Cylinder family uses the fixed 2080 x 2288 studio canvas; selected ${selectedCanvas}. Profile ${profile.id} uses relative scale zone ${profile.relativeScaleZoneId} with target height ${profile.targetProductHeightPct}% inside the ${profile.targetProductHeightRangePct.min}-${profile.targetProductHeightRangePct.max}% fill-height range. Primary bottle remains centered. Measured height/diameter ratio is ${ratioText}:1.`,
     );
@@ -483,14 +503,117 @@ function parseLeadingMm(value: string | null | undefined): number | null {
  * 2026-07-19). Anchoring the second axis with canonical mm closes that gap;
  * the aspect-ratio framing QA gate catches whatever drift remains.
  */
+const CANONICAL_FIFTY_ML_GLASS: Record<
+  string,
+  { bareMm: number; diameterMm: number; neck: string; withCapMm: number | null }
+> = {
+  "cylinder:50-standard": { bareMm: 117, diameterMm: 32, neck: "18-415", withCapMm: null },
+  "cylinder:50-rollon": { bareMm: 98, diameterMm: 37, neck: "16 mm", withCapMm: 116 },
+};
+
+type GlassBodyPromptSpec = {
+  bareMm: number | null;
+  diameterMm: number | null;
+  neck: string | null;
+  withCapMm: number | null;
+  catalogDisagrees: boolean;
+};
+
+function neckMatchesCanonical(neck: string | null | undefined, canonical: string): boolean {
+  if (!neck) return false;
+  if (canonical === "16 mm") {
+    return /\b16\s*mm\b/i.test(neck) && !/\b18\s*[-/]?\s*415\b/i.test(neck);
+  }
+  return /\b18\s*[-/]?\s*415\b/i.test(neck);
+}
+
+function glassBodyPromptSpec(
+  product: ProductLike,
+  lock: ResolvedShoulderLock | null,
+): GlassBodyPromptSpec {
+  const catalogBare = parseLeadingMm(product.heightWithoutCap);
+  const catalogDiameter = parseLeadingMm(product.diameter);
+  const catalogWithCap = parseLeadingMm(product.heightWithCap);
+  const canonical = lock ? CANONICAL_FIFTY_ML_GLASS[lock.glassBodyKey] : undefined;
+  if (!canonical) {
+    return {
+      bareMm: catalogBare,
+      diameterMm: catalogDiameter,
+      neck: product.neckThreadSize ?? null,
+      withCapMm: catalogWithCap,
+      catalogDisagrees: false,
+    };
+  }
+
+  const bareAgrees = catalogBare != null && Math.abs(catalogBare - canonical.bareMm) <= 8;
+  const diameterAgrees = catalogDiameter == null || Math.abs(catalogDiameter - canonical.diameterMm) <= 1;
+  const withCapMm = catalogWithCap != null && catalogWithCap >= canonical.bareMm
+    ? catalogWithCap
+    : canonical.withCapMm;
+  return {
+    bareMm: bareAgrees ? catalogBare : canonical.bareMm,
+    diameterMm: diameterAgrees && catalogDiameter != null ? catalogDiameter : canonical.diameterMm,
+    neck: neckMatchesCanonical(product.neckThreadSize, canonical.neck)
+      ? product.neckThreadSize ?? canonical.neck
+      : canonical.neck,
+    withCapMm,
+    catalogDisagrees: !bareAgrees || !diameterAgrees,
+  };
+}
+
+function formatGlassBodySpecification(spec: GlassBodyPromptSpec): string | null {
+  if (spec.bareMm == null) return null;
+  const parts = [`${spec.bareMm} mm bare glass`];
+  if (spec.diameterMm != null) parts.push(`${spec.diameterMm} mm diameter`);
+  if (spec.neck) parts.push(`neck ${spec.neck}`);
+  if (spec.withCapMm != null) parts.push(`${spec.withCapMm} mm with cap`);
+  return parts.join(", ");
+}
+
+function resolveProductShoulderLock(product: ProductLike): ResolvedShoulderLock | null {
+  return resolveShoulderLock({
+    family: product.family,
+    bottleCollection: product.bottleCollection,
+    graceSku: product.graceSku,
+    websiteSku: product.websiteSku,
+    itemName: product.itemName,
+    capacityMl: product.capacityMl,
+    heightWithoutCap: product.heightWithoutCap,
+    applicator: product.applicator,
+    neckThreadSize: product.neckThreadSize,
+  });
+}
+
+function buildShoulderLockScaleLines(
+  product: ProductLike,
+  lock: ResolvedShoulderLock,
+): string[] {
+  const spec = glassBodyPromptSpec(product, lock);
+  const specification = formatGlassBodySpecification(spec);
+  const specSentence = specification
+    ? spec.catalogDisagrees
+      ? `- GLASS BODY SPECIFICATION: ${specification}. The catalog row for this SKU disagrees (heightWithoutCap = ${product.heightWithoutCap ?? "missing"}; diameter = ${product.diameter ?? "missing"}). Use the glass body specification, not that row. These millimeters describe the physical bottle. They do not choose the on-canvas percentage.`
+      : `- GLASS BODY SPECIFICATION: ${specification}. These millimeters describe the physical bottle. They do not choose the on-canvas percentage.`
+    : null;
+  return [
+    specSentence,
+    `- SHOULDER LOCK (${lock.lockVersion} · ${lock.glassBodyKey}): seat the glass foot on the shared 91% baseline. The glass shoulder — where the body ends and the neck begins, or where glass meets the cap/collar — MUST land at ${lock.shoulderPct}% of canvas height above that baseline (${lock.shoulderYFromTopPct}% down from the top of the canvas). Every SKU that shares this glass body (${lock.label}) uses this same shoulder horizon. Fitments (roller, sprayer, pump, cap) rise above the shoulder by their real physical height; do not scale the bottle to the top of the fitment.`,
+    "- Do not use assembled envelope or fitment top as the scale driver.",
+    "- Fitments rise above the locked shoulder by their real physical height. Do not treat the full assembly (glass + cap/applicator) as the scale driver.",
+    "- Ecommerce fill is mandatory: the SHOULDER LOCK horizon above must dominate the canvas. Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow).",
+  ].filter((line): line is string => Boolean(line));
+}
+
 function buildProportionLockLine(
   product: ProductLike,
   profile: BestBottlesFamilyProfile,
   topology: BestBottlesShadowTopology,
+  lock: ResolvedShoulderLock | null,
 ): string | null {
-  const bodyHeightMm = parseLeadingMm(product.heightWithoutCap);
-  const capHeightMm = parseLeadingMm(product.heightWithCap);
-  const diameterMm = parseLeadingMm(product.diameter);
+  const spec = glassBodyPromptSpec(product, lock);
+  const bodyHeightMm = spec.bareMm;
+  const capHeightMm = spec.withCapMm;
+  const diameterMm = spec.diameterMm;
   if (diameterMm == null || (bodyHeightMm == null && capHeightMm == null)) return null;
 
   const parts: string[] = ["- Canonical proportion lock:"];
@@ -504,10 +627,7 @@ function buildProportionLockLine(
       `${bodyHeightMm != null ? "and " : "the product is "}${capHeightMm} mm tall with cap (${(capHeightMm / diameterMm).toFixed(2)}:1)`,
     );
   }
-  // Assembled cap-on: the rendered product height IS the canonical with-cap
-  // height, so the exact on-canvas body width is computable. Detached sidecar
-  // has no canonical assembled-cap-off height — ratio guidance only.
-  if (topology.kind === "assembled" && capHeightMm != null) {
+  if (!lock && topology.kind === "assembled" && capHeightMm != null) {
     const widthPct = Math.round(
       ((profile.targetProductHeightPct / 100) * profile.canvas.heightPx *
         (diameterMm / capHeightMm) / profile.canvas.widthPx) * 100,
@@ -533,22 +653,31 @@ function buildFramingProfilePrompt(
   const label = profile.label.toUpperCase();
   const baselineLow = profile.baselinePct - 1;
   const baselineHigh = profile.baselinePct + 1;
+  const shoulderLock = resolveProductShoulderLock(product);
+  const scaleLines = shoulderLock
+    ? buildShoulderLockScaleLines(product, shoulderLock)
+    : [
+        profile.geometryScaleVersion
+          ? `- Relative scale zone: ${profile.relativeScaleZoneLabel} (${profile.relativeScaleZoneId}). Reconciled body geometry owns assembled height through ${profile.geometryScaleVersion}; this zone classifies composition only.`
+          : `- Relative scale zone: ${profile.relativeScaleZoneLabel} (${profile.relativeScaleZoneId}). The versioned global catalog curve owns assembled height; this zone classifies composition only.`,
+        `- Approved fill-height range: ${profile.targetProductHeightRangePct.min}-${profile.targetProductHeightRangePct.max}% of the canvas height for this family profile.`,
+        `- Render the full assembled product so it fills approximately ${profile.targetProductHeightPct}% of the canvas height and no more than ${profile.fillWidthPct}% of the canvas width.`,
+      ];
 
   return [
     `${label} FRAMING PROFILE (CANVAS COMPOSITION AUTHORITY):`,
     `- Canvas is fixed at ${profile.canvas.widthPx} × ${profile.canvas.heightPx}. Do not change aspect ratio, crop, or canvas size.`,
     "- The reference image is product truth, not framing truth. Preserve the product identity and proportions, but do not inherit the reference image's tiny source scale, source crop, source padding, or off-center placement.",
-    profile.geometryScaleVersion
-      ? `- Relative scale zone: ${profile.relativeScaleZoneLabel} (${profile.relativeScaleZoneId}). Reconciled body geometry owns assembled height through ${profile.geometryScaleVersion}; this zone classifies composition only.`
-      : `- Relative scale zone: ${profile.relativeScaleZoneLabel} (${profile.relativeScaleZoneId}). The versioned global catalog curve owns assembled height; this zone classifies composition only.`,
-    `- Approved fill-height range: ${profile.targetProductHeightRangePct.min}-${profile.targetProductHeightRangePct.max}% of the canvas height for this family profile.`,
-    `- Render the full assembled product so it fills approximately ${profile.targetProductHeightPct}% of the canvas height and no more than ${profile.fillWidthPct}% of the canvas width.`,
-    buildProportionLockLine(product, profile, topology),
+    ...scaleLines,
+    buildProportionLockLine(product, profile, topology, shoulderLock),
     `- Seat the visible bottle base on the shared studio baseline at ${baselineLow}-${baselineHigh}% up from the canvas bottom.`,
     `- Keep the primary bottle centered on the canvas vertical centerline at ${profile.primaryObjectCenterXPct}% width.`,
     profile.detachedComponentPlacement === "right-sidecar"
+      && !isAssembledOnlyVintageBulbIdentity(product)
       ? "- If a detached cap or applicator is present, keep it as a right-sidecar component on the same baseline; it must not shift the primary bottle off center."
-      : null,
+      : isAssembledOnlyVintageBulbIdentity(product)
+        ? "- Vintage style bulb and vintage style bulb tassel are one complete assembled image. Do not invent a cap-off state, detached cap, or sidecar."
+        : null,
     policy.owner === "model"
       ? buildModelOwnedShadowPrompt(topology)
       : BEST_BOTTLES_CONTACT_SHADOW_DIRECTIVE,
@@ -573,13 +702,25 @@ function buildFinalPrompt(product: ProductLike, sku: PromptSku): string {
   });
   const canonParts = buildBestBottlesCatalogCanonPromptParts(sku, policy);
   const topology = resolveBestBottlesShadowTopology(product, sku);
+  const baseProfile = getBestBottlesCatalogFramingProfile(product);
+  const profile = baseProfile && isTopologyWideCanvas(product, sku)
+    ? {
+        ...baseProfile,
+        canvas: {
+          widthPx: sku.output_canvas_width,
+          heightPx: sku.output_canvas_height,
+        },
+        fillWidthPct: 94,
+        primaryObjectCenterXPct: 65,
+      }
+    : baseProfile;
   // Use the catalog-path resolver so EVERY family ships a real FRAMING PROFILE
   // block — never a blank one (previous behavior for unprofiled families).
-  return [
+  const prompt = [
     canonParts.basePrompt,
     buildFramingProfilePrompt(
       product,
-      getBestBottlesCatalogFramingProfile(product),
+      profile,
       policy,
       topology,
       sku.body_material,
@@ -588,6 +729,11 @@ function buildFinalPrompt(product: ProductLike, sku: PromptSku): string {
   ]
     .filter((line): line is string => Boolean(line))
     .join("\n\n");
+  if (!isTopologyWideCanvas(product, sku)) return prompt;
+  return prompt
+    .replace(/2080 × 2288/g, "1536 × 1024")
+    .replace(/2080 x 2288/g, "1536 x 1024")
+    .replace(/2080x2288/g, "1536x1024");
 }
 
 export function buildBestBottlesPromptSkuFromProduct(rawInput: PromptSkuBuildInput): PromptSku {
@@ -710,6 +856,7 @@ export function buildBestBottlesPromptPreflight(
   if (
     /\b(?:vintage|antique|bulb|tassel|two[- ]piece)\b/i.test(topologyText)
     && !input.product.topologyReferenceId?.trim()
+    && !isAssembledOnlyVintageBulbIdentity(input.product)
   ) {
     return {
       status: "error",

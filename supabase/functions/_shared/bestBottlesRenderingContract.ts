@@ -47,6 +47,16 @@ export const BEST_BOTTLES_CONTRACT_CANVAS: BestBottlesContractCanvas = {
   primaryObjectCenterXPct: 50,
 };
 
+export const BEST_BOTTLES_TOPOLOGY_WIDE_CANVAS: BestBottlesContractCanvas = {
+  width: 1536,
+  height: 1024,
+  backgroundHex: "#F5F3EF",
+  baselinePct: 9,
+  // Preserve the bottle's catalog scale while reserving camera-left room for
+  // the hose, bulb, and tassel. This matches the approved PSD composition.
+  primaryObjectCenterXPct: 65,
+};
+
 export interface BestBottlesContractProduct {
   graceSku?: string | null;
   websiteSku?: string | null;
@@ -375,6 +385,7 @@ function callerRoleTopologyContext(
 function contractProductContext(
   product: BestBottlesContractProduct,
   inputContext?: Record<string, unknown> | null,
+  canvas: BestBottlesContractCanvas = BEST_BOTTLES_CONTRACT_CANVAS,
 ): Record<string, unknown> {
   return {
     ...product,
@@ -382,9 +393,35 @@ function contractProductContext(
     sku: product.graceSku ?? null,
     name: product.itemName ?? null,
     collection: product.bottleCollection ?? null,
-    canvas: "2080x2288",
+    canvas: `${canvas.width}x${canvas.height}`,
+    primaryObjectCenterXPct: canvas.primaryObjectCenterXPct,
     rigVersion: "best-bottles-rendering-contract-v1",
   };
+}
+
+function isTopologyWideProduct(product: BestBottlesContractProduct): boolean {
+  return [
+    product.graceSku,
+    product.websiteSku,
+    product.itemName,
+    product.itemDescription,
+    product.applicator,
+    product.capStyle,
+  ].some((value) => /\b(?:tassel|antique\s+bulb|vintage\s+bulb)\b/i.test(textValue(value)));
+}
+
+export function resolveBestBottlesContractCanvas(
+  product: BestBottlesContractProduct,
+  inputContext?: Record<string, unknown> | null,
+): BestBottlesContractCanvas {
+  const presetId = textValue(inputContext?.presetId);
+  if (
+    presetId === "grid-card-wide-low-1536x1024"
+    && isTopologyWideProduct(product)
+  ) {
+    return BEST_BOTTLES_TOPOLOGY_WIDE_CANVAS;
+  }
+  return BEST_BOTTLES_CONTRACT_CANVAS;
 }
 
 async function resolveProductTruth(
@@ -474,12 +511,13 @@ function componentRig(profileId: "component-enhancement" | "packaging-enhancemen
 function resolveRig(
   product: BestBottlesContractProduct,
   lane: BestBottlesRenderingLane,
+  canvas: BestBottlesContractCanvas,
   inputContext?: Record<string, unknown> | null,
 ): FamilyRigConfig | null {
   if (lane === "component_enhancement") return componentRig("component-enhancement");
   if (lane === "packaging_enhancement") return componentRig("packaging-enhancement");
   if (lane !== "bottle_catalog") return null;
-  return getFamilyRigForProduct({
+  const rig = getFamilyRigForProduct({
     family: product.family,
     bottleCollection: product.bottleCollection,
     category: product.category,
@@ -498,6 +536,19 @@ function resolveRig(
     // Bottle catalog masters are the scale-card fail-closed lane.
     requireScaleCard: true,
   });
+  if (!rig) return null;
+  return {
+    ...rig,
+    baselinePct: canvas.baselinePct,
+    primaryObjectCenterXPct: canvas.primaryObjectCenterXPct,
+    ...(typeof (rig.shoulderTargetPct ?? rig.glassHeightPct) === "number"
+      ? {
+          targetBodyHeightPx: Math.round(
+            ((rig.shoulderTargetPct ?? rig.glassHeightPct)! / 100) * canvas.height,
+          ),
+        }
+      : {}),
+  };
 }
 
 function resolvePromptProfile(lane: BestBottlesRenderingLane): BestBottlesPromptProfile {
@@ -768,12 +819,13 @@ export async function resolveBestBottlesRenderingContract(
     };
   }
 
+  const canvas = resolveBestBottlesContractCanvas(product, input.productContext);
   const providerPolicy = resolveProviderPolicy(input);
-  const rig = resolveRig(product, definition.renderingLane, input.productContext);
+  const rig = resolveRig(product, definition.renderingLane, canvas, input.productContext);
   const status = statusForDefinition(definition);
   const promptProfile = resolvePromptProfile(definition.renderingLane);
   const productContext = {
-    ...contractProductContext(product, input.productContext),
+    ...contractProductContext(product, input.productContext, canvas),
     ...(sealedCanonical.geometry ? { canonicalGeometryContract: sealedCanonical.geometry } : {}),
     renderingLane: definition.renderingLane,
     bottleScaleStatus: definition.bottleScaleStatus,
@@ -794,7 +846,7 @@ export async function resolveBestBottlesRenderingContract(
     bottleScaleStatus: definition.bottleScaleStatus,
     enhancementStatus: definition.enhancementStatus,
     promptProfile,
-    canvas: BEST_BOTTLES_CONTRACT_CANVAS,
+    canvas,
     rig,
     providerPolicy,
     qaPolicy: resolveQaPolicy(definition.renderingLane),

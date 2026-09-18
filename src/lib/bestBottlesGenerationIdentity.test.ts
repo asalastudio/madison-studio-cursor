@@ -23,6 +23,10 @@ describe("buildBestBottlesGenerationIdentity", () => {
     assert.equal(identity.promptVersion, "best-bottles-reference-locked-v6.1");
     assert.equal(identity.shadowOwner, "model");
     assert.equal(identity.shadowContract, "contact-back-right-v1");
+    assert.equal(identity.scaleContractVersion, "shoulder-lock-2026-09-07");
+    assert.equal(identity.glassBodyKey, "cylinder:3.3-standard");
+    assert.equal(identity.shoulderTargetPct, 26.5);
+    assert.equal(identity.resolvedBodyTargetPx, Math.round(0.265 * 2288));
   });
 
   it("assigns canonical V6.1 and global scale lineage to every bottle family", () => {

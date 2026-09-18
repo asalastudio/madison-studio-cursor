@@ -1,6 +1,6 @@
 /**
  * Pure Cylinder scale-card pilot model — current (approved today) vs target
- * (scale-card v1 bare-glass PCHIP). Used by `/best-bottles/scale-card-pilot`.
+ * (scale-card v2 ecommerce height bands). Used by `/best-bottles/scale-card-pilot`.
  */
 
 import {

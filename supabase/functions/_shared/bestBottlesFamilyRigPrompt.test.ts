@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildBestBottlesFamilyRigPromptAdjustment } from "./bestBottlesFamilyRigPrompt";
+import {
+  buildBestBottlesCapStatePromptLine,
+  buildBestBottlesFamilyRigPromptAdjustment,
+} from "./bestBottlesFamilyRigPrompt";
 
 describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
   it("imposes the Cylinder rig for flattened product-truth references", () => {
@@ -25,11 +28,16 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
     assert.match(adjustment.taskLine, /Composition is set by the imposed studio rig/i);
     assert.match(sourceTruth, /source foreground size is not product truth/i);
     assert.match(composition, /IMPOSED STUDIO RIG/);
-    assert.match(composition, /SCALE-CARD BARE GLASS/i);
-    assert.match(composition, /foot-to-rim glass height = 40\.7%/i);
-    assert.match(composition, /tag S60/);
-    assert.doesNotMatch(composition, /Fit the full assembly within ~40\.7%/i);
-    assert.match(composition, /Assembled framing hint/i);
+    assert.match(composition, /SHOULDER LOCK/i);
+    assert.match(composition, /cylinder:9-standard/);
+    assert.match(composition, /MUST land at 43\.5%/i);
+    assert.match(composition, /heightWithoutCap = 56 mm/i);
+    assert.match(composition, /heightWithCap = 73 mm/i);
+    assert.doesNotMatch(composition, /SCALE-CARD BARE GLASS/i);
+    assert.doesNotMatch(composition, /Fit the full assembly within ~58%/i);
+    assert.doesNotMatch(composition, /ASSEMBLED HEIGHT \(hard maximum\)/i);
+    assert.match(composition, /Ecommerce fill is mandatory/i);
+    assert.match(composition, /SHOULDER LOCK horizon/i);
     assert.doesNotMatch(fullPromptPart, /uploaded reference canvas is the placement lock/i);
     assert.doesNotMatch(fullPromptPart, /canvas placement, centerline, baseline, crop, camera distance, and scale are locked/i);
   });
@@ -49,10 +57,11 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
     assert.match(adjustment.sourceTruthLines.join("\n"), /source foreground size is not product truth/i);
     assert.doesNotMatch(adjustment.sourceTruthLines.join("\n"), /bounding-box footprint, centerline, baseline, crop, camera distance, and relative scale/i);
     assert.match(adjustment.canvasCompositionLines.join("\n"), /IMPOSED STUDIO RIG/);
-    assert.match(adjustment.canvasCompositionLines.join("\n"), /resolved Cylinder Tall PDP framing target|SCALE-CARD BARE GLASS/i);
-    assert.match(adjustment.canvasCompositionLines.join("\n"), /foot-to-rim glass height = 80%/i);
-    assert.match(adjustment.canvasCompositionLines.join("\n"), /tag S200/);
-    assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Fit the full assembly within ~80%/i);
+    assert.match(adjustment.canvasCompositionLines.join("\n"), /SHOULDER LOCK/i);
+    assert.match(adjustment.canvasCompositionLines.join("\n"), /cylinder:454-standard/);
+    assert.match(adjustment.canvasCompositionLines.join("\n"), /MUST land at 71\.5%/i);
+    assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /SCALE-CARD BARE GLASS/i);
+    assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Fit the full assembly within ~74%/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Do NOT vary the on-canvas size by ml capacity/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /Fixed-family QA target/i);
     assert.doesNotMatch(adjustment.canvasCompositionLines.join("\n"), /uploaded reference canvas is the placement lock/i);
@@ -136,13 +145,16 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
 
     const composition = adjustment.canvasCompositionLines.join("\n");
     assert.equal(adjustment.rigImposed, true);
-    assert.match(composition, /SCALE-CARD BARE GLASS/i);
-    assert.match(composition, /foot-to-rim glass height = 47\.8%/i);
-    assert.match(composition, /tag S70/);
-    assert.doesNotMatch(composition, /Fit the full assembly within ~47\.8%/i);
+    assert.match(composition, /SHOULDER LOCK/i);
+    assert.match(composition, /MUST land at 43\.5%/i);
+    assert.match(composition, /heightWithCap = 98 mm/i);
+    assert.doesNotMatch(composition, /SCALE-CARD BARE GLASS/i);
+    assert.doesNotMatch(composition, /ASSEMBLED HEIGHT \(hard maximum\)/i);
+    assert.doesNotMatch(composition, /Fit the full assembly within ~64%/i);
     assert.doesNotMatch(composition, /6 px per canonical millimeter/i);
     assert.match(composition, /8-10% up from the canvas bottom/i);
     assert.doesNotMatch(composition, /~25\.7% of the canvas height/i);
+    assert.match(composition, /SHOULDER LOCK horizon/i);
   });
 
   it("keeps roll-ons assembled unless cap-off is explicit", () => {
@@ -157,8 +169,9 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
     const composition = adjustment.canvasCompositionLines.join("\n");
     const sourceTruth = adjustment.sourceTruthLines.join("\n");
     assert.match(composition, /ROLLER BOTTLE/);
-    assert.match(composition, /~68% of the canvas height/i);
-    assert.match(composition, /approved 65-70% fill-height range/i);
+    assert.match(composition, /SHOULDER LOCK/i);
+    assert.match(composition, /cylinder:5-standard/);
+    assert.match(composition, /MUST land at 36\.5%/i);
     assert.match(composition, /assembled bottle centered/i);
     assert.doesNotMatch(composition, /ONE two-object assembly/);
     assert.match(composition, /no detached cap/i);
@@ -183,6 +196,70 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
     assert.match(composition, /only detached object is the matching over-cap/i);
     assert.match(composition, /Do not render a second loose cap/i);
     assert.match(composition, /same horizontal baseline/i);
+  });
+
+  it("keeps vintage bulb and tassel on one assembled image even if a cap-off preset leaks in", () => {
+    for (const product of [
+      {
+        sku: "GB-CYL-CLR-50ML-ASP-BLK",
+        websiteSku: "GBCyl50AnSpBlk",
+        applicator: "Vintage style bulb",
+      },
+      {
+        sku: "GB-CYL-CLR-50ML-AST-BLK",
+        websiteSku: "GBCyl50AnSpTslBlk",
+        applicator: "Vintage style bulb tassel",
+      },
+    ]) {
+      const adjustment = buildBestBottlesFamilyRigPromptAdjustment({
+        family: "Cylinder",
+        sku: product.sku,
+        websiteSku: product.websiteSku,
+        applicator: product.applicator,
+        capState: "detached",
+        mode: "cap-off",
+        presetId: "grid-card-exploded-2000x2200",
+        sourceReference: `/best-bottles/cylinder/50ml/cap-off/${product.sku}.png`,
+      });
+
+      const composition = adjustment.canvasCompositionLines.join("\n");
+      const sourceTruth = adjustment.sourceTruthLines.join("\n");
+      assert.equal(adjustment.rigImposed, true, product.sku);
+      assert.match(composition, /Assembled\/cap-on means exactly ONE product object/i);
+      assert.match(sourceTruth, /one complete assembled image/i);
+      assert.doesNotMatch(composition, /DETACHED cap upright in the right sidecar zone/);
+      assert.doesNotMatch(composition, /keep the cap-off\/exploded relationship/i);
+      assert.match(
+        buildBestBottlesCapStatePromptLine(
+          {
+            family: "Cylinder",
+            sku: product.sku,
+            websiteSku: product.websiteSku,
+            applicator: product.applicator,
+            capState: "detached",
+            mode: "cap-off",
+            presetId: "grid-card-exploded-2000x2200",
+          },
+          true,
+        ),
+        /one complete assembled image/i,
+      );
+      assert.doesNotMatch(
+        buildBestBottlesCapStatePromptLine(
+          {
+            family: "Cylinder",
+            sku: product.sku,
+            websiteSku: product.websiteSku,
+            applicator: product.applicator,
+            capState: "detached",
+            mode: "cap-off",
+            presetId: "grid-card-exploded-2000x2200",
+          },
+          true,
+        ),
+        /detached cap or over-cap/i,
+      );
+    }
   });
 
   it("keeps sprayers assembled without a cap-off/exploded signal", () => {

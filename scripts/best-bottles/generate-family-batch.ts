@@ -57,7 +57,7 @@
  *   MADISON_BEST_BOTTLES_ORG_ID / MADISON_BEST_BOTTLES_USER_ID  (defaults below)
  */
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
@@ -162,6 +162,8 @@ const family = getArg("--family", "Cylinder");
 const productGroup = getArg("--product-group", "");
 // Defer bulb+tassel SKUs (their scale-to-bottle-height framing fix is separate).
 const skipTassel = process.argv.includes("--skip-tassel");
+const includeBulbTassel = process.argv.includes("--include-bulb-tassel");
+const referenceFolder = getArg("--reference-folder", "");
 const skusArg = getArg("--skus", "");
 // Optional explicit graceSku allowlist for curated cross-group pilots
 // (e.g. one representative each of 3/4/5/9ml to check the capacity scale).
@@ -253,6 +255,7 @@ function productFromSnapshot(row: ProductRow) {
     heightWithoutCap: getText(row, "heightWithoutCap"),
     heightWithCap: getText(row, "heightWithCap"),
     diameter: getText(row, "diameter"),
+    neckThreadSize: getText(row, "neckThreadSize"),
   };
 }
 
@@ -416,6 +419,127 @@ const cylinderReadinessByIdentity = cylinderRoleAwareInput
   ? cylinderRoleAwareInput.index
   : new Map<string, CylinderRoleAwareReadinessRow>();
 
+const sidecarOverridesPath = getArg("--sidecar-overrides", "");
+if (sidecarOverridesPath) {
+  const overrides = JSON.parse(readFileSync(path.resolve(sidecarOverridesPath), "utf8")) as Record<
+    string,
+    Record<string, unknown>
+  >;
+  let applied = 0;
+  for (const row of cylinderReadinessByIdentity.values()) {
+    const patch = overrides[row.graceSku];
+    if (!patch) continue;
+    Object.assign(row.references.pdpCapOffSidecar, patch);
+    applied += 1;
+  }
+  console.log(`sidecar overrides applied    : ${applied} from ${sidecarOverridesPath}`);
+}
+
+type LocalHeroReference = {
+  graceSku: string;
+  websiteSku: string | null;
+  filePath: string;
+  productGroupSlug: string | null;
+  isBulbOrTassel: boolean;
+};
+
+function normalizeHeroKey(value: string | null | undefined): string {
+  return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+}
+
+function isBulbOrTasselHero(value: string): boolean {
+  return /\b(?:ASP|AST|ANTIQUE|TASSEL|VINTAGE)\b/i.test(value);
+}
+
+function loadLocalHeroFolder(folderArg: string): Map<string, LocalHeroReference> {
+  const folder = path.resolve(folderArg);
+  if (!existsSync(folder)) {
+    throw new Error(`Reference folder does not exist: ${folder}`);
+  }
+  const byKey = new Map<string, LocalHeroReference>();
+  const remember = (key: string, ref: LocalHeroReference) => {
+    const normalized = normalizeHeroKey(key);
+    if (normalized) byKey.set(normalized, ref);
+  };
+  const manifestPath = path.join(folder, "..", `${path.basename(folder)}.manifest.json`);
+  const manifestRows = existsSync(manifestPath)
+    ? (JSON.parse(readFileSync(manifestPath, "utf8")) as {
+        rows?: Array<{
+          graceSku?: string;
+          websiteSku?: string;
+          outputFile?: string;
+          productGroupSlug?: string;
+        }>;
+      }).rows ?? []
+    : [];
+  const files = new Map(
+    readdirSync(folder)
+      .filter((name) => /\.png$/i.test(name))
+      .map((name) => [name, path.join(folder, name)]),
+  );
+  for (const row of manifestRows) {
+    const fileName = row.outputFile ?? `${row.graceSku ?? ""}.png`;
+    const filePath = files.get(fileName);
+    if (!filePath || !row.graceSku) continue;
+    const ref: LocalHeroReference = {
+      graceSku: row.graceSku,
+      websiteSku: row.websiteSku ?? null,
+      filePath,
+      productGroupSlug: row.productGroupSlug ?? null,
+      isBulbOrTassel: isBulbOrTasselHero(
+        [row.graceSku, row.websiteSku, row.productGroupSlug, fileName].join(" "),
+      ),
+    };
+    remember(row.graceSku, ref);
+    remember(row.websiteSku, ref);
+    remember(path.parse(fileName).name, ref);
+  }
+  for (const [fileName, filePath] of files) {
+    const stem = path.parse(fileName).name;
+    if (byKey.has(normalizeHeroKey(stem))) continue;
+    const ref: LocalHeroReference = {
+      graceSku: stem,
+      websiteSku: null,
+      filePath,
+      productGroupSlug: null,
+      isBulbOrTassel: isBulbOrTasselHero(stem),
+    };
+    remember(stem, ref);
+  }
+  console.log(`local hero folder            : ${files.size} PNG(s) from ${folder}`);
+  return byKey;
+}
+
+const localHeroByKey = referenceFolder ? loadLocalHeroFolder(referenceFolder) : new Map<string, LocalHeroReference>();
+
+function lookupLocalHero(...keys: Array<string | null | undefined>): LocalHeroReference | null {
+  for (const key of keys) {
+    const found = localHeroByKey.get(normalizeHeroKey(key));
+    if (found) return found;
+  }
+  return null;
+}
+
+function buildLocalHeroVerifiedReference(localHero: LocalHeroReference, bytes: Buffer, width: number, height: number): CylinderVerifiedReferenceBytes {
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  return {
+    authority: {
+      referenceRoleId: "pdp-cap-off-sidecar",
+      componentTopology: "fitment-attached-cap-right-sidecar",
+      capState: "detached",
+      capOffReferenceId: sha256,
+      topologyReferenceId: sha256,
+      shadowTopology: "detached-sidecar",
+    },
+    bytes: new Uint8Array(bytes),
+    sha256,
+    dataUrl: `data:image/png;base64,${bytes.toString("base64")}`,
+    lineageUrl: localHero.filePath,
+    width,
+    height,
+  };
+}
+
 function loadManifest(): Manifest {
   try {
     const parsed = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
@@ -480,7 +604,13 @@ async function rigPostprocessOutput(input: {
     preTransformBaselineYPx: number | null;
     detectedBaselineYPx: number | null;
     targetBaselineYPx: number | null;
+    preTransformShoulderYPx: number | null;
+    detectedShoulderYPx: number | null;
+    targetShoulderYPx: number | null;
+    shoulderDeltaPct: number | null;
+    shoulderConfidence: number | null;
     fillHeightPct: number | null;
+    glassHeightPct: number | null;
     centerXPct: number | null;
     targetCenterXPct: number | null;
     centerDeltaPct: number | null;
@@ -620,6 +750,11 @@ async function rigPostprocessOutput(input: {
       preTransformBaselineYPx: rigged.preTransformBaselineYPx,
       detectedBaselineYPx: rigged.detectedBaselineYPx,
       targetBaselineYPx: rigged.targetBaselineYPx,
+      preTransformShoulderYPx: rigged.preTransformShoulderYPx,
+      detectedShoulderYPx: rigged.detectedShoulderYPx,
+      targetShoulderYPx: rigged.targetShoulderYPx,
+      shoulderDeltaPct: rigged.shoulderDeltaPct,
+      shoulderConfidence: rigged.shoulderConfidence,
       fillHeightPct: rigged.framingQa?.measurements.fillHeightPct ?? null,
       glassHeightPct: rigged.framingQa?.measurements.glassHeightPct ?? null,
       centerXPct: rigged.framingQa?.measurements.centerXPct ?? null,
@@ -673,7 +808,7 @@ function buildCatalogTruthSnapshot(target: FamilyTarget): BestBottlesCatalogTrut
     heightWithoutCap: product.heightWithoutCap ?? null,
     heightWithCap: product.heightWithCap ?? null,
     diameter: product.diameter ?? null,
-    neckThreadSize: null,
+    neckThreadSize: product.neckThreadSize ?? null,
     applicator: product.applicator ?? null,
     capState: target.sidecarAuthority?.capState ?? target.product.capState ?? null,
     capColor: product.capColor ?? null,
@@ -826,6 +961,8 @@ function buildBodyForTarget(target: FamilyTarget) {
     `prompt:${identity.promptVersion}`,
     `rig:${identity.rigVersion}`,
     `scale-contract:${identity.scaleContractVersion}`,
+    identity.glassBodyKey ? `glass-body:${identity.glassBodyKey}` : null,
+    identity.shoulderTargetPct != null ? `shoulder-pct:${identity.shoulderTargetPct}` : null,
     `scale-registry:${identity.calibrationRegistryKey}`,
     `scale-assembled-target:${identity.resolvedAssembledTargetPct}`,
     `scale-body-target-px:${identity.resolvedBodyTargetPx}`,
@@ -1217,14 +1354,18 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
   );
   const snapshot = JSON.parse(readFileSync(convexSnapshotPath, "utf8")) as { products: ProductRow[] };
   const productBySku = new Map<string, ProductRow>();
+  const productByWebsiteSku = new Map<string, ProductRow>();
   for (const row of snapshot.products) {
     const sku = getText(row, "graceSku");
+    const website = getText(row, "websiteSku");
     if (sku) productBySku.set(sku, row);
+    if (website) productByWebsiteSku.set(website, row);
   }
 
   const targets: FamilyTarget[] = [];
   const skips: Skip[] = [];
   const seenWebsiteSkus = new Set<string>();
+  const usedLocalHeroPaths = new Set<string>();
 
   const sortedJobRows = [...((jobRows ?? []) as SkuJobRow[])].sort((left, right) => {
     const leftTarget = publicationTargetByWebsiteSku.get(left.website_sku ?? "");
@@ -1238,10 +1379,19 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
     const websiteSku = String(job.website_sku ?? "").trim();
     const publicationTarget = publicationTargetByWebsiteSku.get(websiteSku);
     const sku = publicationTarget?.graceSku ?? job.grace_sku;
-    if (skuFilter && !skuFilter.has(sku) && !skuFilter.has(job.grace_sku)) continue;
-    if (cylinderCloseout && seenWebsiteSkus.has(websiteSku)) continue;
-    if (cylinderCloseout) seenWebsiteSkus.add(websiteSku);
-    const productGroupSlug = job.product_group_slug ?? "unknown";
+    const localHero = lookupLocalHero(sku, job.grace_sku, websiteSku);
+    const skuFilterAllows = !skuFilter
+      || skuFilter.has(sku)
+      || skuFilter.has(job.grace_sku)
+      || skuFilter.has(websiteSku)
+      || Boolean(localHero && (
+        skuFilter.has(localHero.graceSku)
+        || (localHero.websiteSku != null && skuFilter.has(localHero.websiteSku))
+      ));
+    if (!skuFilterAllows) continue;
+    if (cylinderCloseout && websiteSku && seenWebsiteSkus.has(websiteSku) && !localHero) continue;
+    if (cylinderCloseout && websiteSku) seenWebsiteSkus.add(websiteSku);
+    const productGroupSlug = localHero?.productGroupSlug ?? job.product_group_slug ?? "unknown";
     let referenceUrl = "";
     let resolvedReferenceHash = "";
     let referenceAspectRatio: number | null = null;
@@ -1254,11 +1404,16 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       ? resolveCylinderImmutableReferenceForPreset(canonicalReadiness, preset.id)
       : null;
     let sidecarAuthority: CylinderRoleGenerationAuthority | null = null;
-    if (cylinderCloseout && !publicationTarget) {
+    if (localHero && localHero.isBulbOrTassel && !includeBulbTassel) {
+      skips.push({ sku: localHero.graceSku, productGroupSlug, reason: "bulb/tassel held for 1536x1024 canvas" });
+      usedLocalHeroPaths.add(localHero.filePath);
+      continue;
+    }
+    if (cylinderCloseout && !publicationTarget && !localHero) {
       skips.push({ sku, productGroupSlug, reason: "not in canonical Cylinder publication ledger" });
       continue;
     }
-    if (isCylinderCloseoutFamily && cylinderRoleAwareReadiness && !roleReference) {
+    if (isCylinderCloseoutFamily && cylinderRoleAwareReadiness && !roleReference && !localHero) {
       skips.push({
         sku,
         productGroupSlug,
@@ -1270,16 +1425,32 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       ? roleReference?.publicUrl?.trim() ?? ""
       : job.best_reference_candidate_path?.trim() ?? "";
 
-    // Resolve the reference: must be a usable public https image URL.
-    const refIssue = getBestBottlesReferenceUrlIssue(referenceUrl);
-    if (refIssue) {
-      skips.push({ sku, productGroupSlug, reason: `no usable reference: ${refIssue}` });
-      continue;
-    }
-
     try {
       let referenceBytes: Buffer;
-      if (isCylinderCloseoutFamily) {
+      if (localHero) {
+        referenceBytes = readFileSync(localHero.filePath);
+        const image = sharp(referenceBytes, { failOn: "error" });
+        const metadata = await image.metadata();
+        if (!metadata.width || !metadata.height) {
+          skips.push({ sku: localHero.graceSku, productGroupSlug, reason: "local hero PNG has no canvas size" });
+          continue;
+        }
+        verifiedReference = buildLocalHeroVerifiedReference(
+          localHero,
+          referenceBytes,
+          metadata.width,
+          metadata.height,
+        );
+        referenceUrl = verifiedReference.dataUrl;
+        resolvedReferenceHash = verifiedReference.sha256;
+        sidecarAuthority = verifiedReference.authority;
+        usedLocalHeroPaths.add(localHero.filePath);
+      } else if (isCylinderCloseoutFamily) {
+        const refIssue = getBestBottlesReferenceUrlIssue(referenceUrl);
+        if (refIssue) {
+          skips.push({ sku, productGroupSlug, reason: `no usable reference: ${refIssue}` });
+          continue;
+        }
         const verified = await verifyCylinderImmutableReferenceBytesForPreset(
           canonicalReadiness,
           preset.id,
@@ -1290,6 +1461,11 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
         verifiedReference = verified;
         sidecarAuthority = verified.authority;
       } else {
+        const refIssue = getBestBottlesReferenceUrlIssue(referenceUrl);
+        if (refIssue) {
+          skips.push({ sku, productGroupSlug, reason: `no usable reference: ${refIssue}` });
+          continue;
+        }
         const response = await fetch(referenceUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         referenceBytes = Buffer.from(await response.arrayBuffer());
@@ -1297,14 +1473,29 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       }
       const image = sharp(referenceBytes, { failOn: "error" });
       const [metadata, stats] = await Promise.all([image.metadata(), image.stats()]);
+      const reviewedSidecarProvenance = Boolean(
+        localHero
+        || (
+          isCylinderCloseoutFamily
+          && roleReference
+          && /^(?:approved|reviewed)$/i.test(String(roleReference.sourceReviewStatus ?? ""))
+          && (
+            roleReference.sourceRoute === "reviewed-immutable-sidecar-remediation"
+            || roleReference.sourceRoute === "reviewed-bbuat-studio-capped"
+            || roleReference.sourceRoute === "production-readiness-cap-on"
+          )
+        ),
+      );
       const canonicalIssue = getBestBottlesCanonicalReferenceIssue(
         referenceUrl,
         metadata.width && metadata.height
           ? { width: metadata.width, height: metadata.height }
           : null,
         {
-          referenceSource: job.reference_source,
-          referenceName: job.expected_canonical_filename,
+          referenceSource: reviewedSidecarProvenance || localHero
+            ? "flattened-product-truth"
+            : job.reference_source,
+          referenceName: localHero ? path.basename(localHero.filePath) : job.expected_canonical_filename,
         },
       );
       if (canonicalIssue) {
@@ -1377,7 +1568,10 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       continue;
     }
 
-    const productRow = productBySku.get(sku);
+    const productRow = productBySku.get(sku)
+      ?? productBySku.get(localHero?.graceSku ?? "")
+      ?? productByWebsiteSku.get(websiteSku)
+      ?? productByWebsiteSku.get(localHero?.websiteSku ?? "");
     if (!productRow) {
       skips.push({ sku, productGroupSlug, reason: "no Convex product metadata (snapshot join miss)" });
       continue;
@@ -1432,6 +1626,113 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
     }
 
     targets.push(target);
+  }
+
+  const leftoverHeroes = [...new Map(
+    [...localHeroByKey.values()]
+      .filter((hero) => !usedLocalHeroPaths.has(hero.filePath))
+      .filter((hero) =>
+        !skuFilter
+        || skuFilter.has(hero.graceSku)
+        || (hero.websiteSku != null && skuFilter.has(hero.websiteSku)),
+      )
+      .map((hero) => [hero.filePath, hero]),
+  ).values()];
+  for (const localHero of leftoverHeroes) {
+    const productRow = productBySku.get(localHero.graceSku)
+      ?? productByWebsiteSku.get(localHero.websiteSku ?? "");
+    const productGroupSlug = localHero.productGroupSlug ?? "unknown";
+    if (localHero.isBulbOrTassel && !includeBulbTassel) {
+      skips.push({ sku: localHero.graceSku, productGroupSlug, reason: "bulb/tassel held for 1536x1024 canvas" });
+      continue;
+    }
+    if (!productRow) {
+      skips.push({ sku: localHero.graceSku, productGroupSlug, reason: "no Convex product metadata (snapshot join miss)" });
+      continue;
+    }
+    const matchingJob = ((jobRows ?? []) as SkuJobRow[]).find((job) =>
+      job.grace_sku === localHero.graceSku || job.website_sku === localHero.websiteSku,
+    );
+    const websiteSku = localHero.websiteSku ?? getText(productRow, "websiteSku") ?? "";
+    const sku = localHero.graceSku;
+    const readinessKey = cylinderProductionIdentityKey(websiteSku, sku);
+    const canonicalReadiness = readinessKey
+      ? cylinderReadinessByIdentity.get(readinessKey) ?? null
+      : null;
+    try {
+      const referenceBytes = readFileSync(localHero.filePath);
+      const image = sharp(referenceBytes, { failOn: "error" });
+      const [metadata, stats] = await Promise.all([image.metadata(), image.stats()]);
+      if (!metadata.width || !metadata.height) {
+        skips.push({ sku, productGroupSlug, reason: "local hero PNG has no canvas size" });
+        continue;
+      }
+      const verifiedReference = buildLocalHeroVerifiedReference(
+        localHero,
+        referenceBytes,
+        metadata.width,
+        metadata.height,
+      );
+      const canonicalIssue = getBestBottlesCanonicalReferenceIssue(
+        verifiedReference.dataUrl,
+        { width: metadata.width, height: metadata.height },
+        {
+          referenceSource: "flattened-product-truth",
+          referenceName: path.basename(localHero.filePath),
+        },
+      );
+      if (canonicalIssue) {
+        skips.push({ sku, productGroupSlug, reason: `canonical reference blocked: ${canonicalIssue}` });
+        continue;
+      }
+      const alpha = stats.channels.find((channel) => channel.channel === "alpha");
+      if (alpha && alpha.min < 255) {
+        skips.push({
+          sku,
+          productGroupSlug,
+          reason: "canonical reference blocked: pixel alpha evidence contains transparent or partially transparent pixels",
+        });
+        continue;
+      }
+      const snapshotProduct = productFromSnapshot(productRow);
+      const canonicalProduct = canonicalReadiness
+        ? applyRoleAwareCanonicalCylinderGeometry(snapshotProduct, canonicalReadiness)
+        : snapshotProduct;
+      const product: BBProduct = {
+        ...canonicalProduct,
+        capState: verifiedReference.authority.capState,
+        mode: verifiedReference.authority.componentTopology,
+        capOffReferenceId: verifiedReference.authority.capOffReferenceId,
+        topologyReferenceId: verifiedReference.authority.topologyReferenceId,
+        componentTopology: verifiedReference.authority.componentTopology,
+      };
+      const identity = buildBestBottlesGenerationIdentity(product, {
+        bodyMaterial: inferBestBottlesBodyMaterial(product),
+        sourceReference: verifiedReference.dataUrl,
+      });
+      const identityIssue = getBestBottlesGenerationIdentityIssue(identity);
+      if (identityIssue) {
+        skips.push({ sku, productGroupSlug, reason: `identity blocked: ${identityIssue}` });
+        continue;
+      }
+      targets.push({
+        pipelineSkuJobId: matchingJob?.id ?? "",
+        sku,
+        productGroupSlug,
+        referenceUrl: verifiedReference.dataUrl,
+        referenceHash: verifiedReference.sha256,
+        verifiedReference,
+        product,
+        canonicalReadiness,
+        sidecarAuthority: verifiedReference.authority,
+      });
+    } catch (referenceError) {
+      skips.push({
+        sku,
+        productGroupSlug,
+        reason: `canonical reference inspection failed: ${referenceError instanceof Error ? referenceError.message : String(referenceError)}`,
+      });
+    }
   }
 
   targets.sort((a, b) => a.sku.localeCompare(b.sku));
@@ -1500,7 +1801,7 @@ async function main(): Promise<void> {
   console.log(`=== Best Bottles family batch — family="${family}" run=${runId} ===`);
   console.log(`provider=${aiProvider} promptMode=${promptMode} resolution=${resolution} concurrency=${concurrency} maxAttempts=${maxAttempts} systemicQaFailureThreshold=${systemicQaFailureThreshold}`);
   console.log(`manifest: ${path.relative(process.cwd(), manifestPath)}`);
-  console.log(`dryRun=${dryRun} limit=${limit ?? "none"} productGroup=${productGroup || "ALL"} skus=${skusArg || "ALL"} rig=${skipRigPostprocess ? "SKIPPED" : "on"}`);
+  console.log(`dryRun=${dryRun} limit=${limit ?? "none"} productGroup=${productGroup || "ALL"} skus=${skusArg || "ALL"} referenceFolder=${referenceFolder || "none"} rig=${skipRigPostprocess ? "SKIPPED" : "on"}`);
 
   const { targets: allTargets, skips } = await resolveTargets();
   if (isCylinderCloseoutFamily && !skuFilter && !productGroup && limit === null) {
@@ -1535,6 +1836,12 @@ async function main(): Promise<void> {
   console.log(`\nskip reasons:`);
   for (const [reason, count] of Object.entries(skipReasons).sort((a, b) => b[1] - a[1])) {
     console.log(`  ${count.toString().padStart(3)}  ${reason}`);
+  }
+  if (dryRun || skuFilter) {
+    console.log(`\nskip details:`);
+    for (const skip of skips) {
+      console.log(`  ↷ ${skip.sku}  ${skip.reason}`);
+    }
   }
 
   if (dryRun) {
@@ -1575,6 +1882,11 @@ async function main(): Promise<void> {
       console.log(`component topology lineage  : ${body.precompiledPromptRecord.qa_checklist.filter((tag) => tag.startsWith("component-topology:")).join(", ") || "missing"}`);
       console.log(`shadow topology lineage     : ${body.precompiledPromptRecord.qa_checklist.filter((tag) => tag.startsWith("shadow-topology:")).join(", ") || "missing"}`);
       console.log(`shadow contact lineage      : ${body.precompiledPromptRecord.qa_checklist.filter((tag) => tag.startsWith("shadow-contact:")).join(", ") || "missing"}`);
+      console.log(`shoulder lock present        : ${/SHOULDER LOCK/.test(finalPrompt)}`);
+      const glassSpecLine = finalPrompt.split("\n").find((line) => line.includes("GLASS BODY SPECIFICATION"));
+      const shoulderLockLine = finalPrompt.split("\n").find((line) => line.startsWith("- SHOULDER LOCK"));
+      if (glassSpecLine) console.log(`  ${glassSpecLine.trim()}`);
+      if (shoulderLockLine) console.log(`  ${shoulderLockLine.trim()}`);
       console.log(`single-product guard present : ${hasCompositionSafety}`);
       if (!hasCompositionSafety) {
         console.log(`single-product guard evidence: ${finalPrompt.split("\n").filter((line) => /COMPOSITION SAFETY|detached cap|exactly one finished/i.test(line)).join(" | ") || "missing from final prompt"}`);
@@ -1606,7 +1918,7 @@ async function main(): Promise<void> {
       browser = await chromium.launch({ headless: true });
       for (let i = 0; i < concurrency; i++) {
         const page = await browser.newPage();
-        await page.goto("http://127.0.0.1:8081/", { waitUntil: "domcontentloaded" });
+        await page.goto("http://127.0.0.1:8080/", { waitUntil: "domcontentloaded" });
         pages.push(page);
       }
     } else {

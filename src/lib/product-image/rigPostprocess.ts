@@ -15,6 +15,16 @@ import type {
   BestBottlesShadowContact,
   BestBottlesShadowTopology,
 } from "@/lib/bestBottlesShadowTopology";
+import {
+  evaluateBestBottlesPhysicalScale,
+  resolveCalibratedGlassBodyBounds,
+  type PhysicalScaleQa,
+  type RigScaleCalibration,
+} from "@/lib/product-image/physicalScaleQa";
+import {
+  detectGlassShoulderLandmark,
+  type GlassShoulderLandmark,
+} from "@/lib/product-image/shoulderLandmark";
 
 interface Rgb {
   r: number;
@@ -33,6 +43,16 @@ export interface RigBaselineNormalizeResult {
   /** Baseline detected on the final rendered pixels; retained under the legacy name. */
   detectedBaselineYPx: number | null;
   targetBaselineYPx: number | null;
+  /** Glass shoulder detected on the raw provider pixels before normalization. */
+  preTransformShoulderYPx: number | null;
+  /** Glass shoulder re-detected on final rendered pixels. */
+  detectedShoulderYPx: number | null;
+  /** Locked shoulder Y coordinate on the final canvas. */
+  targetShoulderYPx: number | null;
+  /** Final measured shoulder Y minus target, expressed in canvas percentage points. */
+  shoulderDeltaPct: number | null;
+  /** Confidence of the final shoulder landmark detector, from 0 to 1. */
+  shoulderConfidence: number | null;
   maskControlled: boolean;
   qaIssues: string[];
   framingQa: FramingQaReport | null;
@@ -47,6 +67,9 @@ export interface RigBaselineNormalizeResult {
   shadowQa: ShadowQaReport | null;
   /** Reference-measured detached-cap geometry gate; null outside governed detached lanes. */
   detachedCapGeometryQa: DetachedCapGeometryQa | null;
+  /** Physical millimeter verdict from approved calibration evidence. */
+  physicalScaleQa: PhysicalScaleQa;
+  scaleCalibration: RigScaleCalibration | null;
 }
 
 export interface RigBaselineNormalizeOptions {
@@ -76,6 +99,8 @@ export interface RigBaselineNormalizeOptions {
    * change — never invent from capacity or the assembly envelope.
    */
   bodyControlBounds?: RigStrongBounds | null;
+  /** Approved reusable annotation for this exact glass geometry + fitment topology. */
+  scaleCalibration?: RigScaleCalibration | null;
   /**
    * Truth H/W ratio for the primary bottle. When omitted, cap-on lanes fall
    * back to canonical mm (heightWithCap / diameter); detached-sidecar lanes
@@ -136,6 +161,39 @@ export interface RigFrameTransform {
   transformedBottomYPx: number | null;
   transformedLeftXPx: number | null;
   transformedRightXPx: number | null;
+}
+
+export interface ShoulderLockQa {
+  status: "pass" | "fail";
+  deltaPct: number | null;
+  issue: string | null;
+}
+
+export function evaluateShoulderLockQa(input: {
+  canvasHeight: number;
+  targetShoulderYPx: number;
+  measuredShoulderYPx: number | null;
+  tolerancePct?: number;
+}): ShoulderLockQa {
+  if (input.measuredShoulderYPx == null) {
+    return {
+      status: "fail",
+      deltaPct: null,
+      issue: "Cylinder glass shoulder landmark was not detectable after normalization.",
+    };
+  }
+  const deltaPct = Number(
+    (((input.measuredShoulderYPx - input.targetShoulderYPx) / input.canvasHeight) * 100).toFixed(1),
+  );
+  const tolerancePct = input.tolerancePct ?? 1;
+  if (Math.abs(deltaPct) > tolerancePct) {
+    return {
+      status: "fail",
+      deltaPct,
+      issue: `Cylinder glass shoulder is ${Math.abs(deltaPct).toFixed(1)}% from target after normalization.`,
+    };
+  }
+  return { status: "pass", deltaPct, issue: null };
 }
 
 export interface RigBackgroundFlattenOptions {
@@ -1601,6 +1659,58 @@ export function detectControlledRigBounds(
   return bottom >= 0 ? { top, bottom, left, right } : null;
 }
 
+/**
+ * Measure the glass body's lateral extent in its lower wall/base band.
+ * Fitments can be wider than the bottle and detached caps share the baseline,
+ * so neither the full vessel envelope nor the whole foreground is diameter
+ * evidence.
+ */
+export function detectGlassBodyWidthBounds(
+  pixels: ArrayLike<number>,
+  width: number,
+  height: number,
+  bg: Rgb,
+  bodyControlBounds: RigStrongBounds | null | undefined,
+): RigStrongBounds | null {
+  if (
+    !bodyControlBounds ||
+    typeof bodyControlBounds.left !== "number" ||
+    typeof bodyControlBounds.right !== "number" ||
+    bodyControlBounds.bottom <= bodyControlBounds.top
+  ) {
+    return null;
+  }
+  const bodyHeight = bodyControlBounds.bottom - bodyControlBounds.top;
+  const minY = Math.max(
+    0,
+    Math.round(bodyControlBounds.top + bodyHeight * 0.72),
+  );
+  const maxY = Math.min(
+    height - 1,
+    Math.round(bodyControlBounds.top + bodyHeight * 0.96),
+  );
+  const minX = Math.max(0, Math.floor(bodyControlBounds.left));
+  const maxX = Math.min(width - 1, Math.ceil(bodyControlBounds.right));
+  const minHits = Math.max(3, Math.round((maxY - minY + 1) * 0.035));
+  let left = width;
+  let right = -1;
+
+  for (let x = minX; x <= maxX; x += 1) {
+    let hits = 0;
+    for (let y = minY; y <= maxY; y += 2) {
+      const i = (y * width + x) * 4;
+      const distance = colorDistance(pixels, i, bg);
+      if (distance >= 64) hits += 1;
+    }
+    if (hits < minHits) continue;
+    left = Math.min(left, x);
+    right = Math.max(right, x);
+  }
+  return right > left
+    ? { top: minY, bottom: maxY, left, right }
+    : null;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -1616,8 +1726,11 @@ function isExactBodyControlBounds(bounds: RigStrongBounds | null | undefined): b
  */
 function resolveBodyControlIdealScale(input: RigFrameTransformInput): number | null {
   const targetBodyHeightPx = input.rig.targetBodyHeightPx;
+  const hasShoulderLock =
+    typeof input.rig.shoulderTargetPct === "number" &&
+    typeof input.rig.targetShoulderYPx === "number";
   if (
-    input.preserveGeneratedScale
+    (input.preserveGeneratedScale && !hasShoulderLock)
     || typeof targetBodyHeightPx !== "number"
     || !(targetBodyHeightPx > 0)
   ) {
@@ -1640,12 +1753,11 @@ function resolveBodyControlIdealScale(input: RigFrameTransformInput): number | n
 export function computeRigFrameTransform(input: RigFrameTransformInput): RigFrameTransform {
   const targetBaseline = Math.round(input.height * (1 - input.rig.baselinePct / 100));
   const fullBounds = input.strongBounds;
-  // Width/center authority: detached lanes size horizontally from the primary
-  // bottle, not the bottle+sidecar union. Vertical body scale (below) uses
-  // bodyControlBounds when the scale-card target is present.
-  const bounds = input.capState === "detached"
-    ? input.primaryBounds ?? fullBounds
-    : fullBounds;
+  // Width/center authority comes from the primary bottle whenever it can be
+  // isolated. This also covers connected vintage bulb/tassel assemblies: the
+  // accessory receives lateral room, but it never pulls the bottle off its
+  // governed centerline.
+  const bounds = input.primaryBounds ?? fullBounds;
   const bodyIdealScale = resolveBodyControlIdealScale(input);
   const baselineToTop = bounds ? input.detectedBaselineYPx - bounds.top : 0;
   // Legacy path (no targetBodyHeightPx): fit the visible primary/assembly
@@ -1656,19 +1768,35 @@ export function computeRigFrameTransform(input: RigFrameTransformInput): RigFram
   const idealScale = bodyIdealScale ?? envelopeIdealScale;
   const scaleNeedsCorrection = Math.abs(idealScale - 1) > 0.025;
   const minimumScale = 0.5;
-  let scale = input.preserveGeneratedScale
+  const hasShoulderLock =
+    typeof input.rig.shoulderTargetPct === "number" &&
+    typeof input.rig.targetShoulderYPx === "number";
+  const preserveGeneratedScale = input.preserveGeneratedScale && !hasShoulderLock;
+  let scale = preserveGeneratedScale
     ? 1
     : scaleNeedsCorrection
       ? clamp(idealScale, minimumScale, 2.5)
       : 1;
 
-  if (bounds && !input.preserveGeneratedScale) {
+  if (bounds && !preserveGeneratedScale && !hasShoulderLock) {
     if (typeof bounds.left === "number" && typeof bounds.right === "number" && bounds.right > bounds.left) {
       const boundsWidth = bounds.right - bounds.left + 1;
       const targetFillWidth = input.width * (input.rig.fillWidthPct / 100);
       const widthScale = boundsWidth > 0 ? targetFillWidth / boundsWidth : scale;
       if (Number.isFinite(widthScale) && widthScale > 0) {
         scale = Math.min(scale, widthScale);
+      }
+    }
+    if (
+      fullBounds
+      && typeof fullBounds.left === "number"
+      && typeof fullBounds.right === "number"
+      && fullBounds.right > fullBounds.left
+    ) {
+      const fullAssemblyWidth = fullBounds.right - fullBounds.left + 1;
+      const assemblyWidthScale = (input.width * 0.88) / fullAssemblyWidth;
+      if (Number.isFinite(assemblyWidthScale) && assemblyWidthScale > 0) {
+        scale = Math.min(scale, assemblyWidthScale);
       }
     }
     // Body-control scale must keep the full assembly on-canvas (seated caps /
@@ -1707,11 +1835,15 @@ export function computeRigFrameTransform(input: RigFrameTransformInput): RigFram
   ) {
     const baseDrawX = (input.width - input.width * scale) / 2;
     const boundsCenter = (bounds.left + bounds.right + 1) / 2;
-    const targetCenter = input.width / 2;
+    const targetCenter =
+      input.width * ((input.rig.primaryObjectCenterXPct ?? 50) / 100);
     const requestedShiftX = targetCenter - (boundsCenter * scale + baseDrawX);
     const minSideAir = Math.round(input.width * 0.06);
-    const transformedLeftWithoutShift = bounds.left * scale + baseDrawX;
-    const transformedRightWithoutShift = bounds.right * scale + baseDrawX;
+    const airBounds = fullBounds ?? bounds;
+    const transformedLeftWithoutShift =
+      (typeof airBounds.left === "number" ? airBounds.left : bounds.left) * scale + baseDrawX;
+    const transformedRightWithoutShift =
+      (typeof airBounds.right === "number" ? airBounds.right : bounds.right) * scale + baseDrawX;
     const minShift = minSideAir - transformedLeftWithoutShift;
     const maxShift = input.width - minSideAir - transformedRightWithoutShift;
     shiftX = clamp(requestedShiftX, minShift, maxShift);
@@ -1765,6 +1897,127 @@ function parseLeadingMm(value: string | number | null | undefined): number | nul
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function isComplexVintageAssembly(
+  input: Pick<RigBaselineNormalizeOptions, "applicator" | "itemName" | "itemDescription">,
+): boolean {
+  return /\b(?:tassel|antique\s+bulb|vintage\s+bulb)\b/i.test(
+    [input.applicator, input.itemName, input.itemDescription]
+      .filter((value): value is string => typeof value === "string")
+      .join(" "),
+  );
+}
+
+/**
+ * Isolate the tall bottle column inside a connected vintage bulb/tassel
+ * assembly. The accessory may be connected by a hose, so connected-component
+ * bounds are not useful; sustained baseline-reaching vertical columns are.
+ */
+export function detectComplexAssemblyBottleBounds(
+  pixels: ArrayLike<number>,
+  width: number,
+  height: number,
+  bg: Rgb,
+  detectedBaselineYPx: number,
+): RigStrongBounds | null {
+  const baseline = Math.max(1, Math.min(height - 1, Math.round(detectedBaselineYPx)));
+  const threshold = 32;
+  const minColumnPixels = Math.max(6, Math.round(height * 0.008));
+  const columns: Array<{ top: number; bottom: number; count: number } | null> =
+    new Array(width).fill(null);
+  let maxSpan = 0;
+
+  for (let x = 0; x < width; x += 1) {
+    let top = baseline;
+    let bottom = -1;
+    let count = 0;
+    for (let y = 0; y <= baseline; y += 1) {
+      const i = (y * width + x) * 4;
+      const delta = Math.max(
+        Math.abs(pixels[i] - bg.r),
+        Math.abs(pixels[i + 1] - bg.g),
+        Math.abs(pixels[i + 2] - bg.b),
+      );
+      if (delta <= threshold) continue;
+      top = Math.min(top, y);
+      bottom = y;
+      count += 1;
+    }
+    if (count < minColumnPixels || bottom < 0) continue;
+    const span = bottom - top + 1;
+    columns[x] = { top, bottom, count };
+    maxSpan = Math.max(maxSpan, span);
+  }
+
+  if (maxSpan < height * 0.25) return null;
+  const minSpan = maxSpan * 0.68;
+  const baselineTolerance = Math.max(6, Math.round(height * 0.05));
+  const bridgeGap = Math.max(8, Math.round(width * 0.08));
+  const runs: Array<{ left: number; right: number }> = [];
+  let runStart: number | null = null;
+  let gap = 0;
+
+  for (let x = 0; x < width; x += 1) {
+    const column = columns[x];
+    const qualifies = Boolean(
+      column
+      && column.bottom >= baseline - baselineTolerance
+      && column.bottom - column.top + 1 >= minSpan,
+    );
+    if (qualifies) {
+      if (runStart === null) runStart = x;
+      gap = 0;
+    } else if (runStart !== null) {
+      gap += 1;
+      if (gap > bridgeGap) {
+        runs.push({ left: runStart, right: x - gap });
+        runStart = null;
+        gap = 0;
+      }
+    }
+  }
+  if (runStart !== null) runs.push({ left: runStart, right: width - 1 - gap });
+
+  let best: RigStrongBounds | null = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (const run of runs) {
+    const columnTops: number[] = [];
+    let bottom = -1;
+    for (let x = run.left; x <= run.right; x += 1) {
+      const column = columns[x];
+      if (!column) continue;
+      if (
+        column.bottom >= baseline - baselineTolerance
+        && column.bottom - column.top + 1 >= minSpan
+      ) {
+        columnTops.push(column.top);
+      }
+      bottom = Math.max(bottom, column.bottom);
+    }
+    columnTops.sort((a, b) => a - b);
+    const top = columnTops.length > 0
+      ? columnTops[Math.floor(columnTops.length * 0.1)]
+      : baseline;
+    const runWidth = run.right - run.left + 1;
+    const runHeight = bottom - top + 1;
+    if (
+      bottom < 0
+      || runHeight < height * 0.25
+      || runWidth < Math.max(8, width * 0.04)
+      || runWidth > width * 0.45
+    ) {
+      continue;
+    }
+    // Height is authoritative; rightward position breaks close ties because
+    // approved bulb/tassel masters reserve camera-left for accessories.
+    const score = runHeight * 10 + runWidth + run.right / width;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { top, bottom, left: run.left, right: run.right };
+    }
+  }
+  return best;
+}
+
 /**
  * Derive exact glass foot-to-rim bounds from a measured vessel envelope by
  * scaling vessel height with heightWithoutCap / heightWithCap. Never returns
@@ -1806,12 +2059,11 @@ export function deriveGlassBodyControlBounds(input: {
 
 function resolveBodyControlBoundsForTransform(input: {
   provided?: RigStrongBounds | null;
+  calibration?: RigScaleCalibration | null;
   primaryBounds?: RigStrongBounds | null;
   strongBounds?: RigStrongBounds | null;
   detectedBaselineYPx: number;
   capState?: RigCapState;
-  heightWithoutCap?: string | number | null;
-  heightWithCap?: string | number | null;
 }): RigStrongBounds | null {
   if (isExactBodyControlBounds(input.provided)) {
     return input.provided;
@@ -1820,11 +2072,11 @@ function resolveBodyControlBoundsForTransform(input: {
     input.capState === "detached"
       ? input.primaryBounds ?? input.strongBounds
       : input.strongBounds ?? input.primaryBounds;
-  return deriveGlassBodyControlBounds({
+  if (!input.calibration) return null;
+  return resolveCalibratedGlassBodyBounds({
+    calibration: input.calibration,
     vesselBounds: vessel,
     detectedBaselineYPx: input.detectedBaselineYPx,
-    heightWithoutCap: input.heightWithoutCap,
-    heightWithCap: input.heightWithCap,
   });
 }
 
@@ -1850,6 +2102,48 @@ function transformBodyControlBounds(
         ? scaleXAboutCenter(bounds.right * scale)
         : undefined,
   };
+}
+
+function buildPhysicalScaleQa(input: {
+  options: RigBaselineNormalizeOptions;
+  rig: FamilyRigConfig;
+  framingQa: FramingQaReport | null;
+  canvasWidth: number;
+  canvasHeight: number;
+}): PhysicalScaleQa {
+  const glassHeightPct = input.framingQa?.measurements.glassHeightPct;
+  const glassWidthPct = input.framingQa?.measurements.glassWidthPct;
+  const assemblyHeightPct = input.framingQa?.measurements.fillHeightPct;
+  return evaluateBestBottlesPhysicalScale({
+    expectedGlassHeightMm: parseLeadingMm(input.options.heightWithoutCap),
+    measuredGlassHeightPx:
+      typeof glassHeightPct === "number"
+        ? (glassHeightPct / 100) * input.canvasHeight
+        : null,
+    targetGlassHeightPx: input.rig.targetBodyHeightPx,
+    expectedGlassDiameterMm: parseLeadingMm(input.options.diameter),
+    measuredGlassWidthPx:
+      typeof glassWidthPct === "number"
+        ? (glassWidthPct / 100) * input.canvasWidth
+        : null,
+    expectedAssembledHeightMm: parseLeadingMm(input.options.heightWithCap),
+    measuredAssemblyHeightPx:
+      typeof assemblyHeightPct === "number"
+        ? (assemblyHeightPct / 100) * input.canvasHeight
+        : null,
+    calibration: input.options.scaleCalibration,
+  });
+}
+
+function describePhysicalScaleDelta(qa: PhysicalScaleQa): string {
+  const deltas = [`height ${qa.deltaMm ?? "unverified"} mm`];
+  if (qa.diameterDeltaMm != null) {
+    deltas.push(`diameter ${qa.diameterDeltaMm} mm`);
+  }
+  if (qa.assembledDeltaMm != null) {
+    deltas.push(`assembled height ${qa.assembledDeltaMm} mm`);
+  }
+  return deltas.join(", ");
 }
 
 /**
@@ -1938,6 +2232,55 @@ export function detectTallestComponentBounds(
     }
   }
   return best;
+}
+
+function detectRigShoulderLandmark(input: {
+  pixels: ArrayLike<number>;
+  width: number;
+  height: number;
+  bg: Rgb;
+  rig: FamilyRigConfig;
+  primaryBounds: RigStrongBounds | null;
+  detectedBaselineYPx: number;
+  capState: RigCapState;
+  expectedShoulderYPx?: number;
+}): GlassShoulderLandmark | null {
+  if (
+    typeof input.rig.shoulderTargetPct !== "number" ||
+    typeof input.rig.targetShoulderYPx !== "number"
+  ) {
+    return null;
+  }
+  const bottleOnlyBounds =
+    input.capState === "detached"
+      ? detectTallestComponentBounds(
+          input.pixels,
+          input.width,
+          input.height,
+          input.bg,
+          input.detectedBaselineYPx,
+        ) ?? input.primaryBounds
+      : input.primaryBounds;
+  return detectGlassShoulderLandmark({
+    pixels: input.pixels,
+    width: input.width,
+    height: input.height,
+    primaryBounds: bottleOnlyBounds,
+    footYPx: input.detectedBaselineYPx,
+    expectedShoulderYPx: input.expectedShoulderYPx,
+  });
+}
+
+function shoulderLandmarkToControlBounds(
+  landmark: GlassShoulderLandmark | null,
+): RigStrongBounds | null {
+  if (!landmark) return null;
+  return {
+    top: landmark.shoulderYPx,
+    bottom: landmark.footYPx,
+    left: landmark.bodyLeftXPx,
+    right: landmark.bodyRightXPx,
+  };
 }
 
 /**
@@ -2126,21 +2469,18 @@ export function resolveWholeVesselBounds(
     if (c.bottom - c.top > tallest.bottom - tallest.top) tallest = c;
   }
   const tallestHeight = tallest.bottom - tallest.top + 1;
-  // Sibling fragments of one vessel share a BASE, not a top: on a capped
+  // Sibling fragments of one vessel share a BASE, not a top. On a capped
   // clear bottle the frame splits into wall-sliver / center-column / wall-
-  // sliver, where the center column carries the closure and rises above the
-  // shoulder — its top sits hundreds of px higher than the walls' (measured
-  // 266 px on GB-CYL-CLR-50ML-RDC-MSLV-T). Requiring top alignment rejected
-  // the walls and returned the center column alone (aspect 6.6). So the keys
-  // are: bottom within 4% of frame height (everything stands on one floor
-  // line) and height ratio ≥ 0.8 (the governed detached cap classes run
-  // 21–31% of bottle height and can never qualify). No gap ≤ 2×width cap —
-  // a transparent interior can never satisfy it.
+  // sliver, and the center column carries the closure above the shoulder.
+  // A 50 ml roll-on pushes that further: the roller column is the tallest
+  // fragment and the glass walls read about 0.69 of its height. Detached
+  // sidecar caps in the governed set stay at 21–31% of bottle height, so
+  // 0.65 reunites those walls without pulling the cap into the vessel.
   const aligned = components.filter((c) => {
     const h = c.bottom - c.top + 1;
     return (
       Math.abs(c.bottom - tallest.bottom) <= height * 0.04 &&
-      Math.min(h, tallestHeight) / Math.max(h, tallestHeight) >= 0.8
+      Math.min(h, tallestHeight) / Math.max(h, tallestHeight) >= 0.65
     );
   });
   if (aligned.length <= 1) {
@@ -2462,7 +2802,7 @@ export async function normalizeBestBottlesRigBaseline(
   options: RigBaselineNormalizeOptions,
 ): Promise<RigBaselineNormalizeResult> {
   const shadowOwner = resolveRigShadowOwner(options);
-  const rig = getFamilyRigForProduct(options);
+  let rig = getFamilyRigForProduct(options);
   const bg = hexToRgb(options.targetBackgroundHex ?? "#F5F3EF");
   if (!rig || !bg) {
     const img = await loadImage(imageUrl);
@@ -2481,6 +2821,11 @@ export async function normalizeBestBottlesRigBaseline(
       preTransformBaselineYPx: null,
       detectedBaselineYPx: null,
       targetBaselineYPx: null,
+      preTransformShoulderYPx: null,
+      detectedShoulderYPx: null,
+      targetShoulderYPx: null,
+      shoulderDeltaPct: null,
+      shoulderConfidence: null,
       maskControlled: false,
       qaIssues: [],
       framingQa: null,
@@ -2491,6 +2836,13 @@ export async function normalizeBestBottlesRigBaseline(
       shadowOwner,
       shadowQa: null,
       detachedCapGeometryQa: null,
+      physicalScaleQa: evaluateBestBottlesPhysicalScale({
+        expectedGlassHeightMm: parseLeadingMm(options.heightWithoutCap),
+        measuredGlassHeightPx: null,
+        targetGlassHeightPx: null,
+        calibration: options.scaleCalibration,
+      }),
+      scaleCalibration: options.scaleCalibration ?? null,
     };
   }
 
@@ -2503,6 +2855,15 @@ export async function normalizeBestBottlesRigBaseline(
   ctx.drawImage(img, 0, 0);
 
   const { width, height } = canvas;
+  if (typeof rig.glassHeightPct === "number") {
+    rig = {
+      ...rig,
+      targetBodyHeightPx: Math.round((rig.glassHeightPct / 100) * height),
+      ...(isComplexVintageAssembly(options)
+        ? { primaryObjectCenterXPct: 65, fillWidthPct: 94 }
+        : {}),
+    };
+  }
   // Preserve the model-rendered pixels for output. The generated canvas is already
   // the desired studio scene; flattening/matting it here created visible rectangular
   // washes and surface noise. A flattened clone is used only to measure geometry.
@@ -2634,15 +2995,26 @@ export async function normalizeBestBottlesRigBaseline(
       );
     }
     const generatedBounds = detectStrongBounds(geometryAnalysisPixels, width, height, analysisBg);
-    const primaryBounds = capState === "detached"
-      ? detectPrimaryBottleBounds(
+    const complexPrimaryBounds = isComplexVintageAssembly(options)
+      ? detectComplexAssemblyBottleBounds(
           geometryAnalysisPixels,
           width,
           height,
           analysisBg,
           detectedBaseline,
         )
-      : generatedBounds;
+      : null;
+    const primaryBounds = complexPrimaryBounds ?? (
+      capState === "detached"
+        ? detectPrimaryBottleBounds(
+          geometryAnalysisPixels,
+          width,
+          height,
+          analysisBg,
+          detectedBaseline,
+        )
+        : generatedBounds
+    );
     const qaIssues = [
       ...getMaskControlledBoundsQaIssues({
         generatedBounds,
@@ -2662,25 +3034,39 @@ export async function normalizeBestBottlesRigBaseline(
     const sourceImageData = modelShadowAnalysis
       ? new Uint8ClampedArray(imageData.data)
       : null;
-    const resolvedBodyControlBounds = resolveBodyControlBoundsForTransform({
-      provided: options.bodyControlBounds,
+    const hasShoulderLock =
+      typeof rig.shoulderTargetPct === "number" &&
+      typeof rig.targetShoulderYPx === "number";
+    const preTransformShoulder = detectRigShoulderLandmark({
+      pixels: geometryAnalysisPixels,
+      width,
+      height,
+      bg: analysisBg,
+      rig,
       primaryBounds,
-      strongBounds: maskBounds,
       detectedBaselineYPx: detectedBaseline,
       capState,
-      heightWithoutCap: options.heightWithoutCap,
-      heightWithCap: options.heightWithCap,
     });
+    const resolvedBodyControlBounds = hasShoulderLock
+      ? shoulderLandmarkToControlBounds(preTransformShoulder)
+      : resolveBodyControlBoundsForTransform({
+          provided: options.bodyControlBounds,
+          calibration: options.scaleCalibration,
+          primaryBounds,
+          strongBounds: complexPrimaryBounds ?? maskBounds,
+          detectedBaselineYPx: detectedBaseline,
+          capState,
+        });
     let transformRig = rig;
     if (
       typeof rig.targetBodyHeightPx === "number" &&
       rig.targetBodyHeightPx > 0 &&
       !isExactBodyControlBounds(resolvedBodyControlBounds)
     ) {
-      // Fail closed without throwing after provider spend: drop body-scale gate
-      // and record the miss so callers can review instead of crashing the lane.
       qaIssues.push(
-        "Exact glass body-control bounds could not be derived; refusing scale-card body sizing and keeping provider/legacy scale.",
+        hasShoulderLock
+          ? "Cylinder glass shoulder landmark was not detectable before normalization; refusing shoulder-lock sizing."
+          : "Exact glass body-control bounds could not be derived; refusing scale-card body sizing and keeping provider/legacy scale.",
       );
       transformRig = { ...rig, targetBodyHeightPx: undefined };
     }
@@ -2737,6 +3123,8 @@ export async function normalizeBestBottlesRigBaseline(
     let finalBounds: RigStrongBounds | null = null;
     let finalPrimaryBounds: RigStrongBounds | null = null;
     let finalBaseline: number | null = null;
+    let finalMeasuredGlassBounds: RigStrongBounds | null = null;
+    let finalShoulderLandmark: GlassShoulderLandmark | null = null;
     let framingQa!: ReturnType<typeof buildFramingQaReport>;
     for (let seatPass = 1; seatPass <= 2; seatPass += 1) {
       const seatShiftDeltaYPx = appliedShiftYPx - transform.shiftYPx;
@@ -2768,9 +3156,6 @@ export async function normalizeBestBottlesRigBaseline(
           bg,
           transformedControlBounds,
         ) ?? detectStrongBounds(finalImageData.data, width, height, bg);
-      finalPrimaryBounds = capState === "detached"
-        ? detectPrimaryBottleBounds(finalImageData.data, width, height, bg)
-        : finalBounds;
       finalBaseline = detectStrongBottomY(
         finalImageData.data,
         width,
@@ -2779,31 +3164,83 @@ export async function normalizeBestBottlesRigBaseline(
         capState,
         shadowOwner === "model" ? transformedControlBounds?.bottom : null,
       );
+      finalPrimaryBounds = isComplexVintageAssembly(options) && finalBaseline != null
+        ? detectComplexAssemblyBottleBounds(
+            finalImageData.data,
+            width,
+            height,
+            bg,
+            finalBaseline,
+          ) ?? finalBounds
+        : capState === "detached"
+          ? detectPrimaryBottleBounds(finalImageData.data, width, height, bg)
+          : finalBounds;
+      finalShoulderLandmark =
+        finalBaseline != null
+          ? detectRigShoulderLandmark({
+              pixels: finalImageData.data,
+              width,
+              height,
+              bg,
+              rig,
+              primaryBounds: finalPrimaryBounds,
+              detectedBaselineYPx: finalBaseline,
+              capState,
+              expectedShoulderYPx: rig.targetShoulderYPx,
+            })
+          : null;
+      finalMeasuredGlassBounds =
+        hasShoulderLock
+          ? shoulderLandmarkToControlBounds(finalShoulderLandmark)
+          : options.scaleCalibration && finalBaseline != null
+          ? resolveCalibratedGlassBodyBounds({
+              calibration: options.scaleCalibration,
+              vesselBounds: finalPrimaryBounds,
+              detectedBaselineYPx: finalBaseline,
+            })
+          : transformBodyControlBounds(
+              resolvedBodyControlBounds,
+              transform.scale,
+              appliedShiftYPx,
+              width,
+              appliedHScaleX,
+            );
+      const finalAspectBounds = capState === "detached"
+        ? resolveWholeVesselBounds(
+            finalImageData.data,
+            width,
+            height,
+            bg,
+            finalBaseline,
+          )
+        : finalPrimaryBounds;
+      const finalGlassWidthBounds = detectGlassBodyWidthBounds(
+        finalImageData.data,
+        width,
+        height,
+        bg,
+        finalMeasuredGlassBounds
+          ? {
+              ...finalMeasuredGlassBounds,
+              left: finalAspectBounds?.left ?? finalMeasuredGlassBounds.left,
+              right: finalAspectBounds?.right ?? finalMeasuredGlassBounds.right,
+            }
+          : finalAspectBounds,
+      );
       framingQa = buildFramingQaReport({
         width,
         height,
         rig,
         bounds: finalPrimaryBounds,
         primaryBounds: finalPrimaryBounds,
-        bodyControlBounds: transformBodyControlBounds(
-          resolvedBodyControlBounds,
-          transform.scale,
-          appliedShiftYPx,
-          width,
-          appliedHScaleX,
-        ),
+        bodyControlBounds: finalMeasuredGlassBounds,
+        glassWidthBounds: isComplexVintageAssembly(options)
+          ? null
+          : finalGlassWidthBounds ?? finalAspectBounds,
         baselineYPx: finalBaseline,
         capState,
         expectedPrimaryAspectRatio,
-        aspectBounds: capState === "detached"
-          ? resolveWholeVesselBounds(
-              finalImageData.data,
-              width,
-              height,
-              bg,
-              finalBaseline,
-            )
-          : null,
+        aspectBounds: capState === "detached" ? finalAspectBounds : null,
       });
       const baselineResidualPx =
         finalBaseline != null ? finalBaseline - transform.targetBaselineYPx : null;
@@ -2831,6 +3268,15 @@ export async function normalizeBestBottlesRigBaseline(
     }
     const framingDecision = getFramingDecision(framingQa);
     qaIssues.push(...framingQa.failures);
+    const shoulderQa =
+      hasShoulderLock && typeof rig.targetShoulderYPx === "number"
+        ? evaluateShoulderLockQa({
+            canvasHeight: height,
+            targetShoulderYPx: rig.targetShoulderYPx,
+            measuredShoulderYPx: finalShoulderLandmark?.shoulderYPx ?? null,
+          })
+        : null;
+    if (shoulderQa?.issue) qaIssues.push(shoulderQa.issue);
 
     const targetFillHeight = height * (rig.fillHeightPct / 100);
     const transformedHeight = finalPrimaryBounds
@@ -2852,7 +3298,7 @@ export async function normalizeBestBottlesRigBaseline(
             topology: options.shadowTopology,
           })
         : undefined;
-    let finalShadow = finalizeRigShadow({
+    const finalShadow = finalizeRigShadow({
       owner: shadowOwner,
       pixels: finalImageData.data,
       width,
@@ -2863,42 +3309,6 @@ export async function normalizeBestBottlesRigBaseline(
       topology: options.shadowTopology,
       contactBounds: finalContactBounds,
     });
-    if (
-      false && // Jordan 2026-07-19: code never alters model shadows; QA is advisory.
-      shadowOwner === "model" &&
-      finalBaseline != null &&
-      finalShadow.shadowQa?.status === "fail" &&
-      isModelShadowFailureTrimmable(finalShadow.shadowQa.failures)
-    ) {
-      trimModelOwnedShadowIntoBand({
-        pixels: finalImageData.data,
-        width,
-        height,
-        bg,
-        baselineYPx: finalBaseline,
-      });
-      finalShadow = finalizeRigShadow({
-        owner: shadowOwner,
-        pixels: finalImageData.data,
-        width,
-        height,
-        background: bg,
-        objectBounds: finalBounds,
-        baselineYPx: finalBaseline,
-        topology: options.shadowTopology,
-        contactBounds: options.shadowTopology && finalBounds
-          ? detectModelShadowContactBounds({
-              pixels: finalImageData.data,
-              width,
-              height,
-              background: bg,
-              groupBounds: finalBounds,
-              baselineYPx: finalBaseline,
-              topology: options.shadowTopology,
-            })
-          : undefined,
-      });
-    }
     const detachedCapGeometryQa = capState === "detached"
       ? buildDetachedCapGeometryQa(
           options.expectedDetachedCapMetrics,
@@ -2911,6 +3321,26 @@ export async function normalizeBestBottlesRigBaseline(
         )
       : null;
     if (detachedCapGeometryQa) qaIssues.push(...detachedCapGeometryQa.blockingFailures);
+    const physicalScaleQa = buildPhysicalScaleQa({
+      options,
+      rig,
+      framingQa,
+      canvasWidth: width,
+      canvasHeight: height,
+    });
+    framingQa.physicalScale = physicalScaleQa;
+    if (physicalScaleQa.verdict === "fail") {
+      qaIssues.push(
+        `Physical scale violates catalog limits (${describePhysicalScaleDelta(physicalScaleQa)}).`,
+      );
+    }
+    const effectiveFramingDecision =
+      shoulderQa?.status === "fail" || physicalScaleQa.verdict === "fail"
+        ? "reject"
+        : physicalScaleQa.verdict === "review" ||
+            physicalScaleQa.verdict === "unverified"
+          ? "normalize"
+          : framingDecision;
     outCtx.putImageData(finalImageData, 0, 0);
 
     return {
@@ -2922,16 +3352,23 @@ export async function normalizeBestBottlesRigBaseline(
       preTransformBaselineYPx: generatedBounds?.bottom ?? null,
       detectedBaselineYPx: finalBaseline,
       targetBaselineYPx: transform.targetBaselineYPx,
+      preTransformShoulderYPx: preTransformShoulder?.shoulderYPx ?? null,
+      detectedShoulderYPx: finalShoulderLandmark?.shoulderYPx ?? null,
+      targetShoulderYPx: hasShoulderLock ? rig.targetShoulderYPx ?? null : null,
+      shoulderDeltaPct: shoulderQa?.deltaPct ?? null,
+      shoulderConfidence: finalShoulderLandmark?.confidence ?? null,
       maskControlled: true,
       qaIssues,
       framingQa,
-      framingDecision,
+      framingDecision: effectiveFramingDecision,
       preTransformObjectBounds: generatedBounds,
       transformControlBounds: maskBounds,
       objectBounds: finalBounds,
       shadowOwner,
       shadowQa: finalShadow.shadowQa,
       detachedCapGeometryQa,
+      physicalScaleQa,
+      scaleCalibration: options.scaleCalibration ?? null,
     };
   }
 
@@ -3007,6 +3444,11 @@ export async function normalizeBestBottlesRigBaseline(
       preTransformBaselineYPx: null,
       detectedBaselineYPx: null,
       targetBaselineYPx: targetBaseline,
+      preTransformShoulderYPx: null,
+      detectedShoulderYPx: null,
+      targetShoulderYPx: rig.targetShoulderYPx ?? null,
+      shoulderDeltaPct: null,
+      shoulderConfidence: null,
       maskControlled: false,
       qaIssues: [
         "Product baseline was not detectable for framing QA.",
@@ -3020,6 +3462,14 @@ export async function normalizeBestBottlesRigBaseline(
       shadowOwner,
       shadowQa: fallbackShadow.shadowQa,
       detachedCapGeometryQa,
+      physicalScaleQa: buildPhysicalScaleQa({
+        options,
+        rig,
+        framingQa,
+        canvasWidth: width,
+        canvasHeight: height,
+      }),
+      scaleCalibration: options.scaleCalibration ?? null,
     };
   }
 
@@ -3029,15 +3479,38 @@ export async function normalizeBestBottlesRigBaseline(
     height,
     analysisBg,
   );
-  const geometryBaseline = shadowOwner === "model"
-    ? detectModelGeometryBaseline(
+  const rawPixelBackground = sampleOpaqueCanvasBorderBackground(
+    imageData.data,
+    width,
+    height,
+    analysisBg,
+  );
+  const rawComplexPrimaryBounds = isComplexVintageAssembly(options)
+    ? detectComplexAssemblyBottleBounds(
         imageData.data,
         width,
         height,
-        analysisBg,
-        rawStrongBounds,
-        rawDetectedBaseline,
+        rawPixelBackground,
+        rawStrongBounds?.bottom ?? rawDetectedBaseline,
+      ) ??
+      detectComplexAssemblyBottleBounds(
+        imageData.data,
+        width,
+        height,
+        bg,
+        rawStrongBounds?.bottom ?? rawDetectedBaseline,
       )
+    : null;
+  const geometryBaseline = shadowOwner === "model"
+    ? rawComplexPrimaryBounds?.bottom ??
+      detectModelGeometryBaseline(
+          imageData.data,
+          width,
+          height,
+          analysisBg,
+          rawStrongBounds,
+          rawDetectedBaseline,
+        )
     : rawDetectedBaseline;
   const modelProductControlBounds = shadowOwner === "model"
     ? detectStrongBounds(
@@ -3105,24 +3578,49 @@ export async function normalizeBestBottlesRigBaseline(
   const detectedBaseline = modelShadowAnalysis
     ? detectStrongBottomY(geometryAnalysisPixels, width, height, analysisBg, capState) ?? geometryBaseline
     : geometryBaseline;
-  const primaryBounds = capState === "detached"
-    ? detectPrimaryBottleBounds(
+  const complexPrimaryBounds = isComplexVintageAssembly(options)
+    ? detectComplexAssemblyBottleBounds(
+        geometryAnalysisPixels,
+        width,
+        height,
+        analysisBg,
+        detectedBaseline,
+      ) ?? rawComplexPrimaryBounds
+    : null;
+  const primaryBounds = complexPrimaryBounds ?? (
+    capState === "detached"
+      ? detectPrimaryBottleBounds(
         geometryAnalysisPixels,
         width,
         height,
         analysisBg,
         detectedBaseline,
       )
-    : strongBounds;
-  const resolvedBodyControlBounds = resolveBodyControlBoundsForTransform({
-    provided: options.bodyControlBounds,
+      : strongBounds
+  );
+  const hasShoulderLock =
+    typeof rig.shoulderTargetPct === "number" &&
+    typeof rig.targetShoulderYPx === "number";
+  const preTransformShoulder = detectRigShoulderLandmark({
+    pixels: geometryAnalysisPixels,
+    width,
+    height,
+    bg: analysisBg,
+    rig,
     primaryBounds,
-    strongBounds,
     detectedBaselineYPx: detectedBaseline,
     capState,
-    heightWithoutCap: options.heightWithoutCap,
-    heightWithCap: options.heightWithCap,
   });
+  const resolvedBodyControlBounds = hasShoulderLock
+    ? shoulderLandmarkToControlBounds(preTransformShoulder)
+    : resolveBodyControlBoundsForTransform({
+        provided: options.bodyControlBounds,
+        calibration: options.scaleCalibration,
+        primaryBounds,
+        strongBounds: complexPrimaryBounds ?? strongBounds,
+        detectedBaselineYPx: detectedBaseline,
+        capState,
+      });
   const bodyControlMissIssues: string[] = [];
   let transformRig = rig;
   if (
@@ -3131,7 +3629,9 @@ export async function normalizeBestBottlesRigBaseline(
     !isExactBodyControlBounds(resolvedBodyControlBounds)
   ) {
     bodyControlMissIssues.push(
-      "Exact glass body-control bounds could not be derived; refusing scale-card body sizing and keeping provider/legacy scale.",
+      hasShoulderLock
+        ? "Cylinder glass shoulder landmark was not detectable before normalization; refusing shoulder-lock sizing."
+        : "Exact glass body-control bounds could not be derived; refusing scale-card body sizing and keeping provider/legacy scale.",
     );
     transformRig = { ...rig, targetBodyHeightPx: undefined };
   }
@@ -3187,6 +3687,8 @@ export async function normalizeBestBottlesRigBaseline(
   let finalBounds: RigStrongBounds | null = null;
   let finalPrimaryBounds: RigStrongBounds | null = null;
   let finalBaseline: number | null = null;
+  let finalMeasuredGlassBounds: RigStrongBounds | null = null;
+  let finalShoulderLandmark: GlassShoulderLandmark | null = null;
   let framingQa!: ReturnType<typeof buildFramingQaReport>;
   for (let seatPass = 1; seatPass <= 2; seatPass += 1) {
     const seatShiftDeltaYPx = appliedShiftYPx - transform.shiftYPx;
@@ -3242,15 +3744,6 @@ export async function normalizeBestBottlesRigBaseline(
         bg,
         transformedControlBounds,
       ) ?? detectStrongBounds(finalAnalysisImageData.data, width, height, bg);
-    finalPrimaryBounds = capState === "detached"
-      ? detectControlledRigBounds(
-          finalImageData.data,
-          width,
-          height,
-          bg,
-          transformedPrimaryControlBounds,
-        ) ?? detectPrimaryBottleBounds(finalAnalysisImageData.data, width, height, bg)
-      : finalBounds;
     finalBaseline = detectStrongBottomY(
       finalAnalysisImageData.data,
       width,
@@ -3259,31 +3752,95 @@ export async function normalizeBestBottlesRigBaseline(
       capState,
       shadowOwner === "model" ? transformedControlBounds?.bottom : null,
     );
+    finalPrimaryBounds = isComplexVintageAssembly(options) && finalBaseline != null
+      ? detectControlledRigBounds(
+          finalAnalysisImageData.data,
+          width,
+          height,
+          bg,
+          transformedPrimaryControlBounds,
+        ) ?? detectComplexAssemblyBottleBounds(
+          finalAnalysisImageData.data,
+          width,
+          height,
+          bg,
+          finalBaseline,
+        ) ?? finalBounds
+      : capState === "detached"
+        ? detectControlledRigBounds(
+            finalImageData.data,
+            width,
+            height,
+            bg,
+            transformedPrimaryControlBounds,
+          ) ?? detectPrimaryBottleBounds(finalAnalysisImageData.data, width, height, bg)
+        : finalBounds;
+    finalShoulderLandmark =
+      finalBaseline != null
+        ? detectRigShoulderLandmark({
+            pixels: finalAnalysisImageData.data,
+            width,
+            height,
+            bg,
+            rig,
+            primaryBounds: finalPrimaryBounds,
+            detectedBaselineYPx: finalBaseline,
+            capState,
+            expectedShoulderYPx: rig.targetShoulderYPx,
+          })
+        : null;
+    finalMeasuredGlassBounds =
+      hasShoulderLock
+        ? shoulderLandmarkToControlBounds(finalShoulderLandmark)
+        : options.scaleCalibration && finalBaseline != null
+        ? resolveCalibratedGlassBodyBounds({
+            calibration: options.scaleCalibration,
+            vesselBounds: finalPrimaryBounds,
+            detectedBaselineYPx: finalBaseline,
+          })
+        : transformBodyControlBounds(
+            resolvedBodyControlBounds,
+            transform.scale,
+            appliedShiftYPx,
+            width,
+            appliedHScaleX,
+          );
+    const finalAspectBounds = capState === "detached"
+      ? resolveWholeVesselBounds(
+          finalAnalysisImageData.data,
+          width,
+          height,
+          bg,
+          finalBaseline,
+        )
+      : finalPrimaryBounds;
+    const finalGlassWidthBounds = detectGlassBodyWidthBounds(
+      finalAnalysisImageData.data,
+      width,
+      height,
+      bg,
+      finalMeasuredGlassBounds
+        ? {
+            ...finalMeasuredGlassBounds,
+            left: finalAspectBounds?.left ?? finalMeasuredGlassBounds.left,
+            right: finalAspectBounds?.right ?? finalMeasuredGlassBounds.right,
+          }
+        : finalAspectBounds,
+    );
     framingQa = buildFramingQaReport({
       width,
       height,
       rig,
       bounds: finalPrimaryBounds,
       primaryBounds: finalPrimaryBounds,
-      bodyControlBounds: transformBodyControlBounds(
-        resolvedBodyControlBounds,
-        transform.scale,
-        appliedShiftYPx,
-        width,
-        appliedHScaleX,
-      ),
+      bodyControlBounds: finalMeasuredGlassBounds,
+      glassWidthBounds: isComplexVintageAssembly(options)
+        ? null
+        : finalGlassWidthBounds ?? finalAspectBounds,
       baselineYPx: finalBaseline,
       capState,
       expectedPrimaryAspectRatio,
-      aspectBounds: capState === "detached"
-        ? resolveWholeVesselBounds(
-            finalAnalysisImageData.data,
-            width,
-            height,
-            bg,
-            finalBaseline,
-          )
-        : null,
+      aspectBounds: capState === "detached" ? finalAspectBounds : null,
     });
     const baselineResidualPx =
       finalBaseline != null ? finalBaseline - transform.targetBaselineYPx : null;
@@ -3310,6 +3867,14 @@ export async function normalizeBestBottlesRigBaseline(
     break;
   }
   const framingDecision = getFramingDecision(framingQa);
+  const shoulderQa =
+    hasShoulderLock && typeof rig.targetShoulderYPx === "number"
+      ? evaluateShoulderLockQa({
+          canvasHeight: height,
+          targetShoulderYPx: rig.targetShoulderYPx,
+          measuredShoulderYPx: finalShoulderLandmark?.shoulderYPx ?? null,
+        })
+      : null;
 
   // Cap fidelity doctrine (Jordan 2026-07-19): the model beautifies the cap
   // from the reference via the prompt — code never splices or color-gates it.
@@ -3327,7 +3892,7 @@ export async function normalizeBestBottlesRigBaseline(
           topology: options.shadowTopology,
         })
       : undefined);
-  let finalShadow = finalizeRigShadow({
+  const finalShadow = finalizeRigShadow({
     owner: shadowOwner,
     pixels: finalImageData.data,
     width,
@@ -3338,43 +3903,6 @@ export async function normalizeBestBottlesRigBaseline(
     topology: options.shadowTopology,
     contactBounds: finalContactBounds,
   });
-  if (
-    false && // Jordan 2026-07-19: code never alters model shadows; QA is advisory.
-    shadowOwner === "model" &&
-    finalBaseline != null &&
-    finalShadow.shadowQa?.status === "fail" &&
-    isModelShadowFailureTrimmable(finalShadow.shadowQa.failures)
-  ) {
-    trimModelOwnedShadowIntoBand({
-      pixels: finalImageData.data,
-      width,
-      height,
-      bg,
-      baselineYPx: finalBaseline,
-    });
-    finalShadow = finalizeRigShadow({
-      owner: shadowOwner,
-      pixels: finalImageData.data,
-      width,
-      height,
-      background: bg,
-      objectBounds: finalBounds,
-      baselineYPx: finalBaseline,
-      topology: options.shadowTopology,
-      contactBounds:
-        (options.shadowTopology && finalBounds
-          ? detectModelShadowContactBounds({
-              pixels: finalImageData.data,
-              width,
-              height,
-              background: bg,
-              groupBounds: finalBounds,
-              baselineYPx: finalBaseline,
-              topology: options.shadowTopology,
-            })
-          : undefined),
-    });
-  }
   const detachedCapGeometryQa = capState === "detached"
     ? buildDetachedCapGeometryQa(
         options.expectedDetachedCapMetrics,
@@ -3386,6 +3914,27 @@ export async function normalizeBestBottlesRigBaseline(
         finalBaseline,
       )
     : null;
+  const physicalScaleQa = buildPhysicalScaleQa({
+    options,
+    rig,
+    framingQa,
+    canvasWidth: width,
+    canvasHeight: height,
+  });
+  framingQa.physicalScale = physicalScaleQa;
+  const physicalScaleIssues =
+    physicalScaleQa.verdict === "fail"
+      ? [
+          `Physical scale violates catalog limits (${describePhysicalScaleDelta(physicalScaleQa)}).`,
+        ]
+      : [];
+  const effectiveFramingDecision =
+    shoulderQa?.status === "fail" || physicalScaleQa.verdict === "fail"
+      ? "reject"
+      : physicalScaleQa.verdict === "review" ||
+          physicalScaleQa.verdict === "unverified"
+        ? "normalize"
+        : framingDecision;
   outCtx.putImageData(finalImageData, 0, 0);
 
   return {
@@ -3397,6 +3946,11 @@ export async function normalizeBestBottlesRigBaseline(
     preTransformBaselineYPx: detectedBaseline,
     detectedBaselineYPx: finalBaseline,
     targetBaselineYPx: targetBaseline,
+    preTransformShoulderYPx: preTransformShoulder?.shoulderYPx ?? null,
+    detectedShoulderYPx: finalShoulderLandmark?.shoulderYPx ?? null,
+    targetShoulderYPx: hasShoulderLock ? rig.targetShoulderYPx ?? null : null,
+    shoulderDeltaPct: shoulderQa?.deltaPct ?? null,
+    shoulderConfidence: finalShoulderLandmark?.confidence ?? null,
     maskControlled: false,
     qaIssues: [
       ...bodyControlMissIssues,
@@ -3404,15 +3958,19 @@ export async function normalizeBestBottlesRigBaseline(
         ? ["Primary bottle bounds were unresolved for detached topology."]
         : []),
       ...framingQa.failures,
+      ...(shoulderQa?.issue ? [shoulderQa.issue] : []),
+      ...physicalScaleIssues,
       ...(detachedCapGeometryQa?.blockingFailures ?? []),
     ],
     framingQa,
-    framingDecision,
+    framingDecision: effectiveFramingDecision,
     preTransformObjectBounds: strongBounds,
     transformControlBounds: strongBounds,
     objectBounds: finalBounds,
     shadowOwner,
     shadowQa: finalShadow.shadowQa,
     detachedCapGeometryQa,
+    physicalScaleQa,
+    scaleCalibration: options.scaleCalibration ?? null,
   };
 }

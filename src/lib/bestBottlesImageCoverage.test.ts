@@ -54,6 +54,10 @@ describe("Best Bottles reference-lineage parsing", () => {
 
   it("detects clean, legacy, and keeper lineage (case-insensitive)", () => {
     assert.equal(getBestBottlesReferenceLineage([BEST_BOTTLES_LINEAGE_TAG_CLEAN]), "clean");
+    assert.equal(
+      getBestBottlesReferenceLineage(["reference-lineage:flattened-single-source"]),
+      "clean",
+    );
     assert.equal(getBestBottlesReferenceLineage(["REFERENCE-LINEAGE:LEGACY"]), "legacy");
     assert.equal(
       getBestBottlesReferenceLineage(["brand:best-bottles", "keeper-backfill-2026-06-12"]),

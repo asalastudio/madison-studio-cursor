@@ -1,4 +1,5 @@
 import type { FamilyRigConfig, RigCapState } from "./familyRig";
+import type { PhysicalScaleQa } from "./physicalScaleQa";
 
 export type FramingQaStatus = "pass" | "warn" | "fail";
 export type FramingDecision = "pass" | "normalize" | "reject";
@@ -14,6 +15,8 @@ export interface FramingQaReport {
   status: FramingQaStatus;
   failures: string[];
   warnings: string[];
+  /** Pipeline evidence for the locked ±3 / 3–5 / >5 mm scale policy. */
+  physicalScale?: PhysicalScaleQa | null;
   /** Bottle-only pixel envelope used for scale, baseline, centerline, and crop QA. */
   primaryBounds?: FramingQaBounds | null;
   measurements: {
@@ -21,6 +24,8 @@ export interface FramingQaReport {
     fillHeightPct: number | null;
     /** Bare-glass foot-to-rim height % when body-control bounds are supplied. */
     glassHeightPct: number | null;
+    /** Bare-glass width % used to enforce same-geometry diameter consistency. */
+    glassWidthPct: number | null;
     baselineYPx: number | null;
     targetBaselineYPx: number;
     baselineDeltaPx: number | null;
@@ -56,6 +61,8 @@ export interface BuildFramingQaReportInput {
    * compare the assembly envelope to the bare-glass band.
    */
   bodyControlBounds?: FramingQaBounds | null;
+  /** Bottle-only lateral bounds; excludes detached caps and sidecar components. */
+  glassWidthBounds?: FramingQaBounds | null;
   baselineYPx: number | null;
   capState?: RigCapState;
   fillHeightTolerancePct?: number;
@@ -89,6 +96,22 @@ function heightPctFromBounds(
 ): number | null {
   if (!bounds || !(bounds.bottom >= bounds.top) || !(canvasHeight > 0)) return null;
   return roundToTenth(((bounds.bottom - bounds.top + 1) / canvasHeight) * 100);
+}
+
+function widthPctFromBounds(
+  bounds: FramingQaBounds | null | undefined,
+  canvasWidth: number,
+): number | null {
+  if (
+    !bounds ||
+    typeof bounds.left !== "number" ||
+    typeof bounds.right !== "number" ||
+    !(bounds.right >= bounds.left) ||
+    !(canvasWidth > 0)
+  ) {
+    return null;
+  }
+  return roundToTenth(((bounds.right - bounds.left + 1) / canvasWidth) * 100);
 }
 
 function getAssembledFillHeightTarget(input: BuildFramingQaReportInput): {
@@ -183,6 +206,12 @@ export function buildFramingQaReport(input: BuildFramingQaReportInput): FramingQ
 
   const fillHeightPct = heightPctFromBounds(input.bounds, input.height);
   const glassHeightPct = heightPctFromBounds(input.bodyControlBounds, input.height);
+  const glassWidthPct = widthPctFromBounds(
+    input.glassWidthBounds === undefined
+      ? input.bodyControlBounds
+      : input.glassWidthBounds,
+    input.width,
+  );
   const baselineDeltaPx =
     typeof input.baselineYPx === "number"
       ? input.baselineYPx - targetBaselineYPx
@@ -304,6 +333,7 @@ export function buildFramingQaReport(input: BuildFramingQaReportInput): FramingQ
     measurements: {
       fillHeightPct,
       glassHeightPct,
+      glassWidthPct,
       baselineYPx: input.baselineYPx,
       targetBaselineYPx,
       baselineDeltaPx,

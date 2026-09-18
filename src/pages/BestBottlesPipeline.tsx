@@ -7715,11 +7715,11 @@ function resolveStudioSlugForGroup(group: ShapeGroup): string | null {
   const pinned = group.rows.find(
     (r) => r.is_hero_reference && typeof r.convex_slug === "string" && r.convex_slug,
   );
-  if (pinned?.convex_slug) return pinned.convex_slug;
-  const firstWithSlug = group.rows.find(
-    (r) => typeof r.convex_slug === "string" && r.convex_slug,
-  );
-  return firstWithSlug?.convex_slug ?? null;
+  const raw = pinned?.convex_slug
+    ?? group.rows.find((r) => typeof r.convex_slug === "string" && r.convex_slug)?.convex_slug
+    ?? null;
+  if (!raw) return null;
+  return raw.endsWith("-capclosure") ? raw.slice(0, -"-capclosure".length) : raw;
 }
 
 function ShapeGroupCard({

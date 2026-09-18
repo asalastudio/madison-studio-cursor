@@ -1,16 +1,20 @@
 /**
  * Best Bottles catalog scale.
  *
- * Scale-card v1 (`best-bottles-scale-card-v1-2026-09-16`) is the authority for
- * catalog masters: bare-glass heightWithoutCap (mm) → glass height % via
- * monotone PCHIP. Capacity must not participate in that mapping.
+ * Scale-card v2 (`best-bottles-scale-card-v2-2026-09-18`) is the authority for
+ * catalog masters: bare-glass heightWithoutCap (mm) → discrete ecommerce fill
+ * bands. Capacity must not participate in that mapping.
+ *
+ * v1 continuous PCHIP undersized short glass (~31–48% fill), leaving too much
+ * empty canvas on 3–28 ml cards. v2 raises the small-end floor while keeping
+ * 100 ml+ at 74%.
  *
  * Legacy capacity knots remain exported for non-master callers that have not
  * yet migrated off the assembled-height rail.
  */
 
 export const BEST_BOTTLES_SCALE_CARD_VERSION =
-  "best-bottles-scale-card-v1-2026-09-16" as const;
+  "best-bottles-scale-card-v2-2026-09-18" as const;
 
 export const BEST_BOTTLES_SCALE_CARD_BASELINE_PERCENT = 91 as const;
 export const BEST_BOTTLES_SCALE_CARD_BASELINE_PCT_FROM_BOTTOM = 9 as const;
@@ -19,27 +23,57 @@ export const BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX = 2288 as const;
 export const BEST_BOTTLES_SCALE_CARD_DELIVER_WIDTH_PX = 1560 as const;
 export const BEST_BOTTLES_SCALE_CARD_DELIVER_HEIGHT_PX = 1716 as const;
 
+export type BestBottlesScaleCardLevel =
+  | "Mini"
+  | "Small"
+  | "Medium"
+  | "Large"
+  | "Standard";
+
+export type BestBottlesScaleCardHeightBand = {
+  level: BestBottlesScaleCardLevel;
+  /** Inclusive lower bound in mm. Mini uses 0. */
+  mmMinInclusive: number;
+  /** Exclusive upper bound in mm. Standard uses Infinity. */
+  mmMaxExclusive: number;
+  glassPct: number;
+};
+
+/**
+ * Five bare-glass height bands. Half-open intervals: [min, max).
+ * Measure foot-to-rim glass only — never capacity.
+ */
+export const BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS = [
+  { level: "Mini", mmMinInclusive: 0, mmMaxExclusive: 45, glassPct: 52 },
+  { level: "Small", mmMinInclusive: 45, mmMaxExclusive: 65, glassPct: 58 },
+  { level: "Medium", mmMinInclusive: 65, mmMaxExclusive: 95, glassPct: 64 },
+  { level: "Large", mmMinInclusive: 95, mmMaxExclusive: 135, glassPct: 70 },
+  { level: "Standard", mmMinInclusive: 135, mmMaxExclusive: Number.POSITIVE_INFINITY, glassPct: 74 },
+] as const satisfies readonly BestBottlesScaleCardHeightBand[];
+
+/**
+ * Overlay / QA tick points: one sample mm inside each band at the band fill.
+ * Not used for interpolation — v2 is a step function.
+ */
 export const BEST_BOTTLES_SCALE_CARD_CONTROL_POINTS = [
-  { mm: 20, glassPct: 23.0 },
-  { mm: 40, glassPct: 33.0 },
-  { mm: 68, glassPct: 46.7 },
-  { mm: 78, glassPct: 52.4 },
-  { mm: 106, glassPct: 65.5 },
-  { mm: 117, glassPct: 68.0 },
-  { mm: 154, glassPct: 74.0 },
-  { mm: 195, glassPct: 80.0 },
+  { mm: 37, glassPct: 52.0, level: "Mini" as const },
+  { mm: 53, glassPct: 58.0, level: "Small" as const },
+  { mm: 70, glassPct: 64.0, level: "Medium" as const },
+  { mm: 117, glassPct: 70.0, level: "Large" as const },
+  { mm: 154, glassPct: 74.0, level: "Standard" as const },
 ] as const;
 
 export type BestBottlesGlassScale = {
   glassHeightPct: number;
   targetGlassHeightPx: number;
   tag: string;
+  level: BestBottlesScaleCardLevel;
 };
 
 /** @deprecated Prefer BEST_BOTTLES_SCALE_CARD_VERSION for catalog masters. */
 export const BEST_BOTTLES_CATALOG_SCALE_VERSION = "best-bottles-catalog-scale-v1" as const;
 
-/** @deprecated Capacity knots superseded by scale-card bare-glass PCHIP for masters. */
+/** @deprecated Capacity knots superseded by scale-card bare-glass bands for masters. */
 export const BEST_BOTTLES_GLOBAL_SCALE_KNOTS = [
   { capacityMl: 1, assembledHeightPct: 54 },
   { capacityMl: 3, assembledHeightPct: 56 },
@@ -57,83 +91,28 @@ export const BEST_BOTTLES_GLOBAL_SCALE_KNOTS = [
 
 export const BEST_BOTTLES_MAX_FAMILY_SCALE_CORRECTION_PCT = 2 as const;
 
+/** Small-end remaster cohort: bare glass shorter than Large band (mm < 95). */
+export const BEST_BOTTLES_SCALE_CARD_V2_SMALL_END_MM_MAX_EXCLUSIVE = 95 as const;
+
 function roundToOneDecimal(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function pchipEdgeSlope(
-  h0: number,
-  h1: number,
-  delta0: number,
-  delta1: number,
-): number {
-  // SciPy PchipInterpolator endpoint (Fritsch–Carlson monotone cubic).
-  let slope = ((2 * h0 + h1) * delta0 - h0 * delta1) / (h0 + h1);
-  if (Math.sign(slope) !== Math.sign(delta0)) {
-    slope = 0;
-  } else if (
-    Math.sign(delta0) !== Math.sign(delta1)
-    && Math.abs(slope) > 3 * Math.abs(delta0)
-  ) {
-    slope = 3 * delta0;
+export function resolveBestBottlesScaleCardBand(
+  heightWithoutCapMm: number,
+): (typeof BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS)[number] {
+  if (!Number.isFinite(heightWithoutCapMm) || heightWithoutCapMm <= 0) {
+    throw new Error("A positive bare-glass heightWithoutCapMm is required.");
   }
-  return slope;
-}
-
-function pchipDerivatives(xs: readonly number[], ys: readonly number[]): number[] {
-  const n = xs.length;
-  const h: number[] = [];
-  const delta: number[] = [];
-  for (let i = 0; i < n - 1; i += 1) {
-    h[i] = xs[i + 1]! - xs[i]!;
-    delta[i] = (ys[i + 1]! - ys[i]!) / h[i]!;
-  }
-
-  const d = new Array<number>(n);
-  d[0] = pchipEdgeSlope(h[0]!, h[1]!, delta[0]!, delta[1]!);
-  d[n - 1] = pchipEdgeSlope(h[n - 2]!, h[n - 3]!, delta[n - 2]!, delta[n - 3]!);
-
-  for (let i = 1; i < n - 1; i += 1) {
-    if (delta[i - 1]! * delta[i]! <= 0) {
-      d[i] = 0;
-      continue;
+  for (const band of BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS) {
+    if (
+      heightWithoutCapMm >= band.mmMinInclusive &&
+      heightWithoutCapMm < band.mmMaxExclusive
+    ) {
+      return band;
     }
-    const w1 = 2 * h[i]! + h[i - 1]!;
-    const w2 = h[i]! + 2 * h[i - 1]!;
-    d[i] = (w1 + w2) / (w1 / delta[i - 1]! + w2 / delta[i]!);
   }
-  return d;
-}
-
-function evaluateMonotonePchip(mm: number): number {
-  const xs = BEST_BOTTLES_SCALE_CARD_CONTROL_POINTS.map((point) => point.mm);
-  const ys = BEST_BOTTLES_SCALE_CARD_CONTROL_POINTS.map((point) => point.glassPct);
-  const first = xs[0]!;
-  const last = xs[xs.length - 1]!;
-  const clamped = Math.min(last, Math.max(first, mm));
-  if (clamped === first) return ys[0]!;
-  if (clamped === last) return ys[ys.length - 1]!;
-
-  const d = pchipDerivatives(xs, ys);
-  let i = 0;
-  while (i < xs.length - 2 && !(clamped >= xs[i]! && clamped <= xs[i + 1]!)) {
-    i += 1;
-  }
-  const h = xs[i + 1]! - xs[i]!;
-  const t = (clamped - xs[i]!) / h;
-  const t2 = t * t;
-  const t3 = t2 * t;
-  const h00 = 2 * t3 - 3 * t2 + 1;
-  const h10 = t3 - 2 * t2 + t;
-  const h01 = -2 * t3 + 3 * t2;
-  const h11 = t3 - t2;
-  return h00 * ys[i]! + h10 * h * d[i]! + h01 * ys[i + 1]! + h11 * h * d[i + 1]!;
-}
-
-function resolveScaleTag(heightWithoutCapMm: number): string {
-  const nearestDecade = Math.floor(heightWithoutCapMm / 10 + 0.5) * 10;
-  const clamped = Math.min(200, Math.max(20, nearestDecade));
-  return `S${clamped}`;
+  return BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS[BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS.length - 1]!;
 }
 
 /**
@@ -143,18 +122,25 @@ function resolveScaleTag(heightWithoutCapMm: number): string {
 export function resolveBestBottlesGlassScale(
   heightWithoutCapMm: number,
 ): BestBottlesGlassScale {
-  if (!Number.isFinite(heightWithoutCapMm) || heightWithoutCapMm <= 0) {
-    throw new Error("A positive bare-glass heightWithoutCapMm is required.");
-  }
-
-  const glassHeightPct = roundToOneDecimal(evaluateMonotonePchip(heightWithoutCapMm));
+  const band = resolveBestBottlesScaleCardBand(heightWithoutCapMm);
+  const glassHeightPct = roundToOneDecimal(band.glassPct);
   return {
     glassHeightPct,
     targetGlassHeightPx: Math.round(
       (glassHeightPct / 100) * BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX,
     ),
-    tag: resolveScaleTag(heightWithoutCapMm),
+    tag: band.level,
+    level: band.level,
   };
+}
+
+export function isBestBottlesScaleCardV2SmallEnd(
+  heightWithoutCapMm: number,
+): boolean {
+  if (!Number.isFinite(heightWithoutCapMm) || heightWithoutCapMm <= 0) {
+    return false;
+  }
+  return heightWithoutCapMm < BEST_BOTTLES_SCALE_CARD_V2_SMALL_END_MM_MAX_EXCLUSIVE;
 }
 
 /** @deprecated Prefer resolveBestBottlesGlassScale(heightWithoutCapMm) for masters. */

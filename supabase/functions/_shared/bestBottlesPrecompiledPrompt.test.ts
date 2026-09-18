@@ -5,6 +5,7 @@ import {
   BEST_BOTTLES_STUDIO_DIRECTION_V2,
   BEST_BOTTLES_FINAL_V2_STUDIO_CHECK,
   ensureBestBottlesStudioDirection,
+  replaceBestBottlesPrecompiledFramingProfile,
   resolveBestBottlesPrecompiledPrompt,
 } from "./bestBottlesPrecompiledPrompt";
 import {
@@ -300,6 +301,35 @@ describe("resolveBestBottlesPrecompiledPrompt", () => {
 
     assert.equal(result.prompt, null);
     assert.match(result.error ?? "", /sku/i);
+  });
+});
+
+describe("replaceBestBottlesPrecompiledFramingProfile", () => {
+  it("removes obsolete profile scaling while preserving the shadow block", () => {
+    const prompt = [
+      "You are enhancing the attached product reference image.",
+      "",
+      "ROLLER BOTTLE FRAMING PROFILE (CANVAS COMPOSITION AUTHORITY):",
+      "- Approved fill-height range: 58-64% of the canvas height.",
+      "- Render the full assembled product so it fills approximately 61%.",
+      "GROUNDING SHADOW — MODEL OWNED:",
+      "- Keep one subtle contact shadow.",
+      "STUDIO DIRECTION:",
+      "- Premium restrained lighting.",
+    ].join("\n");
+
+    const replaced = replaceBestBottlesPrecompiledFramingProfile(prompt, [
+      "- Canvas: exact 2080 x 2288, 10:11 portrait PDP master.",
+      "- SCALE-CARD BARE GLASS: 53 mm = 58% = 1327px.",
+      "- ASSEMBLED HEIGHT (hard maximum): 65 mm = 48.1% = 1101px.",
+    ]);
+
+    assert.doesNotMatch(replaced, /58-64%/);
+    assert.doesNotMatch(replaced, /approximately 61%/);
+    assert.match(replaced, /SCALE-CARD BARE GLASS/);
+    assert.match(replaced, /65 mm = 48\.1% = 1101px/);
+    assert.match(replaced, /GROUNDING SHADOW — MODEL OWNED/);
+    assert.match(replaced, /STUDIO DIRECTION/);
   });
 });
 

@@ -3,9 +3,14 @@ import {
   type BestBottlesFamilyProfileProductInput,
 } from "@/config/bestBottlesFamilyProfiles";
 import {
+  BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX,
   BEST_BOTTLES_SCALE_CARD_VERSION,
   resolveBestBottlesGlassScale,
 } from "@/config/bestBottlesCatalogScale";
+import {
+  resolveShoulderLock,
+  type ResolvedShoulderLock,
+} from "@/lib/bestBottlesShoulderLock";
 
 /**
  * IMPOSED STUDIO RIG — single source of truth (Vite / Node runtime).
@@ -69,10 +74,23 @@ export interface FamilyRigConfig {
   glassHeightPct?: number;
   /** Accepted QA band for bare-glass foot-to-rim % (typically glassHeightPct ± 2). */
   glassHeightRangePct?: { min: number; max: number };
-  /** Scale-card S-tag (e.g. S70). */
+  /** Scale-card level tag (e.g. Medium), or shoulder-lock body label. */
   scaleTag?: string;
+  /** Locked Cylinder glass-body key, e.g. cylinder:9-standard. */
+  glassBodyKey?: string;
+  /** Foot-to-shoulder % of canvas height above the 91% baseline. */
+  shoulderTargetPct?: number;
+  /** Distance from the top of the canvas to the shoulder horizon. */
+  shoulderYFromTopPct?: number;
+  /** Pixel Y of the shoulder horizon from the top of the generate canvas. */
+  targetShoulderYPx?: number;
   /** Verified bare-glass heightWithoutCap in millimetres. */
   bareGlassHeightMm?: number;
+  /** Catalog heightWithCap / assembled height in millimetres. */
+  assembledHeightMm?: number;
+  /** Exact full-assembly target on the same local pixels/mm scale as the glass. */
+  assembledHeightPct?: number;
+  assembledHeightPx?: number;
   /** Width half of the fit-to-box (see fillHeightPct). */
   fillWidthPct: number;
   /** Bottle base seated this far up from the canvas bottom (% of height). */
@@ -82,10 +100,15 @@ export interface FamilyRigConfig {
 }
 
 export type FamilyRigProductInput = BestBottlesFamilyProfileProductInput & {
+  /** Alias used by Deno / edge callers. */
+  sku?: string | null;
+  /** Alias used by Deno / edge callers. */
+  name?: string | null;
   /**
-   * Master / scale-card lane: missing or invalid heightWithoutCap throws.
-   * Image Editor refinements and hero-grid thumbnails omit this and fall back
-   * to the legacy assembled profile without scale-card overwrite.
+   * Master lane: Cylinder requires a locked shoulder target; other families
+   * still require a verified heightWithoutCap for scale-card v2.
+   * Image Editor refinements omit this and keep the legacy assembled profile
+   * when no lock or scale card applies.
    */
   requireScaleCard?: boolean;
 };
@@ -190,11 +213,52 @@ function legacyRigFromProduct(input: FamilyRigProductInput): FamilyRigConfig | n
   };
 }
 
+function applyShoulderLockTarget(
+  rig: FamilyRigConfig,
+  lock: ResolvedShoulderLock,
+  heightWithoutCapMm: number | null,
+  heightWithCapMm: number | null,
+): FamilyRigConfig {
+  return {
+    ...rig,
+    scaleContractVersion: lock.lockVersion,
+    geometryScaleVersion: undefined,
+    globalTargetProductHeightPct: lock.shoulderPct,
+    familyScaleCorrectionPct: 0,
+    glassBodyKey: lock.glassBodyKey,
+    shoulderTargetPct: lock.shoulderPct,
+    shoulderYFromTopPct: lock.shoulderYFromTopPct,
+    targetShoulderYPx: Math.round(
+      (lock.shoulderYFromTopPct / 100) * BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX,
+    ),
+    targetBodyHeightPx: Math.round(
+      (lock.shoulderPct / 100) * BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX,
+    ),
+    scaleTag: lock.label,
+    glassHeightPct: undefined,
+    glassHeightRangePct: undefined,
+    assembledHeightPct: undefined,
+    assembledHeightPx: undefined,
+    ...(heightWithoutCapMm != null ? { bareGlassHeightMm: heightWithoutCapMm } : {}),
+    ...(heightWithCapMm != null ? { assembledHeightMm: heightWithCapMm } : {}),
+  };
+}
+
 function applyScaleCardGlassTarget(
   rig: FamilyRigConfig,
   heightWithoutCapMm: number,
+  heightWithCapMm: number | null,
 ): FamilyRigConfig {
   const glassScale = resolveBestBottlesGlassScale(heightWithoutCapMm);
+  const assembledHeightPct =
+    heightWithCapMm != null && heightWithCapMm >= heightWithoutCapMm
+      ? Number(
+          (
+            glassScale.glassHeightPct *
+            (heightWithCapMm / heightWithoutCapMm)
+          ).toFixed(1),
+        )
+      : null;
   return {
     ...rig,
     scaleContractVersion: BEST_BOTTLES_SCALE_CARD_VERSION,
@@ -211,6 +275,16 @@ function applyScaleCardGlassTarget(
     targetBodyHeightPx: glassScale.targetGlassHeightPx,
     scaleTag: glassScale.tag,
     bareGlassHeightMm: heightWithoutCapMm,
+    ...(assembledHeightPct != null && heightWithCapMm != null
+      ? {
+          assembledHeightMm: heightWithCapMm,
+          assembledHeightPct,
+          assembledHeightPx: Math.round(
+            (assembledHeightPct / 100) *
+              BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX,
+          ),
+        }
+      : {}),
   };
 }
 
@@ -222,6 +296,35 @@ export function getFamilyRigForProduct(
   const legacy = legacyRigFromProduct(input);
   if (!legacy) return null;
 
+  const lock = resolveShoulderLock({
+    family: input.family,
+    bottleCollection: input.bottleCollection,
+    graceSku: input.graceSku ?? input.sku,
+    sku: input.sku ?? input.graceSku,
+    websiteSku: input.websiteSku,
+    itemName: input.itemName ?? input.name,
+    name: input.name ?? input.itemName,
+    capacity: input.capacity,
+    capacityMl: input.capacityMl,
+    heightWithoutCap: input.heightWithoutCap,
+    applicator: input.applicator,
+  });
+  if (lock) {
+    return applyShoulderLockTarget(
+      legacy,
+      lock,
+      tryParseBareGlassHeightMm(input.heightWithoutCap),
+      tryParseBareGlassHeightMm(input.heightWithCap),
+    );
+  }
+
+  const isCylinder = isCylinderFamilyAlias(input.family ?? input.bottleCollection);
+  if (isCylinder && input.requireScaleCard) {
+    throw new Error(
+      `Shoulder lock is required for Cylinder masters. Missing lock for family=${input.family ?? input.bottleCollection ?? "unknown"} capacity=${input.capacityMl ?? input.capacity ?? "unknown"}.`,
+    );
+  }
+
   const bodyHeightMm = tryParseBareGlassHeightMm(input.heightWithoutCap);
   if (bodyHeightMm == null) {
     if (input.requireScaleCard) {
@@ -231,7 +334,11 @@ export function getFamilyRigForProduct(
     return legacy;
   }
 
-  return applyScaleCardGlassTarget(legacy, bodyHeightMm);
+  return applyScaleCardGlassTarget(
+    legacy,
+    bodyHeightMm,
+    tryParseBareGlassHeightMm(input.heightWithCap),
+  );
 }
 
 function formatFamilyLabel(cfg: FamilyRigConfig): string {
@@ -311,20 +418,56 @@ export function buildImposedRigBlock(input: {
     ? ` Keep bare-glass QA inside ${cfg.glassHeightRangePct.min}-${cfg.glassHeightRangePct.max}%.`
     : "";
 
+  const scaleContractLabel =
+    typeof cfg.scaleContractVersion === "string" && cfg.scaleContractVersion.length > 0
+      ? cfg.scaleContractVersion
+      : "best-bottles-scale-card-v2";
+  const measurementParts = [
+    typeof cfg.bareGlassHeightMm === "number"
+      ? `heightWithoutCap = ${cfg.bareGlassHeightMm} mm`
+      : null,
+    typeof cfg.assembledHeightMm === "number"
+      ? `heightWithCap = ${cfg.assembledHeightMm} mm`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+  const shoulderLockClause =
+    typeof cfg.shoulderTargetPct === "number" &&
+    typeof cfg.shoulderYFromTopPct === "number" &&
+    typeof cfg.glassBodyKey === "string" &&
+    typeof cfg.scaleTag === "string"
+      ? [
+          ...(measurementParts.length > 0
+            ? [
+                `- CATALOG MEASUREMENTS (Convex product truth): ${measurementParts.join("; ")}. These millimeters describe the physical bottle. They do not choose the on-canvas percentage.`,
+              ]
+            : []),
+          `- SHOULDER LOCK (${scaleContractLabel} · ${cfg.glassBodyKey}): seat the glass foot on the shared 91% baseline. The glass shoulder — where the body ends and the neck begins, or where glass meets the cap/collar — MUST land at ${cfg.shoulderTargetPct}% of canvas height above that baseline (${cfg.shoulderYFromTopPct}% down from the top of the canvas). Every SKU that shares this glass body (${cfg.scaleTag}) uses this same shoulder horizon. Fitments (roller, sprayer, pump, cap) rise above the shoulder by their real physical height; do not scale the bottle to the top of the fitment.`,
+          "- Do not use assembled envelope or fitment top as the scale driver.",
+        ]
+      : [];
   const bareGlassClause =
+    shoulderLockClause.length === 0 &&
     typeof cfg.glassHeightPct === "number" &&
     typeof cfg.targetBodyHeightPx === "number" &&
     typeof cfg.bareGlassHeightMm === "number" &&
     typeof cfg.scaleTag === "string"
       ? [
-          `- SCALE-CARD BARE GLASS (authoritative body size): foot-to-rim glass height = ${cfg.glassHeightPct}% of canvas height = ${cfg.targetBodyHeightPx}px; bare-glass heightWithoutCap = ${cfg.bareGlassHeightMm} mm; tag ${cfg.scaleTag}. Seat the glass foot on the shared 91% baseline (9% up from the canvas bottom). This percentage is bare glass only — never treat it as the full assembly (glass + cap/applicator) height.${glassRangeLine}`,
+          `- SCALE-CARD BARE GLASS (authoritative body size — ${scaleContractLabel}): bare-glass heightWithoutCap = ${cfg.bareGlassHeightMm} mm → ecommerce band ${cfg.scaleTag}; foot-to-rim glass height MUST equal ${cfg.glassHeightPct}% of canvas height = ${cfg.targetBodyHeightPx}px. Seat the glass foot on the shared 91% baseline (9% up from the canvas bottom). This percentage is bare glass only — never treat it as the full assembly (glass + cap/applicator) height.${glassRangeLine} Scale the bottle body to this fill target; do not copy a tiny reference footprint or leave large empty canvas around a short bottle.`,
         ]
       : [];
+  const scaleDriverClause = shoulderLockClause.length > 0 ? shoulderLockClause : bareGlassClause;
 
   const assembledFramingLine =
-    bareGlassClause.length > 0
-      ? `- Assembled framing hint (soft, not the bare-glass target): keep the full visible assembly (glass + cap/applicator) within ~${cfg.fillHeightPct}% of the canvas height and ~${cfg.fillWidthPct}% of the width, centered, with comfortable even margins.${assembledRangeLine}`
-      : `- Render the product at the resolved ${familyLabel} PDP framing target. Fit the full assembly within ~${cfg.fillHeightPct}% of the canvas height and ~${cfg.fillWidthPct}% of the width, centered, with comfortable even margins.${assembledRangeLine}`;
+    shoulderLockClause.length > 0
+      ? "- Fitments rise above the locked shoulder by their real physical height. Do not treat the full assembly (glass + cap/applicator) as the scale driver."
+      : bareGlassClause.length > 0 &&
+          typeof cfg.assembledHeightMm === "number" &&
+          typeof cfg.assembledHeightPct === "number" &&
+          typeof cfg.assembledHeightPx === "number"
+        ? `- ASSEMBLED HEIGHT (hard maximum): catalog heightWithCap = ${cfg.assembledHeightMm} mm. At this bottle's calibrated glass scale, the bottle plus installed cap/applicator must be no taller than ${cfg.assembledHeightPct}% of the canvas = ${cfg.assembledHeightPx}px, from the shared bottle-foot baseline to the highest installed component. Do not use the scale-card curve again for this assembled envelope; use the same local pixels/mm established by the bare glass. Exceeding ${cfg.assembledHeightMm + 2} mm equivalent is a QA failure.`
+        : bareGlassClause.length > 0
+          ? `- Assembled framing is unverified because catalog heightWithCap is unavailable. Do not infer full-assembly height from the legacy ${cfg.fillHeightPct}% framing hint.`
+          : `- Render the product at the resolved ${familyLabel} PDP framing target. Fit the full assembly within ~${cfg.fillHeightPct}% of the canvas height and ~${cfg.fillWidthPct}% of the width, centered, with comfortable even margins.${assembledRangeLine}`;
 
   const placementLines =
     input.capState === "detached"
@@ -353,10 +496,14 @@ export function buildImposedRigBlock(input: {
     "- Still locked to the reference (do NOT change these): product geometry, silhouette, proportions, height-to-width ratio, colors, component shapes, cap-on vs cap-off state, number of components, and material identity. The reference governs WHAT the product is; this rig governs WHERE and HOW it sits on the canvas.",
     `- Baseline: seat the bottle base's visible bottom contact pixels at ${baselineLow}–${baselineHigh}% up from the canvas bottom. Every ${familyLabel} SKU shares this one horizontal shelf line. Do not lift the bottle base above this shelf line or let it float in the frame.`,
     ...placementLines,
-    ...bareGlassClause,
+    ...scaleDriverClause,
     assembledFramingLine,
     "- Surface rule: flat Bone background only. No mirror reflection, no glossy floor, no reflective tabletop, no rectangular studio plate, no inner background rectangle, no visible paper edge, no texture patch, and no second background color.",
-    "- Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow).",
+    shoulderLockClause.length > 0
+      ? "- Ecommerce fill is mandatory: the SHOULDER LOCK horizon above must dominate the canvas. Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow)."
+      : bareGlassClause.length > 0
+        ? "- Ecommerce fill is mandatory: the SCALE-CARD BARE GLASS height above must dominate the canvas. Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow)."
+        : "- Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow).",
     "- FINAL ALIGNMENT QA: before accepting the image, seat the bottle base and any detached cap bottom on the shared rig baseline; no sibling variant may float higher, sink lower, or use a different floor line.",
     "- Same fixed studio rig for the whole family: identical camera distance, lens, optical compression, baseline, and centerline. Only the purchasable component differences change between siblings.",
   ].join("\n");

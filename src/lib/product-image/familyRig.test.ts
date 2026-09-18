@@ -55,15 +55,17 @@ describe("family rig (profile-aware fit-to-box)", () => {
 
     assert.ok(assembled);
     assert.ok(detached);
-    assert.equal(assembled.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(assembled.glassHeightPct, 70.3);
-    assert.equal(assembled.targetBodyHeightPx, Math.round(0.703 * 2288));
-    assert.equal(assembled.scaleTag, "S130");
+    assert.equal(assembled.scaleContractVersion, "shoulder-lock-2026-09-07");
+    assert.equal(assembled.glassBodyKey, "cylinder:100-standard");
+    assert.equal(assembled.shoulderTargetPct, 67.5);
+    assert.equal(assembled.shoulderYFromTopPct, 23.5);
+    assert.equal(assembled.targetBodyHeightPx, Math.round(0.675 * 2288));
+    assert.equal(assembled.scaleTag, "Cylinder 100 ml");
     assert.equal(assembled.bareGlassHeightMm, 130);
-    assert.equal(detached.glassHeightPct, assembled.glassHeightPct);
+    assert.equal(assembled.glassHeightPct, undefined);
+    assert.equal(detached.shoulderTargetPct, assembled.shoulderTargetPct);
     assert.equal(detached.targetBodyHeightPx, assembled.targetBodyHeightPx);
-    // Assembled framing stays on the legacy profile; bare glass is separate.
-    assert.notEqual(assembled.fillHeightPct, assembled.glassHeightPct);
+    assert.notEqual(assembled.fillHeightPct, assembled.shoulderTargetPct);
   });
 
   it("derives the Cylinder rig glass target from heightWithoutCap only", () => {
@@ -77,11 +79,13 @@ describe("family rig (profile-aware fit-to-box)", () => {
       applicator: "Fine Mist Sprayer",
     });
     assert.ok(rig);
-    assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(rig.glassHeightPct, 65.5);
-    assert.equal(rig.targetBodyHeightPx, Math.round(0.655 * 2288));
-    assert.equal(rig.scaleTag, "S110");
+    assert.equal(rig.scaleContractVersion, "shoulder-lock-2026-09-07");
+    assert.equal(rig.glassBodyKey, "cylinder:9-tall");
+    assert.equal(rig.shoulderTargetPct, 62.5);
+    assert.equal(rig.targetBodyHeightPx, Math.round(0.625 * 2288));
+    assert.equal(rig.scaleTag, "Cylinder 9 ml tall");
     assert.equal(rig.bareGlassHeightMm, 106);
+    assert.equal(rig.glassHeightPct, undefined);
   });
 
   it("keeps a detached 9 ml Classic sidecar on the scale-card bare-glass contract", () => {
@@ -95,30 +99,40 @@ describe("family rig (profile-aware fit-to-box)", () => {
       mode: "fitment-attached-cap-right-sidecar",
     });
     assert.ok(rig);
-    assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
+    assert.equal(rig.scaleContractVersion, "shoulder-lock-2026-09-07");
     assert.equal(rig.geometryScaleVersion, undefined);
-    assert.equal(rig.glassHeightPct, 47.8);
-    assert.equal(rig.targetBodyHeightPx, Math.round(0.478 * 2288));
+    assert.equal(rig.glassBodyKey, "cylinder:9-standard");
+    assert.equal(rig.shoulderTargetPct, 43.5);
+    assert.equal(rig.targetBodyHeightPx, Math.round(0.435 * 2288));
     assert.equal(rig.baselinePct, 9);
-    assert.equal(rig.scaleTag, "S70");
+    assert.equal(rig.scaleTag, "Cylinder 9 ml");
+    assert.equal(rig.assembledHeightMm, 98);
+    assert.equal(rig.assembledHeightPct, undefined);
+    assert.equal(rig.glassHeightPct, undefined);
 
     const block = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig });
     assert.ok(block);
-    assert.match(block, /SCALE-CARD BARE GLASS/i);
-    assert.match(block, /foot-to-rim glass height = 47\.8%/i);
-    assert.match(block, /tag S70/);
-    assert.match(block, /Assembled framing hint/i);
-    assert.doesNotMatch(block, /Fit the full assembly within ~47\.8%/i);
+    assert.match(block, /SHOULDER LOCK/i);
+    assert.match(block, /cylinder:9-standard/);
+    assert.match(block, /MUST land at 43\.5%/i);
+    assert.match(block, /47\.5% down from the top/i);
+    assert.match(block, /heightWithoutCap = 70 mm/i);
+    assert.match(block, /heightWithCap = 98 mm/i);
+    assert.match(block, /do not scale the bottle to the top of the fitment/i);
+    assert.doesNotMatch(block, /SCALE-CARD BARE GLASS/i);
+    assert.doesNotMatch(block, /ASSEMBLED HEIGHT \(hard maximum\)/i);
+    assert.doesNotMatch(block, /Fit the full assembly within ~64%/i);
     assert.doesNotMatch(block, /6 px per canonical millimeter/i);
-    assert.match(block, /Do not leave the product tiny with excessive empty margins/i);
+    assert.match(block, /Ecommerce fill is mandatory/i);
+    assert.match(block, /SHOULDER LOCK horizon/i);
   });
 
-  it("ignores capacity when two SKUs share glass height but differ in millilitres", () => {
+  it("locks same-glass siblings together and keeps 5 ml off the 9 ml horizon", () => {
     const fiveMl = getFamilyRigForProduct({
       family: "Cylinder",
       capacityMl: 5,
-      heightWithoutCap: "70 ±1 mm",
-      heightWithCap: "83 ±1 mm",
+      heightWithoutCap: "53 ±1 mm",
+      heightWithCap: "72 ±1 mm",
     });
     const nineMl = getFamilyRigForProduct({
       family: "Cylinder",
@@ -126,53 +140,84 @@ describe("family rig (profile-aware fit-to-box)", () => {
       heightWithoutCap: "70 ±1 mm",
       heightWithCap: "98 ±1 mm",
     });
+    const nineMlSameGlass = getFamilyRigForProduct({
+      family: "Cylinder",
+      capacityMl: 9,
+      heightWithoutCap: "74 ±1 mm",
+      heightWithCap: "83 ±1 mm",
+    });
     assert.ok(fiveMl);
     assert.ok(nineMl);
-    assert.equal(fiveMl.glassHeightPct, nineMl.glassHeightPct);
-    assert.equal(fiveMl.targetBodyHeightPx, nineMl.targetBodyHeightPx);
-    assert.equal(fiveMl.glassHeightPct, 47.8);
+    assert.ok(nineMlSameGlass);
+    assert.equal(fiveMl.shoulderTargetPct, 36.5);
+    assert.equal(nineMl.shoulderTargetPct, 43.5);
+    assert.equal(nineMlSameGlass.shoulderTargetPct, nineMl.shoulderTargetPct);
+    assert.notEqual(fiveMl.shoulderTargetPct, nineMl.shoulderTargetPct);
   });
 
-  it("fails closed on missing heightWithoutCap only when requireScaleCard is set", () => {
-    const base = {
+  it("keeps 50 ml 18-415 and 50 ml roll-on on different locked shoulders", () => {
+    const standard50 = getFamilyRigForProduct({
+      family: "Cylinder",
+      capacityMl: 50,
+      heightWithoutCap: "117 ±2 mm",
+      heightWithCap: "142 ±2 mm",
+      applicator: "Perfume Spray Pump",
+      requireScaleCard: true,
+    });
+    assert.ok(standard50);
+    assert.equal(standard50.glassBodyKey, "cylinder:50-standard");
+    assert.equal(standard50.shoulderTargetPct, 56);
+    assert.equal(standard50.scaleTag, "Cylinder 50 ml 18-415");
+
+    const rollon = getFamilyRigForProduct({
+      family: "Cylinder",
+      capacityMl: 50,
+      heightWithoutCap: "98 ±1 mm",
+      heightWithCap: "116 ±2 mm",
+      applicator: "Metal Roller Ball",
+      websiteSku: "GBCyl50MtlRollBlk",
+      requireScaleCard: true,
+    });
+    assert.ok(rollon);
+    assert.equal(rollon.glassBodyKey, "cylinder:50-rollon");
+    assert.equal(rollon.shoulderTargetPct, 53);
+    assert.equal(rollon.scaleTag, "Cylinder 50 ml 16 mm roll-on");
+  });
+
+  it("applies the Cylinder lock without heightWithoutCap and fails closed on unknown bodies", () => {
+    const locked = getFamilyRigForProduct({
       family: "Cylinder",
       capacityMl: 9,
       heightWithCap: "98 ±1 mm",
       diameter: "20 ±0.5 mm",
+    });
+    assert.ok(locked);
+    assert.equal(locked.scaleContractVersion, "shoulder-lock-2026-09-07");
+    assert.equal(locked.shoulderTargetPct, 43.5);
+    assert.equal(locked.bareGlassHeightMm, undefined);
+
+    assert.throws(
+      () => getFamilyRigForProduct({
+        family: "Cylinder",
+        capacityMl: 15,
+        heightWithoutCap: "80 mm",
+        requireScaleCard: true,
+      }),
+      /Shoulder lock is required for Cylinder masters/i,
+    );
+
+    const boston = {
+      family: "Boston Round",
+      capacityMl: 100,
+      heightWithCap: "150 ±2 mm",
+      diameter: "42 ±0.5 mm",
     } as const;
-
-    const legacy = getFamilyRigForProduct({ ...base, heightWithoutCap: null });
-    assert.ok(legacy);
-    assert.equal(legacy.targetBodyHeightPx, undefined);
-    assert.equal(legacy.glassHeightPct, undefined);
-    assert.notEqual(legacy.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-
+    const bostonLegacy = getFamilyRigForProduct({ ...boston, heightWithoutCap: null });
+    assert.ok(bostonLegacy);
+    assert.equal(bostonLegacy.targetBodyHeightPx, undefined);
+    assert.notEqual(bostonLegacy.scaleContractVersion, "best-bottles-scale-card-v2-2026-09-18");
     assert.throws(
-      () => getFamilyRigForProduct({ ...base, requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: null, requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "", requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "   ", requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "0 mm", requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "-5 mm", requireScaleCard: true }),
-      /bare-glass heightWithoutCap/i,
-    );
-    assert.throws(
-      () => getFamilyRigForProduct({ ...base, heightWithoutCap: "not-a-measurement", requireScaleCard: true }),
+      () => getFamilyRigForProduct({ ...boston, requireScaleCard: true }),
       /bare-glass heightWithoutCap/i,
     );
   });
@@ -215,12 +260,13 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.ok(rig);
     assert.equal(rig.profileId, "roller-bottle");
     assert.equal(rig.relativeScaleZoneId, "roller-tall");
-    // Scale card owns bare-glass height (81 mm → 54.0%), not capacity or zone band.
-    assert.equal(rig.scaleContractVersion, "best-bottles-scale-card-v1-2026-09-16");
-    assert.equal(rig.glassHeightPct, 54.0);
-    assert.equal(rig.targetBodyHeightPx, Math.round(0.54 * 2288));
-    assert.equal(rig.scaleTag, "S80");
-    assert.notEqual(rig.fillHeightPct, rig.glassHeightPct);
+    // Shoulder lock owns 28 ml Cylinder, not the roller zone band or v2 mm bands.
+    assert.equal(rig.scaleContractVersion, "shoulder-lock-2026-09-07");
+    assert.equal(rig.glassBodyKey, "cylinder:28-standard");
+    assert.equal(rig.shoulderTargetPct, 50.5);
+    assert.equal(rig.targetBodyHeightPx, Math.round(0.505 * 2288));
+    assert.equal(rig.scaleTag, "Cylinder 28 ml");
+    assert.notEqual(rig.fillHeightPct, rig.shoulderTargetPct);
   });
 
   it("builds a profile-capable imposed rig block with composition authority", () => {

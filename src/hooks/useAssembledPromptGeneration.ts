@@ -59,6 +59,17 @@ import {
 } from "@/config/bestBottlesVisualTarget";
 import type { RigReviewEvidence } from "@/lib/product-image/rigReview";
 import { resolveBestBottlesStyleReferenceUrl } from "@/lib/bestBottlesStyleReferenceRouting";
+import {
+  analyzeBestBottlesBackgroundImage,
+  BEST_BOTTLES_BACKGROUND_QA_PASS_TAG,
+  BEST_BOTTLES_CANVAS_HEX_TAG,
+} from "@/lib/bestBottlesBackgroundQa";
+import { addLibraryTag } from "@/lib/imageLibraryTags";
+import {
+  getApprovedBestBottlesScaleCalibration,
+} from "@/lib/bestBottlesScaleCalibration";
+import { buildBestBottlesScaleCalibrationKeys } from "@/lib/bestBottlesScaleCalibrationModel";
+import type { RigScaleCalibration } from "@/lib/product-image/physicalScaleQa";
 
 
 export interface AssembledGenerationResult {
@@ -824,6 +835,7 @@ export function useAssembledPromptGeneration() {
       const rigPostprocessDecision = shouldRunBestBottlesRigPostprocess({
         libraryTags: extraLibraryTags,
         family: options.productContext?.family,
+        presetId: assembled.preset.id,
         aspectRatio: resolvedAspectRatio,
         canvas: resolvedCanvas,
         sceneOverlay: options.sceneOverlay,
@@ -913,6 +925,46 @@ export function useAssembledPromptGeneration() {
           // retired because it shifts the product material and washes out clear glass.
           // The aspect gate's truth for detached lanes is the reference ratio
           // measured above — the same number injected into the prompt lock.
+          let scaleCalibration: RigScaleCalibration | null = null;
+          if (isCylinderFamilyAlias(options.productContext?.family)) {
+            const calibrationKeys = buildBestBottlesScaleCalibrationKeys({
+              family: options.productContext?.family,
+              heightWithoutCap: options.productContext?.heightWithoutCap,
+              diameter: options.productContext?.diameter,
+              neckThreadSize: options.productContext?.neckThreadSize,
+              applicator: options.productContext?.applicator,
+              capState:
+                options.productContext?.capState === "assembled"
+                  ? "assembled"
+                  : "detached",
+            });
+            if (
+              !calibrationKeys.geometryKey.includes("unknown") &&
+              !calibrationKeys.topologyKey.includes("unknown")
+            ) {
+              const approvedCalibration =
+                await getApprovedBestBottlesScaleCalibration({
+                  organizationId: currentOrganizationId,
+                  family: options.productContext?.family ?? "Cylinder",
+                  geometryKey: calibrationKeys.geometryKey,
+                  topologyKey: calibrationKeys.topologyKey,
+                });
+              if (approvedCalibration) {
+                scaleCalibration = {
+                  id: approvedCalibration.id,
+                  version: approvedCalibration.calibrationVersion,
+                  sourceReferenceUrl: approvedCalibration.sourceReferenceUrl,
+                  sourceReferenceHash: approvedCalibration.sourceReferenceHash,
+                  glassFootYPct: approvedCalibration.glassFootYPct,
+                  glassRimYPct: approvedCalibration.glassRimYPct,
+                  fitmentTopYPct: approvedCalibration.fitmentTopYPct,
+                  primaryBounds: approvedCalibration.primaryBounds,
+                  detachedComponentBounds:
+                    approvedCalibration.detachedComponentBounds,
+                };
+              }
+            }
+          }
           const rigged = await normalizeBestBottlesRigBaseline(data.imageUrl, {
             family: options.productContext?.family,
             bottleCollection: options.productContext?.collection,
@@ -934,9 +986,26 @@ export function useAssembledPromptGeneration() {
             requireMaskControl: false,
             expectedPrimaryAspectRatio: referenceAspectRatio,
             expectedDetachedCapMetrics: referenceCapMetrics,
+            scaleCalibration,
           });
           riggedSnapshot = rigged;
           const finalMeasurements = rigged.framingQa?.measurements ?? null;
+          const requiresPhysicalScaleCalibration = isCylinderFamilyAlias(
+            options.productContext?.family,
+          );
+          const physicalScaleNeedsReview =
+            requiresPhysicalScaleCalibration &&
+            (rigged.physicalScaleQa.verdict === "review" ||
+              rigged.physicalScaleQa.verdict === "unverified");
+          const bodyControlMissPrefix =
+            "Exact glass body-control bounds could not be derived";
+          const blockingRigIssues = rigged.qaIssues.filter(
+            (issue) =>
+              !(
+                physicalScaleNeedsReview &&
+                issue.startsWith(bodyControlMissPrefix)
+              ),
+          );
           if (
             !finalMeasurements ||
             finalMeasurements.baselineYPx === null ||
@@ -944,13 +1013,40 @@ export function useAssembledPromptGeneration() {
           ) {
             throw new Error("Rig baseline was not detectable in the final rendered image.");
           }
-          if (rigged.qaIssues.length > 0) {
-            throw new Error(`Rig QA failed: ${rigged.qaIssues.join(" ")}`);
+          if (
+            blockingRigIssues.length > 0 ||
+            (requiresPhysicalScaleCalibration &&
+              rigged.physicalScaleQa.verdict === "fail")
+          ) {
+            throw new Error(`Rig QA failed: ${blockingRigIssues.join(" ")}`);
+          }
+          const backgroundQa = await analyzeBestBottlesBackgroundImage(
+            rigged.dataUrl,
+          );
+          if (backgroundQa.status !== "pass") {
+            throw new Error(`Background QA failed: ${backgroundQa.message}`);
           }
           // Shadow QA is advisory, never blocking (Jordan standing policy
           // 2026-07-18, reaffirmed 2026-07-19): measurements are recorded in
           // shadowQa for display; only framing/geometry issues gate.
-          const reviewQaIssues = [...rigged.qaIssues];
+          const reviewQaIssues = [
+            ...rigged.qaIssues,
+            ...(physicalScaleNeedsReview
+              ? [
+                  rigged.physicalScaleQa.verdict === "unverified"
+                    ? "Approved scale calibration is missing; physical scale remains review-pending."
+                    : `Physical scale requires review (height Δ ${rigged.physicalScaleQa.deltaMm} mm${
+                        rigged.physicalScaleQa.diameterDeltaMm != null
+                          ? `, diameter Δ ${rigged.physicalScaleQa.diameterDeltaMm} mm`
+                          : ""
+                      }${
+                        rigged.physicalScaleQa.assembledDeltaMm != null
+                          ? `, assembled height Δ ${rigged.physicalScaleQa.assembledDeltaMm} mm`
+                          : ""
+                      }).`,
+                ]
+              : []),
+          ];
           console.info("[useAssembledPromptGeneration] Best Bottles rig postprocess", {
             shifted: rigged.shifted,
             shiftXPx: rigged.shiftXPx,
@@ -995,6 +1091,17 @@ export function useAssembledPromptGeneration() {
               if (updateError) {
                 throw new Error(`Library row rig patch failed: ${updateError.message}`);
               }
+              for (const tag of [
+                BEST_BOTTLES_BACKGROUND_QA_PASS_TAG,
+                BEST_BOTTLES_CANVAS_HEX_TAG,
+              ]) {
+                const nextTags = await addLibraryTag(savedImageId, tag);
+                if (!nextTags) {
+                  throw new Error(
+                    `Library row background QA tag failed for ${tag}.`,
+                  );
+                }
+              }
             }
             if (reconciliationBase) {
               await recordBestBottlesRigResult({
@@ -1018,8 +1125,12 @@ export function useAssembledPromptGeneration() {
                 shadowOwner: rigged.shadowOwner,
                 shadowQa: rigged.shadowQa,
                 qaIssues: reviewQaIssues,
-                framingDecision: rigged.framingDecision,
-                lifecycleState: "qa-passed",
+                framingDecision: physicalScaleNeedsReview
+                  ? "normalize"
+                  : rigged.framingDecision,
+                lifecycleState: physicalScaleNeedsReview
+                  ? "review-pending"
+                  : "qa-passed",
                 lastError: null,
               });
             }

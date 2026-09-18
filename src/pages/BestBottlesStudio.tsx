@@ -20,7 +20,7 @@
  * Master creation, component generation, and compositor are follow-up commits.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Beaker, Layers, Grid3x3, ImageIcon } from "lucide-react";
@@ -42,6 +42,7 @@ import {
   type ApplicatorBucket,
   type Product,
 } from "@/integrations/convex/bestBottles";
+import type { LoadedCatalogHero } from "@/lib/bestBottlesLoadedCatalogHeroes";
 import {
   findPipelineGroupByConvexSlug,
   findPipelineSkuJobByGraceSku,
@@ -115,6 +116,28 @@ export default function BestBottlesStudio() {
   });
 
   const applicatorBuckets: ApplicatorBucket[] = data?.applicatorBuckets ?? [];
+  const [loadedHeroes, setLoadedHeroes] = useState<LoadedCatalogHero[]>([]);
+  const [loadedCapacityFilter, setLoadedCapacityFilter] = useState<string | null>(null);
+  const handleSelectProduct = useCallback((product: { graceSku: string }) => {
+    setSelectedSku(product.graceSku);
+  }, []);
+  const handleLoadedHeroesChange = useCallback((heroes: LoadedCatalogHero[]) => {
+    setLoadedHeroes(heroes);
+  }, []);
+  const loadedCapacityOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const hero of loadedHeroes) {
+      if (!seen.has(hero.capacityKey)) seen.set(hero.capacityKey, hero.capacityLabel);
+    }
+    return Array.from(seen.entries()).map(([capacityKey, capacityLabel]) => ({
+      capacityKey,
+      capacityLabel,
+    }));
+  }, [loadedHeroes]);
+  const visibleLoadedHeroes = useMemo(() => {
+    if (!loadedCapacityFilter) return loadedHeroes;
+    return loadedHeroes.filter((hero) => hero.capacityKey === loadedCapacityFilter);
+  }, [loadedCapacityFilter, loadedHeroes]);
 
   // Component target math — paper-doll asset inventory for this family.
   // 1 body PNG + one fitment PNG per unique applicator-colorway combo.
@@ -126,16 +149,31 @@ export default function BestBottlesStudio() {
     return 1 + uniqueCombos.size;
   }, [data?.variants]);
 
-  const selectedVariant = useMemo(
-    () => data?.variants.find((v) => v.graceSku === selectedSku) ?? null,
-    [data?.variants, selectedSku],
-  );
+  const selectedVariant = useMemo(() => {
+    if (!selectedSku || !data) return null;
+    return (
+      data.allFamilyProducts.find((variant) => variant.graceSku === selectedSku) ??
+      data.variants.find((variant) => variant.graceSku === selectedSku) ??
+      null
+    );
+  }, [data, selectedSku]);
   const paperDollFamilyKey = useMemo(
     () => data ? resolvePaperDollFamilyKey(data.group) : null,
     [data],
   );
 
   const [collapsedBuckets, setCollapsedBuckets] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setSelectedSku(null);
+    setLoadedCapacityFilter(null);
+  }, [groupSlug]);
+
+  useEffect(() => {
+    if (!data?.group.slug || !groupSlug) return;
+    if (data.group.slug === groupSlug) return;
+    navigate(`/best-bottles/studio/${data.group.slug}${location.search}`, { replace: true });
+  }, [data?.group.slug, groupSlug, location.search, navigate]);
   const toggleBucket = (applicator: string) => {
     setCollapsedBuckets((prev) => {
       const next = new Set(prev);
@@ -170,10 +208,16 @@ export default function BestBottlesStudio() {
         {data?.group && (
           <div className="dark-room-header__session flex items-center gap-4">
             <LCDDisplay>
-              {data.group.family}
-              {data.group.capacity ? ` · ${data.group.capacity}` : ""}
-              {data.group.color ? ` · ${data.group.color}` : ""}
-              {data.group.neckThreadSize ? ` · ${data.group.neckThreadSize}` : ""}
+              {selectedVariant?.family ?? data.group.family}
+              {selectedVariant?.capacity ?? data.group.capacity
+                ? ` · ${selectedVariant?.capacity ?? data.group.capacity}`
+                : ""}
+              {selectedVariant?.color ?? data.group.color
+                ? ` · ${selectedVariant?.color ?? data.group.color}`
+                : ""}
+              {selectedVariant?.neckThreadSize ?? data.group.neckThreadSize
+                ? ` · ${selectedVariant?.neckThreadSize ?? data.group.neckThreadSize}`
+                : ""}
             </LCDDisplay>
             <LCDCounter current={0} total={componentTargetCount} />
             <span className="text-xs" style={{ color: "var(--darkroom-text-dim)" }}>
@@ -201,8 +245,10 @@ export default function BestBottlesStudio() {
           <div className="font-semibold mb-1">Failed to load productGroup</div>
           <div>{error instanceof Error ? error.message : String(error)}</div>
           <div className="mt-2 text-xs" style={{ color: "var(--darkroom-text-muted)" }}>
-            Make sure the <code>bestbottles-convex</code> edge function is deployed
-            and the <code>BESTBOTTLES_CONVEX_URL</code> secret is set.
+            Screw-cap Pipeline cards often use a <code>-capclosure</code> suffix
+            that Convex does not store. Open the same slug without that suffix,
+            or stay here and scan the catalog-hero folder so 5 ml and the other
+            uploaded heroes appear in this Studio.
           </div>
         </div>
       )}
@@ -212,18 +258,98 @@ export default function BestBottlesStudio() {
           {/* LEFT RAIL — SKU list + family metadata */}
           <aside className="camera-panel col-span-3 min-h-[600px] min-w-0">
             <CameraPanelHeader
-              title="Variants"
+              title={loadedHeroes.length > 0 ? "Loaded heroes" : "Variants"}
               icon={<Grid3x3 className="w-3.5 h-3.5" />}
               ledState="ready"
             />
             <div className="camera-panel__content space-y-3">
               <div className="space-y-1.5">
                 <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--darkroom-text-dim)" }}>
-                  Variant count
+                  {loadedHeroes.length > 0 ? "Uploaded heroes" : "Variant count"}
                 </div>
-                <LCDDisplay variant="large">{data.group.variantCount}</LCDDisplay>
+                <LCDDisplay variant="large">
+                  {loadedHeroes.length > 0 ? loadedHeroes.length : data.group.variantCount}
+                </LCDDisplay>
               </div>
 
+              {loadedHeroes.length > 0 ? (
+                <div
+                  className="pt-3 border-t space-y-2"
+                  style={{ borderColor: "var(--darkroom-border-subtle)" }}
+                  data-testid="studio-loaded-heroes"
+                >
+                  <div
+                    className="text-[10px] uppercase tracking-wider"
+                    style={{ color: "var(--darkroom-text-dim)" }}
+                  >
+                    Scanned catalog heroes
+                  </div>
+                  {loadedCapacityOptions.length > 1 && (
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setLoadedCapacityFilter(null)}
+                        className="rounded px-2 py-1 text-[10px] uppercase tracking-wider"
+                        style={{
+                          color: !loadedCapacityFilter ? "var(--darkroom-bg)" : "var(--darkroom-text-muted)",
+                          background: !loadedCapacityFilter ? "var(--darkroom-accent)" : "rgba(255,255,255,0.04)",
+                        }}
+                      >
+                        All {loadedHeroes.length}
+                      </button>
+                      {loadedCapacityOptions.map((option) => {
+                        const selected = loadedCapacityFilter === option.capacityKey;
+                        return (
+                          <button
+                            key={option.capacityKey}
+                            type="button"
+                            onClick={() => setLoadedCapacityFilter(option.capacityKey)}
+                            className="rounded px-2 py-1 text-[10px] uppercase tracking-wider"
+                            style={{
+                              color: selected ? "var(--darkroom-bg)" : "var(--darkroom-text-muted)",
+                              background: selected ? "var(--darkroom-accent)" : "rgba(255,255,255,0.04)",
+                            }}
+                          >
+                            {option.capacityLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="max-h-[560px] space-y-1 overflow-y-auto pr-1">
+                    {visibleLoadedHeroes.map((hero) => {
+                      const active = selectedSku === hero.product.graceSku;
+                      return (
+                        <button
+                          key={hero.graceSku}
+                          type="button"
+                          onClick={() => handleSelectProduct(hero.product)}
+                          className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left"
+                          style={{
+                            color: active ? "var(--darkroom-accent)" : "var(--darkroom-text-muted)",
+                            background: active ? "rgba(184, 149, 106, 0.08)" : "transparent",
+                          }}
+                        >
+                          <div className="relative h-12 w-11 shrink-0 overflow-hidden rounded bg-[#F5F3EF]">
+                            <img
+                              src={hero.imageUrl}
+                              alt={hero.name}
+                              className="absolute inset-0 h-full w-full object-contain"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate font-mono text-[11px]">{hero.graceSku}</div>
+                            <div className="truncate text-[10px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                              {hero.capacityLabel}
+                              {hero.product.color ? ` · ${hero.product.color}` : ""}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
               <div
                 className="pt-3 border-t space-y-2"
                 style={{ borderColor: "var(--darkroom-border-subtle)" }}
@@ -292,6 +418,7 @@ export default function BestBottlesStudio() {
                   })}
                 </div>
               </div>
+              )}
             </div>
           </aside>
 
@@ -335,12 +462,15 @@ export default function BestBottlesStudio() {
                     selectedProduct={selectedVariant}
                     familyVariants={data.variants}
                     allFamilyProducts={data.allFamilyProducts}
+                    familyGroups={data.familyGroups}
                     familyName={data.group.family}
+                    onSelectProduct={handleSelectProduct}
+                    onLoadedHeroesChange={handleLoadedHeroesChange}
                     onApproveMaster={async (result, product) => {
-                      if (!currentOrganizationId || !groupSlug) {
+                      if (!currentOrganizationId) {
                         toast({
                           title: "Cannot record approval",
-                          description: "Missing organization or group context.",
+                          description: "Missing organization context.",
                           variant: "destructive",
                         });
                         return;
@@ -372,6 +502,27 @@ export default function BestBottlesStudio() {
                           });
                           return;
                         }
+                        const productGroup =
+                          data.familyGroups.find(
+                            (group) =>
+                              Boolean(product.productGroupId) &&
+                              group._id === product.productGroupId,
+                          ) ??
+                          data.familyGroups.find(
+                            (group) =>
+                              Boolean(product.productGroupSlug) &&
+                              group.slug === product.productGroupSlug,
+                          );
+                        if (!productGroup) {
+                          throw new Error(
+                            `${product.graceSku} has no exact product-group membership in the loaded family catalog.`,
+                          );
+                        }
+                        if (skuJob.product_group_slug !== productGroup.slug) {
+                          throw new Error(
+                            `${product.graceSku} belongs to ${skuJob.product_group_slug} in Pipeline, not ${productGroup.slug}.`,
+                          );
+                        }
 
                         await approveBestBottlesGeneratedMaster({
                           organizationId: currentOrganizationId,
@@ -384,7 +535,7 @@ export default function BestBottlesStudio() {
                         // this ordering exists to prevent.
                         const pipelineRow = await findPipelineGroupByConvexSlug(
                           currentOrganizationId,
-                          groupSlug,
+                          productGroup.slug,
                         );
                         if (pipelineRow) {
                           await updatePipelineGroupStatus(pipelineRow.id, {
@@ -411,7 +562,7 @@ export default function BestBottlesStudio() {
                           title: `${product.graceSku} approved and push-ready`,
                           description: pipelineRow
                             ? `SKU job is APPROVED with the approved-keep image. Push it to Shopify from the Pipeline page.`
-                            : `SKU job is APPROVED and push-ready. The group tracker was not updated — no Pipeline row with convex_slug "${groupSlug}".`,
+                            : `SKU job is APPROVED and push-ready. The group tracker was not updated — no Pipeline row with convex_slug "${productGroup.slug}".`,
                         });
                       } catch (e) {
                         const message =
