@@ -246,6 +246,43 @@ describe("detectGlassShoulderLandmark at production scale", () => {
     assert.equal(result.shoulderYPx, result.narrowingOnsetYPx);
   });
 
+  it("does not let an internal highlight on dark glass widen the bottle and excuse a wrong landmark", () => {
+    // Cobalt body with a black body-width collar: the collar-to-glass boundary is
+    // faint, and the strongest vertical edge on the left is a highlight well inside
+    // the true wall. Proportions must still pick the closure edge, not the collar top.
+    const width = 520;
+    const height = 1200;
+    const shoulderY = 520;
+    const collarTopY = 360;
+    const footY = 1100;
+    const bodyLeft = 170;
+    const bodyRight = 340;
+    const COBALT: Rgb = { r: 22, g: 40, b: 150 };
+    const HIGHLIGHT: Rgb = { r: 235, g: 240, b: 255 };
+    const COLLAR: Rgb = { r: 12, g: 12, b: 14 };
+    const pixels = makePixels(width, height);
+    fillRect(pixels, width, bodyLeft, shoulderY, bodyRight, footY, COBALT);
+    fillRect(pixels, width, bodyLeft + 46, shoulderY + 30, bodyLeft + 52, footY - 20, HIGHLIGHT);
+    fillRect(pixels, width, bodyLeft + 4, collarTopY, bodyRight - 4, shoulderY - 1, COLLAR);
+    fillRect(pixels, width, 215, 250, 295, collarTopY - 1, COLLAR);
+
+    const result = detectGlassShoulderLandmark({
+      pixels,
+      width,
+      height,
+      primaryBounds: { top: 250, bottom: footY, left: bodyLeft - 6, right: bodyRight + 6 },
+      footYPx: footY,
+      expectedBodyAspectRatio: (footY - shoulderY) / (bodyRight - bodyLeft + 1),
+    });
+
+    assert.ok(result, "the closure edge fits the glass, so this must not be refused");
+    assert.ok(
+      Math.abs(result.shoulderYPx - shoulderY) <= 3,
+      `expected the collar's bottom edge at y=${shoulderY}, got y=${result.shoulderYPx} (collar top is y=${collarTopY})`,
+    );
+    assert.ok(Math.abs(result.bodyAspectRatio * (bodyRight - bodyLeft + 1) - (footY - shoulderY)) <= 6);
+  });
+
   it("re-detects the same top edge inside the transformed-target window", () => {
     const scene = drawProductionCylinder("narrow-collar");
     const result = detectGlassShoulderLandmark({

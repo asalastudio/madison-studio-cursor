@@ -36,8 +36,10 @@ export type DetectGlassShoulderLandmarkInput = {
   narrowingFraction?: number;
   /**
    * Shoulder-to-foot height over wall-to-wall width for this glass body, from its
-   * lock. Picks between candidates and rejects a detection more than 20% off —
-   * wrong landmarks miss by 50%+, while faint outer rims alone read ~12% narrow.
+   * lock. Picks between candidates and rejects a detection more than 15% off.
+   * Across 29 re-rigged Madison renders, 26 sat within 5.5% and the model's
+   * too-fat tall 9 ml at 9-12.5%; the one wrong landmark (a black collar on
+   * cobalt, picked far too high) sat alone at 21%.
    */
   expectedBodyAspectRatio?: number;
 };
@@ -221,9 +223,10 @@ function sampleCornerBackground(
 /**
  * Silhouette width of one row, from the outermost off-background pixel on each
  * side. Clear glass matches the canvas inside but keeps a visible rim, so the
- * outer contour is measurable where the interior is not. A bottle is symmetric
- * about its walls' centre, so the wider half stands in for a side whose rim
- * washes out in a highlight.
+ * outer contour is measurable where the interior is not. Measured edge to edge,
+ * never about a centre: on dark glass the wall finder can land on an internal
+ * highlight, and a width mirrored about that centre read 570 px on a 450 px
+ * bottle — enough to make a landmark 350 px too high look well-proportioned.
  */
 function silhouetteWidthAt(
   pixels: ArrayLike<number>,
@@ -231,7 +234,6 @@ function silhouetteWidthAt(
   y: number,
   left: number,
   right: number,
-  centerX: number,
   background: ColorSignature,
 ): number {
   const threshold = 28;
@@ -245,21 +247,22 @@ function silhouetteWidthAt(
       ) > threshold
     );
   };
-  let leftHalf = 0;
-  for (let x = left; x <= centerX; x += 1) {
+  let leftEdge = -1;
+  for (let x = left; x <= right; x += 1) {
     if (offBackground(x)) {
-      leftHalf = centerX - x;
+      leftEdge = x;
       break;
     }
   }
-  let rightHalf = 0;
-  for (let x = right; x >= centerX; x -= 1) {
+  if (leftEdge < 0) return 0;
+  let rightEdge = leftEdge;
+  for (let x = right; x > leftEdge; x -= 1) {
     if (offBackground(x)) {
-      rightHalf = x - centerX;
+      rightEdge = x;
       break;
     }
   }
-  return Math.max(leftHalf, rightHalf) * 2;
+  return rightEdge - leftEdge + 1;
 }
 
 /**
@@ -276,7 +279,6 @@ function glassNarrowingOnsetY(input: {
   left: number;
   right: number;
   top: number;
-  centerX: number;
   background: ColorSignature;
   lowerBodyStart: number;
   lowerBodyEnd: number;
@@ -290,7 +292,6 @@ function glassNarrowingOnsetY(input: {
       y,
       input.left,
       input.right,
-      input.centerX,
       input.background,
     );
   const bodyWidths: number[] = [];
@@ -522,7 +523,6 @@ export function detectGlassShoulderLandmark(
     left,
     right,
     top,
-    centerX: Math.round((leftWall.x + rightWall.x) / 2),
     background: input.background ?? sampleCornerBackground(pixels, width, height),
     lowerBodyStart,
     lowerBodyEnd,
@@ -548,7 +548,7 @@ export function detectGlassShoulderLandmark(
       Math.abs((foot - y) / outerBodyWidth / expectedAspect - 1);
     const candidates = narrowingOnsetYPx === null ? [closureEdgeYPx] : [narrowingOnsetYPx, closureEdgeYPx];
     shoulderYPx = candidates.reduce((bestY, y) => (deviation(y) < deviation(bestY) ? y : bestY));
-    if (deviation(shoulderYPx) > 0.2) return null;
+    if (deviation(shoulderYPx) > 0.15) return null;
   }
   const confidence = clamp(
     0.35 +
