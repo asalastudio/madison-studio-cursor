@@ -7,6 +7,14 @@ export type ShoulderLandmarkBounds = {
 
 export type GlassShoulderLandmark = {
   shoulderYPx: number;
+  /** Pre-refinement pick, kept so a manifest shows how far the edge moved. */
+  coarseShoulderYPx: number;
+  /** Bottom edge of the cap/collar sitting on the glass, when one was found. */
+  closureEdgeYPx: number | null;
+  /** First sustained narrowing of the glass going up from the wall, when found. */
+  narrowingOnsetYPx: number | null;
+  /** Shoulder-to-foot height over wall-to-wall width; comparable to the glass's known proportions. */
+  bodyAspectRatio: number;
   footYPx: number;
   bodyLeftXPx: number;
   bodyRightXPx: number;
@@ -22,6 +30,16 @@ export type DetectGlassShoulderLandmarkInput = {
   primaryBounds: ShoulderLandmarkBounds | null | undefined;
   footYPx: number;
   expectedShoulderYPx?: number;
+  /** Canvas colour; sampled from the image corners when omitted. */
+  background?: { r: number; g: number; b: number };
+  /** How far the glass must narrow, as a fraction of body width, to count as the shoulder. */
+  narrowingFraction?: number;
+  /**
+   * Shoulder-to-foot height over wall-to-wall width for this glass body, from its
+   * lock. Picks between candidates and rejects a detection more than 20% off —
+   * wrong landmarks miss by 50%+, while faint outer rims alone read ~12% narrow.
+   */
+  expectedBodyAspectRatio?: number;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -169,6 +187,170 @@ function signatureSimilarity(
   const blue = first.b - second.b;
   const delta = Math.sqrt(red * red + green * green + blue * blue);
   return Math.exp(-delta / 52);
+}
+
+function sampleCornerBackground(
+  pixels: ArrayLike<number>,
+  width: number,
+  height: number,
+): ColorSignature {
+  const patch = Math.max(2, Math.min(8, Math.floor(Math.min(width, height) / 16)));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let count = 0;
+  for (const [originX, originY] of [
+    [0, 0],
+    [width - patch, 0],
+    [0, height - patch],
+    [width - patch, height - patch],
+  ]) {
+    for (let y = originY; y < originY + patch; y += 1) {
+      for (let x = originX; x < originX + patch; x += 1) {
+        const index = (y * width + x) * 4;
+        r += Number(pixels[index] ?? 0);
+        g += Number(pixels[index + 1] ?? 0);
+        b += Number(pixels[index + 2] ?? 0);
+        count += 1;
+      }
+    }
+  }
+  return { r: r / count, g: g / count, b: b / count };
+}
+
+/**
+ * Silhouette width of one row, from the outermost off-background pixel on each
+ * side. Clear glass matches the canvas inside but keeps a visible rim, so the
+ * outer contour is measurable where the interior is not. A bottle is symmetric
+ * about its walls' centre, so the wider half stands in for a side whose rim
+ * washes out in a highlight.
+ */
+function silhouetteWidthAt(
+  pixels: ArrayLike<number>,
+  width: number,
+  y: number,
+  left: number,
+  right: number,
+  centerX: number,
+  background: ColorSignature,
+): number {
+  const threshold = 28;
+  const offBackground = (x: number): boolean => {
+    const index = (y * width + x) * 4;
+    return (
+      Math.max(
+        Math.abs(Number(pixels[index] ?? 0) - background.r),
+        Math.abs(Number(pixels[index + 1] ?? 0) - background.g),
+        Math.abs(Number(pixels[index + 2] ?? 0) - background.b),
+      ) > threshold
+    );
+  };
+  let leftHalf = 0;
+  for (let x = left; x <= centerX; x += 1) {
+    if (offBackground(x)) {
+      leftHalf = centerX - x;
+      break;
+    }
+  }
+  let rightHalf = 0;
+  for (let x = right; x >= centerX; x -= 1) {
+    if (offBackground(x)) {
+      rightHalf = x - centerX;
+      break;
+    }
+  }
+  return Math.max(leftHalf, rightHalf) * 2;
+}
+
+/**
+ * Going up from the straight wall, the first row where the glass has narrowed
+ * by `narrowingFraction` and stays narrow — "right before the wall starts".
+ * This is the Sep 7 lock's reviewed landmark: on a tight-cornered body it sits
+ * within a few pixels of the closure's bottom edge; on a sloped shoulder it
+ * sits near the bottom of the slope, far below the neck. Returns null when
+ * nothing narrows above the wall, i.e. a body-width cap or collar.
+ */
+function glassNarrowingOnsetY(input: {
+  pixels: ArrayLike<number>;
+  width: number;
+  left: number;
+  right: number;
+  top: number;
+  centerX: number;
+  background: ColorSignature;
+  lowerBodyStart: number;
+  lowerBodyEnd: number;
+  span: number;
+  narrowingFraction: number;
+}): { onsetY: number | null; bodyWidth: number } {
+  const widthAt = (y: number): number =>
+    silhouetteWidthAt(
+      input.pixels,
+      input.width,
+      y,
+      input.left,
+      input.right,
+      input.centerX,
+      input.background,
+    );
+  const bodyWidths: number[] = [];
+  for (let y = input.lowerBodyStart; y <= input.lowerBodyEnd; y += 2) bodyWidths.push(widthAt(y));
+  bodyWidths.sort((first, second) => first - second);
+  const bodyWidth = bodyWidths[Math.floor(bodyWidths.length / 2)] ?? 0;
+  if (bodyWidth < 6) return { onsetY: null, bodyWidth: 0 };
+
+  const limit = bodyWidth * (1 - input.narrowingFraction);
+  const sustain = Math.max(5, Math.round(input.span * 0.02));
+  for (let y = input.lowerBodyStart - 1; y > input.top + sustain; y -= 1) {
+    if (widthAt(y) >= limit) continue;
+    let narrowRows = 0;
+    for (let above = y - 1; above >= y - sustain; above -= 1) {
+      if (widthAt(above) < limit) narrowRows += 1;
+    }
+    if (narrowRows >= sustain * 0.9) return { onsetY: y, bodyWidth };
+  }
+  return { onsetY: null, bodyWidth };
+}
+
+/**
+ * Re-localizes a coarse shoulder candidate onto the top edge of the glass
+ * shoulder: where the closure (cap or collar) ends, or where a bare neck meets
+ * the body.
+ *
+ * The coarse transition compares rows `sampleOffset` apart, so every candidate
+ * within `sampleOffset` of a real boundary scores alike and the wall/body terms
+ * pick among them. At production scale that plateau is 40+ px tall — about two
+ * shoulder-curve heights, ~1% of canvas — and the pick varied per render. A
+ * 1 px comparison resolves the boundary itself; the top-most strong run inside
+ * the plateau is the shoulder edge, above any refraction lines in the curve.
+ */
+function sharpestTopBoundaryNear(
+  pixels: ArrayLike<number>,
+  width: number,
+  height: number,
+  left: number,
+  right: number,
+  coarseY: number,
+  radius: number,
+  minY: number,
+  maxY: number,
+): number {
+  const startY = Math.max(minY, coarseY - radius);
+  const endY = Math.min(maxY, coarseY + radius);
+  const strengths: number[] = [];
+  let strongest = 0;
+  for (let y = startY; y <= endY; y += 1) {
+    const strength = materialTransitionScore(pixels, width, height, left, right, y, 1);
+    strengths.push(strength);
+    strongest = Math.max(strongest, strength);
+  }
+  if (strongest < 8) return coarseY;
+
+  const threshold = strongest * 0.6;
+  const runStart = strengths.findIndex((strength) => strength >= threshold);
+  let runEnd = runStart;
+  while (runEnd + 1 < strengths.length && strengths[runEnd + 1] >= threshold) runEnd += 1;
+  return startY + Math.round((runStart + runEnd) / 2);
 }
 
 /**
@@ -323,6 +505,51 @@ export function detectGlassShoulderLandmark(
   }
 
   if (!best || best.transition < 8) return null;
+  const closureEdgeYPx = sharpestTopBoundaryNear(
+    pixels,
+    width,
+    height,
+    leftWall.x,
+    rightWall.x,
+    best.y,
+    sampleOffset + 2,
+    top + 1,
+    foot - 2,
+  );
+  const narrowing = glassNarrowingOnsetY({
+    pixels,
+    width,
+    left,
+    right,
+    top,
+    centerX: Math.round((leftWall.x + rightWall.x) / 2),
+    background: input.background ?? sampleCornerBackground(pixels, width, height),
+    lowerBodyStart,
+    lowerBodyEnd,
+    span,
+    narrowingFraction: input.narrowingFraction ?? 0.08,
+  });
+  const narrowingOnsetYPx = narrowing.onsetY;
+  // Outer silhouette width, the width a lock's proportions are stated in. The wall
+  // edges above can sit on the inner wall of thick glass, ~15% narrower on a 5 ml.
+  const outerBodyWidth = narrowing.bodyWidth >= bodyWidth ? narrowing.bodyWidth : bodyWidth;
+  // Whichever is met first going up from the wall: a narrow collar or bare neck
+  // leaves the glass narrowing below the closure; a body-width cap hides it.
+  // Position alone cannot tell a hidden shoulder from a false transition inside
+  // the body (a bulb-sprayer hose, a tassel), and colour cannot either — a matte
+  // silver collar averages out like swirl glass. The glass's own proportions can:
+  // given them, take the candidate that fits and refuse a detection that does not,
+  // so the rig fails closed instead of seating a confident wrong landmark.
+  let shoulderYPx =
+    narrowingOnsetYPx === null ? closureEdgeYPx : Math.max(narrowingOnsetYPx, closureEdgeYPx);
+  const expectedAspect = input.expectedBodyAspectRatio;
+  if (typeof expectedAspect === "number" && Number.isFinite(expectedAspect) && expectedAspect > 0) {
+    const deviation = (y: number): number =>
+      Math.abs((foot - y) / outerBodyWidth / expectedAspect - 1);
+    const candidates = narrowingOnsetYPx === null ? [closureEdgeYPx] : [narrowingOnsetYPx, closureEdgeYPx];
+    shoulderYPx = candidates.reduce((bestY, y) => (deviation(y) < deviation(bestY) ? y : bestY));
+    if (deviation(shoulderYPx) > 0.2) return null;
+  }
   const confidence = clamp(
     0.35 +
       Math.min(0.3, best.transition / 240) +
@@ -333,7 +560,11 @@ export function detectGlassShoulderLandmark(
   );
 
   return {
-    shoulderYPx: best.y,
+    shoulderYPx,
+    coarseShoulderYPx: best.y,
+    closureEdgeYPx,
+    narrowingOnsetYPx,
+    bodyAspectRatio: Number(((foot - shoulderYPx) / outerBodyWidth).toFixed(4)),
     footYPx: foot,
     bodyLeftXPx: leftWall.x,
     bodyRightXPx: rightWall.x,
