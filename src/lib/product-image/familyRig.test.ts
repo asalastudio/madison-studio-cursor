@@ -64,6 +64,8 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.equal(assembled.bareGlassHeightMm, 130);
     assert.equal(assembled.glassHeightPct, undefined);
     assert.equal(detached.shoulderTargetPct, assembled.shoulderTargetPct);
+    assert.equal(assembled.glassBodyAspect, 4.184);
+    assert.equal(detached.glassBodyAspect, assembled.glassBodyAspect);
     assert.equal(detached.targetBodyHeightPx, assembled.targetBodyHeightPx);
     assert.notEqual(assembled.fillHeightPct, assembled.shoulderTargetPct);
   });
@@ -82,6 +84,7 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.equal(rig.scaleContractVersion, "shoulder-lock-2026-09-07");
     assert.equal(rig.glassBodyKey, "cylinder:9-tall");
     assert.equal(rig.shoulderTargetPct, 62.5);
+    assert.equal(rig.glassBodyAspect, 5.326);
     assert.equal(rig.targetBodyHeightPx, Math.round(0.625 * 2288));
     assert.equal(rig.scaleTag, "Cylinder 9 ml tall");
     assert.equal(rig.bareGlassHeightMm, 106);

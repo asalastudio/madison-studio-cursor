@@ -2268,6 +2268,8 @@ function detectRigShoulderLandmark(input: {
     primaryBounds: bottleOnlyBounds,
     footYPx: input.detectedBaselineYPx,
     expectedShoulderYPx: input.expectedShoulderYPx,
+    background: input.bg,
+    expectedBodyAspectRatio: input.rig.glassBodyAspect,
   });
 }
 

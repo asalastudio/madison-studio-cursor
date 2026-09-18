@@ -20,7 +20,7 @@ describe("Best Bottles shoulder lock", () => {
   it("pins the Sep 7 lock table and matches the committed snapshot", () => {
     const snapshot = JSON.parse(readFileSync(snapshotPath, "utf8")) as {
       version: string;
-      bodies: Array<{ glassBodyKey: string; shoulderPct: number; status: string }>;
+      bodies: Array<{ glassBodyKey: string; shoulderPct: number; bodyAspect: number; status: string }>;
     };
     assert.equal(snapshot.version, BEST_BOTTLES_SHOULDER_LOCK_VERSION);
     assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 14);
@@ -28,11 +28,13 @@ describe("Best Bottles shoulder lock", () => {
       BEST_BOTTLES_SHOULDER_LOCK_BODIES.map((body) => ({
         glassBodyKey: body.glassBodyKey,
         shoulderPct: body.shoulderPct,
+        bodyAspect: body.bodyAspect,
         status: body.status,
       })),
       snapshot.bodies.map((body) => ({
         glassBodyKey: body.glassBodyKey,
         shoulderPct: body.shoulderPct,
+        bodyAspect: body.bodyAspect,
         status: body.status,
       })),
     );

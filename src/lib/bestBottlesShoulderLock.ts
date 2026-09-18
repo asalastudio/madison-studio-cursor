@@ -22,22 +22,29 @@ export type ShoulderLockBody = {
   label: string;
   /** Foot-to-shoulder % of canvas height, above the 91% baseline. */
   shoulderPct: number;
+  /**
+   * Foot-to-shoulder height over outer glass width — a physical constant of the
+   * body, measured on the Sep 7 locked heroes. Lets the rig tell the real
+   * shoulder from a wrong landmark, which misses these proportions by 50%+.
+   */
+  bodyAspect: number;
   status: ShoulderLockStatus;
 };
 
 export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
-  { glassBodyKey: "cylinder:3.3-standard", label: "Cylinder 3.3 ml", shoulderPct: 26.5, status: "locked" },
-  { glassBodyKey: "cylinder:4-standard", label: "Cylinder 4 ml", shoulderPct: 31.5, status: "locked" },
-  { glassBodyKey: "cylinder:5-standard", label: "Cylinder 5 ml", shoulderPct: 36.5, status: "locked" },
-  { glassBodyKey: "cylinder:9-standard", label: "Cylinder 9 ml", shoulderPct: 43.5, status: "locked" },
-  { glassBodyKey: "cylinder:9-tall", label: "Cylinder 9 ml tall", shoulderPct: 62.5, status: "locked" },
-  { glassBodyKey: "cylinder:25-standard", label: "Cylinder 25 ml", shoulderPct: 46.5, status: "locked" },
-  { glassBodyKey: "cylinder:28-standard", label: "Cylinder 28 ml", shoulderPct: 50.5, status: "locked" },
-  { glassBodyKey: "cylinder:30-standard", label: "Cylinder 30 ml", shoulderPct: 46.0, status: "locked" },
+  { glassBodyKey: "cylinder:3.3-standard", label: "Cylinder 3.3 ml", shoulderPct: 26.5, bodyAspect: 2.109, status: "locked" },
+  { glassBodyKey: "cylinder:4-standard", label: "Cylinder 4 ml", shoulderPct: 31.5, bodyAspect: 2.714, status: "locked" },
+  { glassBodyKey: "cylinder:5-standard", label: "Cylinder 5 ml", shoulderPct: 36.5, bodyAspect: 2.362, status: "locked" },
+  { glassBodyKey: "cylinder:9-standard", label: "Cylinder 9 ml", shoulderPct: 43.5, bodyAspect: 3.127, status: "locked" },
+  { glassBodyKey: "cylinder:9-tall", label: "Cylinder 9 ml tall", shoulderPct: 62.5, bodyAspect: 5.326, status: "locked" },
+  { glassBodyKey: "cylinder:25-standard", label: "Cylinder 25 ml", shoulderPct: 46.5, bodyAspect: 2.134, status: "locked" },
+  { glassBodyKey: "cylinder:28-standard", label: "Cylinder 28 ml", shoulderPct: 50.5, bodyAspect: 2.203, status: "locked" },
+  { glassBodyKey: "cylinder:30-standard", label: "Cylinder 30 ml", shoulderPct: 46.0, bodyAspect: 2.65, status: "locked" },
   {
     glassBodyKey: "cylinder:50-standard",
     label: "Cylinder 50 ml 18-415",
     shoulderPct: 56.0,
+    bodyAspect: 3.167,
     status: "locked",
   },
   // 98 mm bare glass, between the locked 81 mm / 28 ml shoulder (50.5%)
@@ -46,12 +53,13 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
     glassBodyKey: "cylinder:50-rollon",
     label: "Cylinder 50 ml 16 mm roll-on",
     shoulderPct: 53,
+    bodyAspect: 2.354,
     status: "locked",
   },
-  { glassBodyKey: "cylinder:100-standard", label: "Cylinder 100 ml", shoulderPct: 67.5, status: "locked" },
-  { glassBodyKey: "cylinder:114-standard", label: "Cylinder 114 ml plastic", shoulderPct: 49.5, status: "locked" },
-  { glassBodyKey: "cylinder:227-standard", label: "Cylinder 227 ml plastic", shoulderPct: 63.0, status: "locked" },
-  { glassBodyKey: "cylinder:454-standard", label: "Cylinder 454 ml plastic", shoulderPct: 71.5, status: "locked" },
+  { glassBodyKey: "cylinder:100-standard", label: "Cylinder 100 ml", shoulderPct: 67.5, bodyAspect: 4.184, status: "locked" },
+  { glassBodyKey: "cylinder:114-standard", label: "Cylinder 114 ml plastic", shoulderPct: 49.5, bodyAspect: 2.673, status: "locked" },
+  { glassBodyKey: "cylinder:227-standard", label: "Cylinder 227 ml plastic", shoulderPct: 63.0, bodyAspect: 3.045, status: "locked" },
+  { glassBodyKey: "cylinder:454-standard", label: "Cylinder 454 ml plastic", shoulderPct: 71.5, bodyAspect: 3.22, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(

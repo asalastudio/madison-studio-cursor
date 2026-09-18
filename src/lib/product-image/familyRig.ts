@@ -80,6 +80,8 @@ export interface FamilyRigConfig {
   glassBodyKey?: string;
   /** Foot-to-shoulder % of canvas height above the 91% baseline. */
   shoulderTargetPct?: number;
+  /** The locked glass body's foot-to-shoulder height over outer width. */
+  glassBodyAspect?: number;
   /** Distance from the top of the canvas to the shoulder horizon. */
   shoulderYFromTopPct?: number;
   /** Pixel Y of the shoulder horizon from the top of the generate canvas. */
@@ -227,6 +229,7 @@ function applyShoulderLockTarget(
     familyScaleCorrectionPct: 0,
     glassBodyKey: lock.glassBodyKey,
     shoulderTargetPct: lock.shoulderPct,
+    glassBodyAspect: lock.bodyAspect,
     shoulderYFromTopPct: lock.shoulderYFromTopPct,
     targetShoulderYPx: Math.round(
       (lock.shoulderYFromTopPct / 100) * BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX,

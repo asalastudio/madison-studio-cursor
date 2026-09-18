@@ -81,6 +81,8 @@ describe("Deno familyRig twin", () => {
     assert.equal(rig.glassBodyKey, "cylinder:9-tall");
     assert.equal(rig.shoulderTargetPct, 62.5);
     assert.equal(rig.targetBodyHeightPx, Math.round(0.625 * 2288));
+    assert.equal(rig.glassBodyAspect, 5.326);
+    assert.equal(rig.glassBodyAspect, nodeRig.glassBodyAspect);
     assert.equal(rig.shoulderTargetPct, nodeRig.shoulderTargetPct);
     assert.equal(rig.targetBodyHeightPx, nodeRig.targetBodyHeightPx);
   });

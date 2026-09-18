@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { FAMILY_RIG, getFamilyRigForProduct } from "./familyRig";
 import {
@@ -2161,5 +2164,18 @@ describe("trimModelOwnedShadowIntoBand", () => {
       "Lower shadow feather is darker than the contact band.",
     ]));
     assert.ok(!rigPostprocess.isModelShadowFailureTrimmable([]));
+  });
+});
+
+describe("shoulder landmark wiring", () => {
+  it("hands the detector the locked glass body's proportions and the canvas colour", () => {
+    // Without the proportions the detector cannot refuse a wrong landmark, and the
+    // rig's own shoulder QA re-detects around its target, so nothing else would.
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "rigPostprocess.ts"),
+      "utf8",
+    );
+    assert.match(source, /expectedBodyAspectRatio:\s*input\.rig\.glassBodyAspect/);
+    assert.match(source, /background:\s*input\.bg/);
   });
 });

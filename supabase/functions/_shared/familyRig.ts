@@ -29,6 +29,8 @@ export interface FamilyRigConfig {
   scaleTag?: string;
   glassBodyKey?: string;
   shoulderTargetPct?: number;
+  /** The locked glass body's foot-to-shoulder height over outer width. */
+  glassBodyAspect?: number;
   shoulderYFromTopPct?: number;
   targetShoulderYPx?: number;
   bareGlassHeightMm?: number;
@@ -285,6 +287,7 @@ function applyShoulderLockTarget(
     geometryScaleVersion: undefined,
     glassBodyKey: lock.glassBodyKey,
     shoulderTargetPct: lock.shoulderPct,
+    glassBodyAspect: lock.bodyAspect,
     shoulderYFromTopPct: lock.shoulderYFromTopPct,
     targetShoulderYPx: Math.round(
       (lock.shoulderYFromTopPct / 100) * BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX,
