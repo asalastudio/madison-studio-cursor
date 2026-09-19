@@ -1,0 +1,5 @@
+groupSlug,websiteSku,graceSku,exportFileName,role,psdEstate,psdPath,status,note
+atomizer-10ml,GBAtom10Blk,GB-CYL-BLK-10ML-ATM-BLK-01,GBAtom10Blk__GB-CYL-BLK-10ML-ATM-BLK-01.png,identity-cap-on,bbuat,2. PSD Capped /8.   13-400 (5ml) (10ml) Atomizers/10ml Atomizers/1. GBAtom10Blk.psd,ready,
+atomizer-10ml,GBAtom10Blk,GB-CYL-BLK-10ML-ATM-BLK-01,GBAtom10Blk__GB-CYL-BLK-10ML-ATM-BLK-01.png,pdp-cap-off-sidecar,,,missing-role,
+atomizer-5ml,GBAtom5Blk,GB-CYL-BLK-5ML-ATM-BLK,GBAtom5Blk__GB-CYL-BLK-5ML-ATM-BLK.png,identity-cap-on,bbuat,2. PSD Capped /8.   13-400 (5ml) (10ml) Atomizers/13-400 5ml Atomizers/4. GBAtom5Blk.psd,ready,
+atomizer-5ml,GBAtom5Blk,GB-CYL-BLK-5ML-ATM-BLK,GBAtom5Blk__GB-CYL-BLK-5ML-ATM-BLK.png,pdp-cap-off-sidecar,,,missing-role,

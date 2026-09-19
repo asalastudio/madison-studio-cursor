@@ -63,6 +63,37 @@ human call.
 | **Gift Box** | 7 | 0 | — | — | — | — | 7 | **0%** |
 | **Bell / Lotion Bottle / Tool / Pillar / Packaging Supply** | 13 | 0 | — | — | — | — | 13 | **0%** |
 
+## The handoff itself
+
+Per-family work orders live in
+**`public/data/reference-exports/work-orders/`** — one CSV per family, 36 of
+them, plus a `README.md` index ordered by tier.
+
+Each row is **one role of one hero group**, carrying the exact Photoshop file to
+open and the exact filename to save:
+
+| Column | Meaning |
+|---|---|
+| `groupSlug`, `websiteSku`, `graceSku` | the hero group this serves |
+| `exportFileName` | save as exactly this — `<websiteSku>__<graceSku>.png` |
+| `role` | which folder it goes in |
+| `psdEstate`, `psdPath` | the file to open |
+| `status` | `ready` / `missing-role` / `needs-role-decision` / `no-source` |
+| `note` | flags SKU-alias matches, e.g. the 25 ml → 30 ml relabel |
+
+Across all families: **778 role rows — 454 ready, 158 missing the second role,
+38 needing a role decision, 128 with no source.**
+
+A family is pickable when its CSV has `ready` rows. Nothing else needs reading
+first except the output contract below.
+
+Regenerate both artifacts after any estate or registry change:
+
+```
+npx tsx scripts/best-bottles/index-psd-source-coverage.ts
+npx tsx scripts/best-bottles/emit-reference-work-orders.ts
+```
+
 ## How to sequence this
 
 ### Tier 1 — start here (128 groups, 100% sourced)
