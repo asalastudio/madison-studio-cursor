@@ -91,6 +91,50 @@ describe("family rig (profile-aware fit-to-box)", () => {
     assert.equal(rig.glassHeightPct, undefined);
   });
 
+  it("tells the model a slender vial's width instead of asking it to fill the canvas", () => {
+    const tall = getFamilyRigForProduct({
+      family: "Tall Cylinder",
+      bottleCollection: "Cylinder",
+      capacityMl: 9,
+      heightWithCap: "126 ±2 mm",
+      heightWithoutCap: "106 ±2 mm",
+      diameter: "18 ±0.5 mm",
+      applicator: "Fine Mist Sprayer",
+      capState: "detached",
+      mode: "fitment-attached-cap-right-sidecar",
+    });
+    assert.ok(tall);
+    const tallBlock = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig: tall });
+    assert.ok(tallBlock);
+    // 62.5% of 2288 = 1430px of glass; 1430 / 5.326 = 268px = 12.9% of 2080.
+    assert.match(tallBlock, /SLENDER GLASS WIDTH LOCK/);
+    assert.match(tallBlock, /5\.326:1 tall-to-wide/);
+    assert.match(tallBlock, /268px wide — 12\.9% of the canvas width/);
+    assert.match(tallBlock, /Vertical fill only/);
+    assert.match(tallBlock, /Never widen, thicken, or enlarge the vial/);
+    assert.doesNotMatch(tallBlock, /Ecommerce fill is mandatory/);
+    assert.doesNotMatch(tallBlock, /excessive empty margins/);
+
+    // Every other body keeps the prompt it already renders correctly with.
+    const hundred = getFamilyRigForProduct({
+      family: "Cylinder",
+      bottleCollection: "Cylinder",
+      capacityMl: 100,
+      heightWithCap: "160 ±2 mm",
+      heightWithoutCap: "140 ±2 mm",
+      diameter: "38 ±0.5 mm",
+      applicator: "Fine Mist Sprayer",
+      capState: "detached",
+      mode: "fitment-attached-cap-right-sidecar",
+    });
+    assert.ok(hundred);
+    assert.equal(hundred.glassBodyAspect, 4.184);
+    const hundredBlock = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig: hundred });
+    assert.ok(hundredBlock);
+    assert.doesNotMatch(hundredBlock, /SLENDER GLASS WIDTH LOCK/);
+    assert.match(hundredBlock, /Ecommerce fill is mandatory/);
+  });
+
   it("keeps a detached 9 ml Classic sidecar on the scale-card bare-glass contract", () => {
     const rig = getFamilyRigForProduct({
       family: "Cylinder",

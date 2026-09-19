@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   FAMILY_RIG as NODE_FAMILY_RIG,
+  buildImposedRigBlock as buildNodeImposedRigBlock,
   computeRigFitScale as computeNodeRigFitScale,
   getFamilyRigForProduct as getNodeFamilyRigForProduct,
 } from "../../../src/lib/product-image/familyRig";
@@ -85,6 +86,26 @@ describe("Deno familyRig twin", () => {
     assert.equal(rig.glassBodyAspect, nodeRig.glassBodyAspect);
     assert.equal(rig.shoulderTargetPct, nodeRig.shoulderTargetPct);
     assert.equal(rig.targetBodyHeightPx, nodeRig.targetBodyHeightPx);
+
+    // This is the copy that reaches the image model: the server swaps the
+    // client's framing profile for this block, so a slender vial's width has
+    // to be stated here or it is never stated at all.
+    const block = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig });
+    assert.ok(block);
+    assert.match(block, /SLENDER GLASS WIDTH LOCK/);
+    assert.match(block, /5\.326:1 tall-to-wide/);
+    assert.match(block, /268px wide — 12\.9% of the canvas width/);
+    assert.match(block, /Vertical fill only/);
+    assert.doesNotMatch(block, /Ecommerce fill is mandatory/);
+    assert.doesNotMatch(block, /excessive empty margins/);
+    // The twins differ in dash punctuation elsewhere; the slender-vial lines
+    // must be word-for-word identical.
+    const nodeBlock = buildNodeImposedRigBlock({ family: "Cylinder", capState: "detached", rig: nodeRig });
+    assert.ok(nodeBlock);
+    const slenderLines = (text: string) =>
+      text.split("\n").filter((line) => /SLENDER GLASS WIDTH LOCK|Vertical fill only/.test(line));
+    assert.equal(slenderLines(block).length, 2);
+    assert.deepEqual(slenderLines(block), slenderLines(nodeBlock));
   });
 
   it("keeps 5ml short Cylinder sprayers below regular 9ml roll-ons and slim 9ml sprayers", () => {

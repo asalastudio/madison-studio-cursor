@@ -4,6 +4,7 @@ import {
 } from "@/config/bestBottlesFamilyProfiles";
 import {
   BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX,
+  BEST_BOTTLES_SCALE_CARD_GENERATE_WIDTH_PX,
   BEST_BOTTLES_SCALE_CARD_VERSION,
   resolveBestBottlesGlassScale,
 } from "@/config/bestBottlesCatalogScale";
@@ -403,6 +404,9 @@ export type RigCapState = "assembled" | "detached";
  * It does NOT touch geometry/material/component locks (those stay anchored to
  * the reference).
  */
+/** Foot-to-shoulder ÷ width at or above which a glass body counts as a slender vial. */
+const SLENDER_GLASS_BODY_ASPECT = 4.5;
+
 export function buildImposedRigBlock(input: {
   family: string;
   capState: RigCapState;
@@ -433,6 +437,19 @@ export function buildImposedRigBlock(input: {
       ? `heightWithCap = ${cfg.assembledHeightMm} mm`
       : null,
   ].filter((value): value is string => Boolean(value));
+  // The shoulder lock pins a body's height, so the only way the model can obey
+  // "fill the canvas" on a slender vial is to widen the glass — Cylinder 9 ml
+  // tall (5.3:1) came back 12–30% too fat. State its width outright instead.
+  const slenderGlassWidthPx =
+    typeof cfg.glassBodyAspect === "number" &&
+    cfg.glassBodyAspect >= SLENDER_GLASS_BODY_ASPECT &&
+    typeof cfg.targetBodyHeightPx === "number"
+      ? Math.round(cfg.targetBodyHeightPx / cfg.glassBodyAspect)
+      : null;
+  const slenderGlassWidthPct =
+    slenderGlassWidthPx != null
+      ? Math.round((slenderGlassWidthPx / BEST_BOTTLES_SCALE_CARD_GENERATE_WIDTH_PX) * 1000) / 10
+      : null;
   const shoulderLockClause =
     typeof cfg.shoulderTargetPct === "number" &&
     typeof cfg.shoulderYFromTopPct === "number" &&
@@ -445,6 +462,11 @@ export function buildImposedRigBlock(input: {
               ]
             : []),
           `- SHOULDER LOCK (${scaleContractLabel} · ${cfg.glassBodyKey}): seat the glass foot on the shared 91% baseline. The glass shoulder — where the body ends and the neck begins, or where glass meets the cap/collar — MUST land at ${cfg.shoulderTargetPct}% of canvas height above that baseline (${cfg.shoulderYFromTopPct}% down from the top of the canvas). Every SKU that shares this glass body (${cfg.scaleTag}) uses this same shoulder horizon. Fitments (roller, sprayer, pump, cap) rise above the shoulder by their real physical height; do not scale the bottle to the top of the fitment.`,
+          ...(slenderGlassWidthPx != null
+            ? [
+                `- SLENDER GLASS WIDTH LOCK: this body is a slender vial, ${cfg.glassBodyAspect}:1 tall-to-wide between the foot and the locked shoulder. At this shoulder lock the glass is ${slenderGlassWidthPx}px wide — ${slenderGlassWidthPct}% of the canvas width. Hold that width; the neck, fitment, and cap stay in proportion to it. Wide empty Bone margins on both sides are correct.`,
+              ]
+            : []),
           "- Do not use assembled envelope or fitment top as the scale driver.",
         ]
       : [];
@@ -502,7 +524,9 @@ export function buildImposedRigBlock(input: {
     ...scaleDriverClause,
     assembledFramingLine,
     "- Surface rule: flat Bone background only. No mirror reflection, no glossy floor, no reflective tabletop, no rectangular studio plate, no inner background rectangle, no visible paper edge, no texture patch, and no second background color.",
-    shoulderLockClause.length > 0
+    shoulderLockClause.length > 0 && slenderGlassWidthPx != null
+      ? "- Vertical fill only: the SHOULDER LOCK horizon above sets the scale. Never widen, thicken, or enlarge the vial, neck, fitment, or cap to fill the frame, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow)."
+      : shoulderLockClause.length > 0
       ? "- Ecommerce fill is mandatory: the SHOULDER LOCK horizon above must dominate the canvas. Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow)."
       : bareGlassClause.length > 0
         ? "- Ecommerce fill is mandatory: the SCALE-CARD BARE GLASS height above must dominate the canvas. Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow)."
