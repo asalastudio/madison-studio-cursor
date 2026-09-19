@@ -680,6 +680,46 @@ describe("Best Bottles prompt preflight", () => {
     assert.equal(preflight.record.qa_checklist.includes("cylinder_family_profile:cylinder-standard"), false);
   });
 
+  it("guards proportions in both directions and tells the model a slim vial stays slim", () => {
+    // The guard only forbade "taller, thinner, or more slender". Beside the mandatory
+    // ecommerce fill, that pushes a slim vial one way: wider. Live renders of the tall
+    // 9 ml came out 10–30% too fat and never too thin; the rig refused the worst of them.
+    const build = (overrides: Record<string, unknown>) =>
+      buildBestBottlesPromptPreflight({
+        product: { ...baseProduct, applicator: "Metal Roller Ball", trimColor: null, ...overrides },
+        referenceImagePath: "/references/proportion-guard.png",
+        bodyMaterial: "frosted glass",
+        canvas: { widthPx: 2080, heightPx: 2288 },
+        system: promptSystem,
+      }).record?.final_prompt ?? "";
+
+    const tall = build({
+      graceSku: "GB-CYL-FRS-9ML-T-02",
+      websiteSku: "GBTallCylFrst9MtlRollBlkDot",
+      color: "Frosted",
+      heightWithoutCap: "106 ±2 mm",
+      heightWithCap: "111 ±2 mm",
+      diameter: "18 ±0.5 mm",
+    });
+    const standard = build({
+      graceSku: "GB-CYL-FRS-9ML-MRL-BKDT",
+      websiteSku: "GBCylFrst9MtlRollBlkDot",
+      color: "Frosted",
+      heightWithoutCap: "74 ±1 mm",
+      heightWithCap: "87 ±1 mm",
+      diameter: "21 ±0.5 mm",
+    });
+
+    for (const prompt of [tall, standard]) {
+      assert.match(prompt, /never render the product taller, thinner, or more slender/i);
+      assert.match(prompt, /nor shorter, wider, or stockier/i);
+    }
+    assert.match(tall, /SHOULDER LOCK \(shoulder-lock-2026-09-07 · cylinder:9-tall\)/);
+    assert.match(tall, /slim vial/i);
+    assert.match(tall, /never widen the glass to fill the frame/i);
+    assert.doesNotMatch(standard, /slim vial/i);
+  });
+
   it("locks every Cylinder glass body, including the 50 ml roll-on, to its shoulder", () => {
     const lockedBodies = [
       { capacityMl: 4, heightWithoutCap: "44 mm", key: "cylinder:4-standard", pct: "31.5" },

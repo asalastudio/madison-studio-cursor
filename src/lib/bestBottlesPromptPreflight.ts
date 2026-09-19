@@ -636,9 +636,18 @@ function buildProportionLockLine(
       `— at the ${profile.targetProductHeightPct}% fill height the body spans approximately ${widthPct}% of the canvas width`,
     );
   }
+  // The guard has to cut both ways. It once forbade only "taller, thinner, or more
+  // slender"; beside the mandatory ecommerce fill that pushes a slim vial one way,
+  // wider. Live renders of the tall 9 ml (5.9:1) came out 10–30% too fat and never
+  // too thin, so say the other half too, and tell a slim body where its fill comes from.
   parts.push(
-    ". Match this width-to-height relationship exactly; never render the product taller, thinner, or more slender than these canonical proportions.",
+    ". Match this width-to-height relationship exactly in both directions: never render the product taller, thinner, or more slender, nor shorter, wider, or stockier, than these canonical proportions.",
   );
+  if (bodyHeightMm != null && bodyHeightMm / diameterMm >= 4.5) {
+    parts.push(
+      "This is a slim vial: fill the canvas with its height only, and never widen the glass to fill the frame.",
+    );
+  }
   return parts.join(" ").replace(/\s+\./g, ".");
 }
 
