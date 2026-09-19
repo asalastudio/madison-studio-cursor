@@ -4,8 +4,10 @@ import { describe, it } from "node:test";
 import {
   buildBestBottlesPromptPreflight,
   buildBestBottlesPromptSkuFromProduct,
+  inferBestBottlesPromptFamily,
 } from "./bestBottlesPromptPreflight";
 import { buildPromptForSku } from "./bestBottlesPromptCompiler";
+import { resolveBestBottlesShadowPolicy } from "./bestBottlesShadowPolicy";
 import { BEST_BOTTLES_CATALOG_CANON_PROMPT_FLAG } from "./bestBottlesCatalogCanonPrompt";
 import { loadPromptSystem } from "../../scripts/generate-prompts";
 
@@ -57,6 +59,54 @@ function buildThreeMlPreflight(
 }
 
 describe("Best Bottles prompt preflight", () => {
+  it("files a bottle under its own family, not under the closure it ships with", () => {
+    // The family haystack includes the item name and applicator. A Slim glass
+    // bottle sold with a lotion pump used to be filed as the closure family
+    // "lotion_pump", which is a NON-bottle shadow context — so its policy
+    // contradicted its real family and generation threw. 233 bottle SKUs across
+    // 11 families were blocked; Cylinder escaped only because it matches first.
+    const slimWithPump = {
+      graceSku: "LB-SLM-CLR-50ML-LPM-MGLD",
+      websiteSku: "LBSlm50LtnMtGl",
+      family: "Slim",
+      bottleCollection: "Slim",
+      category: "Glass Bottle",
+      itemName: "Slim design 50 ml, 1.7oz clear glass bottle with matte gold lotion pump.",
+      applicator: "Lotion Pump",
+    };
+    const elegantWithDropper = {
+      graceSku: "GB-ELG-CLR-60ML-DRP-GLD",
+      family: "Elegant",
+      bottleCollection: "Elegant",
+      category: "Glass Bottle",
+      itemName: "Elegant design 60 ml clear glass bottle with gold dropper.",
+      applicator: "Dropper",
+    };
+    for (const bottle of [slimWithPump, elegantWithDropper]) {
+      const inferred = inferBestBottlesPromptFamily(bottle);
+      assert.notEqual(inferred, "lotion_pump");
+      assert.notEqual(inferred, "dropper");
+      assert.deepEqual(
+        resolveBestBottlesShadowPolicy({ graceSku: bottle.graceSku, family: inferred }),
+        resolveBestBottlesShadowPolicy({ graceSku: bottle.graceSku, family: bottle.family }),
+        `${bottle.graceSku} must resolve the same shadow policy from its inferred and catalog family`,
+      );
+    }
+
+    // A product whose own catalog family IS the closure is still a closure.
+    assert.equal(
+      inferBestBottlesPromptFamily({
+        graceSku: "CMP-LPM-MGLD-18-415",
+        family: "Lotion Pump",
+        category: "Closure",
+        itemName: "Matte gold lotion pump, 18-415.",
+      }),
+      "lotion_pump",
+    );
+    // With no catalog family at all, the text is the only signal left.
+    assert.equal(inferBestBottlesPromptFamily({ itemName: "Replacement glass dropper with pipette" }), "dropper");
+  });
+
   it("blocks explicit cap-off generation without confirmed PSD evidence", () => {
     const blocked = buildBestBottlesPromptPreflight({
       product: { ...baseProduct, capState: "detached" },

@@ -163,9 +163,21 @@ export function inferBestBottlesPromptFamily(product: ProductLike): string {
   if (includesAny(haystack, ["roll-on", "roll on", "roller", "-mrl-", "-rol-"])) return "roll_on";
   if (includesAny(haystack, ["boston round", "gb-bos", " boston"])) return "boston_round";
   if (includesAny(haystack, ["atomizer", "gb-atm", "-atm-"])) return "atomizer";
-  if (includesAny(haystack, ["dropper", "-drp-", " pipette"])) return "dropper";
+  // A bottle that ships WITH a dropper or lotion pump is still a bottle. The
+  // haystack includes the item name and applicator, so without this guard a
+  // Slim or Elegant glass bottle was filed under its closure, resolved the
+  // non-bottle shadow policy, and threw on the policy check — 233 bottle SKUs
+  // across 11 families could not generate. Cylinder never hit it because it is
+  // matched above. Only a product whose own catalog family IS the closure, or
+  // which has no family at all, may be filed as one.
+  const catalogFamily = normalizeText(compact([product.family, product.bottleCollection]));
+  const mayBeClosureFamily = (names: string[]) =>
+    catalogFamily.length === 0 || includesAny(catalogFamily, names);
+  if (includesAny(haystack, ["dropper", "-drp-", " pipette"]) && mayBeClosureFamily(["dropper"])) {
+    return "dropper";
+  }
   if (includesAny(haystack, ["vintage bulb", "bulb sprayer", "tassel"])) return "vintage_bulb_sprayer";
-  if (includesAny(haystack, ["lotion pump"])) return "lotion_pump";
+  if (includesAny(haystack, ["lotion pump"]) && mayBeClosureFamily(["lotion pump"])) return "lotion_pump";
   if (includesAny(haystack, ["classic spray"])) return "classic_spray";
   if (includesAny(haystack, ["fine mist"])) {
     return includesAny(haystack, ["cylinder", "gb-cyl", "-cyl-"]) ? "cylinder" : "fine_mist_sprayer";
