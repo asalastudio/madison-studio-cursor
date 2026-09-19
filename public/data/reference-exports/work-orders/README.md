@@ -1,6 +1,6 @@
 # Reference re-export work orders
 
-Generated 2026-09-19T06:45:05.166Z from `psd-source-coverage.json`.
+Generated 2026-09-19T07:13:22.640Z from `psd-source-coverage.json`.
 Regenerate: `npx tsx scripts/best-bottles/index-psd-source-coverage.ts && npx tsx scripts/best-bottles/emit-reference-work-orders.ts`
 
 One CSV per family. Each row is one **role** of one hero group, with the exact
@@ -42,8 +42,6 @@ Promotion additionally requires a human review signature.
 | 3 | Dropper | 3 | 3 | 0 | [`dropper.csv`](dropper.csv) |
 | 3 | Plastic Bottle | 2 | 1 | 0 | [`plastic-bottle.csv`](plastic-bottle.csv) |
 | 3 | Lotion Pump | 1 | 1 | 0 | [`lotion-pump.csv`](lotion-pump.csv) |
-| 4 | Gift Bag | 11 | 0 | 0 | [`gift-bag.csv`](gift-bag.csv) |
-| 4 | Gift Box | 7 | 0 | 0 | [`gift-box.csv`](gift-box.csv) |
 | 4 | Bell | 3 | 0 | 0 | [`bell.csv`](bell.csv) |
 | 4 | Lotion Bottle | 3 | 0 | 0 | [`lotion-bottle.csv`](lotion-bottle.csv) |
 | 4 | Tool | 3 | 0 | 0 | [`tool.csv`](tool.csv) |

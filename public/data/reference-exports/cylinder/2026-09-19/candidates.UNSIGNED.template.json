@@ -1,0 +1,1127 @@
+{
+  "note": "UNSIGNED template in the ReviewedCylinderRoleCandidate shape. Every null is deliberately empty: identity key + geometry/source hashes come from Madison's sealed artifact; finalStatus/reviewerId/reviewedAt are a human act. Promotion will (correctly) reject this file as-is.",
+  "candidates": [
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl100AnSpMtSl",
+      "graceSku": "GB-CYL-CLR-100ML-ASP-MSLV",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl100AnSpMtSl__GB-CYL-CLR-100ML-ASP-MSLV.png",
+        "sha256": "d72e2908b2c063dbf888e753206806c3f963db4154418ad984fbb34562519789",
+        "bytes": 193769,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "d72e2908b2c063dbf888e753206806c3f963db4154418ad984fbb34562519789",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl100AnSpTslMtSl",
+      "graceSku": "GB-CYL-CLR-100ML-AST-MSLV",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl100AnSpTslMtSl__GB-CYL-CLR-100ML-AST-MSLV.png",
+        "sha256": "039ad6e650380dd22d3866761f4aecd8a7dd569f5befa30f21f3d0c7aa667b04",
+        "bytes": 289334,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "039ad6e650380dd22d3866761f4aecd8a7dd569f5befa30f21f3d0c7aa667b04",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl100RdcrMtSl",
+      "graceSku": "GB-CYL-CLR-100ML-RDC-MSLV",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl100RdcrMtSl__GB-CYL-CLR-100ML-RDC-MSLV.png",
+        "sha256": "68c9b09fcfb4c980e849b76ecde41f6476c867ffc95c9de7c4a38aa357990fbf",
+        "bytes": 180152,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "68c9b09fcfb4c980e849b76ecde41f6476c867ffc95c9de7c4a38aa357990fbf",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl100SpryMtGl",
+      "graceSku": "GB-CYL-CLR-100ML-SPR-MGLD",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl100SpryMtGl__GB-CYL-CLR-100ML-SPR-MGLD.png",
+        "sha256": "1bc6d2b82980a0ef8a310a8eb89c42152c173e5be772e8eb8ba3996c21b6675e",
+        "bytes": 285489,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "1bc6d2b82980a0ef8a310a8eb89c42152c173e5be772e8eb8ba3996c21b6675e",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl25DrpGl",
+      "graceSku": "GBCyl25DrpGl",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl25DrpGl__GBCyl25DrpGl.png",
+        "sha256": "beacb9e1091815af461f9d7d401502cf64454dc89a3468a682bd904504140123",
+        "bytes": 295557,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "beacb9e1091815af461f9d7d401502cf64454dc89a3468a682bd904504140123",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl25RdcrShnGl",
+      "graceSku": "GBCyl25RdcrShnGl",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl25RdcrShnGl__GBCyl25RdcrShnGl.png",
+        "sha256": "bf4384ac6041de9ea74fbfa0b9bc2358dbf47ab328c1cf01a25e93f06eaa262a",
+        "bytes": 209040,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "bf4384ac6041de9ea74fbfa0b9bc2358dbf47ab328c1cf01a25e93f06eaa262a",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl50AnSpMtSl",
+      "graceSku": "GB-CYL-CLR-50ML-ASP-MSLV",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl50AnSpMtSl__GB-CYL-CLR-50ML-ASP-MSLV.png",
+        "sha256": "623ebb5a1b60e8e780fd22427f9b186610b1e4f517ec0a14ff410ecd37580169",
+        "bytes": 672656,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "623ebb5a1b60e8e780fd22427f9b186610b1e4f517ec0a14ff410ecd37580169",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl50AnSpTslMtSl",
+      "graceSku": "GB-CYL-CLR-50ML-AST-MSLV",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl50AnSpTslMtSl__GB-CYL-CLR-50ML-AST-MSLV.png",
+        "sha256": "9e176bf73c0a836c6fc6c3ce242895f6c6be432c91675651cde6e6d7fda9eab8",
+        "bytes": 868365,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "9e176bf73c0a836c6fc6c3ce242895f6c6be432c91675651cde6e6d7fda9eab8",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl50RdcrMtSl",
+      "graceSku": "GB-CYL-CLR-50ML-RDC-MSLV",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl50RdcrMtSl__GB-CYL-CLR-50ML-RDC-MSLV.png",
+        "sha256": "f9e0db37c49d481c4894c75402df0ff6233a444c318d047f9b860b2811db01e4",
+        "bytes": 174928,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "f9e0db37c49d481c4894c75402df0ff6233a444c318d047f9b860b2811db01e4",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl50SpryMtGl",
+      "graceSku": "GB-CYL-CLR-50ML-SPR-MGLD",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl50SpryMtGl__GB-CYL-CLR-50ML-SPR-MGLD.png",
+        "sha256": "e90d55153d1701dbaf46c7e40c639e416c2dc2f4be222804450a6781d74d0bec",
+        "bytes": 349322,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "e90d55153d1701dbaf46c7e40c639e416c2dc2f4be222804450a6781d74d0bec",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl5SpryBlkMatt",
+      "graceSku": "GB-CYL-CLR-5ML-SPR-MBLK",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl5SpryBlkMatt__GB-CYL-CLR-5ML-SPR-MBLK.png",
+        "sha256": "6bb489ae4ad7f1f3b6c2257beccf8089b2dc4b13c3e7b18dd874bccb434ca4b7",
+        "bytes": 124750,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "6bb489ae4ad7f1f3b6c2257beccf8089b2dc4b13c3e7b18dd874bccb434ca4b7",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBSpry3mlClBlk",
+      "graceSku": "GB-SPR-CLR-3ML-BLK",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBSpry3mlClBlk__GB-SPR-CLR-3ML-BLK.png",
+        "sha256": "3d7d6f6e3ca364a8b366eafa33d35419ef388d9ed657dd2e9d3e703c5eea29ff",
+        "bytes": 659163,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "3d7d6f6e3ca364a8b366eafa33d35419ef388d9ed657dd2e9d3e703c5eea29ff",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBSpry4mlClBlk",
+      "graceSku": "GB-SPR-CLR-4ML-BLK",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBSpry4mlClBlk__GB-SPR-CLR-4ML-BLK.png",
+        "sha256": "b6c3d122704a2f1334aec26c96f8f4797478d40c87f30bd35829380c6c742cbf",
+        "bytes": 583178,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "b6c3d122704a2f1334aec26c96f8f4797478d40c87f30bd35829380c6c742cbf",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBcyl25AnSpIvyGl",
+      "graceSku": "GBcyl25AnSpIvyGl",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBcyl25AnSpIvyGl__GBcyl25AnSpIvyGl.png",
+        "sha256": "aa210b5f0b0aa158a2ac264420991167e443326be2a9ad494c002f833ff72815",
+        "bytes": 690537,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "aa210b5f0b0aa158a2ac264420991167e443326be2a9ad494c002f833ff72815",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBcyl25AnSpTslIvyGl",
+      "graceSku": "GBcyl25AnSpTslIvyGl",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBcyl25AnSpTslIvyGl__GBcyl25AnSpTslIvyGl.png",
+        "sha256": "4fdc94927141f24f6a84f264d8abbaa683ffdad5303149807bb391b162eb2788",
+        "bytes": 1021712,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "4fdc94927141f24f6a84f264d8abbaa683ffdad5303149807bb391b162eb2788",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBcyl25SpryMtGl",
+      "graceSku": "GBcyl25SpryMtGl",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBcyl25SpryMtGl__GBcyl25SpryMtGl.png",
+        "sha256": "9bf3245cbd3206ba67530e0e23fcee67f41b11c755e14f2f145b6b92405147f8",
+        "bytes": 332034,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "9bf3245cbd3206ba67530e0e23fcee67f41b11c755e14f2f145b6b92405147f8",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "LBCyl100LtnMtGl",
+      "graceSku": "LB-CYL-CLR-100ML-LPM-MGLD",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/LBCyl100LtnMtGl__LB-CYL-CLR-100ML-LPM-MGLD.png",
+        "sha256": "cb9cc6cbd02b2652488139e801ebc6794ed24d573d333428722d5e499a533e86",
+        "bytes": 301944,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "cb9cc6cbd02b2652488139e801ebc6794ed24d573d333428722d5e499a533e86",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "LBCyl25LtnMtGl",
+      "graceSku": "LB-CYL-CLR-25ML-LPM-MGLD",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/LBCyl25LtnMtGl__LB-CYL-CLR-25ML-LPM-MGLD.png",
+        "sha256": "6758a394a73c4b5923f276ffa66b5de91c7a433bb9777263c90bb2010bf1c5ee",
+        "bytes": 328340,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "6758a394a73c4b5923f276ffa66b5de91c7a433bb9777263c90bb2010bf1c5ee",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "LBCyl50LtnMtGl",
+      "graceSku": "LB-CYL-CLR-50ML-LPM-MGLD",
+      "roleId": "identity-cap-on",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/LBCyl50LtnMtGl__LB-CYL-CLR-50ML-LPM-MGLD.png",
+        "sha256": "ebedf602e87550ecbdfa3990990ed99c26b8e00c85b84982e260fad65d183973",
+        "bytes": 372071,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "identity-cap-on",
+        "sourceSha256": null,
+        "outputSha256": "ebedf602e87550ecbdfa3990990ed99c26b8e00c85b84982e260fad65d183973",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "assembled-cap-on",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl100RdcrMtSl",
+      "graceSku": "GB-CYL-CLR-100ML-RDC-MSLV",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl100RdcrMtSl__GB-CYL-CLR-100ML-RDC-MSLV.png",
+        "sha256": "6206d5830e31355ebee01990ec069c76365e99bd04e352fbc8c65b33b39d6450",
+        "bytes": 228094,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "6206d5830e31355ebee01990ec069c76365e99bd04e352fbc8c65b33b39d6450",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl100SpryMtGl",
+      "graceSku": "GB-CYL-CLR-100ML-SPR-MGLD",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl100SpryMtGl__GB-CYL-CLR-100ML-SPR-MGLD.png",
+        "sha256": "84eda27836b2652131de6eb33e3ea02f281690b419502e3bd20b0c4522108b1e",
+        "bytes": 392021,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "84eda27836b2652131de6eb33e3ea02f281690b419502e3bd20b0c4522108b1e",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl25DrpGl",
+      "graceSku": "GBCyl25DrpGl",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl25DrpGl__GBCyl25DrpGl.png",
+        "sha256": "f0f01fc04ddb26b05db8120ff3d64f7a9f3705140bdae671c9f32cfc84d6b62a",
+        "bytes": 353634,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "f0f01fc04ddb26b05db8120ff3d64f7a9f3705140bdae671c9f32cfc84d6b62a",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl25RdcrShnGl",
+      "graceSku": "GBCyl25RdcrShnGl",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl25RdcrShnGl__GBCyl25RdcrShnGl.png",
+        "sha256": "678288301b4c9bcf5337ad96c6948cc39b851f02dc7ca25eff8cd4be39729285",
+        "bytes": 261579,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "678288301b4c9bcf5337ad96c6948cc39b851f02dc7ca25eff8cd4be39729285",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl50RdcrMtSl",
+      "graceSku": "GB-CYL-CLR-50ML-RDC-MSLV",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl50RdcrMtSl__GB-CYL-CLR-50ML-RDC-MSLV.png",
+        "sha256": "cd88b558e70c4fcf4eddfd30a5720712b8d51d57c3221f7fde64ef0b03ec2c33",
+        "bytes": 223050,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "cd88b558e70c4fcf4eddfd30a5720712b8d51d57c3221f7fde64ef0b03ec2c33",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl50SpryMtGl",
+      "graceSku": "GB-CYL-CLR-50ML-SPR-MGLD",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl50SpryMtGl__GB-CYL-CLR-50ML-SPR-MGLD.png",
+        "sha256": "364fe7b8e2099f088390811f59a19d544be467d87379482384c40029cb9541ae",
+        "bytes": 509306,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "364fe7b8e2099f088390811f59a19d544be467d87379482384c40029cb9541ae",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBCyl5SpryBlkMatt",
+      "graceSku": "GB-CYL-CLR-5ML-SPR-MBLK",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl5SpryBlkMatt__GB-CYL-CLR-5ML-SPR-MBLK.png",
+        "sha256": "1a6cab63b49fcaa60e8ebce79c6a0096dc0e93f1ecb91700eb301ceaf7967593",
+        "bytes": 163488,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "1a6cab63b49fcaa60e8ebce79c6a0096dc0e93f1ecb91700eb301ceaf7967593",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBSpry4mlClBlk",
+      "graceSku": "GB-SPR-CLR-4ML-BLK",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBSpry4mlClBlk__GB-SPR-CLR-4ML-BLK.png",
+        "sha256": "612329bd6cf21e9423ad41c29729ee9dfde3ee940af7628be88b4482ee5f3fe1",
+        "bytes": 701484,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "612329bd6cf21e9423ad41c29729ee9dfde3ee940af7628be88b4482ee5f3fe1",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBTallCyl9MtlRollBlkDot",
+      "graceSku": "GB-CYL-CLR-9ML-MRL-BKDT-02",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBTallCyl9MtlRollBlkDot__GB-CYL-CLR-9ML-MRL-BKDT-02.png",
+        "sha256": "d3f924a885d1758d811b54f7e4f64a5bd3c2ce86ae1cc068919744ef6743bb61",
+        "bytes": 191904,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "d3f924a885d1758d811b54f7e4f64a5bd3c2ce86ae1cc068919744ef6743bb61",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBTallCylFrst9MtlRollBlkDot",
+      "graceSku": "GB-CYL-FRS-9ML-T-02",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBTallCylFrst9MtlRollBlkDot__GB-CYL-FRS-9ML-T-02.png",
+        "sha256": "0a908ad87a9ed8f46bd73b639b8513b7281e40201689ca791e271cc9c57dc36f",
+        "bytes": 213136,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "0a908ad87a9ed8f46bd73b639b8513b7281e40201689ca791e271cc9c57dc36f",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "GBcyl25SpryMtGl",
+      "graceSku": "GBcyl25SpryMtGl",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBcyl25SpryMtGl__GBcyl25SpryMtGl.png",
+        "sha256": "0c4c42eb9ab374f19bdc530790571a9b7d06ba56a481c187886b9c3f0e751baf",
+        "bytes": 486198,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "0c4c42eb9ab374f19bdc530790571a9b7d06ba56a481c187886b9c3f0e751baf",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "LBCyl100LtnMtGl",
+      "graceSku": "LB-CYL-CLR-100ML-LPM-MGLD",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/LBCyl100LtnMtGl__LB-CYL-CLR-100ML-LPM-MGLD.png",
+        "sha256": "aa5d2bab5a65a85da39049d63c99749e2b910da41a336d0fc56b6076a64a918f",
+        "bytes": 407031,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "aa5d2bab5a65a85da39049d63c99749e2b910da41a336d0fc56b6076a64a918f",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "LBCyl25LtnMtGl",
+      "graceSku": "LB-CYL-CLR-25ML-LPM-MGLD",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/LBCyl25LtnMtGl__LB-CYL-CLR-25ML-LPM-MGLD.png",
+        "sha256": "fcb88e000c32c0c5867e0efb8d63ab35234b9a778d8e33f83917af619e87f6de",
+        "bytes": 467795,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "fcb88e000c32c0c5867e0efb8d63ab35234b9a778d8e33f83917af619e87f6de",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    },
+    {
+      "canonicalIdentityKey": null,
+      "websiteSku": "LBCyl50LtnMtGl",
+      "graceSku": "LB-CYL-CLR-50ML-LPM-MGLD",
+      "roleId": "pdp-cap-off-sidecar",
+      "source": {
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sha256": null,
+        "_comment": "= sealed readiness artifact exportSha256 for this role, after Madison step 1 re-seals with this drop"
+      },
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/LBCyl50LtnMtGl__LB-CYL-CLR-50ML-LPM-MGLD.png",
+        "sha256": "25115abe4c5c2d60be617f449946d902dca9989aaf1b1681cd1ec24007f7b6b2",
+        "bytes": 516436,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "canonicalGeometrySha256": null
+      },
+      "review": {
+        "finalStatus": null,
+        "reviewerId": null,
+        "reviewedAt": null,
+        "canonicalIdentityKey": null,
+        "roleId": "pdp-cap-off-sidecar",
+        "sourceSha256": null,
+        "outputSha256": "25115abe4c5c2d60be617f449946d902dca9989aaf1b1681cd1ec24007f7b6b2",
+        "canonicalGeometrySha256": null,
+        "reviewedException": null
+      },
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null
+    }
+  ]
+}

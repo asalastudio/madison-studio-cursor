@@ -39,6 +39,13 @@ const ESTATES = [
   { id: "original", root: `${CLIENT_ROOT}/Best-Bottles-Original-Photoshop-Sources` },
 ];
 
+/**
+ * Out of scope for the hero program (Jordan, 2026-09-19). These are not bottles,
+ * have no Photoshop source in either estate, and were the bulk of the tier-4
+ * pile. Pass --include-out-of-scope to see them anyway.
+ */
+const OUT_OF_SCOPE_FAMILIES = new Set(["gift bag", "gift box"]);
+
 const getArg = (flag: string, fallback = "") => {
   const index = process.argv.indexOf(flag);
   return index >= 0 && process.argv[index + 1] ? process.argv[index + 1]! : fallback;
@@ -106,9 +113,17 @@ type HeroRow = { groupSlug: string; websiteSku: string; graceSku: string; family
 const catalogHeroesPath = CATALOG_HERO_CANDIDATES.find((candidate) => existsSync(candidate));
 if (!catalogHeroesPath) throw new Error(`catalog-heroes.json not found in: ${CATALOG_HERO_CANDIDATES.join(", ")}`);
 const registry = JSON.parse(readFileSync(catalogHeroesPath, "utf8")) as HeroRow[] | Record<string, HeroRow>;
-const heroRows = (Array.isArray(registry) ? registry : Object.values(registry)).filter(
-  (row) => !familyFilter || (row.family ?? "").toLowerCase() === familyFilter.toLowerCase(),
-);
+const includeOutOfScope = process.argv.includes("--include-out-of-scope");
+const allRows = Array.isArray(registry) ? registry : Object.values(registry);
+const heroRows = allRows.filter((row) => {
+  const family = (row.family ?? "").toLowerCase();
+  if (!includeOutOfScope && OUT_OF_SCOPE_FAMILIES.has(family)) return false;
+  return !familyFilter || family === familyFilter.toLowerCase();
+});
+const excluded = allRows.length - heroRows.length;
+if (!includeOutOfScope && !familyFilter && excluded > 0) {
+  console.log(`excluded ${excluded} row(s) in out-of-scope families: ${[...OUT_OF_SCOPE_FAMILIES].join(", ")}`);
+}
 
 // One hero per product group; the registry carries a few duplicate rows.
 const byGroup = new Map<string, HeroRow>();
