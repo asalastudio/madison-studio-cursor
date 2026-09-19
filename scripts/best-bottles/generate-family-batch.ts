@@ -1892,6 +1892,13 @@ async function main(): Promise<void> {
         console.log(`single-product guard evidence: ${finalPrompt.split("\n").filter((line) => /COMPOSITION SAFETY|detached cap|exactly one finished/i.test(line)).join(" | ") || "missing from final prompt"}`);
       }
       console.log(`cap/volume cue line present  : ${capVolumeCue ? `YES → ${capVolumeCue.trim()}` : "no"}`);
+      // The checks above sample a few lines. To read what the model is actually told —
+      // e.g. whether a frosted SKU carries any clear-glass wording — write it all out.
+      const promptDumpPath = process.env.BB_GEN_DUMP_PROMPT?.trim();
+      if (promptDumpPath) {
+        writeFileSync(path.resolve(promptDumpPath), `${finalPrompt}\n`);
+        console.log(`sample prompt written        : ${promptDumpPath}`);
+      }
     } else {
       console.log(`\n(no targets resolved — nothing to sample)`);
     }
