@@ -396,8 +396,15 @@ export function detectGlassShoulderLandmark(
   // is one light tone with no rim: its only wall edge is the canvas-to-glass step,
   // which lies ON the bounds line, where a search kept inside never straddles it.
   // The same reach lets dark glass find its true outer wall instead of settling
-  // for an internal highlight. Bottle-only bounds end well short of a sidecar.
-  const wallSearchMargin = Math.max(3, Math.round((right - left) * 0.02));
+  // for an internal highlight.
+  //
+  // How far: the bounds finder needs 40 levels of contrast, which frosted glass
+  // (~18) never reaches, so frosted bounds come from darker parts such as the base
+  // and can sit inset by an unpredictable amount per side — 12 px, 3.9% of the
+  // width, on one real rescaled render, which a 2% reach missed. 5% covers that and
+  // still stops short of a detached sidecar: bottle-only bounds guarantee an empty
+  // gap of at least 1% of the canvas (~21 px) beside the bottle.
+  const wallSearchMargin = Math.max(4, Math.round((right - left) * 0.05));
   const leftWall = strongestEdgeX(
     pixels,
     width,
