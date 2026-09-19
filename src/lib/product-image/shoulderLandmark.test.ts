@@ -283,6 +283,103 @@ describe("detectGlassShoulderLandmark at production scale", () => {
     assert.ok(Math.abs(result.bodyAspectRatio * (bodyRight - bodyLeft + 1) - (footY - shoulderY)) <= 6);
   });
 
+  for (const closure of ["narrow-collar", "bare-neck"] as const) {
+    it(`finds frosted glass, whose only edge sits on the bounds line (${closure})`, () => {
+      // Frosted glass on bone has no dark rim: the body is one light tone about 20
+      // levels off the canvas, so the bounds hug it and the wall step lies ON the
+      // bounds line. Measured on real renders: a search that starts inside the bounds
+      // reads 2.7–4.5 where it needs 6, finds no wall, and blocks every frosted SKU.
+      const width = 520;
+      const height = 1200;
+      const shoulderY = 520;
+      const footY = 1100;
+      const bodyLeft = 170;
+      const bodyRight = 340;
+      const cornerRadius = 12;
+      const centerX = 255;
+      const FROSTED: Rgb = { r: 226, g: 226, b: 226 };
+      const FROSTED_BASE: Rgb = { r: 176, g: 176, b: 178 };
+      const pixels = makePixels(width, height);
+      for (let y = shoulderY; y <= footY; y += 1) {
+        const dy = Math.max(0, shoulderY + cornerRadius - y);
+        const inset = Math.round(cornerRadius - Math.sqrt(cornerRadius * cornerRadius - dy * dy));
+        fillRect(pixels, width, bodyLeft + inset, y, bodyRight - inset, y, FROSTED);
+      }
+      // The thick base is the only part dark enough to define the bottle's bounds.
+      fillRect(pixels, width, bodyLeft, footY - 14, bodyRight, footY, FROSTED_BASE);
+      let closureTop: number;
+      if (closure === "bare-neck") {
+        fillRect(pixels, width, centerX - 45, 400, centerX + 45, shoulderY - 1, FROSTED);
+        closureTop = 330;
+        fillRect(pixels, width, centerX - 41, closureTop, centerX + 41, 399, FITMENT);
+      } else {
+        fillRect(pixels, width, bodyLeft + 38, 400, bodyRight - 38, shoulderY - 1, FITMENT);
+        closureTop = 290;
+        fillRect(pixels, width, centerX - 40, closureTop, centerX + 40, 399, FITMENT);
+      }
+
+      const result = detectGlassShoulderLandmark({
+        pixels,
+        width,
+        height,
+        // Exactly the body's extent, as detectTallestComponentBounds reports it.
+        primaryBounds: { top: closureTop, bottom: footY, left: bodyLeft, right: bodyRight },
+        footYPx: footY,
+        expectedBodyAspectRatio: (footY - shoulderY) / (bodyRight - bodyLeft + 1),
+      });
+
+      assert.ok(result, "frosted glass must be detectable");
+      assert.ok(
+        Math.abs(result.shoulderYPx - shoulderY) <= 3,
+        `expected the top of the frosted body at y=${shoulderY}, got y=${result.shoulderYPx}`,
+      );
+      assert.ok(
+        Math.abs(result.bodyRightXPx - result.bodyLeftXPx - (bodyRight - bodyLeft)) <= 6,
+        `walls should be the body's outer edges, got ${result.bodyLeftXPx}–${result.bodyRightXPx}`,
+      );
+    });
+  }
+
+  it("resolves a frosted bare neck on geometry alone when neck and body are one material", () => {
+    // A wide frosted neck over a frosted body: no material changes at the shoulder, so
+    // the material cue has nothing to find. The glass still narrows by 20%, and that is
+    // the landmark. A real frosted roll-on cleared the material bar on the raw image and
+    // fell under it after the rig rescaled, blocking an otherwise correct render.
+    const width = 520;
+    const height = 1200;
+    const shoulderY = 520;
+    const footY = 1100;
+    const bodyLeft = 170;
+    const bodyRight = 340;
+    const centerX = 255;
+    const neckHalf = 68;
+    const FROSTED: Rgb = { r: 226, g: 226, b: 226 };
+    const FROSTED_BASE: Rgb = { r: 176, g: 176, b: 178 };
+    const pixels = makePixels(width, height);
+    fillRect(pixels, width, bodyLeft, shoulderY, bodyRight, footY, FROSTED);
+    fillRect(pixels, width, bodyLeft, footY - 14, bodyRight, footY, FROSTED_BASE);
+    fillRect(pixels, width, centerX - neckHalf, 400, centerX + neckHalf, shoulderY - 1, FROSTED);
+    fillRect(pixels, width, centerX - neckHalf + 4, 330, centerX + neckHalf - 4, 399, FITMENT);
+
+    const result = detectGlassShoulderLandmark({
+      pixels,
+      width,
+      height,
+      primaryBounds: { top: 330, bottom: footY, left: bodyLeft, right: bodyRight },
+      footYPx: footY,
+      expectedBodyAspectRatio: (footY - shoulderY) / (bodyRight - bodyLeft + 1),
+    });
+
+    assert.ok(result, "the narrowing alone locates this shoulder");
+    assert.ok(
+      Math.abs(result.shoulderYPx - shoulderY) <= 3,
+      `expected the top of the frosted body at y=${shoulderY}, got y=${result.shoulderYPx}`,
+    );
+    assert.equal(result.closureEdgeYPx, null);
+    assert.equal(result.shoulderYPx, result.narrowingOnsetYPx);
+    assert.ok(result.confidence < 0.7, "a single cue should not report full confidence");
+  });
+
   it("re-detects the same top edge inside the transformed-target window", () => {
     const scene = drawProductionCylinder("narrow-collar");
     const result = detectGlassShoulderLandmark({

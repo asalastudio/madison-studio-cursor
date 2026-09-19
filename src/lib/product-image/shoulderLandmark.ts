@@ -7,8 +7,8 @@ export type ShoulderLandmarkBounds = {
 
 export type GlassShoulderLandmark = {
   shoulderYPx: number;
-  /** Pre-refinement pick, kept so a manifest shows how far the edge moved. */
-  coarseShoulderYPx: number;
+  /** Pre-refinement pick, kept so a manifest shows how far the edge moved; null when only geometry resolved. */
+  coarseShoulderYPx: number | null;
   /** Bottom edge of the cap/collar sitting on the glass, when one was found. */
   closureEdgeYPx: number | null;
   /** First sustained narrowing of the glass going up from the wall, when found. */
@@ -235,8 +235,8 @@ function silhouetteWidthAt(
   left: number,
   right: number,
   background: ColorSignature,
+  threshold: number,
 ): number {
-  const threshold = 28;
   const offBackground = (x: number): boolean => {
     const index = (y * width + x) * 4;
     return (
@@ -280,6 +280,7 @@ function glassNarrowingOnsetY(input: {
   right: number;
   top: number;
   background: ColorSignature;
+  silhouetteThreshold: number;
   lowerBodyStart: number;
   lowerBodyEnd: number;
   span: number;
@@ -293,6 +294,7 @@ function glassNarrowingOnsetY(input: {
       input.left,
       input.right,
       input.background,
+      input.silhouetteThreshold,
     );
   const bodyWidths: number[] = [];
   for (let y = input.lowerBodyStart; y <= input.lowerBodyEnd; y += 2) bodyWidths.push(widthAt(y));
@@ -389,10 +391,17 @@ export function detectGlassShoulderLandmark(
   const lowerBodyEnd = clamp(Math.round(top + span * 0.84), lowerBodyStart + 1, foot - 1);
   const minimumHalfWidth = Math.max(3, Math.round((right - left) * 0.12));
 
+  // Reach a little outside the bounds. Clear glass has a dark rim, so its bounds
+  // sit outside the rim and the rim's inner edge falls inside them. Frosted glass
+  // is one light tone with no rim: its only wall edge is the canvas-to-glass step,
+  // which lies ON the bounds line, where a search kept inside never straddles it.
+  // The same reach lets dark glass find its true outer wall instead of settling
+  // for an internal highlight. Bottle-only bounds end well short of a sidecar.
+  const wallSearchMargin = Math.max(3, Math.round((right - left) * 0.02));
   const leftWall = strongestEdgeX(
     pixels,
     width,
-    left + 1,
+    Math.max(1, left - wallSearchMargin),
     center - minimumHalfWidth,
     lowerBodyStart,
     lowerBodyEnd,
@@ -401,7 +410,7 @@ export function detectGlassShoulderLandmark(
     pixels,
     width,
     center + minimumHalfWidth,
-    right - 1,
+    Math.min(width - 2, right + wallSearchMargin),
     lowerBodyStart,
     lowerBodyEnd,
   );
@@ -505,25 +514,46 @@ export function detectGlassShoulderLandmark(
     }
   }
 
-  if (!best || best.transition < 8) return null;
-  const closureEdgeYPx = sharpestTopBoundaryNear(
-    pixels,
-    width,
-    height,
-    leftWall.x,
-    rightWall.x,
-    best.y,
-    sampleOffset + 2,
-    top + 1,
-    foot - 2,
-  );
+  // A material change is only one of two cues. Where the neck and body are the same
+  // material — a bare frosted neck — it is weak by nature and can fall under the bar
+  // once the rig rescales, while the glass still narrows plainly. Keep going on
+  // geometry alone rather than giving up before the width rule has been tried.
+  const coarse = best && best.transition >= 8 ? best : null;
+  const closureEdgeYPx = coarse
+    ? sharpestTopBoundaryNear(
+        pixels,
+        width,
+        height,
+        leftWall.x,
+        rightWall.x,
+        coarse.y,
+        sampleOffset + 2,
+        top + 1,
+        foot - 2,
+      )
+    : null;
+  // The silhouette is read against the canvas. Clear glass is found by its rim and
+  // coloured glass is far off the canvas, so 28 separates both from canvas noise.
+  // Frosted glass is one light tone only 18–27 levels off, under that bar, so halve
+  // its own measured contrast instead; being opaque, the whole body then reads.
+  const background = input.background ?? sampleCornerBackground(pixels, width, height);
+  const bodyContrast = bodySignature
+    ? Math.max(
+        Math.abs(bodySignature.r - background.r),
+        Math.abs(bodySignature.g - background.g),
+        Math.abs(bodySignature.b - background.b),
+      )
+    : 0;
+  const silhouetteThreshold =
+    bodyContrast >= 12 && bodyContrast < 56 ? Math.max(8, bodyContrast * 0.5) : 28;
   const narrowing = glassNarrowingOnsetY({
     pixels,
     width,
     left,
     right,
     top,
-    background: input.background ?? sampleCornerBackground(pixels, width, height),
+    background,
+    silhouetteThreshold,
     lowerBodyStart,
     lowerBodyEnd,
     span,
@@ -540,28 +570,34 @@ export function detectGlassShoulderLandmark(
   // silver collar averages out like swirl glass. The glass's own proportions can:
   // given them, take the candidate that fits and refuse a detection that does not,
   // so the rig fails closed instead of seating a confident wrong landmark.
-  let shoulderYPx =
-    narrowingOnsetYPx === null ? closureEdgeYPx : Math.max(narrowingOnsetYPx, closureEdgeYPx);
+  const candidates = [narrowingOnsetYPx, closureEdgeYPx].filter(
+    (candidate): candidate is number => candidate !== null,
+  );
+  if (candidates.length === 0) return null;
+  let shoulderYPx = Math.max(...candidates);
   const expectedAspect = input.expectedBodyAspectRatio;
   if (typeof expectedAspect === "number" && Number.isFinite(expectedAspect) && expectedAspect > 0) {
     const deviation = (y: number): number =>
       Math.abs((foot - y) / outerBodyWidth / expectedAspect - 1);
-    const candidates = narrowingOnsetYPx === null ? [closureEdgeYPx] : [narrowingOnsetYPx, closureEdgeYPx];
     shoulderYPx = candidates.reduce((bestY, y) => (deviation(y) < deviation(bestY) ? y : bestY));
     if (deviation(shoulderYPx) > 0.15) return null;
   }
-  const confidence = clamp(
-    0.35 +
-      Math.min(0.3, best.transition / 240) +
-      best.support * 0.2 +
-      best.bodySimilarity * 0.25,
-    0,
-    1,
-  );
+  // Two agreeing cues earn the measured score; geometry alone is a fair reading but
+  // a single one, and says so.
+  const confidence = coarse
+    ? clamp(
+        0.35 +
+          Math.min(0.3, coarse.transition / 240) +
+          coarse.support * 0.2 +
+          coarse.bodySimilarity * 0.25,
+        0,
+        1,
+      )
+    : 0.6;
 
   return {
     shoulderYPx,
-    coarseShoulderYPx: best.y,
+    coarseShoulderYPx: coarse?.y ?? null,
     closureEdgeYPx,
     narrowingOnsetYPx,
     bodyAspectRatio: Number(((foot - shoulderYPx) / outerBodyWidth).toFixed(4)),
@@ -569,7 +605,7 @@ export function detectGlassShoulderLandmark(
     bodyLeftXPx: leftWall.x,
     bodyRightXPx: rightWall.x,
     confidence: Number(confidence.toFixed(3)),
-    transitionScore: Number(best.transition.toFixed(2)),
-    wallSupport: Number(best.support.toFixed(3)),
+    transitionScore: Number((coarse?.transition ?? 0).toFixed(2)),
+    wallSupport: Number((coarse?.support ?? 0).toFixed(3)),
   };
 }
