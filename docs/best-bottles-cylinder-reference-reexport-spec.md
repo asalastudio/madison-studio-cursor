@@ -72,7 +72,24 @@ states for several SKUs, which is the shape this wants.
 
 This signature is a human act. Madison cannot generate it.
 
-## Scope — 16 recoverable, 13 not
+> ## ⚠ Superseded scope (corrected 2026-09-19)
+>
+> The scope table below was built against one estate and is **too pessimistic**.
+> A second estate, `~/Projects/Clients/Nemat-International/BBUAT-Upload-Files`
+> (6,337 files, split `1. PSD Uncapped` / `2. PSD Capped`), covers far more —
+> and the storefront's "25 ml" group is mislabelled: the SKU and both estates
+> call that bottle **30 ml**, so `GBcyl25SpryMtGl` → `GBCyl30SpryMtGl.psd`.
+>
+> Corrected Cylinder coverage: **43 of 52 groups sourced, 33 with both roles.**
+> Only 9 have no source — the three 4oz/8oz/16oz plastics, the four matte-gold
+> short-cap variants (also absent from the June Convex snapshot), and two others.
+>
+> Canonical numbers now live in `docs/best-bottles-reference-prep-program.md`
+> and `tmp/bestbottles-generation/psd-source-coverage.json`. The output
+> contract, review-signature requirement, promotion chain and the two naming
+> traps in this document all still stand.
+
+## Scope — 16 recoverable, 13 not (superseded; see the note above)
 
 Full machine-readable map: `tmp/bestbottles-generation/cylinder-remaining-29.json`
 plus the PSD index built against
