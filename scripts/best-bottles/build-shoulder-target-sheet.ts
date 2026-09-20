@@ -33,7 +33,7 @@
  * `index-psd-source-coverage.ts`.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -61,7 +61,24 @@ const ESTATE_ROOTS: Record<string, string> = {
   bbuat: `${CLIENT_ROOT}/BBUAT-Upload-Files`,
   original: `${CLIENT_ROOT}/Best-Bottles-Original-Photoshop-Sources`,
 };
-const SITE_HEROES = `${CLIENT_ROOT}/Best-Bottles-Website-02-20-2026/.claude/worktrees/sunburst-heroes-release-7/public`;
+/**
+ * Where the locked reference ladder's images are read from. Release worktrees
+ * come and go — this pinned release-7 and broke every sheet once it was
+ * removed — so take whichever checkout is actually on disk, newest first, and
+ * fall back to the main one.
+ */
+const SITE_ROOT = `${CLIENT_ROOT}/Best-Bottles-Website-02-20-2026`;
+const SITE_HEROES = (() => {
+  const worktrees = `${SITE_ROOT}/.claude/worktrees`;
+  const releases = existsSync(worktrees)
+    ? readdirSync(worktrees)
+        .filter((name) => /^sunburst-heroes-release-\d+$/.test(name))
+        .sort((a, b) => Number(b.split("-").pop()) - Number(a.split("-").pop()))
+        .map((name) => `${worktrees}/${name}/public`)
+    : [];
+  return [...releases, `${SITE_ROOT}/public`].find((candidate) =>
+    existsSync(join(candidate, "../src/lib/products/catalog-heroes.json"))) ?? `${SITE_ROOT}/public`;
+})();
 const CONVEX_SNAPSHOT = `${CLIENT_ROOT}/Best-Bottles-Website-02-20-2026/data/audits/2026-06-27-framing-profiles/convex_snapshot.json`;
 
 /**
