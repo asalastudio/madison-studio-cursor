@@ -3,7 +3,9 @@
 You are taking over the Best Bottles hero-image program from another agent. The
 goal is one hero image per storefront product group — **352 groups** — at a
 consistent, physically honest scale. **41 are done and live** (Cylinder 31 of 52,
-Slim 10 of 15). Thirty-three families are untouched.
+Slim 10 of 15) — done means shoulder-locked. Thirty-three families have no
+shoulder lock yet. 85 other groups carry Sunburst renders from releases 1-5,
+made before the lock existed; Jordan has ruled those do not count.
 
 **Read this first, in full, before generating anything:**
 `docs/best-bottles-handoff/HANDOFF.md` in the repo `asalastudio/madison-studio-cursor`,

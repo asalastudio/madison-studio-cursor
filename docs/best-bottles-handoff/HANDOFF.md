@@ -80,11 +80,51 @@ returning 200 in production.
 | 8 | #205 | 7 Cylinder |
 | 9 | #207 | 10 Slim + 1 Cylinder |
 
-**41 of 352 in-scope hero groups are Madison-rendered and live:
-Cylinder 31 of 52, Slim 10 of 15.**
+**41 of 352 in-scope hero groups are shoulder-locked and live:
+Cylinder 31 of 52, Slim 10 of 15.** Those 41 are the only ones that count as done.
 
-Every group on the site already shows *a* hero (older PSD-derived ones). What is
-incomplete is consistent, shoulder-locked coverage — not blank cards.
+Do not be misled by what else is on the site. Every group already shows *a*
+hero, and 85 of them are Sunburst renders from **releases 1-5 (2026-09-10 to
+09-16), made before the shoulder lock existed** and sized from millimetres:
+Circle 27, Boston Round 23, Cylinder 14, Decorative 8, Dropper 3, Bell 3,
+Atomizer 2, Vial 2, Tool 2, Apothecary 1. **Jordan ruled on 2026-09-19 that
+releases 1-5 do not count** — only the shoulder-locked releases (6 onward) do.
+The other 226 groups show legacy plates. So "untouched" below means "no
+shoulder lock yet", not "no Sunburst image".
+
+### Shoulder-target review sheets (built 2026-09-19)
+
+`npx tsx scripts/best-bottles/build-shoulder-target-sheet.ts --all` builds one
+sheet per family plus an index at
+`http://localhost:8080/tmp/bestbottles-review/index.html` (gitignored; needs the
+Vite harness on :8080).
+
+- **One slider per bottle size, set from one north star.** Each size takes its
+  proportions from its most trustworthy file (clear glass, uncapped, no bulb).
+  Every other colour and closure at that size follows; a follower whose own
+  reading disagrees has its shoulder placed from the north star and says so on
+  its card. Jordan's rule: lock a Boston Round 30 ml once and every Boston Round
+  30 ml holds that shoulder, whatever its colour or fitment.
+- Bodies that are already locked (all of Cylinder and Slim) are not asked again.
+- Each card says what is live for that hero today (shoulder-locked / Sunburst
+  pre-lock / legacy plate), read from the website repo's `origin/main`.
+- Decisions are read back from `window.__shoulderTargetsDecided` on a family
+  page, or `window.__allShoulderTargets` on the index. An untouched slider is an
+  opening guess and is never stored as a decision.
+- State on 2026-09-19: **39 glass bodies across 19 families await a target; 148
+  heroes are on sheets; none decided yet.** Held off the sheets: 46 with no
+  Photoshop source, 37 on curved glass where the detector finds no shoulder
+  (Circle 50/100 ml, Round 128 ml, parts of Diva), 27 tassel bulb sprayers
+  (wide-canvas lane; they inherit a lock, they do not set one), and the 7
+  closure/accessory families (26 groups), which have no glass shoulder and need
+  their own sizing rule.
+
+**The scale card** Jordan refers to is `src/config/bestBottlesCatalogScale.ts`
+(scale-card v2, 2026-09-18): five levels keyed on bare-glass height in mm, giving
+the glass foot-to-RIM fill — Mini <45 mm 52%, Small 45-65 mm 58%, Medium 65-95 mm
+64%, Large 95-135 mm 70%, Standard 135 mm+ 74%. It is keyed on millimetres, never
+on ml. The shoulder lock replaced it as the scale driver for locked bodies; each
+sheet shows a body's scale-card level for orientation.
 
 ### Rendered, not yet shipped
 
