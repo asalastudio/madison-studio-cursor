@@ -105,6 +105,7 @@ import {
   type CylinderRoleGenerationAuthority,
   type CylinderVerifiedReferenceBytes,
 } from "../../src/lib/bestBottlesCylinderRoleAuthority";
+import { resolveBestBottlesHeroPresentation } from "../../src/lib/bestBottlesHeroPresentation";
 import { loadPromptSystem } from "../generate-prompts";
 import {
   buildCylinderSmokePromptRecord,
@@ -164,6 +165,17 @@ const productGroup = getArg("--product-group", "");
 const skipTassel = process.argv.includes("--skip-tassel");
 const includeBulbTassel = process.argv.includes("--include-bulb-tassel");
 const referenceFolder = getArg("--reference-folder", "");
+// Cylinder is fenced: generation must use the exact promoted immutable role
+// reference. Jordan lifted that for the flattened-Photoshop route on
+// 2026-09-19 — the PSD flat is the original source the promoted derivative was
+// made from, and every other family already generates from it. It stays opt-in:
+// it needs a --reference-folder, only ever applies to a target that came from
+// that folder, and tags the image so its provenance is never mistaken for a
+// promoted reference. Without the flag the fence is exactly as it was.
+const allowFlattenedPsdReference = process.argv.includes("--allow-flattened-psd-reference");
+if (allowFlattenedPsdReference && !referenceFolder) {
+  throw new Error("--allow-flattened-psd-reference requires --reference-folder.");
+}
 const skusArg = getArg("--skus", "");
 // Optional explicit graceSku allowlist for curated cross-group pilots
 // (e.g. one representative each of 3/4/5/9ml to check the capacity scale).
@@ -308,6 +320,12 @@ interface Skip {
   sku: string;
   productGroupSlug: string | null;
   reason: string;
+}
+
+/** True only when this target's reference bytes were read from --reference-folder. */
+function isFlattenedPsdTarget(target: FamilyTarget): boolean {
+  const lineage = target.verifiedReference?.lineageUrl;
+  return typeof lineage === "string" && localHeroFilePaths.has(lineage);
 }
 
 // ---------------------------------------------------------------------------
@@ -511,6 +529,8 @@ function loadLocalHeroFolder(folderArg: string): Map<string, LocalHeroReference>
 }
 
 const localHeroByKey = referenceFolder ? loadLocalHeroFolder(referenceFolder) : new Map<string, LocalHeroReference>();
+/** File paths that came from --reference-folder, so a target can prove its route. */
+const localHeroFilePaths = new Set([...localHeroByKey.values()].map((hero) => hero.filePath));
 
 function lookupLocalHero(...keys: Array<string | null | undefined>): LocalHeroReference | null {
   for (const key of keys) {
@@ -522,15 +542,33 @@ function lookupLocalHero(...keys: Array<string | null | undefined>): LocalHeroRe
 
 function buildLocalHeroVerifiedReference(localHero: LocalHeroReference, bytes: Buffer, width: number, height: number): CylinderVerifiedReferenceBytes {
   const sha256 = createHash("sha256").update(bytes).digest("hex");
+  // A dropper hero shows the dropper seated in the bottle. Telling the model
+  // "detached sidecar" against a reference with nothing detached makes it
+  // invent a loose part, so the authority has to match what the reference
+  // shows. The assembled shape mirrors buildCylinderRoleGenerationAuthority
+  // for a real identity-cap-on role.
+  const assembled = resolveBestBottlesHeroPresentation({
+    groupSlug: localHero.productGroupSlug,
+    websiteSku: localHero.websiteSku,
+  }) === "assembled";
   return {
-    authority: {
-      referenceRoleId: "pdp-cap-off-sidecar",
-      componentTopology: "fitment-attached-cap-right-sidecar",
-      capState: "detached",
-      capOffReferenceId: sha256,
-      topologyReferenceId: sha256,
-      shadowTopology: "detached-sidecar",
-    },
+    authority: assembled
+      ? {
+          referenceRoleId: "identity-cap-on",
+          componentTopology: "assembled",
+          capState: "assembled",
+          capOffReferenceId: null,
+          topologyReferenceId: sha256,
+          shadowTopology: "complex-contact",
+        }
+      : {
+          referenceRoleId: "pdp-cap-off-sidecar",
+          componentTopology: "fitment-attached-cap-right-sidecar",
+          capState: "detached",
+          capOffReferenceId: sha256,
+          topologyReferenceId: sha256,
+          shadowTopology: "detached-sidecar",
+        },
     bytes: new Uint8Array(bytes),
     sha256,
     dataUrl: `data:image/png;base64,${bytes.toString("base64")}`,
@@ -970,6 +1008,9 @@ function buildBodyForTarget(target: FamilyTarget) {
     `qa:${identity.qaStatus}`,
     `component-topology:${componentTopology}`,
     `topology-reference:${topologyReferenceId}`,
+    // Never let a render made from a local Photoshop flat read as if it came
+    // from a promoted immutable reference.
+    isFlattenedPsdTarget(target) ? "reference-route:flattened-psd" : null,
     ...visualTargetTags,
   ].filter((tag): tag is string => Boolean(tag));
 
@@ -1120,7 +1161,14 @@ async function generateOnce(target: FamilyTarget, page: Page | null): Promise<Ge
       }
       return supabase.functions.invoke("generate-madison-image", { body });
     };
-    const { data, error } = isCylinderCloseoutFamily
+    const flattenedPsdRoute = allowFlattenedPsdReference && isFlattenedPsdTarget(target);
+    if (flattenedPsdRoute && isCylinderCloseoutFamily) {
+      console.log(`  [${target.sku}] reference route: FLATTENED PSD (${path.basename(target.verifiedReference!.lineageUrl)}) — immutable-role fence lifted by --allow-flattened-psd-reference`);
+    }
+    const { data, error } = flattenedPsdRoute
+      // The drift check still runs: the bytes sent must be the bytes verified.
+      ? await invokeRemoteGeneration(target.verifiedReference)
+      : isCylinderCloseoutFamily
       ? await invokeWithCylinderVerifiedReference({
           row: target.canonicalReadiness,
           presetId: preset.id,
