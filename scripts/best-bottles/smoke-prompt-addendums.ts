@@ -133,6 +133,26 @@ const CYLINDER_TRUTH_V2_ADDENDUM: SmokePromptAddendum = {
   ].join("\n"),
 };
 
+// 2026-09-20: a frosted bottle with a BARE NECK (plain cap, reducer, roll-on)
+// came out as clear glass 5 of 5, while the same frosted glass under a sprayer,
+// pump or dropper came out frosted 5 of 5 — on an identical prompt that already
+// says to preserve the frosting and carries a frosted style reference. The neck
+// of a frosted bottle really is clear glass, and with nothing covering it that
+// is the strongest glass cue in a white-on-white reference. This states the
+// finish of the body outright. It is a finish lock, not a glass-optics recipe:
+// the 2026-07-05 A/B below retired every variant that tried to describe how
+// glass should look, and this deliberately does not.
+const FROSTED_BODY_CLEAR_NECK_V1_ADDENDUM: SmokePromptAddendum = {
+  id: "frosted-body-clear-neck-v1",
+  text: [
+    "FROSTED GLASS FINISH LOCK:",
+    "The BODY of this bottle is frosted glass: an even, matte, acid-etched, milky-white translucent surface, exactly as in the Product Reference. It is not clear glass.",
+    "Only the threaded neck finish is clear glass. The clear neck does not make the body clear: the body is frosted from the shoulder to the base.",
+    "A frosted body is not see-through. It shows no dark outline drawn along its walls, no visible rear wall, and no base rings seen through the glass. Its edges are soft tonal steps against the background.",
+    "Do not render the body as clear, transparent, or only lightly hazed glass.",
+  ].join("\n"),
+};
+
 const ADDENDUMS = new Map<string, SmokePromptAddendum>([
   [CLEAR_GLASS_POLISH_ADDENDUM.id, CLEAR_GLASS_POLISH_ADDENDUM],
   [KINFOLK_AESOP_STUDIO_V2_ADDENDUM.id, KINFOLK_AESOP_STUDIO_V2_ADDENDUM],
@@ -141,6 +161,7 @@ const ADDENDUMS = new Map<string, SmokePromptAddendum>([
   [COMPONENT_IDENTITY_GLASS_PRESENCE_V2_ADDENDUM.id, COMPONENT_IDENTITY_GLASS_PRESENCE_V2_ADDENDUM],
   [CYLINDER_TRUTH_V1_ADDENDUM.id, CYLINDER_TRUTH_V1_ADDENDUM],
   [CYLINDER_TRUTH_V2_ADDENDUM.id, CYLINDER_TRUTH_V2_ADDENDUM],
+  [FROSTED_BODY_CLEAR_NECK_V1_ADDENDUM.id, FROSTED_BODY_CLEAR_NECK_V1_ADDENDUM],
 ]);
 
 // 2026-07-05: after a controlled A/B, component-identity-lock-v1 (the minimal

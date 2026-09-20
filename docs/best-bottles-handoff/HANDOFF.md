@@ -299,6 +299,24 @@ same result. Next step is a finish directive for frosted bare-neck heroes
 refraction outlines"), tested on two renders, and a finish check in the rig,
 which today measures geometry only.
 
+**Finish-lock test, 2026-09-20 (Jordan approved; 2 renders, ~$0.84): 1 of 2.**
+`BB_GEN_PROMPT_ADDENDUM=frosted-body-clear-neck-v1` (in
+`scripts/best-bottles/smoke-prompt-addendums.ts`; opt-in, tags the image
+`prompt-addendum:…`) states that the body is frosted and only the threaded neck
+is clear. The frosted 100 ml reducer came out properly frosted and passed the
+rig (shoulder 778/778, drift -4.3%) — awaiting Jordan's sign-off. The frosted
+30 ml plain cap came out as **the wrong product**: a tall frosted cylinder
+roll-on with a black dotted cap, i.e. the secondary STYLE-ONLY reference
+(`frosted-v2-…`) reproduced as the subject. The rig refused it on proportions
+(4.64 against ~2.2), which is the geometry gate doing its job. Nine earlier
+frosted renders without the addendum never leaked the style reference, so the
+addendum plausibly pushed the model toward that image; n=1, not proven. Jordan
+also rejected the three clear-glass renders from the previous round
+(`status:needs-regen`). Next idea, untested: keep the finish lock but name the
+subject in it ("this flat rectangular flask from the primary reference") and
+forbid borrowing the style reference's bottle or cap — or drop the secondary
+style image for bare-neck frosted heroes and let the text carry the finish.
+
 **Open on Elegant:**
 - **Rejected, need the prompt fix before re-rendering:** `GB-ELG-FRS-30ML-GLD-T` and
   `GB-ELG-FRS-100ML-RDC-SGLD` passed the rig but were rendered as CLEAR glass.
