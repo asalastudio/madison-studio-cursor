@@ -2281,6 +2281,9 @@ export function detectTallestComponentBounds(
   return best;
 }
 
+/** Below this the first shoulder answer is doubted and the whole vessel is searched as well. */
+const SHOULDER_SECOND_LOOK_BELOW_CONFIDENCE = 0.8;
+
 function detectRigShoulderLandmark(input: {
   pixels: ArrayLike<number>;
   width: number;
@@ -2308,16 +2311,47 @@ function detectRigShoulderLandmark(input: {
           input.detectedBaselineYPx,
         ) ?? input.primaryBounds
       : input.primaryBounds;
-  return detectGlassShoulderLandmark({
-    pixels: input.pixels,
-    width: input.width,
-    height: input.height,
-    primaryBounds: bottleOnlyBounds,
-    footYPx: input.detectedBaselineYPx,
-    expectedShoulderYPx: input.expectedShoulderYPx,
-    background: input.bg,
-    expectedBodyAspectRatio: input.rig.glassBodyAspect,
-  });
+  const detectWithin = (primaryBounds: RigStrongBounds | null) =>
+    detectGlassShoulderLandmark({
+      pixels: input.pixels,
+      width: input.width,
+      height: input.height,
+      primaryBounds,
+      footYPx: input.detectedBaselineYPx,
+      expectedShoulderYPx: input.expectedShoulderYPx,
+      background: input.bg,
+      expectedBodyAspectRatio: input.rig.glassBodyAspect,
+    });
+  const landmark = detectWithin(bottleOnlyBounds);
+  if (
+    (landmark && landmark.confidence >= SHOULDER_SECOND_LOOK_BELOW_CONFIDENCE) ||
+    input.capState !== "detached" ||
+    !(input.pixels instanceof Uint8ClampedArray)
+  ) {
+    return landmark;
+  }
+  // No confident shoulder: look again inside the whole vessel. The bounds above fall
+  // back to the bottle lane, which ends at a fixed 70% of the canvas, and a
+  // sidecar cap usually starts before that — the primary bounds of 40 of the 41
+  // approved heroes run to exactly 70.0% — so the search window holds the cap's
+  // hard edge beside the glass wall. Clear and dark glass out-shout it. A frosted
+  // wall is ~18 levels and does not: seven frosted Elegant renders returned no
+  // shoulder here, and every one resolved at 0.86-1.00 inside the vessel's own
+  // bounds. It is a second look only. Searching there first moved the shoulder
+  // by up to 1% of the canvas on two approved coloured Cylinders, so anything
+  // that already resolves confidently keeps the answer it has (every approved
+  // hero reads 1.0). A low-confidence first answer is not protected: the frosted
+  // 15 ml came back at 0.6, 11% of the canvas off, against 0.99 in the vessel.
+  const vesselBounds = resolveWholeVesselBounds(
+    input.pixels,
+    input.width,
+    input.height,
+    input.bg,
+    input.detectedBaselineYPx,
+  );
+  const secondLook = vesselBounds ? detectWithin(vesselBounds) : null;
+  if (!secondLook) return landmark;
+  return !landmark || secondLook.confidence > landmark.confidence ? secondLook : landmark;
 }
 
 function shoulderLandmarkToControlBounds(
