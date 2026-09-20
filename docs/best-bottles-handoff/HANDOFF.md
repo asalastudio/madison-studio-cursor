@@ -273,8 +273,34 @@ on all 19; aspect drift within 5.3%. Spend about $9.30. What it took:
   The filter claimed the reference file for the first row even when that row was
   then refused. It now claims on acceptance.
 
+**Jordan's review, 2026-09-20:** 17 approved (the 4 practice + 13), 2 rejected.
+Recorded with `scripts/best-bottles/apply-gallery-selections.ts` — the sanctioned
+path; it writes `status:approved-keep` by exact image URL, and now
+`status:needs-regen` for an item marked `"status": "needs-regen"`, never
+downgrading an approval. (Madison's `approve_best_bottles_reconciled_image` RPC
+has never been used in this lane and would refuse these rows: it still demands
+`framing_decision = 'pass'`, which the rig never writes. All 41 live Cylinder and
+Slim heroes are still `review-pending` in the database; the approval of record
+has been the website release lock.) The Supabase MCP's `execute_sql` is
+read-only — use the script, not `apply_migration`, for data.
+
+**Frosted glass drawn clear is a model behaviour, not bad luck.** Jordan approved
+4 more renders (the 2 rejected, plus the frosted 15 ml roll-on and fine mist):
+3 passed the rig and ALL 3 came out clear again; the fine mist failed the rig.
+Across the run, frosted heroes wearing a sprayer, pump or dropper came out
+frosted 5 of 5; frosted heroes with a **bare neck** (plain cap, reducer,
+roll-on) came out clear 5 of 5. The prompt is identical between them and already
+carries a "preserve the frosting EXACTLY" line plus a STYLE-ONLY frosted
+reference (`frosted-v2-…`). Likely cause: the neck of a frosted bottle really is
+clear glass, and with nothing covering it that is the strongest glass cue in a
+white-on-white reference. Do not re-roll these — it is about $0.42 each for the
+same result. Next step is a finish directive for frosted bare-neck heroes
+("body is acid-etched and opaque; only the threaded neck is clear; no dark
+refraction outlines"), tested on two renders, and a finish check in the rig,
+which today measures geometry only.
+
 **Open on Elegant:**
-- **Reject and re-render 2:** `GB-ELG-FRS-30ML-GLD-T` and
+- **Rejected, need the prompt fix before re-rendering:** `GB-ELG-FRS-30ML-GLD-T` and
   `GB-ELG-FRS-100ML-RDC-SGLD` passed the rig but were rendered as CLEAR glass.
   **The rig checks geometry, not glass finish** — nothing automated catches a
   frosted SKU drawn clear, and being drawn clear is why these two sailed through
