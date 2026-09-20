@@ -215,6 +215,28 @@ the Elegant lock yet** — it needs a redeploy, which needs Jordan's go. Until
 then Madison-side generation for Elegant has no lock in its prompt;
 `rig-external-image.ts` reads the local table and works now.
 
+**Update, same day:** redeployed as `generate-madison-image` v232 (verified first
+that the live bundle differed from the tree in the lock table only). A
+four-bottle practice run — the clear fine-mist sprayer at each size — seated
+every shoulder within 1 px of target (Y 1190 / 1098 / 1007 / 777-778,
+confidence 1). **But the batch passed only the 100 ml.** The other three were
+rejected by a different check: the 6% "primary bottle aspect vs reference" gate
+for detached heroes. That is a measurement bug, not a bad render:
+`detectStrongBounds` in `rigPostprocess.ts` counts a pixel as bottle only when it
+is >= 52 from the background, or >= 16 and brighter than it. Cylinder walls are
+dark thick lines and register; Elegant's flat faces render as thin grey walls,
+darker than Bone and under 52, so they are invisible to it. Measured aspect came
+out 2.76 against a true ~2.1 on the 15 ml (width collapsed onto the sprayer) and
+1.76 against ~1.9 on the 60 ml (a sliver of the sidecar cap inside the fixed
+12-70% search band). Reproduce at no cost with
+`rig-external-image.ts --expected-primary-aspect <reference aspect>`. The three
+raw renders are paid for and stored (`generated_images`, lifecycle `failed`);
+once the measurement is fixed they re-rig for free with `--resume-raw-image-id`.
+Likely fix: let the glass body's edge-to-edge width (already measured reliably
+by the shoulder path) set the primary's horizontal extent, and end the primary
+at the gap before the sidecar instead of a fixed 70%. Regress against the 41
+approved Cylinder and Slim raws before trusting it. Do not widen the 6%.
+
 Source of truth: `src/lib/bestBottlesShoulderLock.ts`, mirrored in
 `supabase/functions/_shared/bestBottlesShoulderLock.ts` and
 `public/data/best-bottles-shoulder-lock-2026-09-07.json`. **All three change

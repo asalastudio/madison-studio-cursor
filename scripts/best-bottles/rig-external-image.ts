@@ -20,6 +20,10 @@
  *
  *   npx tsx scripts/best-bottles/rig-external-image.ts --image out.png --sku GB-SLM-CLR-50ML-SPR-MGLD
  *
+ * The batch runner also holds a detached hero to the proportions of its
+ * reference (bottle plus fitment, 6%). Pass that aspect to apply the same gate:
+ *   --expected-primary-aspect 2.15
+ *
  * For a SKU missing from the catalog snapshot, describe the glass instead:
  *   --family Slim --capacity-ml 50 --applicator "Fine Mist Sprayer" --website-sku GBSlm50SpryMtGl
  */
@@ -44,6 +48,7 @@ const getArg = (flag: string, fallback = "") => {
 };
 const imagePath = resolve(getArg("--image"));
 const sku = getArg("--sku");
+const expectedPrimaryAspect = Number(getArg("--expected-primary-aspect")) || null;
 if (!getArg("--image") || !existsSync(imagePath)) {
   console.error("--image <png> is required and must exist");
   process.exit(1);
@@ -110,17 +115,17 @@ try {
     process.exit(1);
   }
   const result = await page.evaluate(
-    async ({ imageUrl, product, shadowTopology }: { imageUrl: string; product: Record<string, unknown>; shadowTopology: unknown }) => {
+    async ({ imageUrl, product, shadowTopology, expectedPrimaryAspect }: { imageUrl: string; product: Record<string, unknown>; shadowTopology: unknown; expectedPrimaryAspect: number | null }) => {
       // @ts-expect-error — resolved by Vite inside the harness page, not by tsc
       const { normalizeBestBottlesRigBaseline } = await import("/src/lib/product-image/rigPostprocess.ts");
       const rigged = await normalizeBestBottlesRigBaseline(imageUrl, {
-        expectedPrimaryAspectRatio: null, ...product, shadowTopology,
+        expectedPrimaryAspectRatio: expectedPrimaryAspect, ...product, shadowTopology,
         targetBackgroundHex: "#F5F3EF", maskReferenceUrl: null, requireMaskControl: false,
       });
       const { dataUrl: out, ...rest } = rigged as Record<string, unknown>;
       return { out, rest };
     },
-    { imageUrl: dataUrl, product, shadowTopology },
+    { imageUrl: dataUrl, product, shadowTopology, expectedPrimaryAspect },
   );
 
   const info = result.rest as Record<string, unknown>;
@@ -134,6 +139,8 @@ try {
   console.log(`  shoulder   target Y ${info.targetShoulderYPx ?? "—"}   landed Y ${info.detectedShoulderYPx ?? "—"}   delta ${info.shoulderDeltaPct ?? "—"}%   confidence ${info.shoulderConfidence ?? "—"}`);
   console.log(`  transform  scale ${info.scale != null ? Number(info.scale).toFixed(3) : "—"}   (model was ${info.preTransformShoulderYPx != null && info.targetShoulderYPx != null ? Math.abs(Number(info.preTransformShoulderYPx) - Number(info.targetShoulderYPx)) + " px off before the rig" : "unmeasured before the rig"})`);
   console.log(`  framing    ${info.framingDecision ?? "—"}`);
+  const measured = (info.framingQa as { measurements?: Record<string, unknown> } | undefined)?.measurements ?? (info.measurements as Record<string, unknown> | undefined);
+  if (expectedPrimaryAspect != null) console.log(`  proportion expected ${expectedPrimaryAspect}   measured ${measured?.primaryAspectRatio ?? "—"}   drift ${measured?.aspectRatioDriftPct ?? "—"}%`);
   if (issues.length) {
     console.log(`\n  NOT A HERO — ${issues.length} QA issue(s):`);
     for (const issue of issues) console.log(`    - ${issue}`);
