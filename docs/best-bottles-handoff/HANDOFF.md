@@ -243,9 +243,54 @@ whole-vessel bounds of **0 of the 41** approved heroes, and the 6% tolerance did
 not move. The three stored raws were then re-rigged through the pipeline with
 `--resume-raw-image-id` at no provider cost. All four practice heroes are
 `review-pending` with no QA issues: aspect drift -1.7 / -1.4 / -1.4 / -5.7%
-(the 100 ml is the one to eyeball). **18 more Elegant heroes are ready and
-wait only on Jordan's go to spend.** A taller fitment lowers the ratio further
-— a lotion pump on a short flask is the case to watch.
+(the 100 ml is the one to eyeball). Jordan signed off those four and approved
+the other 18.
+
+**Elegant after the full run (2026-09-20): 22 rendered, 19 passing in Madison
+(`review-pending`), 3 failed with raws stored.** Shoulders within 5 px of target
+on all 19; aspect drift within 5.3%. Spend about $9.30. What it took:
+
+- *Assembled heroes (in-bottle droppers) were held to the wrong number.* The
+  gate used catalog `heightWithCap / diameter` — 2.57 and 2.82 for a flask whose
+  front view is 2.03. Exactly the flat-family trap in CLAUDE.md. The rig now takes
+  `canonWidthAxisMm` / `canonHeightWithCapMm`; `scripts/best-bottles/canon-truth.ts`
+  supplies them to both the batch runner and `rig-external-image.ts`. The
+  measurement changed too: assembly height over the glass, edge to edge, because
+  strong bounds include the contact shadow under a wide base. A first attempt
+  (whole-vessel union) under-read the approved Slim 30 ml dropper by 17% and was
+  dropped; the shipped version reads it at -0.1%.
+- *Frosted glass lost its shoulder.* The detector's search window falls back to
+  the bottle lane, which ends at a fixed 70% of the canvas, and the sidecar cap
+  usually starts before that (primary bounds of 40 of 41 approved heroes run to
+  exactly 70.0%). Clear and dark glass out-shout the cap's edge; a frosted wall
+  does not. Now a second look inside the whole vessel, only when the first finds
+  nothing or under 0.8 confidence. Two broader fixes were tried and dropped on
+  regression evidence — moving the lane edge shifted 40 of 41 approved heroes'
+  bounds (they feed centring), and searching the vessel first moved two approved
+  coloured Cylinders' shoulders by 1%.
+- *A duplicate filter of mine hid three heroes.* The catalog files each frosted
+  15 ml twice under one website SKU (a wrong `CLR` row and the correct `FRS` row).
+  The filter claimed the reference file for the first row even when that row was
+  then refused. It now claims on acceptance.
+
+**Open on Elegant:**
+- **Reject and re-render 2:** `GB-ELG-FRS-30ML-GLD-T` and
+  `GB-ELG-FRS-100ML-RDC-SGLD` passed the rig but were rendered as CLEAR glass.
+  **The rig checks geometry, not glass finish** — nothing automated catches a
+  frosted SKU drawn clear, and being drawn clear is why these two sailed through
+  the shoulder detector. Look at every frosted hero by eye.
+- **3 failed, raws stored, no spend needed:** frosted 15 ml plain cap (first look
+  answers 0.6 and 11% off; the second look reads 0.99 in isolation but does not
+  displace it in the live flow), frosted 60 ml sprayer (lost after
+  normalisation), frosted 60 ml reducer (not found before it).
+- **2 ready, not yet approved to render:** frosted 15 ml roll-on and fine mist,
+  unblocked by the duplicate-filter fix.
+- 8 bulb/tassel sprayers belong to the wide-canvas lane; `GBElg15MinarCu` has no
+  uncapped source.
+- The harness on :8080 is the `bb-rig-harness-8080` launch configuration. Check
+  it serves the worktree before a paid run (`curl` the rig source and grep for a
+  recent symbol); the rig runs client-side, so a stale harness silently applies
+  old QA to a paid render.
 
 Source of truth: `src/lib/bestBottlesShoulderLock.ts`, mirrored in
 `supabase/functions/_shared/bestBottlesShoulderLock.ts` and
