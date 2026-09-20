@@ -89,6 +89,14 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   { glassBodyKey: "sleek:30-standard", label: "Sleek 30 ml", shoulderPct: 47, bodyAspect: 2.753, status: "locked" },
   { glassBodyKey: "sleek:50-standard", label: "Sleek 50 ml", shoulderPct: 56, bodyAspect: 4.412, status: "locked" },
   { glassBodyKey: "sleek:100-standard", label: "Sleek 100 ml", shoulderPct: 60.5, bodyAspect: 3.749, status: "locked" },
+  // Boston Round — locked 2026-09-20 by Jordan on the all-family target sheet,
+  // read back from the page. A round bottle like Cylinder, and it lands on the
+  // Cylinder ladder: 68 mm 42 against an opening of 42.5, 78 mm 45 against 45.5,
+  // 94 mm 52 against 49.5. Every bottle's own shoulder reading agreed with its
+  // north star, so none had to be placed from it.
+  { glassBodyKey: "boston-round:15-standard", label: "Boston Round 15 ml", shoulderPct: 42, bodyAspect: 1.947, status: "locked" },
+  { glassBodyKey: "boston-round:30-standard", label: "Boston Round 30 ml", shoulderPct: 45, bodyAspect: 1.727, status: "locked" },
+  { glassBodyKey: "boston-round:60-standard", label: "Boston Round 60 ml", shoulderPct: 52, bodyAspect: 1.817, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(
@@ -252,6 +260,7 @@ const CAPACITY_KEYED_FAMILIES: Readonly<Record<string, { keyPrefix: string; capa
   slim: { keyPrefix: "slim", capacitiesMl: [30, 50, 100] },
   elegant: { keyPrefix: "elegant", capacitiesMl: [15, 30, 60, 100] },
   sleek: { keyPrefix: "sleek", capacitiesMl: [5, 8, 30, 50, 100] },
+  "boston round": { keyPrefix: "boston-round", capacitiesMl: [15, 30, 60] },
 };
 
 function capacityKeyedGlassBodyKey(

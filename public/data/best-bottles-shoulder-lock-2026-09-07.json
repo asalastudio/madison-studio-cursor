@@ -185,6 +185,27 @@
       "shoulderPct": 60.5,
       "bodyAspect": 3.749,
       "status": "locked"
+    },
+    {
+      "glassBodyKey": "boston-round:15-standard",
+      "label": "Boston Round 15 ml",
+      "shoulderPct": 42,
+      "bodyAspect": 1.947,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "boston-round:30-standard",
+      "label": "Boston Round 30 ml",
+      "shoulderPct": 45,
+      "bodyAspect": 1.727,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "boston-round:60-standard",
+      "label": "Boston Round 60 ml",
+      "shoulderPct": 52,
+      "bodyAspect": 1.817,
+      "status": "locked"
     }
   ]
 }
