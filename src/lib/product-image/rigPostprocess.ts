@@ -84,6 +84,15 @@ export interface RigBaselineNormalizeOptions {
   heightWithCap?: string | null;
   heightWithoutCap?: string | null;
   diameter?: string | null;
+  /**
+   * Front-view width and assembled height from the canonical truth sheet
+   * (`canon_widthAxisMm`, `canon_heightWithCapMm`). A flat flask's catalog
+   * `diameter` is not its pictured width — Elegant 60 ml reports 42.6 and 39
+   * for glass that is 54 mm across — so when these are supplied they replace
+   * `heightWithCap / diameter` as the assembled expectation.
+   */
+  canonWidthAxisMm?: string | number | null;
+  canonHeightWithCapMm?: string | number | null;
   capState?: string | null;
   mode?: string | null;
   targetBackgroundHex?: string;
@@ -2490,6 +2499,46 @@ export function tallestSilverProofBounds(
  * across the gap before uniting them, so two genuinely separate aligned
  * objects can never fuse.
  */
+/**
+ * What an assembled frame's proportion is measured on: the full height of the
+ * assembly over the glass body, edge to edge.
+ *
+ * That is the quantity the canonical truth states (`canon_heightWithCapMm` /
+ * `canon_widthAxisMm`), and both halves are already measured well. Neither
+ * whole-frame detector is: strong bounds take their width from any row that
+ * registers, and the soft contact shadow under a wide flat base spreads past
+ * the glass (22-77% of the canvas against glass at 27-73% on the Elegant 60 ml
+ * dropper, reading 1.72 for a bottle that is 2.1); the whole-vessel union
+ * under-reads an approved Slim 30 ml dropper by 17%. The glass width is the one
+ * the shoulder lock holds to a body's aspect, so it is only used under a lock.
+ * Bulb and tassel assemblies are wider than their glass and keep strong bounds.
+ */
+export function resolveAssembledAspectBounds(input: {
+  capState: string | null | undefined;
+  isComplexAssembly: boolean;
+  hasShoulderLock: boolean;
+  primaryBounds: RigStrongBounds | null;
+  glassWidthBounds: RigStrongBounds | null;
+}): RigStrongBounds | null {
+  const { primaryBounds, glassWidthBounds } = input;
+  if (input.capState === "detached" || input.isComplexAssembly || !input.hasShoulderLock) return null;
+  if (
+    !primaryBounds ||
+    !glassWidthBounds ||
+    typeof glassWidthBounds.left !== "number" ||
+    typeof glassWidthBounds.right !== "number" ||
+    glassWidthBounds.right <= glassWidthBounds.left
+  ) {
+    return null;
+  }
+  return {
+    top: primaryBounds.top,
+    bottom: primaryBounds.bottom,
+    left: glassWidthBounds.left,
+    right: glassWidthBounds.right,
+  };
+}
+
 /** Base-aligned fragments at least this tall, relative to the tallest, may be the same vessel. */
 const SIBLING_FRAGMENT_MIN_HEIGHT_RATIO = 0.55;
 
@@ -2952,8 +3001,10 @@ export async function normalizeBestBottlesRigBaseline(
   //
   // Assembled frames keep the pure canonical-mm expectation: heightWithCap /
   // diameter fully describes the pictured state there.
-  const canonHeightWithCapMm = parseLeadingMm(options.heightWithCap);
-  const canonDiameterMm = parseLeadingMm(options.diameter);
+  const canonHeightWithCapMm =
+    parseLeadingMm(options.canonHeightWithCapMm) ?? parseLeadingMm(options.heightWithCap);
+  const canonDiameterMm =
+    parseLeadingMm(options.canonWidthAxisMm) ?? parseLeadingMm(options.diameter);
   const callerPrimaryAspectRatio =
     typeof options.expectedPrimaryAspectRatio === "number" &&
     Number.isFinite(options.expectedPrimaryAspectRatio) &&
@@ -3279,6 +3330,13 @@ export async function normalizeBestBottlesRigBaseline(
             }
           : finalAspectBounds,
       );
+      const assembledAspectBounds = resolveAssembledAspectBounds({
+        capState,
+        isComplexAssembly: isComplexVintageAssembly(options),
+        hasShoulderLock,
+        primaryBounds: finalPrimaryBounds,
+        glassWidthBounds: finalGlassWidthBounds,
+      });
       framingQa = buildFramingQaReport({
         width,
         height,
@@ -3292,7 +3350,7 @@ export async function normalizeBestBottlesRigBaseline(
         baselineYPx: finalBaseline,
         capState,
         expectedPrimaryAspectRatio,
-        aspectBounds: capState === "detached" ? finalAspectBounds : null,
+        aspectBounds: capState === "detached" ? finalAspectBounds : assembledAspectBounds,
       });
       const baselineResidualPx =
         finalBaseline != null ? finalBaseline - transform.targetBaselineYPx : null;
@@ -3884,6 +3942,13 @@ export async function normalizeBestBottlesRigBaseline(
           }
         : finalAspectBounds,
     );
+    const assembledAspectBounds = resolveAssembledAspectBounds({
+      capState,
+      isComplexAssembly: isComplexVintageAssembly(options),
+      hasShoulderLock,
+      primaryBounds: finalPrimaryBounds,
+      glassWidthBounds: finalGlassWidthBounds,
+    });
     framingQa = buildFramingQaReport({
       width,
       height,
@@ -3897,7 +3962,7 @@ export async function normalizeBestBottlesRigBaseline(
       baselineYPx: finalBaseline,
       capState,
       expectedPrimaryAspectRatio,
-      aspectBounds: capState === "detached" ? finalAspectBounds : null,
+      aspectBounds: capState === "detached" ? finalAspectBounds : assembledAspectBounds,
     });
     const baselineResidualPx =
       finalBaseline != null ? finalBaseline - transform.targetBaselineYPx : null;

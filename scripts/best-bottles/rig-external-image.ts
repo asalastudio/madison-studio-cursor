@@ -36,6 +36,7 @@ import sharp from "sharp";
 import { resolveBestBottlesHeroPresentation } from "../../src/lib/bestBottlesHeroPresentation";
 import { resolveBestBottlesShadowTopology } from "../../src/lib/bestBottlesShadowTopology";
 import { resolveShoulderLock } from "../../src/lib/bestBottlesShoulderLock";
+import { lookupCanonTruth } from "./canon-truth";
 
 const require = createRequire(import.meta.url);
 const SNAPSHOT =
@@ -89,8 +90,13 @@ if (!lock) {
 }
 
 const assembled = resolveBestBottlesHeroPresentation({ websiteSku: base.websiteSku, applicator: base.applicator }) === "assembled";
+const canonTruth = lookupCanonTruth(base.graceSku);
 const product = {
   ...base,
+  // Same as the batch runner: an assembled frame is held to the canonical
+  // front-view width, never to a flat flask's catalog diameter.
+  canonWidthAxisMm: canonTruth?.widthAxisMm ?? null,
+  canonHeightWithCapMm: canonTruth?.heightWithCapMm ?? null,
   capState: assembled ? "assembled" : "detached",
   mode: assembled ? "assembled" : "fitment-attached-cap-right-sidecar",
 };
@@ -140,7 +146,7 @@ try {
   console.log(`  transform  scale ${info.scale != null ? Number(info.scale).toFixed(3) : "—"}   (model was ${info.preTransformShoulderYPx != null && info.targetShoulderYPx != null ? Math.abs(Number(info.preTransformShoulderYPx) - Number(info.targetShoulderYPx)) + " px off before the rig" : "unmeasured before the rig"})`);
   console.log(`  framing    ${info.framingDecision ?? "—"}`);
   const measured = (info.framingQa as { measurements?: Record<string, unknown> } | undefined)?.measurements ?? (info.measurements as Record<string, unknown> | undefined);
-  if (expectedPrimaryAspect != null) console.log(`  proportion expected ${expectedPrimaryAspect}   measured ${measured?.primaryAspectRatio ?? "—"}   drift ${measured?.aspectRatioDriftPct ?? "—"}%`);
+  if (measured?.expectedPrimaryAspectRatio != null) console.log(`  proportion expected ${Number(measured.expectedPrimaryAspectRatio).toFixed(3)}   measured ${measured.primaryAspectRatio ?? "—"}   drift ${measured.aspectRatioDriftPct ?? "—"}%`);
   if (issues.length) {
     console.log(`\n  NOT A HERO — ${issues.length} QA issue(s):`);
     for (const issue of issues) console.log(`    - ${issue}`);

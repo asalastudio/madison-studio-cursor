@@ -2013,6 +2013,35 @@ describe("detectComplexAssemblyBottleBounds", () => {
   });
 });
 
+describe("resolveAssembledAspectBounds — assembled height over glass width", () => {
+  const primaryBounds = { top: 170, bottom: 2150, left: 455, right: 1606 };
+  const glassWidthBounds = { top: 1007, bottom: 2082, left: 570, right: 1510 };
+  const base = { capState: "assembled", isComplexAssembly: false, hasShoulderLock: true, primaryBounds, glassWidthBounds };
+
+  it("takes height from the assembly and width from the glass, not the shadow-spread frame", () => {
+    // Live case 2026-09-20, Elegant 60 ml dropper: strong bounds ran 22-77% of
+    // the canvas on the contact shadow while the glass sat at 27-73%.
+    const bounds = rigPostprocess.resolveAssembledAspectBounds(base);
+    assert.deepEqual(bounds, { top: 170, bottom: 2150, left: 570, right: 1510 });
+    const aspect = (bounds!.bottom - bounds!.top + 1) / (bounds!.right! - bounds!.left! + 1);
+    assert.ok(Math.abs(aspect / 2.03 - 1) < 0.06, `aspect ${aspect} should sit within 6% of the canonical 2.03`);
+    const strongAspect = (primaryBounds.bottom - primaryBounds.top + 1) / (primaryBounds.right - primaryBounds.left + 1);
+    assert.ok(strongAspect < 1.8, "the frame it replaces reads far too wide");
+  });
+
+  it("steps aside wherever the glass is not the widest thing or is not held by a lock", () => {
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, capState: "detached" }), null);
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, isComplexAssembly: true }), null);
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, hasShoulderLock: false }), null);
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, glassWidthBounds: null }), null);
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, primaryBounds: null }), null);
+    assert.equal(
+      rigPostprocess.resolveAssembledAspectBounds({ ...base, glassWidthBounds: { top: 0, bottom: 10, left: 900, right: 900 } }),
+      null,
+    );
+  });
+});
+
 describe("resolveWholeVesselBounds — clear-glass sliver fix", () => {
   const width = 600;
   const height = 1000;

@@ -58,6 +58,8 @@
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+
+import { lookupCanonTruth } from "./canon-truth";
 import path from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
@@ -668,7 +670,7 @@ async function rigPostprocessOutput(input: {
 }> {
   const shadowTopology = resolveBestBottlesShadowTopology(input.product, {});
   const rigged = await input.page.evaluate(
-    async ({ imageUrl, expectedPrimaryAspectRatio, product, targetBackgroundHex, shadowTopology }) => {
+    async ({ imageUrl, expectedPrimaryAspectRatio, product, targetBackgroundHex, shadowTopology, canonTruth }) => {
       // PAINT-AFTER REMOVED (2026-07-10): the global corner-sampled colorCorrectToTarget
       // shift tinted the whole image and washed out clear glass. The bone background is
       // now painted by the model in-scene (framing-profile directive), so the rig runs
@@ -702,6 +704,10 @@ async function rigPostprocessOutput(input: {
         heightWithCap: product.heightWithCap,
         heightWithoutCap: product.heightWithoutCap,
         diameter: product.diameter,
+        // A flat flask's catalog diameter is not its pictured width; the canonical
+        // truth sheet's front-view axis is what an assembled frame is held to.
+        canonWidthAxisMm: canonTruth?.widthAxisMm ?? null,
+        canonHeightWithCapMm: canonTruth?.heightWithCapMm ?? null,
         capState: product.capState ?? null,
         mode: product.mode ?? null,
         shadowTopology,
@@ -716,6 +722,7 @@ async function rigPostprocessOutput(input: {
       product: input.product,
       targetBackgroundHex: BEST_BOTTLES_VISUAL_TARGET_CANVAS_HEX,
       shadowTopology,
+      canonTruth: lookupCanonTruth(input.sku),
     },
   );
 
