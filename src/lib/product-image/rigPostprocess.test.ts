@@ -2130,6 +2130,49 @@ describe("resolveWholeVesselBounds — clear-glass sliver fix", () => {
     assert.ok(vessel!.right < 470, "sidecar cap must stay excluded");
   });
 
+  it("reunites a flat flask whose glass is only 0.63 of its sprayer column", () => {
+    // Live case 2026-09-20, Elegant 15/30/60 ml: glass pieces read 0.627-0.653
+    // of the sprayer column, under the old 0.65 cut, so the vessel collapsed
+    // onto the sprayer and three correct renders failed the aspect gate.
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i += 1) {
+      pixels[i * 4] = bg.r; pixels[i * 4 + 1] = bg.g; pixels[i * 4 + 2] = bg.b; pixels[i * 4 + 3] = 255;
+    }
+    const paint = (x0: number, x1: number, y0: number, y1: number, delta: number) => {
+      for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) {
+        const i = (y * width + x) * 4;
+        pixels[i] = bg.r - delta; pixels[i + 1] = bg.g - delta; pixels[i + 2] = bg.b - delta;
+      }
+    };
+    paint(100, 115, 396, 899, 60);  // left wall: 504 of 800 rows = 0.63
+    paint(230, 270, 100, 899, 60);  // sprayer column, the tallest fragment
+    paint(385, 400, 398, 899, 60);  // right wall
+    paint(116, 384, 860, 899, 14);  // base band evidence across the interior
+    // The tallest real detached cap measured so far is 0.47 of its vessel.
+    paint(470, 530, 524, 899, 60);
+
+    const vessel = rigPostprocess.resolveWholeVesselBounds(pixels, width, height, bg);
+    assert.ok(vessel);
+    assert.equal(vessel?.left, 100);
+    assert.equal(vessel?.right, 400);
+    assert.equal(vessel?.top, 100, "vessel top must include the sprayer");
+    assert.ok(vessel!.right < 470, "sidecar cap must stay excluded");
+  });
+
+  it("still leaves out a base-aligned cap that clears the height cut, on evidence alone", () => {
+    // A cap 0.60 of the vessel passes the height pre-filter, as reducer caps
+    // (~0.85) always have. Clean background in the gap is what keeps it out.
+    const pixels = makeClearBottleFrame();
+    for (let y = 420; y <= 899; y += 1) for (let x = 470; x <= 530; x += 1) {
+      const i = (y * width + x) * 4;
+      pixels[i] = bg.r - 60; pixels[i + 1] = bg.g - 60; pixels[i + 2] = bg.b - 60;
+    }
+    const vessel = rigPostprocess.resolveWholeVesselBounds(pixels, width, height, bg);
+    assert.ok(vessel);
+    assert.equal(vessel?.left, 100);
+    assert.equal(vessel?.right, 400);
+  });
+
   it("refuses to fuse aligned objects with clean background between them", () => {
     const pixels = makeClearBottleFrame({ interiorEvidence: false });
     const vessel = rigPostprocess.resolveWholeVesselBounds(pixels, width, height, bg);

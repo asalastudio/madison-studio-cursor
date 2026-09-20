@@ -227,15 +227,25 @@ is >= 52 from the background, or >= 16 and brighter than it. Cylinder walls are
 dark thick lines and register; Elegant's flat faces render as thin grey walls,
 darker than Bone and under 52, so they are invisible to it. Measured aspect came
 out 2.76 against a true ~2.1 on the 15 ml (width collapsed onto the sprayer) and
-1.76 against ~1.9 on the 60 ml (a sliver of the sidecar cap inside the fixed
-12-70% search band). Reproduce at no cost with
-`rig-external-image.ts --expected-primary-aspect <reference aspect>`. The three
-raw renders are paid for and stored (`generated_images`, lifecycle `failed`);
-once the measurement is fixed they re-rig for free with `--resume-raw-image-id`.
-Likely fix: let the glass body's edge-to-edge width (already measured reliably
-by the shoulder path) set the primary's horizontal extent, and end the primary
-at the gap before the sidecar instead of a fixed 70%. Regress against the 41
-approved Cylinder and Slim raws before trusting it. Do not widen the 6%.
+1.76 against ~1.9 on the 60 ml. Reproduce at no cost with
+`rig-external-image.ts --expected-primary-aspect <reference aspect>`.
+
+**Fixed the same day.** My first diagnosis above (the `detectStrongBounds`
+threshold) was wrong about the mechanism. The detached-hero aspect is measured
+by `resolveWholeVesselBounds`, which reunites the fragments of one clear vessel
+only when a base-aligned piece is at least 0.65 as tall as the tallest piece.
+Elegant's glass reads 0.627-0.653 of its sprayer column, so the vessel
+collapsed onto the sprayer. Across the 41 approved heroes plus the practice
+set, a real detached cap never read above 0.47 — except reducer caps at ~0.85,
+which already clear that cut and are held apart by the interior-evidence rule.
+The cut is now 0.55 (`SIBLING_FRAGMENT_MIN_HEIGHT_RATIO`). It changed the
+whole-vessel bounds of **0 of the 41** approved heroes, and the 6% tolerance did
+not move. The three stored raws were then re-rigged through the pipeline with
+`--resume-raw-image-id` at no provider cost. All four practice heroes are
+`review-pending` with no QA issues: aspect drift -1.7 / -1.4 / -1.4 / -5.7%
+(the 100 ml is the one to eyeball). **18 more Elegant heroes are ready and
+wait only on Jordan's go to spend.** A taller fitment lowers the ratio further
+— a lotion pump on a short flask is the case to watch.
 
 Source of truth: `src/lib/bestBottlesShoulderLock.ts`, mirrored in
 `supabase/functions/_shared/bestBottlesShoulderLock.ts` and

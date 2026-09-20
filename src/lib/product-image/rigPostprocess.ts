@@ -2490,6 +2490,9 @@ export function tallestSilverProofBounds(
  * across the gap before uniting them, so two genuinely separate aligned
  * objects can never fuse.
  */
+/** Base-aligned fragments at least this tall, relative to the tallest, may be the same vessel. */
+const SIBLING_FRAGMENT_MIN_HEIGHT_RATIO = 0.55;
+
 export function resolveWholeVesselBounds(
   pixels: Uint8ClampedArray,
   width: number,
@@ -2513,14 +2516,23 @@ export function resolveWholeVesselBounds(
   // clear bottle the frame splits into wall-sliver / center-column / wall-
   // sliver, and the center column carries the closure above the shoulder.
   // A 50 ml roll-on pushes that further: the roller column is the tallest
-  // fragment and the glass walls read about 0.69 of its height. Detached
-  // sidecar caps in the governed set stay at 21–31% of bottle height, so
-  // 0.65 reunites those walls without pulling the cap into the vessel.
+  // fragment and the glass walls read about 0.69 of its height.
+  //
+  // A flat flask under a tall sprayer goes lower still. Elegant's glass pieces
+  // measured 0.627-0.653 of the sprayer column on the 15, 30 and 60 ml, which
+  // the previous 0.65 cut left out: the vessel collapsed onto the sprayer and
+  // the aspect gate rejected three correct renders (2.76 measured against a
+  // true ~2.1). Across the 41 approved Cylinder and Slim heroes plus that
+  // practice set, a real detached cap never read above 0.47 of the vessel —
+  // except reducer caps at ~0.85, which already pass this cut and are held
+  // apart by the interior-evidence rule below, not by height. 0.55 sits clear
+  // of both groups. It is a pre-filter; the evidence rule is what prevents a
+  // cap from fusing.
   const aligned = components.filter((c) => {
     const h = c.bottom - c.top + 1;
     return (
       Math.abs(c.bottom - tallest.bottom) <= height * 0.04 &&
-      Math.min(h, tallestHeight) / Math.max(h, tallestHeight) >= 0.65
+      Math.min(h, tallestHeight) / Math.max(h, tallestHeight) >= SIBLING_FRAGMENT_MIN_HEIGHT_RATIO
     );
   });
   if (aligned.length <= 1) {
