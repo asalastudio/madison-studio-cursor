@@ -73,8 +73,17 @@ const FITMENT_TOKENS: Array<[RegExp, RegExp, string]> = [
   [/(perfumespray|finemist)$/, /Spry/, "sprayer"],
   [/reducer$/, /Rdcr/, "reducer"],
   [/rollon$/, /Roll/, "roll-on"],
-  [/dropper$/, /Drp/, "dropper"],
+  // Boston Round spells its fitment out where Cylinder abbreviates it.
+  [/dropper$/, /Drp|Dropper/, "dropper"],
 ];
+
+/**
+ * Families are not consistent about capacity: Cylinder and Elegant count in
+ * millilitres, Boston Round in ounces, so `GBBstnBlu2ozBlkCapSht` is the 60 ml
+ * card. Without this the audit reads "card is 60 ml but the SKU reads 2" on
+ * every ounce-named hero and buries a real mismatch in the noise.
+ */
+const OUNCE_ML: Record<string, string> = { "0.5": "15", "1": "30", "2": "60", "4": "120", "8": "240", "16": "480" };
 
 /** Mean colour of the closure: foreground pixels in the top quarter of the bottle. */
 async function closureColour(file: string, background: [number, number, number]) {
@@ -123,8 +132,10 @@ for (const [websiteSku, entry] of Object.entries(lock).sort()) {
     const slugCapacity = row.groupSlug.match(/-(\d+(?:\.\d+)?)ml-/)?.[1];
     const skuCapacities = [...websiteSku.matchAll(/(\d+(?:\.\d+)?)/g)].map((m) => m[1]);
     // The storefront's "25 ml" cylinder is the 30 ml bottle; the SKU may say either.
+    const ounceMatch = websiteSku.match(/(\d+(?:\.\d+)?)oz/i);
     const capacityAgrees = !slugCapacity || skuCapacities.includes(slugCapacity) ||
-      (slugCapacity === "25" && skuCapacities.includes("30")) || (slugCapacity === "5.5" && skuCapacities.includes("5"));
+      (slugCapacity === "25" && skuCapacities.includes("30")) || (slugCapacity === "5.5" && skuCapacities.includes("5")) ||
+      (ounceMatch != null && OUNCE_ML[ounceMatch[1]!] === slugCapacity);
     if (!capacityAgrees) problems.push(`card is ${slugCapacity} ml but the SKU reads ${skuCapacities.join("/") || "no capacity"}`);
     for (const [slugPattern, skuPattern, label] of FITMENT_TOKENS) {
       if (slugPattern.test(row.groupSlug) && !skuPattern.test(websiteSku)) problems.push(`card is a ${label} but the SKU has no ${skuPattern.source} segment`);

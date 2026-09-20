@@ -288,7 +288,10 @@ for (const row of rows) {
   // A tassel bulb hangs beside the bottle, so the "leftmost object is the
   // bottle" reading measures the tassel instead. Those assemblies are composed
   // on the wide canvas anyway; they inherit this body's lock, they do not set it.
-  if (/Tsl/i.test(row.websiteSku)) {
+  // Case-sensitive on purpose: the tassel token is "Tsl", and a case-insensitive
+  // test also matches the "ttSl" in MattSl, which held three Boston Round metal
+  // roll-ons off the sheet as if they were bulb assemblies.
+  if (/Tsl/.test(row.websiteSku)) {
     held.push({ sku: row.websiteSku, why: "tassel bulb sprayer — composed on the wide canvas; inherits this size's lock rather than setting it" });
     continue;
   }
