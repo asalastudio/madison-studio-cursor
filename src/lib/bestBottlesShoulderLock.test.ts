@@ -69,6 +69,24 @@ describe("Best Bottles shoulder lock", () => {
     );
   });
 
+  it("treats the 5.5 ml label as the 5 ml glass", () => {
+    // Same 53 mm body. The edge function reads 5.5 from the item name, and
+    // Math.round(5.5) is 6 — which has no lock and failed the render closed.
+    for (const input of [
+      { family: "Cylinder", capacityMl: 5.5 },
+      { family: "Cylinder", itemName: "Cylinder design 5.5ml, 1/6oz Clear glass bottle with matte black spray" },
+      { family: "Cylinder", capacity: "5.5 ml" },
+    ]) {
+      const lock = resolveShoulderLock(input);
+      assert.ok(lock, JSON.stringify(input));
+      assert.equal(lock.glassBodyKey, "cylinder:5-standard");
+      assert.equal(lock.shoulderPct, 36.5);
+    }
+    // The alias must stay narrow: 6 ml is not a body we have locked.
+    assert.equal(resolveGlassBodyKey({ family: "Cylinder", capacityMl: 6 }), null);
+    assert.equal(resolveGlassBodyKey({ family: "Cylinder", capacityMl: 5.6 }), null);
+  });
+
   it("locks Slim to three bodies by stated capacity, whatever the fitment", () => {
     for (const [capacityMl, key, pct, fromTop] of [
       [30, "slim:30-standard", 48.5, 42.5],

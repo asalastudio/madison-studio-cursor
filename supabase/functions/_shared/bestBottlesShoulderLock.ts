@@ -186,6 +186,11 @@ function capacityKey(capacityMl: number): string | null {
   if (Math.abs(capacityMl - 3.3) < 0.2 || Math.abs(capacityMl - 3) < 0.05) {
     return "3.3-standard";
   }
+  // The 5 ml glass is also sold labelled "5.5 ml" (the fine-mist variant, same
+  // 53 mm body). Math.round(5.5) is 6, which has no lock, so the edge function
+  // refused it outright — the catalog row says 5, but the item name says 5.5
+  // and the edge reads the name.
+  if (Math.abs(capacityMl - 5.5) < 0.05) return "5-standard";
   const rounded = Math.round(capacityMl);
   switch (rounded) {
     case 4:
