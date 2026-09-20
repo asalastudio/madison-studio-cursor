@@ -169,6 +169,44 @@ export interface ShoulderLockQa {
   issue: string | null;
 }
 
+/** Jordan, 2026-09-18: "even if it's slightly off 1 mm or 2, it's okay." */
+export const SHOULDER_LOCK_TOLERANCE_MM = 2;
+/** The flat gate that predates the millimetre rule; still the floor. */
+export const SHOULDER_LOCK_MIN_TOLERANCE_PCT = 1;
+
+/**
+ * The shoulder tolerance as a share of canvas height.
+ *
+ * A flat 1% of canvas is not one physical distance: it is about 2 mm on a
+ * 100 ml bottle but only ~1.4 mm on a 5 ml one, so small bottles were held to a
+ * stricter standard than the 2 mm Jordan actually set, and renders 1.6 mm out
+ * were being refused.
+ *
+ * The ruler is deliberately conservative. Foot-to-shoulder pixels are divided
+ * by the FULL bare-glass height, which includes the neck, so it undercounts
+ * pixels per millimetre and the result sits on the strict side of 2 mm. It is
+ * also never tighter than the old 1%: this rule exists to stop over-rejecting
+ * small bottles, not to start rejecting large ones. With no glass height there
+ * is no ruler, and the gate stays exactly where it was.
+ */
+export function resolveShoulderLockTolerancePct(input: {
+  canvasHeight: number;
+  targetBodyHeightPx?: number | null;
+  bareGlassHeightMm?: number | null;
+}): number {
+  const { canvasHeight, targetBodyHeightPx, bareGlassHeightMm } = input;
+  if (
+    !(canvasHeight > 0) ||
+    typeof targetBodyHeightPx !== "number" || !(targetBodyHeightPx > 0) ||
+    typeof bareGlassHeightMm !== "number" || !(bareGlassHeightMm > 0)
+  ) {
+    return SHOULDER_LOCK_MIN_TOLERANCE_PCT;
+  }
+  const pxPerMm = targetBodyHeightPx / bareGlassHeightMm;
+  const tolerancePct = ((SHOULDER_LOCK_TOLERANCE_MM * pxPerMm) / canvasHeight) * 100;
+  return Math.max(SHOULDER_LOCK_MIN_TOLERANCE_PCT, Number(tolerancePct.toFixed(2)));
+}
+
 export function evaluateShoulderLockQa(input: {
   canvasHeight: number;
   targetShoulderYPx: number;
@@ -185,7 +223,7 @@ export function evaluateShoulderLockQa(input: {
   const deltaPct = Number(
     (((input.measuredShoulderYPx - input.targetShoulderYPx) / input.canvasHeight) * 100).toFixed(1),
   );
-  const tolerancePct = input.tolerancePct ?? 1;
+  const tolerancePct = input.tolerancePct ?? SHOULDER_LOCK_MIN_TOLERANCE_PCT;
   if (Math.abs(deltaPct) > tolerancePct) {
     return {
       status: "fail",
@@ -3276,6 +3314,11 @@ export async function normalizeBestBottlesRigBaseline(
             canvasHeight: height,
             targetShoulderYPx: rig.targetShoulderYPx,
             measuredShoulderYPx: finalShoulderLandmark?.shoulderYPx ?? null,
+            tolerancePct: resolveShoulderLockTolerancePct({
+              canvasHeight: height,
+              targetBodyHeightPx: rig.targetBodyHeightPx,
+              bareGlassHeightMm: rig.bareGlassHeightMm,
+            }),
           })
         : null;
     if (shoulderQa?.issue) qaIssues.push(shoulderQa.issue);
@@ -3875,6 +3918,11 @@ export async function normalizeBestBottlesRigBaseline(
           canvasHeight: height,
           targetShoulderYPx: rig.targetShoulderYPx,
           measuredShoulderYPx: finalShoulderLandmark?.shoulderYPx ?? null,
+          tolerancePct: resolveShoulderLockTolerancePct({
+            canvasHeight: height,
+            targetBodyHeightPx: rig.targetBodyHeightPx,
+            bareGlassHeightMm: rig.bareGlassHeightMm,
+          }),
         })
       : null;
 

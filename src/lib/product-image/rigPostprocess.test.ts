@@ -20,6 +20,7 @@ import {
   detectModelShadowContactBounds,
   detectPrimaryBottleBounds,
   evaluateShoulderLockQa,
+  resolveShoulderLockTolerancePct,
   evaluateDetachedCapGeometryQa,
   finalizeRigShadow,
   flattenBackgroundLikePixels,
@@ -685,6 +686,32 @@ describe("computeRigFrameTransform", () => {
       }),
       { status: "pass", deltaPct: 0.4, issue: null },
     );
+  });
+
+  it("holds the shoulder to 2 mm, never tighter than the old 1% of canvas", () => {
+    const canvasHeight = 2288;
+    // Cylinder 5 ml: 36.5% lock, 53 mm glass. A flat 1% was only ~1.4 mm here,
+    // so a render 1.6 mm out was refused against Jordan's stated 2 mm.
+    const fiveMl = resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: Math.round(0.365 * canvasHeight), bareGlassHeightMm: 53 });
+    assert.equal(fiveMl, 1.38);
+    // Cylinder 9 ml tall: 62.5%, 106 mm.
+    const nineTall = resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: Math.round(0.625 * canvasHeight), bareGlassHeightMm: 106 });
+    assert.equal(nineTall, 1.18);
+    // Both renders that missed at 1.1% now pass, and 1.5% still fails.
+    for (const tolerancePct of [fiveMl, nineTall]) {
+      assert.equal(evaluateShoulderLockQa({ canvasHeight, targetShoulderYPx: 1000, measuredShoulderYPx: 1025, tolerancePct }).status, "pass");
+      assert.equal(evaluateShoulderLockQa({ canvasHeight, targetShoulderYPx: 1000, measuredShoulderYPx: 1034, tolerancePct }).status, "fail");
+    }
+
+    // 100 ml: a strict 2 mm would be 0.88% — TIGHTER than the gate that passed
+    // the approved heroes. The rule loosens small bottles; it must not tighten
+    // large ones, so the old 1% is the floor.
+    assert.equal(resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: Math.round(0.675 * canvasHeight), bareGlassHeightMm: 154 }), 1);
+
+    // No glass height means no ruler: the gate stays exactly where it was.
+    assert.equal(resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: 835, bareGlassHeightMm: null }), 1);
+    assert.equal(resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: null, bareGlassHeightMm: 53 }), 1);
+    assert.equal(resolveShoulderLockTolerancePct({ canvasHeight: 0, targetBodyHeightPx: 835, bareGlassHeightMm: 53 }), 1);
   });
 
   it("preserves provider scale for production masters while still seating the baseline", () => {
