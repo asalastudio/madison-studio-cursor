@@ -1437,6 +1437,11 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
         || (localHero.websiteSku != null && skuFilter.has(localHero.websiteSku))
       ));
     if (!skuFilterAllows) continue;
+    // One reference file is one hero. The catalog carries `-01` twin rows that
+    // share a website SKU, and the website-SKU dedupe below is skipped for
+    // local heroes — so without this the same render is billed twice.
+    // Canonical publication rows sort first, so the twin is what gets dropped.
+    if (localHero && usedLocalHeroPaths.has(localHero.filePath)) continue;
     if (cylinderCloseout && websiteSku && seenWebsiteSkus.has(websiteSku) && !localHero) continue;
     if (cylinderCloseout && websiteSku) seenWebsiteSkus.add(websiteSku);
     const productGroupSlug = localHero?.productGroupSlug ?? job.product_group_slug ?? "unknown";
