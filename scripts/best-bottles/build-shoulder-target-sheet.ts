@@ -42,6 +42,7 @@ import sharp from "sharp";
 import { BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS } from "../../src/config/bestBottlesCatalogScale";
 import { resolveBestBottlesHeroPresentation } from "../../src/lib/bestBottlesHeroPresentation";
 import { resolveShoulderLock } from "../../src/lib/bestBottlesShoulderLock";
+import { resolveWholeVesselBounds } from "../../src/lib/product-image/rigPostprocess";
 import { detectGlassShoulderLandmark } from "../../src/lib/product-image/shoulderLandmark";
 
 const CLIENT_ROOT = "/Users/jordanrichter/Projects/Clients/Nemat-International";
@@ -331,14 +332,43 @@ for (const row of rows) {
       if (x > right) right = x;
     }
   }
-  // The bottle is the left object; the detached cap stands to its right.
+  // The bottle is the left object; the detached cap stands to its right. The
+  // split is the first fully empty column past the bottle, which is right for
+  // all but one hero on the sheets.
   const columnHasInk = (x: number) => {
     for (let y = top; y <= bottom; y += 2) if (ink(x, y)) return true;
     return false;
   };
   let gap = -1;
   for (let x = left + 40; x < right; x++) if (!columnHasInk(x)) { gap = x; break; }
-  const bottleRight = gap > 0 ? gap - 1 : right;
+  let bottleRight = gap > 0 ? gap - 1 : right;
+  if (gap < 0) {
+    // No empty column anywhere: a shadow bridges the gap, and the "bottle"
+    // would be the whole frame. Diva's LBDiva46LtnMtGl read 869px wide against
+    // 464 for every other bottle on its body, and the sheet drew it half size.
+    // Fall back to the emptiest column that still has a denser object past it,
+    // which is what a sidecar cap looks like from here. Only this case takes
+    // the fallback: replacing the scan outright cut urns and bulb assemblies
+    // in half and lost a third of the heroes off the sheets.
+    const columnInk = (x: number) => {
+      let n = 0;
+      for (let y = top; y <= bottom; y += 2) if (ink(x, y)) n += 1;
+      return n;
+    };
+    const from = left + Math.round((right - left) * 0.35);
+    const to = right - Math.round((right - left) * 0.04);
+    let valleyX = -1, valleyInk = Number.POSITIVE_INFINITY;
+    for (let x = from; x <= to; x++) {
+      const n = columnInk(x);
+      if (n < valleyInk) { valleyInk = n; valleyX = x; }
+    }
+    const past: number[] = [];
+    for (let x = valleyX + 1; x <= right; x += 2) past.push(columnInk(x));
+    past.sort((m, n) => m - n);
+    const pastValley = past.length ? past[past.length >> 1]! : 0;
+    if (valleyX > 0 && pastValley >= Math.max(4, valleyInk * 2)) bottleRight = valleyX - 1;
+  }
+
   let bottleTop = -1, bottleBottom = -1;
   for (let y = top; y <= bottom; y++) {
     let hit = false;
