@@ -1497,7 +1497,6 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
         referenceUrl = verifiedReference.dataUrl;
         resolvedReferenceHash = verifiedReference.sha256;
         sidecarAuthority = verifiedReference.authority;
-        usedLocalHeroPaths.add(localHero.filePath);
       } else if (isCylinderCloseoutFamily) {
         const refIssue = getBestBottlesReferenceUrlIssue(referenceUrl);
         if (refIssue) {
@@ -1678,6 +1677,12 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       continue;
     }
 
+    // Claim the reference only once a row is accepted. Claiming it on read let a
+    // row that was then refused shadow the correct one: the catalog files each
+    // frosted Elegant 15 ml twice under one website SKU, a wrong `CLR` row that
+    // the identity check rightly blocks and the correct `FRS` row after it,
+    // which the duplicate filter above then skipped.
+    if (localHero) usedLocalHeroPaths.add(localHero.filePath);
     targets.push(target);
   }
 
