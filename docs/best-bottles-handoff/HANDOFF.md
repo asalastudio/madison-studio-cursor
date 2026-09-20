@@ -317,6 +317,32 @@ subject in it ("this flat rectangular flask from the primary reference") and
 forbid borrowing the style reference's bottle or cap — or drop the secondary
 style image for bare-neck frosted heroes and let the text carry the finish.
 
+**Jordan's rule, 2026-09-20: never name the look you do not want.** Clear bottles
+need nothing special; for frosted ones, remove the words "clear glass". The first
+addendum (`frosted-body-clear-neck-v1`, now retired) said "clear glass" three
+times. The canon GLASS paragraph does it too, on a smaller scale — it serves
+every non-clear material at once, so a frosted bottle was told about cobalt
+saturation and swirl patterns, with "clear" and "transparent" inside negated
+lists. `BB_GEN_PROMPT_ADDENDUM=frosted-finish-v2` is positive only and swaps that
+paragraph for a frosted one (`replaceGlassLine`; fails closed if the paragraph is
+not found exactly once). The full client prompt for a frosted SKU then contains
+no "clear", "transparent" or "see-through". Still opt-in, so default prompt hashes
+— which a stored raw must match to be re-rigged — do not move. If it is promoted,
+make it a material-aware block in `src/config/bestBottlesCatalogCanon.ts`, which
+is the canon; that changes every frosted prompt hash, so re-rig stored raws first.
+
+Result (2 renders, ~$0.84): the frosted 15 ml roll-on came out properly frosted
+and passed the rig (1190/1190). With the 100 ml reducer from v1, **the finish is
+2 of 2 wherever the right product was drawn** — both await Jordan's sign-off.
+**The frosted 30 ml plain cap is a different problem:** under v1 and v2 alike it
+came out as the secondary STYLE-ONLY reference's bottle (frosted cylinder
+roll-on, black dotted cap); the rig refused it both times at ~4.65 against ~2.2.
+Its primary reference is a bare white-on-white flask with almost nothing for the
+model to hold on to, and the style image is the stronger picture. Next, untested:
+render it without the secondary style image (attached near line 1058 of
+`generate-family-batch.ts`; there is no switch for it yet) now that the text
+carries the finish.
+
 **Open on Elegant:**
 - **Rejected, need the prompt fix before re-rendering:** `GB-ELG-FRS-30ML-GLD-T` and
   `GB-ELG-FRS-100ML-RDC-SGLD` passed the rig but were rendered as CLEAR glass.
