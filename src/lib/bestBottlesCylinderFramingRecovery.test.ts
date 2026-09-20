@@ -29,6 +29,7 @@ function framingQa(status: "pass" | "fail" = "fail"): FramingQaReport {
     measurements: {
       fillHeightPct: status === "pass" ? 60 : 77,
       glassHeightPct: null,
+      glassWidthPct: null,
       baselineYPx: status === "pass" ? 2081 : 1940,
       targetBaselineYPx: 2082,
       baselineDeltaPx: status === "pass" ? -1 : -142,

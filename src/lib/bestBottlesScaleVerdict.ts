@@ -32,6 +32,8 @@ export interface BestBottlesScaleVerdictReconciliation {
   qa_issues: readonly string[] | null;
   fill_height_pct: number | null;
   framing_qa?: {
+    /** Present on stored rows; carried as evidence only — the verdict does not read it. */
+    measurements?: { glassHeightPct?: number | null } | null;
     physicalScale?: {
       verdict?: string | null;
       deltaMm?: number | null;
