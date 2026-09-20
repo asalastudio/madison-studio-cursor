@@ -80,6 +80,18 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   { glassBodyKey: "elegant:30-standard", label: "Elegant 30 ml", shoulderPct: 43, bodyAspect: 1.381, status: "locked" },
   { glassBodyKey: "elegant:60-standard", label: "Elegant 60 ml", shoulderPct: 47, bodyAspect: 1.253, status: "locked" },
   { glassBodyKey: "elegant:100-standard", label: "Elegant 100 ml", shoulderPct: 57, bodyAspect: 1.517, status: "locked" },
+  // Sleek — locked 2026-09-20 by Jordan on the all-family target sheet, read
+  // back from the page. One north star per size (the clear fine-mist sprayer);
+  // every colour and fitment on that glass follows it. Jordan set the three
+  // tall bodies below the Cylinder ladder's suggestion (30 ml 47 against 50.5,
+  // 50 ml 56 against 63, 100 ml 60.5 against 66): a tall slim bottle at ladder
+  // height reads too dominant on the card. The ladder is an opening position,
+  // not the decision.
+  { glassBodyKey: "sleek:5-standard", label: "Sleek 5 ml", shoulderPct: 37, bodyAspect: 1.76, status: "locked" },
+  { glassBodyKey: "sleek:8-standard", label: "Sleek 8 ml", shoulderPct: 43, bodyAspect: 3.148, status: "locked" },
+  { glassBodyKey: "sleek:30-standard", label: "Sleek 30 ml", shoulderPct: 47, bodyAspect: 2.753, status: "locked" },
+  { glassBodyKey: "sleek:50-standard", label: "Sleek 50 ml", shoulderPct: 56, bodyAspect: 4.412, status: "locked" },
+  { glassBodyKey: "sleek:100-standard", label: "Sleek 100 ml", shoulderPct: 60.5, bodyAspect: 3.749, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(
@@ -242,6 +254,7 @@ function capacityKey(capacityMl: number): string | null {
 const CAPACITY_KEYED_FAMILIES: Readonly<Record<string, { keyPrefix: string; capacitiesMl: readonly number[] }>> = {
   slim: { keyPrefix: "slim", capacitiesMl: [30, 50, 100] },
   elegant: { keyPrefix: "elegant", capacitiesMl: [15, 30, 60, 100] },
+  sleek: { keyPrefix: "sleek", capacitiesMl: [5, 8, 30, 50, 100] },
 };
 
 function capacityKeyedGlassBodyKey(

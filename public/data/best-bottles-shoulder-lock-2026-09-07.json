@@ -150,6 +150,41 @@
       "shoulderPct": 57,
       "bodyAspect": 1.517,
       "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:5-standard",
+      "label": "Sleek 5 ml",
+      "shoulderPct": 37,
+      "bodyAspect": 1.76,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:8-standard",
+      "label": "Sleek 8 ml",
+      "shoulderPct": 43,
+      "bodyAspect": 3.148,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:30-standard",
+      "label": "Sleek 30 ml",
+      "shoulderPct": 47,
+      "bodyAspect": 2.753,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:50-standard",
+      "label": "Sleek 50 ml",
+      "shoulderPct": 56,
+      "bodyAspect": 4.412,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:100-standard",
+      "label": "Sleek 100 ml",
+      "shoulderPct": 60.5,
+      "bodyAspect": 3.749,
+      "status": "locked"
     }
   ]
 }

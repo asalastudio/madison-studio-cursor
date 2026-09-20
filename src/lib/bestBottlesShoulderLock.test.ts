@@ -23,8 +23,8 @@ describe("Best Bottles shoulder lock", () => {
       bodies: Array<{ glassBodyKey: string; shoulderPct: number; bodyAspect: number; status: string }>;
     };
     assert.equal(snapshot.version, BEST_BOTTLES_SHOULDER_LOCK_VERSION);
-    // 14 Cylinder bodies from the Sep 7 lock + 3 Slim and 4 Elegant bodies locked 2026-09-19.
-    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 21);
+    // 14 Cylinder from the Sep 7 lock + 3 Slim, 4 Elegant and 5 Sleek locked 2026-09-19/20.
+    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 26);
     assert.deepEqual(
       BEST_BOTTLES_SHOULDER_LOCK_BODIES.map((body) => ({
         glassBodyKey: body.glassBodyKey,
@@ -123,7 +123,7 @@ describe("Best Bottles shoulder lock", () => {
     assert.equal(resolveShoulderLock({ family: "Slim", capacityMl: 75 }), null);
     assert.equal(resolveShoulderLock({ family: "Slim" }), null);
     // Slim's lock must not leak onto a family that only shares the capacity.
-    assert.equal(resolveGlassBodyKey({ family: "Sleek", capacityMl: 50 }), null);
+    assert.equal(resolveGlassBodyKey({ family: "Boston Round", capacityMl: 50 }), null);
   });
 
   it("locks Elegant to four bodies by stated capacity, whatever the colour or fitment", () => {
@@ -157,6 +157,25 @@ describe("Best Bottles shoulder lock", () => {
     assert.equal(resolveShoulderLock({ family: "Elegant" }), null);
     // Elegant's lock must not leak onto a family that only shares the capacity.
     assert.equal(resolveGlassBodyKey({ family: "Diva", capacityMl: 30 }), null);
+  });
+
+  it("locks Sleek to five bodies by stated capacity, whatever the fitment", () => {
+    for (const [capacityMl, key, pct] of [
+      [5, "sleek:5-standard", 37], [8, "sleek:8-standard", 43], [30, "sleek:30-standard", 47],
+      [50, "sleek:50-standard", 56], [100, "sleek:100-standard", 60.5],
+    ] as const) {
+      for (const applicator of ["Fine Mist Sprayer", "Lotion Pump", "Metal Roller Ball", "Reducer"]) {
+        const lock = resolveShoulderLock({ family: "Sleek", capacityMl, applicator });
+        assert.ok(lock, `${capacityMl} ml ${applicator}`);
+        assert.equal(lock.glassBodyKey, key);
+        assert.equal(lock.shoulderPct, pct);
+      }
+    }
+    // Sleek 50 ml was the standing proof that a family cannot borrow another's
+    // capacity; now that it is locked, its own number must be the one that wins.
+    assert.equal(resolveShoulderLock({ family: "Sleek", capacityMl: 50 })?.shoulderPct, 56);
+    assert.equal(resolveShoulderLock({ family: "Slim", capacityMl: 50 })?.shoulderPct, 54);
+    assert.equal(resolveShoulderLock({ family: "Sleek", capacityMl: 15 }), null);
   });
 
   it("does not let a broken 30 ml Convex row choose a different body", () => {
