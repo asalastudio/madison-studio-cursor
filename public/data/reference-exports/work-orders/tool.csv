@@ -1,7 +1,7 @@
-groupSlug,websiteSku,graceSku,exportFileName,role,psdEstate,psdPath,status,note
-tool-0ml-gold,FunnelMetalGl,ACC-FNL-GLD,FunnelMetalGl__ACC-FNL-GLD.png,identity-cap-on,,,no-source,
-tool-0ml-gold,FunnelMetalGl,ACC-FNL-GLD,FunnelMetalGl__ACC-FNL-GLD.png,pdp-cap-off-sidecar,,,no-source,
-tool-0ml-mixed,Plastic,ACC-FNL-02,Plastic__ACC-FNL-02.png,identity-cap-on,,,no-source,
-tool-0ml-mixed,Plastic,ACC-FNL-02,Plastic__ACC-FNL-02.png,pdp-cap-off-sidecar,,,no-source,
-tool-0ml-silver,FunnelMetalSl,ACC-FNL-SLV,FunnelMetalSl__ACC-FNL-SLV.png,identity-cap-on,,,no-source,
-tool-0ml-silver,FunnelMetalSl,ACC-FNL-SLV,FunnelMetalSl__ACC-FNL-SLV.png,pdp-cap-off-sidecar,,,no-source,
+groupSlug,websiteSku,graceSku,exportFileName,role,psdEstate,psdPath,status,heroRole,note
+tool-0ml-gold,FunnelMetalGl,ACC-FNL-GLD,FunnelMetalGl__ACC-FNL-GLD.png,identity-cap-on,,,no-source,,
+tool-0ml-gold,FunnelMetalGl,ACC-FNL-GLD,FunnelMetalGl__ACC-FNL-GLD.png,pdp-cap-off-sidecar,,,no-source,hero,
+tool-0ml-mixed,Plastic,ACC-FNL-02,Plastic__ACC-FNL-02.png,identity-cap-on,,,no-source,,
+tool-0ml-mixed,Plastic,ACC-FNL-02,Plastic__ACC-FNL-02.png,pdp-cap-off-sidecar,,,no-source,hero,
+tool-0ml-silver,FunnelMetalSl,ACC-FNL-SLV,FunnelMetalSl__ACC-FNL-SLV.png,identity-cap-on,,,no-source,,
+tool-0ml-silver,FunnelMetalSl,ACC-FNL-SLV,FunnelMetalSl__ACC-FNL-SLV.png,pdp-cap-off-sidecar,,,no-source,hero,

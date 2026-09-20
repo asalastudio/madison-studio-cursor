@@ -17,6 +17,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readFileSync } from "node:fs";
 
+import { resolveBestBottlesHeroReferenceRole } from "../../src/lib/bestBottlesHeroPresentation";
+
 const getArg = (flag: string, fallback: string) => {
   const index = process.argv.indexOf(flag);
   return index >= 0 && process.argv[index + 1] ? process.argv[index + 1]! : fallback;
@@ -78,6 +80,7 @@ for (const [family, rows] of byFamily) {
       "psdEstate",
       "psdPath",
       "status",
+      "heroRole",
       "note",
     ].join(","),
   ];
@@ -85,10 +88,13 @@ for (const [family, rows] of byFamily) {
   for (const row of rows.sort((a, b) => a.groupSlug.localeCompare(b.groupSlug))) {
     const exportName = `${row.websiteSku}__${row.graceSku}.png`;
     const note = row.match === "alias" ? `matched via SKU alias "${row.matchedOn}" — storefront capacity label differs` : "";
+    // The role the HERO is generated from. Export this one first; the other
+    // role still matters for PDP imagery but does not gate the hero.
+    const heroRole = resolveBestBottlesHeroReferenceRole(row);
     const emit = (role: string, located: string | null, status: string) => {
       const [estate, ...rest] = (located ?? "").split(":");
       lines.push(
-        [row.groupSlug, row.websiteSku, row.graceSku, exportName, role, located ? estate! : "", located ? rest.join(":") : "", status, note]
+        [row.groupSlug, row.websiteSku, row.graceSku, exportName, role, located ? estate! : "", located ? rest.join(":") : "", status, role === heroRole ? "hero" : "", note]
           .map(csvCell)
           .join(","),
       );

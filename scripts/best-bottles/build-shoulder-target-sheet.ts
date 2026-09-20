@@ -28,6 +28,7 @@ import { join, resolve } from "node:path";
 
 import sharp from "sharp";
 
+import { resolveBestBottlesHeroPresentation } from "../../src/lib/bestBottlesHeroPresentation";
 import { detectGlassShoulderLandmark } from "../../src/lib/product-image/shoulderLandmark";
 
 const CLIENT_ROOT = "/Users/jordanrichter/Projects/Clients/Nemat-International";
@@ -79,7 +80,7 @@ const coveragePath = resolve(getArg("--coverage", "tmp/bestbottles-generation/ps
 const outDir = resolve(getArg("--out", `tmp/bestbottles-review/${slug}`));
 mkdirSync(join(outDir, "img"), { recursive: true });
 
-type CoverageRow = { family: string; groupSlug: string; websiteSku: string; graceSku: string; capOff: string | null };
+type CoverageRow = { family: string; groupSlug: string; websiteSku: string; graceSku: string; capOff: string | null; capOn: string | null };
 const coverage = JSON.parse(readFileSync(coveragePath, "utf8")) as { rows: CoverageRow[] };
 const rows = coverage.rows
   .filter((row) => row.family.toLowerCase() === family.toLowerCase())
@@ -114,17 +115,26 @@ for (const product of snapshot) {
 const DISPLAY_HEIGHT = 760;
 
 for (const row of rows) {
-  if (!row.capOff) {
-    held.push({ sku: row.websiteSku, why: "no uncapped source — the glass rim and shoulder are not reliably visible" });
+  // A dropper hero shows the dropper seated in the bottle, so it is drawn from
+  // the capped source; everything else is drawn uncapped with its sidecar.
+  const presentation = resolveBestBottlesHeroPresentation(row);
+  const located = presentation === "assembled" ? row.capOn : row.capOff;
+  if (!located) {
+    held.push({
+      sku: row.websiteSku,
+      why: presentation === "assembled"
+        ? "no capped source for an assembled hero"
+        : "no uncapped source — the glass rim and shoulder are not reliably visible",
+    });
     continue;
   }
-  const [estate, ...rest] = row.capOff.split(":");
+  const [estate, ...rest] = located.split(":");
   const psd = join(ESTATE_ROOTS[estate!] ?? "", rest.join(":"));
   if (!existsSync(psd)) {
-    held.push({ sku: row.websiteSku, why: `source missing on disk: ${row.capOff}` });
+    held.push({ sku: row.websiteSku, why: `source missing on disk: ${located}` });
     continue;
   }
-  const flat = join(outDir, "img", `${row.websiteSku}.flat.png`);
+  const flat = join(outDir, "img", `${row.websiteSku}.${presentation}.flat.png`);
   if (!existsSync(flat)) execFileSync("sips", ["-s", "format", "png", psd, "--out", flat], { stdio: "ignore" });
 
   const source = sharp(flat).flatten({ background: "#ffffff" });

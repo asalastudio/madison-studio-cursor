@@ -23,7 +23,8 @@ describe("Best Bottles shoulder lock", () => {
       bodies: Array<{ glassBodyKey: string; shoulderPct: number; bodyAspect: number; status: string }>;
     };
     assert.equal(snapshot.version, BEST_BOTTLES_SHOULDER_LOCK_VERSION);
-    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 14);
+    // 14 Cylinder bodies from the Sep 7 lock + 3 Slim bodies locked 2026-09-19.
+    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 17);
     assert.deepEqual(
       BEST_BOTTLES_SHOULDER_LOCK_BODIES.map((body) => ({
         glassBodyKey: body.glassBodyKey,
@@ -66,6 +67,45 @@ describe("Best Bottles shoulder lock", () => {
       resolveGlassBodyKey({ family: "Boston Round", capacityMl: 100 }),
       null,
     );
+  });
+
+  it("locks Slim to three bodies by stated capacity, whatever the fitment", () => {
+    for (const [capacityMl, key, pct, fromTop] of [
+      [30, "slim:30-standard", 48.5, 42.5],
+      [50, "slim:50-standard", 54, 37],
+      [100, "slim:100-standard", 67.5, 23.5],
+    ] as const) {
+      for (const applicator of ["Fine Mist Sprayer", "Lotion Pump", "Reducer", "Dropper"]) {
+        const lock = resolveShoulderLock({ family: "Slim", capacityMl, applicator });
+        assert.ok(lock, `${capacityMl} ml ${applicator}`);
+        assert.equal(lock.glassBodyKey, key);
+        assert.equal(lock.shoulderPct, pct);
+        assert.equal(lock.shoulderYFromTopPct, fromTop);
+      }
+    }
+  });
+
+  it("does not let Slim's junk catalog rows choose the body", () => {
+    // Seven Slim lotion pumps carry the known junk 72 mm diameter, and three
+    // rows list millimetres that contradict the capacity in their own name.
+    // The stated capacity is the key; measurements must not move it.
+    assert.equal(
+      resolveGlassBodyKey({ family: "Slim", capacityMl: 50, heightWithoutCap: "121 ±2 mm", applicator: "Lotion Pump" }),
+      "slim:50-standard",
+    );
+    assert.equal(
+      resolveGlassBodyKey({ family: "Slim", capacityMl: 100, heightWithoutCap: "120 ±1 mm" }),
+      "slim:100-standard",
+    );
+    assert.equal(resolveGlassBodyKey({ bottleCollection: "Slim", itemName: "Slim design 30 ml, 1oz clear glass bottle" }), "slim:30-standard");
+  });
+
+  it("fails closed on a Slim capacity that has no locked body", () => {
+    assert.equal(resolveGlassBodyKey({ family: "Slim", capacityMl: 15 }), null);
+    assert.equal(resolveShoulderLock({ family: "Slim", capacityMl: 75 }), null);
+    assert.equal(resolveShoulderLock({ family: "Slim" }), null);
+    // Slim's lock must not leak onto a family that only shares the capacity.
+    assert.equal(resolveGlassBodyKey({ family: "Sleek", capacityMl: 50 }), null);
   });
 
   it("does not let a broken 30 ml Convex row choose a different body", () => {

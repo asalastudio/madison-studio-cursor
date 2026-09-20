@@ -63,6 +63,14 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   { glassBodyKey: "cylinder:114-standard", label: "Cylinder 114 ml plastic", shoulderPct: 49.5, bodyAspect: 2.673, status: "locked" },
   { glassBodyKey: "cylinder:227-standard", label: "Cylinder 227 ml plastic", shoulderPct: 63.0, bodyAspect: 3.045, status: "locked" },
   { glassBodyKey: "cylinder:454-standard", label: "Cylinder 454 ml plastic", shoulderPct: 71.5, bodyAspect: 3.22, status: "locked" },
+  // Slim — locked 2026-09-19 by Jordan on the adjustable target sheet
+  // (scripts/best-bottles/build-shoulder-target-sheet.ts), against the Sep 7
+  // Cylinder ladder for scale. bodyAspect is measured on the flattened uncapped
+  // Photoshop sources, where foot-to-shoulder is identical to the pixel across
+  // every fitment on a body (1002/1002/1002/1002, 1442/1443/1442, 1874/1874/1874).
+  { glassBodyKey: "slim:30-standard", label: "Slim 30 ml", shoulderPct: 48.5, bodyAspect: 2.496, status: "locked" },
+  { glassBodyKey: "slim:50-standard", label: "Slim 50 ml", shoulderPct: 54, bodyAspect: 3.492, status: "locked" },
+  { glassBodyKey: "slim:100-standard", label: "Slim 100 ml", shoulderPct: 67.5, bodyAspect: 4.372, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(
@@ -207,7 +215,24 @@ function capacityKey(capacityMl: number): string | null {
   }
 }
 
+/**
+ * Slim has exactly three glass bodies. Its catalog reports ten distinct
+ * height x diameter pairs, but seven are noise — the known junk 72 mm diameter
+ * on the lotion pumps, and rows whose millimetres contradict the capacity in
+ * their own name — so the stated capacity is the key, as it is for Cylinder.
+ * Any other capacity fails closed.
+ */
+function slimGlassBodyKey(input: ShoulderLockProductInput): string | null {
+  const capacityMl = resolveCapacityMl(input);
+  if (capacityMl == null) return null;
+  for (const capacity of [30, 50, 100]) {
+    if (Math.abs(capacityMl - capacity) <= 0.2) return `slim:${capacity}-standard`;
+  }
+  return null;
+}
+
 export function resolveGlassBodyKey(input: ShoulderLockProductInput): string | null {
+  if (normalizeFamily(input.family ?? input.bottleCollection) === "slim") return slimGlassBodyKey(input);
   if (!isCylinderShoulderLockFamily(input)) return null;
   const capacityMl = resolveCapacityMl(input);
   if (capacityMl == null) return null;

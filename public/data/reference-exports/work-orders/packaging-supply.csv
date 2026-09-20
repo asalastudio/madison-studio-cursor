@@ -1,5 +1,5 @@
-groupSlug,websiteSku,graceSku,exportFileName,role,psdEstate,psdPath,status,note
-packaging-supply-0ml-clear,RecloseableBags3x12,ACC-RCB-3X12,RecloseableBags3x12__ACC-RCB-3X12.png,identity-cap-on,,,no-source,
-packaging-supply-0ml-clear,RecloseableBags3x12,ACC-RCB-3X12,RecloseableBags3x12__ACC-RCB-3X12.png,pdp-cap-off-sidecar,,,no-source,
-packaging-supply-0ml-mixed,RecloseableBags12x15,ACC-RCB-12X15,RecloseableBags12x15__ACC-RCB-12X15.png,identity-cap-on,,,no-source,
-packaging-supply-0ml-mixed,RecloseableBags12x15,ACC-RCB-12X15,RecloseableBags12x15__ACC-RCB-12X15.png,pdp-cap-off-sidecar,,,no-source,
+groupSlug,websiteSku,graceSku,exportFileName,role,psdEstate,psdPath,status,heroRole,note
+packaging-supply-0ml-clear,RecloseableBags3x12,ACC-RCB-3X12,RecloseableBags3x12__ACC-RCB-3X12.png,identity-cap-on,,,no-source,,
+packaging-supply-0ml-clear,RecloseableBags3x12,ACC-RCB-3X12,RecloseableBags3x12__ACC-RCB-3X12.png,pdp-cap-off-sidecar,,,no-source,hero,
+packaging-supply-0ml-mixed,RecloseableBags12x15,ACC-RCB-12X15,RecloseableBags12x15__ACC-RCB-12X15.png,identity-cap-on,,,no-source,,
+packaging-supply-0ml-mixed,RecloseableBags12x15,ACC-RCB-12X15,RecloseableBags12x15__ACC-RCB-12X15.png,pdp-cap-off-sidecar,,,no-source,hero,
