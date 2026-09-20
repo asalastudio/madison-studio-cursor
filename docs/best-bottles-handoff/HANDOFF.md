@@ -111,8 +111,8 @@ Vite harness on :8080).
 - Decisions are read back from `window.__shoulderTargetsDecided` on a family
   page, or `window.__allShoulderTargets` on the index. An untouched slider is an
   opening guess and is never stored as a decision.
-- State on 2026-09-19: **39 glass bodies across 19 families await a target; 148
-  heroes are on sheets; none decided yet.** Held off the sheets: 46 with no
+- State on 2026-09-19: Elegant's four bodies are decided and locked. **35 glass
+  bodies across 18 families still await a target; 120 heroes are on sheets.** Held off the sheets: 46 with no
   Photoshop source, 37 on curved glass where the detector finds no shoulder
   (Circle 50/100 ml, Round 128 ml, parts of Diva), 27 tassel bulb sprayers
   (wide-canvas lane; they inherit a lock, they do not set one), and the 7
@@ -187,7 +187,7 @@ sheet shows a body's scale-card level for orientation.
 | Model | `gpt-image-2.5-sunburst` was the locked model in Madison |
 | Tolerance | shoulder within **2 mm**, never tighter than 1% of canvas |
 
-### Shoulder lock table — 17 bodies
+### Shoulder lock table — 21 bodies
 
 One number per **glass body**, not per SKU. Foot-to-shoulder as a share of canvas
 height above the 91% baseline. `bodyAspect` is foot-to-shoulder ÷ glass width and
@@ -204,6 +204,16 @@ lets the rig reject a wrong landmark.
 | cylinder:28-standard | 50.5% | 2.203 | | **slim:30-standard** | **48.5%** | 2.496 |
 | cylinder:30-standard | 46% | 2.65 | | **slim:50-standard** | **54%** | 3.492 |
 | | | | | **slim:100-standard** | **67.5%** | 4.372 |
+| **elegant:15-standard** | **39%** | 1.358 | | **elegant:60-standard** | **47%** | 1.253 |
+| **elegant:30-standard** | **43%** | 1.381 | | **elegant:100-standard** | **57%** | 1.517 |
+
+Elegant was locked by Jordan on 2026-09-19 from the all-family sheet, one north
+star per size (the clear fine-mist sprayer). Slim and Elegant are
+capacity-keyed: add a family to `CAPACITY_KEYED_FAMILIES` in both lock files
+rather than writing a new resolver. **The deployed edge function does not carry
+the Elegant lock yet** — it needs a redeploy, which needs Jordan's go. Until
+then Madison-side generation for Elegant has no lock in its prompt;
+`rig-external-image.ts` reads the local table and works now.
 
 Source of truth: `src/lib/bestBottlesShoulderLock.ts`, mirrored in
 `supabase/functions/_shared/bestBottlesShoulderLock.ts` and

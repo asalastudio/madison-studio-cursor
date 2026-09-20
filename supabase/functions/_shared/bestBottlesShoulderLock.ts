@@ -71,6 +71,15 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   { glassBodyKey: "slim:30-standard", label: "Slim 30 ml", shoulderPct: 48.5, bodyAspect: 2.496, status: "locked" },
   { glassBodyKey: "slim:50-standard", label: "Slim 50 ml", shoulderPct: 54, bodyAspect: 3.492, status: "locked" },
   { glassBodyKey: "slim:100-standard", label: "Slim 100 ml", shoulderPct: 67.5, bodyAspect: 4.372, status: "locked" },
+  // Elegant — locked 2026-09-19 by Jordan on the all-family target sheet, read
+  // back from the page rather than transcribed. Each size is set from one north
+  // star (the clear-glass fine-mist sprayer); every colour and fitment at that
+  // size follows it. bodyAspect is the north star's, foot-to-shoulder over glass
+  // width, on the flattened uncapped Photoshop source.
+  { glassBodyKey: "elegant:15-standard", label: "Elegant 15 ml", shoulderPct: 39, bodyAspect: 1.358, status: "locked" },
+  { glassBodyKey: "elegant:30-standard", label: "Elegant 30 ml", shoulderPct: 43, bodyAspect: 1.381, status: "locked" },
+  { glassBodyKey: "elegant:60-standard", label: "Elegant 60 ml", shoulderPct: 47, bodyAspect: 1.253, status: "locked" },
+  { glassBodyKey: "elegant:100-standard", label: "Elegant 100 ml", shoulderPct: 57, bodyAspect: 1.517, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(
@@ -221,23 +230,35 @@ function capacityKey(capacityMl: number): string | null {
 }
 
 /**
- * Slim has exactly three glass bodies. Its catalog reports ten distinct
- * height x diameter pairs, but seven are noise — the known junk 72 mm diameter
- * on the lotion pumps, and rows whose millimetres contradict the capacity in
- * their own name — so the stated capacity is the key, as it is for Cylinder.
- * Any other capacity fails closed.
+ * Families whose glass body is fully named by the stated capacity: lock a size
+ * once and every colour and fitment on that glass holds the same shoulder.
+ *
+ * The catalog cannot be the key. Slim reports ten distinct height x diameter
+ * pairs for three bodies — the known junk 72 mm diameter on the lotion pumps,
+ * and rows whose millimetres contradict the capacity in their own name. Elegant
+ * reports 70 mm on some frosted 15 ml rows and 92 mm on its 60 ml bulb sprayers
+ * for the same 61 mm and 86 mm glass. Any capacity not listed fails closed.
  */
-function slimGlassBodyKey(input: ShoulderLockProductInput): string | null {
+const CAPACITY_KEYED_FAMILIES: Readonly<Record<string, { keyPrefix: string; capacitiesMl: readonly number[] }>> = {
+  slim: { keyPrefix: "slim", capacitiesMl: [30, 50, 100] },
+  elegant: { keyPrefix: "elegant", capacitiesMl: [15, 30, 60, 100] },
+};
+
+function capacityKeyedGlassBodyKey(
+  family: { keyPrefix: string; capacitiesMl: readonly number[] },
+  input: ShoulderLockProductInput,
+): string | null {
   const capacityMl = resolveCapacityMl(input);
   if (capacityMl == null) return null;
-  for (const capacity of [30, 50, 100]) {
-    if (Math.abs(capacityMl - capacity) <= 0.2) return `slim:${capacity}-standard`;
+  for (const capacity of family.capacitiesMl) {
+    if (Math.abs(capacityMl - capacity) <= 0.2) return `${family.keyPrefix}:${capacity}-standard`;
   }
   return null;
 }
 
 export function resolveGlassBodyKey(input: ShoulderLockProductInput): string | null {
-  if (normalizeFamily(input.family ?? input.bottleCollection) === "slim") return slimGlassBodyKey(input);
+  const capacityKeyed = CAPACITY_KEYED_FAMILIES[normalizeFamily(input.family ?? input.bottleCollection)];
+  if (capacityKeyed) return capacityKeyedGlassBodyKey(capacityKeyed, input);
   if (!isCylinderShoulderLockFamily(input)) return null;
   const capacityMl = resolveCapacityMl(input);
   if (capacityMl == null) return null;

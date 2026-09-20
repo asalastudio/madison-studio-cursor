@@ -2,7 +2,7 @@
   "version": "shoulder-lock-2026-09-07",
   "baselinePct": 91,
   "source": "hero-reviews/catalog-replacements-2026-09-07",
-  "note": "Convex heightWithoutCap / heightWithCap remain product-truth millimeters. They do not choose the on-canvas percentage. Cylinder 50 ml has two glasses: 18-415 (~117 mm \u00d7 32 mm) locked at 56%; 16 mm roll-on (~98 mm \u00d7 37 mm) locked at 53%, placed on the shoulder ladder between the 81 mm / 28 ml lock (50.5%) and the 117 mm / 18-415 lock (56%).",
+  "note": "Convex heightWithoutCap / heightWithCap remain product-truth millimeters. They do not choose the on-canvas percentage. Cylinder 50 ml has two glasses: 18-415 (~117 mm × 32 mm) locked at 56%; 16 mm roll-on (~98 mm × 37 mm) locked at 53%, placed on the shoulder ladder between the 81 mm / 28 ml lock (50.5%) and the 117 mm / 18-415 lock (56%).",
   "bodies": [
     {
       "glassBodyKey": "cylinder:3.3-standard",
@@ -121,6 +121,34 @@
       "label": "Slim 100 ml",
       "shoulderPct": 67.5,
       "bodyAspect": 4.372,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "elegant:15-standard",
+      "label": "Elegant 15 ml",
+      "shoulderPct": 39,
+      "bodyAspect": 1.358,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "elegant:30-standard",
+      "label": "Elegant 30 ml",
+      "shoulderPct": 43,
+      "bodyAspect": 1.381,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "elegant:60-standard",
+      "label": "Elegant 60 ml",
+      "shoulderPct": 47,
+      "bodyAspect": 1.253,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "elegant:100-standard",
+      "label": "Elegant 100 ml",
+      "shoulderPct": 57,
+      "bodyAspect": 1.517,
       "status": "locked"
     }
   ]

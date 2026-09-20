@@ -23,8 +23,8 @@ describe("Best Bottles shoulder lock", () => {
       bodies: Array<{ glassBodyKey: string; shoulderPct: number; bodyAspect: number; status: string }>;
     };
     assert.equal(snapshot.version, BEST_BOTTLES_SHOULDER_LOCK_VERSION);
-    // 14 Cylinder bodies from the Sep 7 lock + 3 Slim bodies locked 2026-09-19.
-    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 17);
+    // 14 Cylinder bodies from the Sep 7 lock + 3 Slim and 4 Elegant bodies locked 2026-09-19.
+    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 21);
     assert.deepEqual(
       BEST_BOTTLES_SHOULDER_LOCK_BODIES.map((body) => ({
         glassBodyKey: body.glassBodyKey,
@@ -124,6 +124,39 @@ describe("Best Bottles shoulder lock", () => {
     assert.equal(resolveShoulderLock({ family: "Slim" }), null);
     // Slim's lock must not leak onto a family that only shares the capacity.
     assert.equal(resolveGlassBodyKey({ family: "Sleek", capacityMl: 50 }), null);
+  });
+
+  it("locks Elegant to four bodies by stated capacity, whatever the colour or fitment", () => {
+    for (const [capacityMl, key, pct, fromTop] of [
+      [15, "elegant:15-standard", 39, 52],
+      [30, "elegant:30-standard", 43, 48],
+      [60, "elegant:60-standard", 47, 44],
+      [100, "elegant:100-standard", 57, 34],
+    ] as const) {
+      for (const applicator of ["Fine Mist Sprayer", "Lotion Pump", "Reducer", "Dropper", "Vintage Bulb Sprayer"]) {
+        for (const websiteSku of ["GBElg", "GBElgFrst"]) {
+          const lock = resolveShoulderLock({ family: "Elegant", capacityMl, applicator, websiteSku });
+          assert.ok(lock, `${capacityMl} ml ${applicator} ${websiteSku}`);
+          assert.equal(lock.glassBodyKey, key);
+          assert.equal(lock.shoulderPct, pct);
+          assert.equal(lock.shoulderYFromTopPct, fromTop);
+        }
+      }
+    }
+  });
+
+  it("does not let Elegant's inconsistent catalog heights choose the body", () => {
+    // Frosted 15 ml rows report 70 mm and the 60 ml bulb sprayers 92 mm, for the
+    // same 61 mm and 86 mm glass the rest of the size reports.
+    assert.equal(resolveGlassBodyKey({ family: "Elegant", capacityMl: 15, heightWithoutCap: "70 ±1 mm" }), "elegant:15-standard");
+    assert.equal(resolveGlassBodyKey({ family: "Elegant", capacityMl: 60, heightWithoutCap: "92 ±1 mm", applicator: "Vintage Bulb Sprayer" }), "elegant:60-standard");
+  });
+
+  it("fails closed on an Elegant capacity that has no locked body", () => {
+    assert.equal(resolveGlassBodyKey({ family: "Elegant", capacityMl: 50 }), null);
+    assert.equal(resolveShoulderLock({ family: "Elegant" }), null);
+    // Elegant's lock must not leak onto a family that only shares the capacity.
+    assert.equal(resolveGlassBodyKey({ family: "Diva", capacityMl: 30 }), null);
   });
 
   it("does not let a broken 30 ml Convex row choose a different body", () => {
