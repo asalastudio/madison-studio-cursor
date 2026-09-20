@@ -3,6 +3,9 @@
  * Aligns to the 10:11 canvas: red baseline, green target rim, S-tag ticks.
  */
 
+// Keep `React` in scope: `tsx --test` compiles this file's JSX with the classic
+// runtime (`React.createElement`), so ScaleCardOverlay.test.tsx throws
+// "React is not defined" without it, even though the app build does not need it.
 import React from "react";
 import type { ScaleCardOverlayModel } from "@/lib/bestBottlesScaleCardOverlay";
 import type { BestBottlesScaleVerdict } from "@/lib/bestBottlesScaleVerdict";
@@ -22,7 +25,7 @@ export function ScaleCardOverlay({
   density = "full",
   className = "",
   verdict,
-}: ScaleCardOverlayProps) {
+}: ScaleCardOverlayProps): React.ReactElement {
   const compact = density === "compact";
   const target = model.target;
   const assembledTarget = model.assembledTarget;

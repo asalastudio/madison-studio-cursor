@@ -19,7 +19,7 @@ describe("ScaleCardOverlay", () => {
     });
 
     const markup = renderToStaticMarkup(
-      <ScaleCardOverlay model={model} density="full" />,
+      React.createElement(ScaleCardOverlay, { model, density: "full" }),
     );
 
     assert.match(markup, /data-mode="shoulder-lock"/);

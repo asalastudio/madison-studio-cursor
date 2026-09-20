@@ -3169,12 +3169,16 @@ export function MastersTabPanel({
     });
     let capIdentityReferenceUrl: string | null = null;
     if (capIdentityReferenceSku) {
-      const { data: capReferenceRows, error: capReferenceError } = await supabase
-        .from("best_bottles_pipeline_sku_jobs")
-        .select("grace_sku,website_sku,reference_issue")
-        .eq("organization_id", currentOrganizationId)
-        .eq("grace_sku", capIdentityReferenceSku)
-        .limit(2);
+      // Without an organization no org-scoped row can match, so take the same
+      // blocked path below as an empty lookup rather than query `organization_id=eq.null`.
+      const { data: capReferenceRows, error: capReferenceError } = currentOrganizationId
+        ? await supabase
+            .from("best_bottles_pipeline_sku_jobs")
+            .select("grace_sku,website_sku,reference_issue")
+            .eq("organization_id", currentOrganizationId)
+            .eq("grace_sku", capIdentityReferenceSku)
+            .limit(2)
+        : { data: null, error: null };
       const exactRows = Array.isArray(capReferenceRows)
         ? capReferenceRows.filter((row) =>
             row?.grace_sku === capIdentityReferenceSku &&

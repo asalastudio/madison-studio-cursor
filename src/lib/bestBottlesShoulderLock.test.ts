@@ -252,7 +252,6 @@ describe("Best Bottles shoulder lock", () => {
       family: "Cylinder",
       capacityMl: 50,
       heightWithoutCap: "98 ±1 mm",
-      diameter: "37 ±0.5 mm",
       neckThreadSize: "16mm",
       applicator: "Metal Roller Ball",
     });
@@ -267,7 +266,6 @@ describe("Best Bottles shoulder lock", () => {
       family: "Cylinder",
       capacityMl: 50,
       heightWithoutCap: "85 ±1 mm",
-      diameter: "30 ±0.5 mm",
       neckThreadSize: "18-415",
       applicator: "Vintage Bulb",
       graceSku: "GB-CYL-CLR-50ML-ASP-WHT",

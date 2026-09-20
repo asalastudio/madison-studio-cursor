@@ -613,7 +613,7 @@ function hexToRgb(hex: string): Rgb | null {
   return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
 }
 
-function colorDistance(pixels: Uint8ClampedArray, i: number, bg: Rgb): number {
+function colorDistance(pixels: ArrayLike<number>, i: number, bg: Rgb): number {
   return Math.abs(pixels[i] - bg.r) + Math.abs(pixels[i + 1] - bg.g) + Math.abs(pixels[i + 2] - bg.b);
 }
 

@@ -274,7 +274,11 @@ export function resolveScaleCardOverlayModel(input: {
         }
       : null;
 
-  const ticks: ScaleCardOverlayTick[] = BEST_BOTTLES_SCALE_CARD_CONTROL_POINTS.map((point) => {
+  // `level` is optional here so the `S<mm>` fallback below stays type-checkable:
+  // every v2 control point carries a level, which otherwise narrows `point` to never.
+  const ticks: ScaleCardOverlayTick[] = BEST_BOTTLES_SCALE_CARD_CONTROL_POINTS.map((
+    point: { mm: number; glassPct: number; level?: string },
+  ) => {
     const tag =
       "level" in point && typeof point.level === "string"
         ? point.level
