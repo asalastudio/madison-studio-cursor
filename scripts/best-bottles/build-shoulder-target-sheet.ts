@@ -33,7 +33,7 @@
  * `index-psd-source-coverage.ts`.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,7 +41,7 @@ import sharp from "sharp";
 
 import { BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS } from "../../src/config/bestBottlesCatalogScale";
 import { resolveBestBottlesHeroPresentation } from "../../src/lib/bestBottlesHeroPresentation";
-import { resolveShoulderLock } from "../../src/lib/bestBottlesShoulderLock";
+import { resolveShoulderLandmarkKind, resolveShoulderLock } from "../../src/lib/bestBottlesShoulderLock";
 import { resolveWholeVesselBounds } from "../../src/lib/product-image/rigPostprocess";
 import { detectGlassShoulderLandmark } from "../../src/lib/product-image/shoulderLandmark";
 
@@ -63,23 +63,17 @@ const ESTATE_ROOTS: Record<string, string> = {
   original: `${CLIENT_ROOT}/Best-Bottles-Original-Photoshop-Sources`,
 };
 /**
- * Where the locked reference ladder's images are read from. Release worktrees
- * come and go — this pinned release-7 and broke every sheet once it was
- * removed — so take whichever checkout is actually on disk, newest first, and
- * fall back to the main one.
+ * The locked reference ladder is read from the website repo's origin/main
+ * through git, as the live status below already is. Reading a working folder
+ * broke every sheet twice: first when the pinned release-7 worktree was
+ * removed, then when the release worktrees were cleaned up and the main
+ * checkout moved to a branch without the registry.
  */
-const SITE_ROOT = `${CLIENT_ROOT}/Best-Bottles-Website-02-20-2026`;
-const SITE_HEROES = (() => {
-  const worktrees = `${SITE_ROOT}/.claude/worktrees`;
-  const releases = existsSync(worktrees)
-    ? readdirSync(worktrees)
-        .filter((name) => /^sunburst-heroes-release-\d+$/.test(name))
-        .sort((a, b) => Number(b.split("-").pop()) - Number(a.split("-").pop()))
-        .map((name) => `${worktrees}/${name}/public`)
-    : [];
-  return [...releases, `${SITE_ROOT}/public`].find((candidate) =>
-    existsSync(join(candidate, "../src/lib/products/catalog-heroes.json"))) ?? `${SITE_ROOT}/public`;
-})();
+const siteMainFile = (path: string): Buffer =>
+  execFileSync("git", ["-C", SITE_REPO, "show", `origin/main:${path}`], {
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "ignore"],
+  });
 const CONVEX_SNAPSHOT = `${CLIENT_ROOT}/Best-Bottles-Website-02-20-2026/data/audits/2026-06-27-framing-profiles/convex_snapshot.json`;
 
 /**
@@ -127,6 +121,9 @@ type FamilySummary = {
   bodies: Array<{ key: string; glassMm: number | null; openingTargetPct: number | null; capacityMl: number; bodyAspect: number; heroes: string[] }>;
   inherits: Array<{ body: string; pct: number; heroes: number; stillToShoulderLock: number }>;
   held: Array<{ sku: string; why: string }>;
+  /** Closure-seat families only; the others keep the plain v3 key. */
+  landmark?: "closure-seat";
+  storageKey?: string;
 };
 
 if (process.argv.includes("--all")) {
@@ -162,6 +159,12 @@ if (!family) {
   process.exit(1);
 }
 const slug = slugOf(family);
+// Urn glass is measured to the closure seat (where the cap starts), everything
+// else to the shoulder; the rig reads the same rule from the lock file.
+const landmarkKind = resolveShoulderLandmarkKind({ family });
+// A target set against the shoulder line means nothing against the seat, so a
+// family that moves to the seat starts with nothing decided.
+const storageKey = `bb-shoulder-targets:v3:${slug}${landmarkKind === "closure-seat" ? ":closure-seat" : ""}`;
 const outDir = resolve(getArg("--out", `tmp/bestbottles-review/${slug}`));
 mkdirSync(join(outDir, "img"), { recursive: true });
 
@@ -386,7 +389,6 @@ for (const row of rows) {
     if (l >= 0) widths.push(r - l + 1);
   }
   widths.sort((a, b) => a - b);
-  const glassWidth = widths[widths.length >> 1] ?? 0;
 
   const landmark = detectGlassShoulderLandmark({
     pixels: px,
@@ -395,7 +397,24 @@ for (const row of rows) {
     primaryBounds: { top: bottleTop, bottom: bottleBottom, left, right: bottleRight },
     footYPx: bottleBottom,
     background: { r: 255, g: 255, b: 255 },
+    landmark: landmarkKind,
   });
+  // A closure-seat aspect is stated against the belly, the widest glass. The
+  // median of the lower third reads the taper to the stem instead, and how much
+  // of it depends on how tall the fitment makes the frame.
+  let widestLowerGlass = 0;
+  if (landmarkKind === "closure-seat") {
+    for (let y = Math.round(bottleTop + (bottleBottom - bottleTop) * 0.4); y < bottleBottom - 30; y += 2) {
+      let l = -1, r = -1;
+      for (let x = left; x <= bottleRight; x++) if (ink(x, y)) { l = x; break; }
+      for (let x = bottleRight; x >= left; x--) if (ink(x, y)) { r = x; break; }
+      if (l >= 0) widestLowerGlass = Math.max(widestLowerGlass, r - l + 1);
+    }
+  }
+  const glassWidth =
+    landmarkKind === "closure-seat"
+      ? (landmark?.outerBodyWidthPx ?? widestLowerGlass)
+      : (widths[widths.length >> 1] ?? 0);
   if (glassWidth === 0) {
     held.push({ sku: row.websiteSku, why: "glass width not measurable" });
     continue;
@@ -475,7 +494,7 @@ for (const size of sizes) {
   let trusted = measurable.filter((entry) => !entry.capped && !entry.bulb && !entry.frosted);
   if (!trusted.length) trusted = measurable.filter((entry) => !entry.bulb);
   if (!trusted.length) {
-    for (const entry of group) held.push({ sku: entry.hero.sku, why: "no trustworthy shoulder measurement at this size — the detector cannot find a shoulder on this glass" });
+    for (const entry of group) held.push({ sku: entry.hero.sku, why: landmarkKind === "closure-seat" ? "no trustworthy closure-seat measurement at this size — the detector cannot find where the cap starts on this glass" : "no trustworthy shoulder measurement at this size — the detector cannot find a shoulder on this glass" });
     continue;
   }
   const clusters: Pending[][] = [];
@@ -517,13 +536,18 @@ for (const size of sizes) {
 for (const members of bodies.values()) members.sort((a, b) => Number(b.northStar) - Number(a.northStar) || a.sku.localeCompare(b.sku));
 
 const references = [];
-const registry = JSON.parse(readFileSync(join(SITE_HEROES, "../src/lib/products/catalog-heroes.json"), "utf8")) as Array<{ websiteSku: string; url: string }>;
-for (const reference of LOCKED_REFERENCES) {
-  const row = registry.find((entry) => entry.websiteSku === reference.sku);
-  if (!row || !existsSync(join(SITE_HEROES, row.url))) continue;
-  const img = `img/ref-${reference.sku}.webp`;
-  await sharp(join(SITE_HEROES, row.url)).resize({ width: 640 }).webp({ quality: 84 }).toFile(join(outDir, img));
-  references.push({ ...reference, img });
+try {
+  const registry = JSON.parse(siteMainFile("src/lib/products/catalog-heroes.json").toString("utf8")) as Array<{ websiteSku: string; url: string }>;
+  for (const reference of LOCKED_REFERENCES) {
+    const row = registry.find((entry) => entry.websiteSku === reference.sku);
+    if (!row) continue;
+    const img = `img/ref-${reference.sku}.webp`;
+    await sharp(siteMainFile(`public/${row.url.replace(/^\//, "")}`)).resize({ width: 640 }).webp({ quality: 84 }).toFile(join(outDir, img));
+    references.push({ ...reference, img });
+  }
+} catch (error) {
+  // The ladder is context, not the decision: a sheet without it still works.
+  console.warn(`reference ladder skipped: ${(error as Error).message.split("\n")[0]}`);
 }
 
 const bodyList = [...bodies.entries()].map(([key, members]) => {
@@ -593,7 +617,7 @@ const page = `<!doctype html>
   button { font:500 14px/1 inherit; padding:9px 14px; border:1px solid var(--ink); background:#fff; border-radius:6px; cursor:pointer; }
 </style></head><body>
 <h1>${family} · shoulder targets</h1>
-<p class="sub">One target per glass body. Drag a slider and every hero on that body moves together — the closure never moves the shoulder. The dashed line is the shared 91% baseline; the green line is where the glass shoulder will land. A red card means the fitment would crop at that size.</p>
+<p class="sub">One target per glass body. Drag a slider and every hero on that body moves together — the closure never moves the shoulder. The dashed line is the shared 91% baseline; ${landmarkKind === "closure-seat" ? "the green line is where the cap starts at the neck — the top of the glass ring every fitment sits on. This family has no straight wall for a shoulder to end, so its target is measured foot to cap." : "the green line is where the glass shoulder will land."} A red card means the fitment would crop at that size.</p>
 
 <section><div class="head"><h2>Locked reference ladder</h2><span class="meta">Cylinder · Sep 7 source of truth · not adjustable</span></div>
 <div class="row" id="refs"></div></section>
@@ -606,7 +630,7 @@ const REFS = ${JSON.stringify(references)};
 const HELD = ${JSON.stringify(held)};
 const INHERITS = ${JSON.stringify(inherits)};
 const FAMILY = ${JSON.stringify(slug)};
-const KEY = "bb-shoulder-targets:v3:" + FAMILY;
+const KEY = ${JSON.stringify(storageKey)};
 // Only bodies someone has actually decided are stored. A slider sitting at its
 // opening position — the locked Cylinder ladder read across by glass mm — is a
 // guess, and must never be read back as a decision.
@@ -693,6 +717,7 @@ const familySummary: FamilySummary = {
   bodies: bodyList.map(({ heroes: members, ...rest }) => ({ ...rest, heroes: members.map((hero) => hero.sku) })),
   inherits,
   held,
+  ...(landmarkKind === "closure-seat" ? { landmark: landmarkKind, storageKey } : {}),
 };
 writeFileSync(join(outDir, "bodies.json"), `${JSON.stringify(familySummary, null, 2)}\n`);
 
@@ -716,6 +741,7 @@ function renderIndex(built: FamilySummary[], skipped: Array<{ family: string; gr
   const data = ordered.map((entry) => ({
     family: entry.family,
     slug: entry.slug,
+    storageKey: entry.storageKey ?? `bb-shoulder-targets:v3:${entry.slug}`,
     groups: entry.summary.groups,
     bodies: entry.bodies.map((body) => body.key),
     onSheet: entry.summary.onSheet,
@@ -751,7 +777,7 @@ const FAMILIES = ${JSON.stringify(data)};
 const all = {}; let decidedCount = 0, bodyCount = 0;
 const rows = document.getElementById("rows");
 for (const f of FAMILIES) {
-  let saved = {}; try { saved = JSON.parse(localStorage.getItem("bb-shoulder-targets:v3:" + f.slug) || "{}"); } catch (e) {}
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem(f.storageKey) || "{}"); } catch (e) {}
   const mine = {}; for (const key of f.bodies) if (key in saved) mine[key] = saved[key];
   const n = Object.keys(mine).length; if (n) all[f.slug] = mine;
   decidedCount += n; bodyCount += f.bodies.length;

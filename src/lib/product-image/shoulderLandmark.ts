@@ -5,6 +5,22 @@ export type ShoulderLandmarkBounds = {
   right?: number;
 };
 
+/**
+ * Which point on the glass a lock is measured to.
+ *
+ * "shoulder" — where the straight wall ends. Every body locked so far uses it;
+ * on a tight-cornered body it lands within ~1% of the canvas under the closure,
+ * which is why Cylinder and Slim read as "at the cap".
+ *
+ * "closure-seat" — the top of the glass neck ring, where a cap or collar sits.
+ * For glass with no straight wall. An urn swells and then curves in, so "where
+ * the wall ends" has no single answer: on Diva the shoulder rule landed at the
+ * start of the ribs or partway down the dome, through the bottle. The seat is
+ * the one edge every fitment shares — the collar's bottom edge, or on a bare
+ * neck the step from the ring into the threads.
+ */
+export type ShoulderLandmarkKind = "shoulder" | "closure-seat";
+
 export type GlassShoulderLandmark = {
   shoulderYPx: number;
   /** Pre-refinement pick, kept so a manifest shows how far the edge moved; null when only geometry resolved. */
@@ -19,8 +35,14 @@ export type GlassShoulderLandmark = {
   bodyLeftXPx: number;
   bodyRightXPx: number;
   confidence: number;
+  /** Shoulder: the material change at the landmark. Closure seat: the step into the fitment, % of the ring's width. */
   transitionScore: number;
+  /** Shoulder: how well both walls hold under the landmark. Closure seat: 0 — an urn has no straight wall. */
   wallSupport: number;
+  /** Present only when the landmark is the closure seat. */
+  landmark?: "closure-seat";
+  /** Closure seat only: the widest row of glass below the seat, the width its aspect is stated in. */
+  outerBodyWidthPx?: number;
 };
 
 export type DetectGlassShoulderLandmarkInput = {
@@ -42,6 +64,8 @@ export type DetectGlassShoulderLandmarkInput = {
    * cobalt, picked far too high) sat alone at 21%.
    */
   expectedBodyAspectRatio?: number;
+  /** Which point the lock is measured to. Defaults to "shoulder". */
+  landmark?: ShoulderLandmarkKind;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -356,6 +380,215 @@ function sharpestTopBoundaryNear(
   return startY + Math.round((runStart + runEnd) / 2);
 }
 
+/** Outermost off-background pixel on each side of one row, as silhouetteWidthAt reads it. */
+function silhouetteEdgesAt(
+  pixels: ArrayLike<number>,
+  width: number,
+  y: number,
+  left: number,
+  right: number,
+  background: ColorSignature,
+  threshold: number,
+): { left: number; right: number } | null {
+  const offBackground = (x: number): boolean => {
+    const index = (y * width + x) * 4;
+    return (
+      Math.max(
+        Math.abs(Number(pixels[index] ?? 0) - background.r),
+        Math.abs(Number(pixels[index + 1] ?? 0) - background.g),
+        Math.abs(Number(pixels[index + 2] ?? 0) - background.b),
+      ) > threshold
+    );
+  };
+  let leftEdge = -1;
+  for (let x = left; x <= right; x += 1) {
+    if (offBackground(x)) {
+      leftEdge = x;
+      break;
+    }
+  }
+  if (leftEdge < 0) return null;
+  let rightEdge = leftEdge;
+  for (let x = right; x > leftEdge; x -= 1) {
+    if (offBackground(x)) {
+      rightEdge = x;
+      break;
+    }
+  }
+  return { left: leftEdge, right: rightEdge };
+}
+
+function medianOf(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((first, second) => first - second);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+}
+
+/**
+ * The closure seat on glass with no straight wall; see ShoulderLandmarkKind.
+ *
+ * Going up from the belly, an urn's silhouette narrows over the dome, holds
+ * roughly level across the neck ring, then steps in where the collar or the
+ * threads begin. On the 18 Diva Photoshop sources (tassels aside) the ring reads
+ * 63-65% of the belly at every size and fitment, and the step into the fitment
+ * is 17.6-35% of the ring's width — a dropper's collar is the widest; no other
+ * step between the dome and the seat passes 11.1%. So the seat is the first step
+ * above the dome of at least 15% that lasts. Stopping at the first one matters:
+ * the collar's own top, a dropper bulb and a sprayer actuator all step in again
+ * further up.
+ */
+function detectClosureSeatLandmark(
+  input: DetectGlassShoulderLandmarkInput,
+): GlassShoulderLandmark | null {
+  const { pixels, width, height } = input;
+  const bounds = input.primaryBounds;
+  if (
+    !bounds ||
+    typeof bounds.left !== "number" ||
+    typeof bounds.right !== "number" ||
+    width < 12 ||
+    height < 12 ||
+    bounds.right - bounds.left < 10 ||
+    input.footYPx <= bounds.top
+  ) {
+    return null;
+  }
+
+  const left = clamp(Math.floor(bounds.left), 1, width - 3);
+  const right = clamp(Math.ceil(bounds.right), left + 2, width - 2);
+  const top = clamp(Math.floor(bounds.top), 0, height - 2);
+  const foot = clamp(Math.round(input.footYPx), top + 1, height - 1);
+  const span = foot - top;
+  const lowerBodyStart = clamp(Math.round(top + span * 0.52), top, foot - 2);
+  const lowerBodyEnd = clamp(Math.round(top + span * 0.84), lowerBodyStart + 1, foot - 1);
+
+  // The shoulder rule's silhouette bar, with the body read from a centre strip:
+  // an urn tapers to a stem in the lower body, where a wider sample is canvas.
+  const background = input.background ?? sampleCornerBackground(pixels, width, height);
+  const bodySignature = regionColorSignature(
+    pixels,
+    width,
+    height,
+    Math.round(left + (right - left) * 0.35),
+    Math.round(right - (right - left) * 0.35),
+    lowerBodyStart,
+    lowerBodyEnd,
+  );
+  const bodyContrast = bodySignature
+    ? Math.max(
+        Math.abs(bodySignature.r - background.r),
+        Math.abs(bodySignature.g - background.g),
+        Math.abs(bodySignature.b - background.b),
+      )
+    : 0;
+  const threshold =
+    bodyContrast >= 12 && bodyContrast < 56 ? Math.max(8, bodyContrast * 0.5) : 28;
+
+  const widths: number[] = [];
+  for (let y = top; y <= foot; y += 1) {
+    const edges = silhouetteEdgesAt(pixels, width, y, left, right, background, threshold);
+    widths.push(edges ? edges.right - edges.left + 1 : 0);
+  }
+  const widthAt = (y: number): number => widths[y - top] ?? 0;
+  const medianWidth = (fromY: number, toY: number): number => {
+    const values: number[] = [];
+    for (let y = Math.max(top, fromY); y <= Math.min(foot, toY); y += 1) values.push(widthAt(y));
+    return medianOf(values);
+  };
+
+  // The belly is the widest glass. It sits in the lower body under a tall fitment
+  // and above it under a short one, so take the widest row there, then keep
+  // climbing until the glass has clearly turned onto the dome.
+  let bellyWidth = 0;
+  let bellyY = lowerBodyStart;
+  for (let y = lowerBodyStart; y <= lowerBodyEnd; y += 1) {
+    if (widthAt(y) > bellyWidth) {
+      bellyWidth = widthAt(y);
+      bellyY = y;
+    }
+  }
+  let domeY = -1;
+  for (let y = lowerBodyStart - 1; y > top; y -= 1) {
+    if (widthAt(y) > bellyWidth) {
+      bellyWidth = widthAt(y);
+      bellyY = y;
+    } else if (widthAt(y) < bellyWidth * 0.85) {
+      domeY = y;
+      break;
+    }
+  }
+  if (bellyWidth < 12 || domeY < 0) return null;
+
+  const window = Math.max(2, Math.round(span * 0.004));
+  const lasting = Math.max(window * 2, Math.round(span * 0.02));
+  let searchFrom = domeY;
+  let searchTo = top + lasting;
+  if (typeof input.expectedShoulderYPx === "number") {
+    const expectedY = Math.round(input.expectedShoulderYPx);
+    const expectedRadius = Math.max(4, Math.round(height * 0.015));
+    searchFrom = Math.min(searchFrom, expectedY + expectedRadius);
+    searchTo = Math.max(searchTo, expectedY - expectedRadius);
+  }
+
+  for (let y = searchFrom; y >= searchTo; y -= 1) {
+    const ring = medianWidth(y + 1, y + window);
+    const neck = medianWidth(y - window, y - 1);
+    // The ring stands in from the belly; a step inside the body is not the neck.
+    if (ring <= 0 || ring > bellyWidth * 0.85) continue;
+    if ((ring - neck) / ring < 0.15) continue;
+
+    // The windows above straddle the edge the moment it qualifies, so size the
+    // step from clean rows either side of it: all ring below, all fitment above.
+    const fullRing = medianWidth(y + 1, y + window * 2);
+    const fullNeck = medianWidth(y - window * 3, y - window - 1);
+    const drop = fullRing > 0 ? (fullRing - fullNeck) / fullRing : 0;
+    if (drop < 0.15) continue;
+    // Frosted glass reads thin along the crease between the dome and the ring and
+    // then widens again; the fitment above a real seat stays narrow.
+    const halfway = (fullRing + fullNeck) / 2;
+    if (medianWidth(y - lasting, y - window) > halfway) continue;
+
+    let seatY = y;
+    for (let row = y + window; row >= y - window * 2; row -= 1) {
+      if (widthAt(row) < halfway) {
+        seatY = row;
+        break;
+      }
+    }
+    const bodyAspectRatio = (foot - seatY) / bellyWidth;
+    const expectedAspect = input.expectedBodyAspectRatio;
+    if (
+      typeof expectedAspect === "number" &&
+      Number.isFinite(expectedAspect) &&
+      expectedAspect > 0 &&
+      Math.abs(bodyAspectRatio / expectedAspect - 1) > 0.15
+    ) {
+      // The first lasting step is the seat or nothing: every step above it is the
+      // fitment's own, so fail closed rather than try the next one.
+      return null;
+    }
+    const bellyEdges = silhouetteEdgesAt(pixels, width, bellyY, left, right, background, threshold);
+    return {
+      shoulderYPx: seatY,
+      coarseShoulderYPx: y,
+      closureEdgeYPx: seatY,
+      narrowingOnsetYPx: null,
+      bodyAspectRatio: Number(bodyAspectRatio.toFixed(4)),
+      footYPx: foot,
+      bodyLeftXPx: bellyEdges?.left ?? left,
+      bodyRightXPx: bellyEdges?.right ?? right,
+      // The 15% floor reads 0.7 and 17.5% reads 0.8, so every measured Diva seat
+      // clears the bar the sheet and the rig trust; 22.5% and up reads 1.
+      confidence: Number(clamp(0.7 + (drop - 0.15) * 4, 0, 1).toFixed(3)),
+      transitionScore: Number((drop * 100).toFixed(2)),
+      wallSupport: 0,
+      landmark: "closure-seat",
+      outerBodyWidthPx: bellyWidth,
+    };
+  }
+  return null;
+}
+
 /**
  * Locates the body-to-neck/collar transition on a front-on Cylinder render.
  *
@@ -367,6 +600,7 @@ function sharpestTopBoundaryNear(
 export function detectGlassShoulderLandmark(
   input: DetectGlassShoulderLandmarkInput,
 ): GlassShoulderLandmark | null {
+  if (input.landmark === "closure-seat") return detectClosureSeatLandmark(input);
   const { pixels, width, height } = input;
   const bounds = input.primaryBounds;
   if (

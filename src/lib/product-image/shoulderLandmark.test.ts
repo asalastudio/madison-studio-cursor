@@ -499,3 +499,176 @@ describe("detectGlassShoulderLandmark", () => {
     assert.equal(result, null);
   });
 });
+
+type UrnNeck = "collar" | "bare-neck";
+
+/**
+ * A Diva-style urn at production proportions: pedestal foot, stem, a belly
+ * that swells above the lower body, a dome, a short neck ring at 64% of the
+ * belly, then the fitment. Shapes follow the Diva Photoshop sources row by row:
+ * the ring's top is rounded, and the dome leaves the ring at the ring's own
+ * width and widens gradually — there is no ledge where they meet. Frosted glass
+ * reads ~17% thin along that crease and recovers within ~1% of the height.
+ */
+function drawUrn(input: { neck: UrnNeck; frostedCrease?: boolean }) {
+  const width = 520;
+  const height = 1200;
+  const centerX = 260;
+  const footY = 1100;
+  const bellyY = 700;
+  const domeTopY = 612;
+  const seatY = 580;
+  const bellyHalf = 110;
+  const ringHalf = 70;
+  const pixels = makePixels(width, height);
+  const glassRow = (y: number, half: number) => {
+    fillRect(pixels, width, centerX - half, y, centerX + half, y, GLASS);
+    fillRect(pixels, width, centerX - half, y, centerX - half + 2, y, EDGE);
+    fillRect(pixels, width, centerX + half - 2, y, centerX + half, y, EDGE);
+  };
+
+  for (let y = 1040; y <= footY; y += 1) glassRow(y, 60);
+  for (let y = 1010; y < 1040; y += 1) glassRow(y, 40);
+  for (let y = bellyY; y < 1010; y += 1) {
+    const t = (y - bellyY) / (1010 - bellyY);
+    glassRow(y, Math.round(bellyHalf - t * t * 70));
+  }
+  for (let y = domeTopY; y < bellyY; y += 1) {
+    const t = (y - domeTopY) / (bellyY - domeTopY);
+    glassRow(y, Math.round(ringHalf + (bellyHalf - ringHalf) * Math.sin((Math.PI / 2) * t)));
+  }
+  for (let y = seatY; y < domeTopY; y += 1) {
+    const rounding = Math.max(0, seatY + 7 - y);
+    glassRow(y, ringHalf - Math.round((rounding * rounding) / 5));
+  }
+  if (input.frostedCrease) {
+    for (let y = domeTopY - 1; y <= domeTopY + 6; y += 1) {
+      glassRow(y, Math.round(58 + (12 * (y - domeTopY + 1)) / 7));
+    }
+  }
+
+  let top: number;
+  if (input.neck === "collar") {
+    fillRect(pixels, width, centerX - 50, 440, centerX + 50, seatY - 1, FITMENT);
+    fillRect(pixels, width, centerX - 20, 380, centerX + 20, 439, FITMENT);
+    top = 380;
+  } else {
+    for (let y = 470; y < seatY; y += 1) glassRow(y, 45);
+    for (const threadY of [490, 515, 540]) {
+      fillRect(pixels, width, centerX - 50, threadY, centerX + 50, threadY + 3, EDGE);
+    }
+    fillRect(pixels, width, centerX - 38, 440, centerX + 38, 469, HOUSING);
+    top = 440;
+  }
+
+  return {
+    pixels,
+    width,
+    height,
+    footY,
+    seatY,
+    bellyWidth: bellyHalf * 2 + 1,
+    primaryBounds: { top, bottom: footY, left: centerX - bellyHalf - 6, right: centerX + bellyHalf + 6 },
+  };
+}
+
+describe("detectGlassShoulderLandmark on an urn, measured to the closure seat", () => {
+  for (const neck of ["collar", "bare-neck"] as const) {
+    it(`lands where the cap starts at the neck, not in the body (${neck})`, () => {
+      const scene = drawUrn({ neck });
+      const result = detectGlassShoulderLandmark({
+        pixels: scene.pixels,
+        width: scene.width,
+        height: scene.height,
+        primaryBounds: scene.primaryBounds,
+        footYPx: scene.footY,
+        landmark: "closure-seat",
+      });
+
+      assert.ok(result, "the seat should be detectable");
+      assert.ok(
+        Math.abs(result.shoulderYPx - scene.seatY) <= 2,
+        `expected the top of the neck ring at y=${scene.seatY}, got y=${result.shoulderYPx}`,
+      );
+      assert.equal(result.landmark, "closure-seat");
+      assert.equal(result.outerBodyWidthPx, scene.bellyWidth);
+      assert.ok(
+        Math.abs(result.bodyAspectRatio - (scene.footY - scene.seatY) / scene.bellyWidth) < 0.02,
+        `aspect should be foot-to-seat over the belly, got ${result.bodyAspectRatio}`,
+      );
+      assert.ok(result.confidence >= 0.8, `a clean step should be trusted, got ${result.confidence}`);
+    });
+  }
+
+  it("is not fooled by frosted glass reading thin along the crease under the ring", () => {
+    const scene = drawUrn({ neck: "collar", frostedCrease: true });
+    const result = detectGlassShoulderLandmark({
+      pixels: scene.pixels,
+      width: scene.width,
+      height: scene.height,
+      primaryBounds: scene.primaryBounds,
+      footYPx: scene.footY,
+      landmark: "closure-seat",
+    });
+
+    assert.ok(result);
+    assert.ok(
+      Math.abs(result.shoulderYPx - scene.seatY) <= 2,
+      `expected the seat at y=${scene.seatY}, not the crease under the ring; got y=${result.shoulderYPx}`,
+    );
+  });
+
+  it("fails closed when the seat does not fit the locked proportions", () => {
+    const scene = drawUrn({ neck: "collar" });
+    const result = detectGlassShoulderLandmark({
+      pixels: scene.pixels,
+      width: scene.width,
+      height: scene.height,
+      primaryBounds: scene.primaryBounds,
+      footYPx: scene.footY,
+      landmark: "closure-seat",
+      expectedBodyAspectRatio: 1.6,
+    });
+
+    assert.equal(result, null);
+  });
+
+  it("re-detects the seat inside the transformed-target window", () => {
+    const scene = drawUrn({ neck: "collar" });
+    const result = detectGlassShoulderLandmark({
+      pixels: scene.pixels,
+      width: scene.width,
+      height: scene.height,
+      primaryBounds: scene.primaryBounds,
+      footYPx: scene.footY,
+      landmark: "closure-seat",
+      expectedShoulderYPx: scene.seatY + 8,
+      expectedBodyAspectRatio: (scene.footY - scene.seatY) / scene.bellyWidth,
+    });
+
+    assert.ok(result);
+    assert.ok(Math.abs(result.shoulderYPx - scene.seatY) <= 2);
+  });
+
+  it("leaves the shoulder rule as it was when no landmark is asked for", () => {
+    const scene = drawProductionCylinder("narrow-collar");
+    const plain = detectGlassShoulderLandmark({
+      pixels: scene.pixels,
+      width: scene.width,
+      height: scene.height,
+      primaryBounds: scene.primaryBounds,
+      footYPx: scene.footY,
+    });
+    const explicit = detectGlassShoulderLandmark({
+      pixels: scene.pixels,
+      width: scene.width,
+      height: scene.height,
+      primaryBounds: scene.primaryBounds,
+      footYPx: scene.footY,
+      landmark: "shoulder",
+    });
+
+    assert.deepEqual(explicit, plain);
+    assert.equal(plain?.landmark, undefined);
+  });
+});

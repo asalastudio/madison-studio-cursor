@@ -12,6 +12,7 @@ import {
   resolveShoulderLock,
   type ResolvedShoulderLock,
 } from "@/lib/bestBottlesShoulderLock";
+import type { ShoulderLandmarkKind } from "@/lib/product-image/shoulderLandmark";
 
 /**
  * IMPOSED STUDIO RIG — single source of truth (Vite / Node runtime).
@@ -83,6 +84,8 @@ export interface FamilyRigConfig {
   shoulderTargetPct?: number;
   /** The locked glass body's foot-to-shoulder height over outer width. */
   glassBodyAspect?: number;
+  /** The point on the glass the lock is measured to; absent means the shoulder. */
+  shoulderLandmark?: ShoulderLandmarkKind;
   /** Distance from the top of the canvas to the shoulder horizon. */
   shoulderYFromTopPct?: number;
   /** Pixel Y of the shoulder horizon from the top of the generate canvas. */
@@ -231,6 +234,7 @@ function applyShoulderLockTarget(
     glassBodyKey: lock.glassBodyKey,
     shoulderTargetPct: lock.shoulderPct,
     glassBodyAspect: lock.bodyAspect,
+    ...(lock.landmark === "closure-seat" ? { shoulderLandmark: lock.landmark } : {}),
     shoulderYFromTopPct: lock.shoulderYFromTopPct,
     targetShoulderYPx: Math.round(
       (lock.shoulderYFromTopPct / 100) * BEST_BOTTLES_SCALE_CARD_GENERATE_HEIGHT_PX,

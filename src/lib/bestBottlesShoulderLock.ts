@@ -9,6 +9,8 @@
  * has an 18-415 body (~117 mm bare) and a 16 mm roll-on body (~98 mm bare).
  */
 
+import type { ShoulderLandmarkKind } from "./product-image/shoulderLandmark";
+
 export const BEST_BOTTLES_SHOULDER_LOCK_VERSION =
   "shoulder-lock-2026-09-07" as const;
 export const BEST_BOTTLES_SHOULDER_LOCK_BASELINE_PCT = 91 as const;
@@ -123,6 +125,8 @@ export type ResolvedShoulderLock = ShoulderLockBody & {
   baselinePct: typeof BEST_BOTTLES_SHOULDER_LOCK_BASELINE_PCT;
   /** Distance from the top of the canvas to the shoulder line. */
   shoulderYFromTopPct: number;
+  /** The point on the glass shoulderPct and bodyAspect are measured to. */
+  landmark: ShoulderLandmarkKind;
 };
 
 function parseLeadingNumber(value: string | number | null | undefined): number | null {
@@ -275,6 +279,20 @@ function capacityKeyedGlassBodyKey(
   return null;
 }
 
+/**
+ * Families measured to the closure seat — the top of the neck ring, where the
+ * cap starts — instead of the shoulder. Glass with no straight wall: on Diva's
+ * urn the shoulder rule fell through the body (Jordan, 2026-09-21). Everything
+ * else, including every body locked before this, stays on the shoulder.
+ */
+const CLOSURE_SEAT_FAMILIES: ReadonlySet<string> = new Set(["diva"]);
+
+export function resolveShoulderLandmarkKind(input: ShoulderLockProductInput): ShoulderLandmarkKind {
+  return CLOSURE_SEAT_FAMILIES.has(normalizeFamily(input.family ?? input.bottleCollection))
+    ? "closure-seat"
+    : "shoulder";
+}
+
 export function resolveGlassBodyKey(input: ShoulderLockProductInput): string | null {
   const capacityKeyed = CAPACITY_KEYED_FAMILIES[normalizeFamily(input.family ?? input.bottleCollection)];
   if (capacityKeyed) return capacityKeyedGlassBodyKey(capacityKeyed, input);
@@ -301,5 +319,6 @@ export function resolveShoulderLock(
     shoulderYFromTopPct: Number(
       (BEST_BOTTLES_SHOULDER_LOCK_BASELINE_PCT - body.shoulderPct).toFixed(1),
     ),
+    landmark: resolveShoulderLandmarkKind(input),
   };
 }

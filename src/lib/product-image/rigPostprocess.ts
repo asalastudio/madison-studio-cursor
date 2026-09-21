@@ -2321,6 +2321,7 @@ function detectRigShoulderLandmark(input: {
       expectedShoulderYPx: input.expectedShoulderYPx,
       background: input.bg,
       expectedBodyAspectRatio: input.rig.glassBodyAspect,
+      landmark: input.rig.shoulderLandmark,
     });
   const landmark = detectWithin(bottleOnlyBounds);
   if (
