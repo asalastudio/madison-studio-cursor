@@ -68,9 +68,11 @@ describe("buildBestBottlesFamilyRigPromptAdjustment", () => {
   });
 
   it("uses the universal PDP rig for families without a custom override", () => {
+    // Any family with no shoulder lock yet. This was Boston Round until its
+    // three bodies were locked on 2026-09-20.
     const adjustment = buildBestBottlesFamilyRigPromptAdjustment({
-      family: "Boston Round",
-      sku: "GB-BOS-CLR-30ML-T",
+      family: "Tulip",
+      sku: "GB-TUL-CLR-30ML-T",
       heightWithoutCap: "80 mm",
       heightWithCap: "90 mm",
     });
