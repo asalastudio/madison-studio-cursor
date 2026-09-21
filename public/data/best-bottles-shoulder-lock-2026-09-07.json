@@ -210,6 +210,27 @@
       "shoulderPct": 52,
       "bodyAspect": 1.817,
       "status": "locked"
+    },
+    {
+      "glassBodyKey": "diva:30-standard",
+      "label": "Diva 30 ml",
+      "shoulderPct": 40,
+      "bodyAspect": 1.505,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "diva:46-standard",
+      "label": "Diva 46 ml",
+      "shoulderPct": 47,
+      "bodyAspect": 1.517,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "diva:100-standard",
+      "label": "Diva 100 ml",
+      "shoulderPct": 57,
+      "bodyAspect": 1.486,
+      "status": "locked"
     }
   ]
 }

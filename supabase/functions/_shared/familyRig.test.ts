@@ -25,6 +25,41 @@ import {
 } from "./familyRig";
 
 describe("Deno familyRig twin", () => {
+  it("names the closure seat for Diva in both twins, and keeps the shoulder everywhere else", () => {
+    const diva = {
+      family: "Diva",
+      capacityMl: 46,
+      heightWithoutCap: "89 mm",
+      applicator: "Fine Mist Sprayer",
+      websiteSku: "GBDiva46SpryMtGl",
+    };
+    const rig = getFamilyRigForProduct(diva);
+    const nodeRig = getNodeFamilyRigForProduct(diva);
+    assert.ok(rig);
+    assert.ok(nodeRig);
+    assert.equal(rig.glassBodyKey, "diva:46-standard");
+    assert.equal(rig.shoulderTargetPct, 47);
+    assert.equal(rig.shoulderLandmark, "closure-seat");
+    assert.equal(nodeRig.shoulderLandmark, "closure-seat");
+    assert.equal(rig.targetShoulderYPx, nodeRig.targetShoulderYPx);
+
+    for (const block of [
+      buildImposedRigBlock({ family: "Diva", capState: "detached", rig }),
+      buildNodeImposedRigBlock({ family: "Diva", capState: "detached", rig: nodeRig }),
+    ]) {
+      assert.ok(block);
+      assert.match(block, /The closure seat — the top edge of the glass neck ring, exactly where the cap or collar starts — MUST land at 47%/);
+      assert.doesNotMatch(block, /The glass shoulder — where the body ends/);
+    }
+
+    const cylinder = getFamilyRigForProduct({ family: "Cylinder", capacityMl: 9, heightWithoutCap: "70 ±1 mm" });
+    assert.ok(cylinder);
+    assert.equal(cylinder.shoulderLandmark, undefined);
+    const cylinderBlock = buildImposedRigBlock({ family: "Cylinder", capState: "detached", rig: cylinder });
+    assert.match(cylinderBlock ?? "", /The glass shoulder — where the body ends and the neck begins/);
+    assert.doesNotMatch(cylinderBlock ?? "", /closure seat/);
+  });
+
   it("keeps family constants numerically identical to the Node rig", () => {
     assert.deepEqual(DENO_FAMILY_RIG.cylinder, NODE_FAMILY_RIG.cylinder);
     assert.deepEqual(DENO_FAMILY_RIG.circle, NODE_FAMILY_RIG.circle);

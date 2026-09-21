@@ -24,8 +24,8 @@ describe("Best Bottles shoulder lock", () => {
     };
     assert.equal(snapshot.version, BEST_BOTTLES_SHOULDER_LOCK_VERSION);
     // 14 Cylinder from the Sep 7 lock + 3 Slim, 4 Elegant, 5 Sleek and 3 Boston
-    // Round locked 2026-09-19/20.
-    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 29);
+    // Round locked 2026-09-19/20, and 3 Diva locked 2026-09-21.
+    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 32);
     assert.deepEqual(
       BEST_BOTTLES_SHOULDER_LOCK_BODIES.map((body) => ({
         glassBodyKey: body.glassBodyKey,
@@ -156,8 +156,10 @@ describe("Best Bottles shoulder lock", () => {
   it("fails closed on an Elegant capacity that has no locked body", () => {
     assert.equal(resolveGlassBodyKey({ family: "Elegant", capacityMl: 50 }), null);
     assert.equal(resolveShoulderLock({ family: "Elegant" }), null);
-    // Elegant's lock must not leak onto a family that only shares the capacity.
-    assert.equal(resolveGlassBodyKey({ family: "Diva", capacityMl: 30 }), null);
+    // Elegant's lock must not leak onto a family that only shares the capacity:
+    // an unlocked family gets nothing, and Diva (locked since) keeps its own body.
+    assert.equal(resolveGlassBodyKey({ family: "Tulip", capacityMl: 30 }), null);
+    assert.equal(resolveGlassBodyKey({ family: "Diva", capacityMl: 30 }), "diva:30-standard");
   });
 
   it("locks Sleek to five bodies by stated capacity, whatever the fitment", () => {
@@ -196,6 +198,24 @@ describe("Best Bottles shoulder lock", () => {
     assert.equal(resolveShoulderLock({ family: "Elegant", capacityMl: 30 })?.shoulderPct, 43);
     assert.equal(resolveShoulderLock({ family: "Sleek", capacityMl: 30 })?.shoulderPct, 47);
     assert.equal(resolveShoulderLock({ family: "Boston Round", capacityMl: 100 }), null);
+  });
+
+  it("locks Diva's three bodies to the closure seat, and nothing else moves off the shoulder", () => {
+    for (const [capacityMl, key, pct] of [
+      [30, "diva:30-standard", 40], [46, "diva:46-standard", 47], [100, "diva:100-standard", 57],
+    ] as const) {
+      for (const applicator of ["Fine Mist Sprayer", "Reducer", "Dropper", "Lotion Pump", "Antique Bulb Sprayer"]) {
+        const lock = resolveShoulderLock({ family: "Diva", capacityMl, applicator });
+        assert.ok(lock, `Diva ${capacityMl} ml ${applicator}`);
+        assert.equal(lock.glassBodyKey, key);
+        assert.equal(lock.shoulderPct, pct);
+        assert.equal(lock.landmark, "closure-seat");
+      }
+    }
+    assert.equal(resolveShoulderLock({ family: "Diva", capacityMl: 60 }), null);
+    for (const family of ["Cylinder", "Slim", "Elegant", "Sleek", "Boston Round"]) {
+      assert.equal(resolveShoulderLock({ family, capacityMl: 30 })?.landmark, "shoulder", family);
+    }
   });
 
   it("does not let a broken 30 ml Convex row choose a different body", () => {

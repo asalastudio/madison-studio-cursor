@@ -99,6 +99,15 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   { glassBodyKey: "boston-round:15-standard", label: "Boston Round 15 ml", shoulderPct: 42, bodyAspect: 1.947, status: "locked" },
   { glassBodyKey: "boston-round:30-standard", label: "Boston Round 30 ml", shoulderPct: 45, bodyAspect: 1.727, status: "locked" },
   { glassBodyKey: "boston-round:60-standard", label: "Boston Round 60 ml", shoulderPct: 52, bodyAspect: 1.817, status: "locked" },
+  // Diva — locked 2026-09-21 by Jordan on the all-family target sheet, the first
+  // family measured to the closure seat (where the cap starts at the neck) rather
+  // than the shoulder: an urn has no straight wall for a shoulder to end. Set
+  // against the Cylinder ladder's openings: 81 mm 40 against 46, 89 mm 47 against
+  // 48, 113 mm 57 against 55. Aspect is foot-to-seat over the belly; every
+  // fitment agreed with its north star within ~1%.
+  { glassBodyKey: "diva:30-standard", label: "Diva 30 ml", shoulderPct: 40, bodyAspect: 1.505, status: "locked" },
+  { glassBodyKey: "diva:46-standard", label: "Diva 46 ml", shoulderPct: 47, bodyAspect: 1.517, status: "locked" },
+  { glassBodyKey: "diva:100-standard", label: "Diva 100 ml", shoulderPct: 57, bodyAspect: 1.486, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(
@@ -265,6 +274,7 @@ const CAPACITY_KEYED_FAMILIES: Readonly<Record<string, { keyPrefix: string; capa
   elegant: { keyPrefix: "elegant", capacitiesMl: [15, 30, 60, 100] },
   sleek: { keyPrefix: "sleek", capacitiesMl: [5, 8, 30, 50, 100] },
   "boston round": { keyPrefix: "boston-round", capacitiesMl: [15, 30, 60] },
+  diva: { keyPrefix: "diva", capacitiesMl: [30, 46, 100] },
 };
 
 function capacityKeyedGlassBodyKey(
