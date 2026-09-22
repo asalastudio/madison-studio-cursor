@@ -112,6 +112,19 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   { glassBodyKey: "diva:30-standard", label: "Diva 30 ml", shoulderPct: 40, bodyAspect: 1.505, status: "locked" },
   { glassBodyKey: "diva:46-standard", label: "Diva 46 ml", shoulderPct: 47, bodyAspect: 1.517, status: "locked" },
   { glassBodyKey: "diva:100-standard", label: "Diva 100 ml", shoulderPct: 57, bodyAspect: 1.486, status: "locked" },
+  // Circle and Round — locked 2026-09-21 by Jordan on the all-family target sheet,
+  // on the closure seat like Diva (where the cap starts at the neck): curved glass
+  // has no straight wall for a shoulder to end. Round has no neck ring, so its seat
+  // is the corner where the body meets the collar or threads. Against the Cylinder
+  // ladder's openings: Circle 60 mm 40 vs 39.5, 74 mm 44 vs 44.5, 87 mm 48 vs 47.5,
+  // 105 mm 56 vs 52.5; Round 73 mm 42.5 vs 44, 83 mm 52 vs 46.5. Aspect is
+  // foot-to-seat over the belly.
+  { glassBodyKey: "circle:15-standard", label: "Circle 15 ml", shoulderPct: 40, bodyAspect: 1.006, status: "locked" },
+  { glassBodyKey: "circle:30-standard", label: "Circle 30 ml", shoulderPct: 44, bodyAspect: 1.026, status: "locked" },
+  { glassBodyKey: "circle:50-standard", label: "Circle 50 ml", shoulderPct: 48, bodyAspect: 0.951, status: "locked" },
+  { glassBodyKey: "circle:100-standard", label: "Circle 100 ml", shoulderPct: 56, bodyAspect: 0.98, status: "locked" },
+  { glassBodyKey: "round:78-standard", label: "Round 78 ml", shoulderPct: 42.5, bodyAspect: 0.961, status: "locked" },
+  { glassBodyKey: "round:128-standard", label: "Round 128 ml", shoulderPct: 52, bodyAspect: 0.979, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(
@@ -279,6 +292,8 @@ const CAPACITY_KEYED_FAMILIES: Readonly<Record<string, { keyPrefix: string; capa
   sleek: { keyPrefix: "sleek", capacitiesMl: [5, 8, 30, 50, 100] },
   "boston round": { keyPrefix: "boston-round", capacitiesMl: [15, 30, 60] },
   diva: { keyPrefix: "diva", capacitiesMl: [30, 46, 100] },
+  circle: { keyPrefix: "circle", capacitiesMl: [15, 30, 50, 100] },
+  round: { keyPrefix: "round", capacitiesMl: [78, 128] },
 };
 
 function capacityKeyedGlassBodyKey(

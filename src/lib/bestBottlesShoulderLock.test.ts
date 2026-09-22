@@ -25,8 +25,8 @@ describe("Best Bottles shoulder lock", () => {
     };
     assert.equal(snapshot.version, BEST_BOTTLES_SHOULDER_LOCK_VERSION);
     // 14 Cylinder from the Sep 7 lock + 3 Slim, 4 Elegant, 5 Sleek and 3 Boston
-    // Round locked 2026-09-19/20, and 3 Diva locked 2026-09-21.
-    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 32);
+    // Round locked 2026-09-19/20, and 3 Diva, 4 Circle and 2 Round on 2026-09-21.
+    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 38);
     assert.deepEqual(
       BEST_BOTTLES_SHOULDER_LOCK_BODIES.map((body) => ({
         glassBodyKey: body.glassBodyKey,
@@ -217,10 +217,21 @@ describe("Best Bottles shoulder lock", () => {
     for (const family of ["Cylinder", "Slim", "Elegant", "Sleek", "Boston Round"]) {
       assert.equal(resolveShoulderLock({ family, capacityMl: 30 })?.landmark, "shoulder", family);
     }
-    // Circle and Round have no lock yet, but their sheets measure to the seat.
     for (const family of ["Circle", "Round", "Diva"]) {
       assert.equal(resolveShoulderLandmarkKind({ family }), "closure-seat", family);
     }
+    for (const [family, capacityMl, key, pct] of [
+      ["Circle", 15, "circle:15-standard", 40], ["Circle", 30, "circle:30-standard", 44],
+      ["Circle", 50, "circle:50-standard", 48], ["Circle", 100, "circle:100-standard", 56],
+      ["Round", 78, "round:78-standard", 42.5], ["Round", 128, "round:128-standard", 52],
+    ] as const) {
+      const lock = resolveShoulderLock({ family, capacityMl, applicator: "Fine Mist Sprayer" });
+      assert.ok(lock, `${family} ${capacityMl} ml`);
+      assert.equal(lock.glassBodyKey, key);
+      assert.equal(lock.shoulderPct, pct);
+      assert.equal(lock.landmark, "closure-seat");
+    }
+    assert.equal(resolveShoulderLock({ family: "Round", capacityMl: 100 }), null);
     assert.equal(resolveShoulderLandmarkKind({ family: "Boston Round" }), "shoulder");
   });
 
