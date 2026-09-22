@@ -160,14 +160,14 @@
     {
       "glassBodyKey": "sleek:5-standard",
       "label": "Sleek 5 ml",
-      "shoulderPct": 37,
+      "shoulderPct": 33,
       "bodyAspect": 1.76,
       "status": "locked"
     },
     {
       "glassBodyKey": "sleek:8-standard",
       "label": "Sleek 8 ml",
-      "shoulderPct": 43,
+      "shoulderPct": 46,
       "bodyAspect": 3.148,
       "status": "locked"
     },
