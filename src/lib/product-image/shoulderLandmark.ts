@@ -462,27 +462,14 @@ function detectClosureSeatLandmark(
   const lowerBodyStart = clamp(Math.round(top + span * 0.52), top, foot - 2);
   const lowerBodyEnd = clamp(Math.round(top + span * 0.84), lowerBodyStart + 1, foot - 1);
 
-  // The shoulder rule's silhouette bar, with the body read from a centre strip:
-  // an urn tapers to a stem in the lower body, where a wider sample is canvas.
+  // The seat is read off the whole silhouette, so every part of the glass has to
+  // show. The shoulder rule's bar hides frosted glass on Bone: the first frosted
+  // Diva render averaged 11.5 levels off the canvas, just under that rule's
+  // frosted cut, and at its clear-glass bar of 28 whole rows of body went
+  // missing. At 8 the same render reads as cleanly as clear glass, and the clear
+  // renders and Photoshop sources read the same as before.
   const background = input.background ?? sampleCornerBackground(pixels, width, height);
-  const bodySignature = regionColorSignature(
-    pixels,
-    width,
-    height,
-    Math.round(left + (right - left) * 0.35),
-    Math.round(right - (right - left) * 0.35),
-    lowerBodyStart,
-    lowerBodyEnd,
-  );
-  const bodyContrast = bodySignature
-    ? Math.max(
-        Math.abs(bodySignature.r - background.r),
-        Math.abs(bodySignature.g - background.g),
-        Math.abs(bodySignature.b - background.b),
-      )
-    : 0;
-  const threshold =
-    bodyContrast >= 12 && bodyContrast < 56 ? Math.max(8, bodyContrast * 0.5) : 28;
+  const threshold = 8;
 
   const widths: number[] = [];
   for (let y = top; y <= foot; y += 1) {
@@ -530,24 +517,51 @@ function detectClosureSeatLandmark(
     searchTo = Math.max(searchTo, expectedY - expectedRadius);
   }
 
-  for (let y = searchFrom; y >= searchTo; y -= 1) {
+  const qualifies = (y: number): { drop: number; halfway: number } | null => {
     const ring = medianWidth(y + 1, y + window);
     const neck = medianWidth(y - window, y - 1);
     // The ring stands in from the belly; a step inside the body is not the neck.
-    if (ring <= 0 || ring > bellyWidth * 0.85) continue;
-    if ((ring - neck) / ring < 0.15) continue;
-
-    // The windows above straddle the edge the moment it qualifies, so size the
-    // step from clean rows either side of it: all ring below, all fitment above.
+    if (ring <= 0 || ring > bellyWidth * 0.85) return null;
+    // A cheap first pass only. The ring's top is rounded, which smears the edge
+    // across two short windows: on the Diva renders a 16% seat peaked at 13-14%
+    // here and the search walked past it to the dropper bulb.
+    if ((ring - neck) / ring < 0.1) return null;
+    // The real test: size the step from clean rows either side of the edge, all
+    // ring below and all fitment above.
     const fullRing = medianWidth(y + 1, y + window * 2);
     const fullNeck = medianWidth(y - window * 3, y - window - 1);
     const drop = fullRing > 0 ? (fullRing - fullNeck) / fullRing : 0;
-    if (drop < 0.15) continue;
+    if (drop < 0.15) return null;
     // Frosted glass reads thin along the crease between the dome and the ring and
     // then widens again; the fitment above a real seat stays narrow.
     const halfway = (fullRing + fullNeck) / 2;
-    if (medianWidth(y - lasting, y - window) > halfway) continue;
+    if (medianWidth(y - lasting, y - window) > halfway) return null;
+    return { drop, halfway };
+  };
 
+  let found: { y: number; drop: number; halfway: number } | null = null;
+  for (let y = searchFrom; y >= searchTo && !found; y -= 1) {
+    const step = qualifies(y);
+    if (step) found = { y, ...step };
+  }
+  // Where the dome meets the ring the glass narrows too: 11-14% on the Diva
+  // renders, under the bar but close to it. A borderline first step with another
+  // one within a ring's height above it was the ring's foot, and the upper one is
+  // the seat. A seat into a fitment steps 16-37%, and nothing else steps that
+  // close above it: collars, pumps and threads all run on for longer.
+  if (found && found.drop < 0.2) {
+    const ringHeight = Math.round(span * 0.03);
+    for (let y = found.y - window * 3; y >= Math.max(searchTo, found.y - ringHeight); y -= 1) {
+      const step = qualifies(y);
+      if (step) {
+        found = { y, ...step };
+        break;
+      }
+    }
+  }
+
+  if (found) {
+    const { y, drop, halfway } = found;
     let seatY = y;
     for (let row = y + window; row >= y - window * 2; row -= 1) {
       if (widthAt(row) < halfway) {
@@ -555,6 +569,47 @@ function detectClosureSeatLandmark(
         break;
       }
     }
+
+    // A detached cap stands to the right of the glass and can reach up into the
+    // belly rows: on the 100 ml reducer render the belly read 1196 px against
+    // ~1000 of glass. The upper body just below the seat is always clear of it —
+    // even a sprayer's tall over-cap stops well short — and its two walls are
+    // clean and symmetric, so its axis mirrors the left wall; where a row's right
+    // edge runs past that mirror, the cap is in the row and the mirror is the
+    // glass. Rows without a cap keep their measured width. (A frosted bare neck
+    // made a poor axis: its faint thread edges pulled the centre 40 px off.)
+    const axisSamples: number[] = [];
+    const upperBodyEnd = seatY + Math.round((foot - seatY) * 0.3);
+    for (let row = seatY + lasting; row <= upperBodyEnd; row += 1) {
+      const edges = silhouetteEdgesAt(pixels, width, row, left, right, background, threshold);
+      if (edges) axisSamples.push((edges.left + edges.right) / 2);
+    }
+    const axis = axisSamples.length ? medianOf(axisSamples) : null;
+    const glassEdgesAt = (row: number): { left: number; right: number } | null => {
+      const edges = silhouetteEdgesAt(pixels, width, row, left, right, background, threshold);
+      if (!edges || axis == null) return edges;
+      const mirror = Math.round(2 * axis - edges.left);
+      return edges.right > mirror + Math.max(4, (mirror - edges.left) * 0.03)
+        ? { left: edges.left, right: mirror }
+        : edges;
+    };
+    // Search the whole glass below the seat: the cap's width also cut the climb to
+    // the dome short, so the first belly reading cannot bound this search.
+    let glassBelly = 0;
+    let glassBellyY = bellyY;
+    for (let row = seatY + lasting; row <= lowerBodyEnd; row += 1) {
+      const edges = glassEdgesAt(row);
+      const rowWidth = edges ? edges.right - edges.left + 1 : 0;
+      if (rowWidth > glassBelly) {
+        glassBelly = rowWidth;
+        glassBellyY = row;
+      }
+    }
+    if (glassBelly >= 12) {
+      bellyWidth = glassBelly;
+      bellyY = glassBellyY;
+    }
+
     const bodyAspectRatio = (foot - seatY) / bellyWidth;
     const expectedAspect = input.expectedBodyAspectRatio;
     if (
@@ -567,7 +622,7 @@ function detectClosureSeatLandmark(
       // fitment's own, so fail closed rather than try the next one.
       return null;
     }
-    const bellyEdges = silhouetteEdgesAt(pixels, width, bellyY, left, right, background, threshold);
+    const bellyEdges = glassEdgesAt(bellyY);
     return {
       shoulderYPx: seatY,
       coarseShoulderYPx: y,
@@ -577,8 +632,9 @@ function detectClosureSeatLandmark(
       footYPx: foot,
       bodyLeftXPx: bellyEdges?.left ?? left,
       bodyRightXPx: bellyEdges?.right ?? right,
-      // The 15% floor reads 0.7 and 17.5% reads 0.8, so every measured Diva seat
-      // clears the bar the sheet and the rig trust; 22.5% and up reads 1.
+      // The 15% floor reads 0.7 and 17.5% reads 0.8, so every Diva Photoshop seat
+      // clears the sheet's bar; 22.5% and up reads 1. The shallowest render seats
+      // (~16%) read ~0.75, which only sends the rig for its second look.
       confidence: Number(clamp(0.7 + (drop - 0.15) * 4, 0, 1).toFixed(3)),
       transitionScore: Number((drop * 100).toFixed(2)),
       wallSupport: 0,

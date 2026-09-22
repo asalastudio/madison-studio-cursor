@@ -510,7 +510,18 @@ type UrnNeck = "collar" | "bare-neck";
  * width and widens gradually — there is no ledge where they meet. Frosted glass
  * reads ~17% thin along that crease and recovers within ~1% of the height.
  */
-function drawUrn(input: { neck: UrnNeck; frostedCrease?: boolean }) {
+function drawUrn(input: {
+  neck: UrnNeck;
+  frostedCrease?: boolean;
+  /** Collar half-width; 50 by default. 58 is a dropper-wide collar, a ~17% step. */
+  collarHalf?: number;
+  /** A narrower dropper bulb above the collar. */
+  bulb?: boolean;
+  /** Frosted on Bone: one light tone 11 levels off the canvas, no dark rim. */
+  frostedBody?: boolean;
+  /** A detached cap to the right, tall enough to reach the belly rows. */
+  sidecar?: boolean;
+}) {
   const width = 520;
   const height = 1200;
   const centerX = 260;
@@ -521,7 +532,12 @@ function drawUrn(input: { neck: UrnNeck; frostedCrease?: boolean }) {
   const bellyHalf = 110;
   const ringHalf = 70;
   const pixels = makePixels(width, height);
+  const FROSTED_BODY: Rgb = { r: 234, g: 232, b: 228 };
   const glassRow = (y: number, half: number) => {
+    if (input.frostedBody) {
+      fillRect(pixels, width, centerX - half, y, centerX + half, y, FROSTED_BODY);
+      return;
+    }
     fillRect(pixels, width, centerX - half, y, centerX + half, y, GLASS);
     fillRect(pixels, width, centerX - half, y, centerX - half + 2, y, EDGE);
     fillRect(pixels, width, centerX + half - 2, y, centerX + half, y, EDGE);
@@ -549,9 +565,17 @@ function drawUrn(input: { neck: UrnNeck; frostedCrease?: boolean }) {
 
   let top: number;
   if (input.neck === "collar") {
-    fillRect(pixels, width, centerX - 50, 440, centerX + 50, seatY - 1, FITMENT);
-    fillRect(pixels, width, centerX - 20, 380, centerX + 20, 439, FITMENT);
-    top = 380;
+    const collarHalf = input.collarHalf ?? 50;
+    fillRect(pixels, width, centerX - collarHalf, 440, centerX + collarHalf, seatY - 1, FITMENT);
+    if (input.bulb) {
+      fillRect(pixels, width, centerX - 30, 330, centerX + 30, 439, { r: 250, g: 250, b: 250 });
+      fillRect(pixels, width, centerX - 30, 330, centerX - 28, 439, EDGE);
+      fillRect(pixels, width, centerX + 28, 330, centerX + 30, 439, EDGE);
+      top = 330;
+    } else {
+      fillRect(pixels, width, centerX - 20, 380, centerX + 20, 439, FITMENT);
+      top = 380;
+    }
   } else {
     for (let y = 470; y < seatY; y += 1) glassRow(y, 45);
     for (const threadY of [490, 515, 540]) {
@@ -561,6 +585,12 @@ function drawUrn(input: { neck: UrnNeck; frostedCrease?: boolean }) {
     top = 440;
   }
 
+  if (input.sidecar) {
+    // Stood close to the foot and tall enough to reach the belly rows, as the
+    // 100 ml reducer's cap did on its render.
+    fillRect(pixels, width, centerX + 100, 900, centerX + 180, footY, FITMENT);
+  }
+
   return {
     pixels,
     width,
@@ -568,7 +598,12 @@ function drawUrn(input: { neck: UrnNeck; frostedCrease?: boolean }) {
     footY,
     seatY,
     bellyWidth: bellyHalf * 2 + 1,
-    primaryBounds: { top, bottom: footY, left: centerX - bellyHalf - 6, right: centerX + bellyHalf + 6 },
+    primaryBounds: {
+      top,
+      bottom: footY,
+      left: centerX - bellyHalf - 6,
+      right: input.sidecar ? centerX + 186 : centerX + bellyHalf + 6,
+    },
   };
 }
 
@@ -648,6 +683,60 @@ describe("detectGlassShoulderLandmark on an urn, measured to the closure seat", 
 
     assert.ok(result);
     assert.ok(Math.abs(result.shoulderYPx - scene.seatY) <= 2);
+  });
+
+  it("does not walk past a dropper-wide collar whose rounded ring blurs the edge", () => {
+    // A ~17% step into the collar, then a narrower bulb above it. Two short windows
+    // across a rounded ring top read under 15% here; the seat is still the collar.
+    const scene = drawUrn({ neck: "collar", collarHalf: 58, bulb: true });
+    const result = detectGlassShoulderLandmark({
+      pixels: scene.pixels,
+      width: scene.width,
+      height: scene.height,
+      primaryBounds: scene.primaryBounds,
+      footYPx: scene.footY,
+      landmark: "closure-seat",
+    });
+
+    assert.ok(result);
+    assert.ok(
+      Math.abs(result.shoulderYPx - scene.seatY) <= 2,
+      `expected the collar's bottom edge at y=${scene.seatY}, not the bulb; got y=${result.shoulderYPx}`,
+    );
+  });
+
+  it("reads frosted glass that sits only a few levels off the canvas", () => {
+    const scene = drawUrn({ neck: "collar", frostedBody: true });
+    const result = detectGlassShoulderLandmark({
+      pixels: scene.pixels,
+      width: scene.width,
+      height: scene.height,
+      primaryBounds: scene.primaryBounds,
+      footYPx: scene.footY,
+      landmark: "closure-seat",
+    });
+
+    assert.ok(result, "frosted glass must be detectable");
+    assert.ok(Math.abs(result.shoulderYPx - scene.seatY) <= 2, `got y=${result.shoulderYPx}`);
+    assert.equal(result.outerBodyWidthPx, scene.bellyWidth);
+  });
+
+  it("keeps a detached cap that reaches the belly rows out of the belly", () => {
+    const scene = drawUrn({ neck: "collar", sidecar: true });
+    const result = detectGlassShoulderLandmark({
+      pixels: scene.pixels,
+      width: scene.width,
+      height: scene.height,
+      primaryBounds: scene.primaryBounds,
+      footYPx: scene.footY,
+      landmark: "closure-seat",
+      expectedBodyAspectRatio: (scene.footY - scene.seatY) / scene.bellyWidth,
+    });
+
+    assert.ok(result);
+    assert.ok(Math.abs(result.shoulderYPx - scene.seatY) <= 2);
+    assert.equal(result.outerBodyWidthPx, scene.bellyWidth);
+    assert.ok(result.bodyRightXPx <= 260 + 110, `the belly's right edge is the glass, got x=${result.bodyRightXPx}`);
   });
 
   it("leaves the shoulder rule as it was when no landmark is asked for", () => {
