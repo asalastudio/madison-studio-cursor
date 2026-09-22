@@ -171,31 +171,23 @@ working tree; every render on 09-21 ran with it. Ask Jordan before committing it
     `e9221959`): keep `prior*` fields and add `{release, card, approvedBy, approvedAt, note}`.
   - After Jordan merges, confirm the production image URLs return 200.
 
-### 3.2 Redo the 50 ml lotion pump — `LB-SLK-CLR-50ML-LPM-MGLD` / `LBSlk50LtnMtGl`
+### 3.2 and 3.3 — 50 ml lotion pump redo and 5 ml roll-on retry: rendered 2026-09-22, awaiting sign-off
 
-- Jordan: "all looks fine on sleek but this needs to be redone" (this = the 50 ml lotion
-  render). It stays on its release-13 image meanwhile.
-- **Not the wrong product.** Sleek's lotion pump is a treatment pump; on the Photoshop
-  source it looks almost identical to the fine-mist sprayer (gold actuator with an
-  orifice).
-- **What differs:** against its PSD, the render reads slimmer, with an oversized pump
-  collar (about 86% of the bottle width, against about 73% on the PSD).
-  - the rig's proportion check passed (6.22 vs 6.25), because it compares the whole
-    vessel, so this is a visual call
-  - if you can, ask Jordan what bothers them before paying
-- Re-render once (paid, and confirm the go) with its own manifest, then compare
-  against the PSD `tmp/bestbottles-generation/sleek-hero-references/LBSlk50LtnMtGl__LB-SLK-CLR-50ML-LPM-MGLD.png`
-  before showing it.
-
-### 3.3 Retry the 5 ml roll-on — `GB-SLK-CLR-5ML-MRL-MGLD` / `GBSleek5MtlRollGlMatt` (needs a go, ~$0.42)
-
-- It failed the proportion check twice:
-  - 09-20 at 37%: 3.71 vs 2.96
-  - 09-21 at 33%: 3.74 vs 2.96
-- It passed once, 09-21 at 37%.
-- The model sometimes draws it about 26% too tall and thin. It's a model draw, not a
-  rig fault, so retry it.
-- When it passes, it and the lotion pump can ship together as release 15.
+- Jordan approved both runs. Both passed the rig on the first attempt, about $0.84
+  (manifest `tmp/bestbottles-generation/sleek-lotion50-roll5-2026-09-22.json`).
+- `LB-SLK-CLR-50ML-LPM-MGLD` / `LBSlk50LtnMtGl`:
+  - Sleek's lotion pump is a treatment pump; on the Photoshop source it looks almost
+    identical to the fine-mist sprayer, so a sprayer-like head is correct
+  - the collar-to-body width ratio is 77–78% on the PSD, the rejected render and the new
+    render alike; an earlier claim that the collar was oversized was a measuring error
+- `GB-SLK-CLR-5ML-MRL-MGLD` / `GBSleek5MtlRollGlMatt`:
+  - passed at the 33% lock
+  - earlier attempts failed twice with the bottle drawn about 26% too tall (3.71 and 3.74
+    against 2.96), which is a model draw to retry, not a rig fault
+- Next: Jordan's sign-off. Then ship both, either folded into release 14 if PR #224 is
+  still open, or as release 15.
+  - To fold them in: reset the registry and manifest to `origin/main`, then publish once
+    with the full 11-hero lock (see the trap in HANDOFF.md section 5).
 
 ### 3.4 Circle 20, Round 14, Empire 7 — ready, need Jordan's explicit go (~$17)
 
