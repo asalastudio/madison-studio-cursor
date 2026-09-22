@@ -4,9 +4,11 @@
   "source": "hero-reviews/catalog-replacements-2026-09-07",
   "note": "Convex heightWithoutCap / heightWithCap remain product-truth millimeters. They do not choose the on-canvas percentage. Cylinder 50 ml has two glasses: 18-415 (~117 mm × 32 mm) locked at 56%; 16 mm roll-on (~98 mm × 37 mm) locked at 53%, placed on the shoulder ladder between the 81 mm / 28 ml lock (50.5%) and the 117 mm / 18-415 lock (56%).",
   "closureSeatFamilies": [
-    "diva"
+    "diva",
+    "circle",
+    "round"
   ],
-  "closureSeatNote": "These families are measured foot-to-closure-seat (the top of the neck ring, where the cap starts) instead of foot-to-shoulder: urn glass has no straight wall for a shoulder to end. Every other family, including every body locked before 2026-09-21, is foot-to-shoulder.",
+  "closureSeatNote": "These families are measured foot-to-closure-seat (where the cap starts at the neck: the top of a neck ring, or the corner where a ringless body meets its collar or threads) instead of foot-to-shoulder: their glass has no straight wall for a shoulder to end. Every other family, including every body locked before 2026-09-21, is foot-to-shoulder.",
   "bodies": [
     {
       "glassBodyKey": "cylinder:3.3-standard",

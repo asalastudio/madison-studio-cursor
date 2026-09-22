@@ -290,12 +290,14 @@ function capacityKeyedGlassBodyKey(
 }
 
 /**
- * Families measured to the closure seat — the top of the neck ring, where the
- * cap starts — instead of the shoulder. Glass with no straight wall: on Diva's
- * urn the shoulder rule fell through the body (Jordan, 2026-09-21). Everything
- * else, including every body locked before this, stays on the shoulder.
+ * Families measured to the closure seat — where the cap starts at the neck —
+ * instead of the shoulder. Glass with no straight wall: on Diva's urn the
+ * shoulder rule fell through the body (Jordan, 2026-09-21), and on Circle and
+ * Round it found no shoulder at all (47 of 48 groups held off the sheets).
+ * Everything else, including every body locked before this, stays on the
+ * shoulder.
  */
-const CLOSURE_SEAT_FAMILIES: ReadonlySet<string> = new Set(["diva"]);
+const CLOSURE_SEAT_FAMILIES: ReadonlySet<string> = new Set(["diva", "circle", "round"]);
 
 export function resolveShoulderLandmarkKind(input: ShoulderLockProductInput): ShoulderLandmarkKind {
   return CLOSURE_SEAT_FAMILIES.has(normalizeFamily(input.family ?? input.bottleCollection))

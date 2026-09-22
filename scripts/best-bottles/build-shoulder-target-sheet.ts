@@ -390,11 +390,15 @@ for (const row of rows) {
   }
   widths.sort((a, b) => a - b);
 
+  // With no clean gap the split above is a guess, and on a cap stood against the
+  // glass (Circle 50 ml reducer) it fell inside the body. The closure-seat reading
+  // keeps a cap out of the belly on its own, so give it the whole frame there.
+  const detectorRight = landmarkKind === "closure-seat" && gap < 0 ? right : bottleRight;
   const landmark = detectGlassShoulderLandmark({
     pixels: px,
     width: info.width,
     height: info.height,
-    primaryBounds: { top: bottleTop, bottom: bottleBottom, left, right: bottleRight },
+    primaryBounds: { top: bottleTop, bottom: bottleBottom, left, right: detectorRight },
     footYPx: bottleBottom,
     background: { r: 255, g: 255, b: 255 },
     landmark: landmarkKind,

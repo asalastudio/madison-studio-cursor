@@ -527,7 +527,8 @@ function drawUrn(input: {
   const centerX = 260;
   const footY = 1100;
   const bellyY = 700;
-  const domeTopY = 612;
+  // The ring runs 16 rows, 2.2% of this frame, as Diva's rings measure 2.2-2.4%.
+  const domeTopY = 596;
   const seatY = 580;
   const bellyHalf = 110;
   const ringHalf = 70;

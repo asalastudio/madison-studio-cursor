@@ -8,6 +8,7 @@ import {
   BEST_BOTTLES_SHOULDER_LOCK_BODIES,
   BEST_BOTTLES_SHOULDER_LOCK_VERSION,
   resolveGlassBodyKey,
+  resolveShoulderLandmarkKind,
   resolveShoulderLock,
 } from "./bestBottlesShoulderLock";
 
@@ -216,6 +217,11 @@ describe("Best Bottles shoulder lock", () => {
     for (const family of ["Cylinder", "Slim", "Elegant", "Sleek", "Boston Round"]) {
       assert.equal(resolveShoulderLock({ family, capacityMl: 30 })?.landmark, "shoulder", family);
     }
+    // Circle and Round have no lock yet, but their sheets measure to the seat.
+    for (const family of ["Circle", "Round", "Diva"]) {
+      assert.equal(resolveShoulderLandmarkKind({ family }), "closure-seat", family);
+    }
+    assert.equal(resolveShoulderLandmarkKind({ family: "Boston Round" }), "shoulder");
   });
 
   it("does not let a broken 30 ml Convex row choose a different body", () => {

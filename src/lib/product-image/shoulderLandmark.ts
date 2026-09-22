@@ -560,14 +560,64 @@ function detectClosureSeatLandmark(
     }
   }
 
-  if (found) {
-    const { y, drop, halfway } = found;
-    let seatY = y;
-    for (let row = y + window; row >= y - window * 2; row -= 1) {
-      if (widthAt(row) < halfway) {
-        seatY = row;
-        break;
+  // A Round bottle has no neck ring: its body curves straight into the collar or
+  // the threads, so the seat is a corner, not a step. The width stops narrowing
+  // and runs straight and narrow. On the Round sources the step search walked
+  // past it to the collar's own top, the dropper bulb or the reducer plug. The
+  // corner is the first straight run above the dome that is narrow (under 70% of
+  // the belly, clear of a gently curving dome) and lasts (3% of the height, longer
+  // than any Diva ring, which runs ~2.4% and has its step just above).
+  const straightRun = Math.max(window * 3, Math.round(span * 0.03));
+  const straightTolerance = bellyWidth * 0.005;
+  let corner: { y: number; steepness: number } | null = null;
+  for (let y = searchFrom; y >= searchTo + straightRun && !corner; y -= 1) {
+    if (medianWidth(y - straightRun, y) > bellyWidth * 0.7) continue;
+    let straight = true;
+    for (let row = y; row >= y - straightRun + window && straight; row -= 1) {
+      const narrowing = medianWidth(row + 1, row + window) - medianWidth(row - window, row - 1);
+      if (Math.abs(narrowing) > straightTolerance) straight = false;
+    }
+    if (!straight) continue;
+    // How steeply the body comes in just below: a corner, not a slow taper. Read a
+    // window clear of the corner itself, where a collar wider than the body's top
+    // leaves a narrow waist.
+    const steepness =
+      (medianWidth(y + window * 3 + 1, y + window * 4) - medianWidth(y + window + 1, y + window * 2)) /
+      bellyWidth;
+    corner = { y, steepness };
+  }
+  // A step well above the corner is the fitment's own top; the corner is the seat.
+  // A step at or just above it is the ring's top over a short run (Diva) and stays.
+  const ringHeight = Math.round(span * 0.03);
+  const seatAtCorner = corner != null && (!found || found.y < corner.y - ringHeight);
+
+  if (found || corner) {
+    let seatY: number;
+    let coarseY: number;
+    let confidence: number;
+    let transitionScore: number;
+    if (seatAtCorner && corner) {
+      seatY = corner.y;
+      coarseY = corner.y;
+      // The body narrowing 4% of the belly over two windows below the corner reads
+      // 0.8; a sphere's top runs 5-6%.
+      confidence = clamp(0.6 + corner.steepness * 5, 0, 1);
+      transitionScore = corner.steepness * 100;
+    } else {
+      const { y, drop, halfway } = found!;
+      seatY = y;
+      coarseY = y;
+      for (let row = y + window; row >= y - window * 2; row -= 1) {
+        if (widthAt(row) < halfway) {
+          seatY = row;
+          break;
+        }
       }
+      // The 15% floor reads 0.7 and 17.5% reads 0.8, so every Diva Photoshop seat
+      // clears the sheet's bar; 22.5% and up reads 1. The shallowest render seats
+      // (~16%) read ~0.75, which only sends the rig for its second look.
+      confidence = clamp(0.7 + (drop - 0.15) * 4, 0, 1);
+      transitionScore = drop * 100;
     }
 
     // A detached cap stands to the right of the glass and can reach up into the
@@ -625,18 +675,15 @@ function detectClosureSeatLandmark(
     const bellyEdges = glassEdgesAt(bellyY);
     return {
       shoulderYPx: seatY,
-      coarseShoulderYPx: y,
+      coarseShoulderYPx: coarseY,
       closureEdgeYPx: seatY,
       narrowingOnsetYPx: null,
       bodyAspectRatio: Number(bodyAspectRatio.toFixed(4)),
       footYPx: foot,
       bodyLeftXPx: bellyEdges?.left ?? left,
       bodyRightXPx: bellyEdges?.right ?? right,
-      // The 15% floor reads 0.7 and 17.5% reads 0.8, so every Diva Photoshop seat
-      // clears the sheet's bar; 22.5% and up reads 1. The shallowest render seats
-      // (~16%) read ~0.75, which only sends the rig for its second look.
-      confidence: Number(clamp(0.7 + (drop - 0.15) * 4, 0, 1).toFixed(3)),
-      transitionScore: Number((drop * 100).toFixed(2)),
+      confidence: Number(confidence.toFixed(3)),
+      transitionScore: Number(transitionScore.toFixed(2)),
       wallSupport: 0,
       landmark: "closure-seat",
       outerBodyWidthPx: bellyWidth,
