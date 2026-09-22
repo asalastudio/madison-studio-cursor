@@ -121,6 +121,12 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   { glassBodyKey: "circle:100-standard", label: "Circle 100 ml", shoulderPct: 56, bodyAspect: 0.98, status: "locked" },
   { glassBodyKey: "round:78-standard", label: "Round 78 ml", shoulderPct: 42.5, bodyAspect: 0.961, status: "locked" },
   { glassBodyKey: "round:128-standard", label: "Round 128 ml", shoulderPct: 52, bodyAspect: 0.979, status: "locked" },
+  // Empire — locked 2026-09-21 by Jordan on the rebuilt sheet (the touching-cap
+  // split fix removed a false narrower 50 ml body read off the dropper and lotion
+  // pump). A square-section shoulder, measured as a shoulder. Against the Cylinder
+  // ladder's openings: 88 mm 48 vs 48, 107 mm 57 vs 53.
+  { glassBodyKey: "empire:50-standard", label: "Empire 50 ml", shoulderPct: 48, bodyAspect: 1.95, status: "locked" },
+  { glassBodyKey: "empire:100-standard", label: "Empire 100 ml", shoulderPct: 57, bodyAspect: 1.973, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(
@@ -290,6 +296,7 @@ const CAPACITY_KEYED_FAMILIES: Readonly<Record<string, { keyPrefix: string; capa
   diva: { keyPrefix: "diva", capacitiesMl: [30, 46, 100] },
   circle: { keyPrefix: "circle", capacitiesMl: [15, 30, 50, 100] },
   round: { keyPrefix: "round", capacitiesMl: [78, 128] },
+  empire: { keyPrefix: "empire", capacitiesMl: [50, 100] },
 };
 
 function capacityKeyedGlassBodyKey(

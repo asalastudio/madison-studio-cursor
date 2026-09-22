@@ -275,6 +275,20 @@
       "shoulderPct": 52,
       "bodyAspect": 0.979,
       "status": "locked"
+    },
+    {
+      "glassBodyKey": "empire:50-standard",
+      "label": "Empire 50 ml",
+      "shoulderPct": 48,
+      "bodyAspect": 1.95,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "empire:100-standard",
+      "label": "Empire 100 ml",
+      "shoulderPct": 57,
+      "bodyAspect": 1.973,
+      "status": "locked"
     }
   ]
 }

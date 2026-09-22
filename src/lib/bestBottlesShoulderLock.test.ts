@@ -25,8 +25,9 @@ describe("Best Bottles shoulder lock", () => {
     };
     assert.equal(snapshot.version, BEST_BOTTLES_SHOULDER_LOCK_VERSION);
     // 14 Cylinder from the Sep 7 lock + 3 Slim, 4 Elegant, 5 Sleek and 3 Boston
-    // Round locked 2026-09-19/20, and 3 Diva, 4 Circle and 2 Round on 2026-09-21.
-    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 38);
+    // Round locked 2026-09-19/20, and 3 Diva, 4 Circle, 2 Round and 2 Empire on
+    // 2026-09-21.
+    assert.equal(BEST_BOTTLES_SHOULDER_LOCK_BODIES.length, 40);
     assert.deepEqual(
       BEST_BOTTLES_SHOULDER_LOCK_BODIES.map((body) => ({
         glassBodyKey: body.glassBodyKey,
@@ -232,6 +233,20 @@ describe("Best Bottles shoulder lock", () => {
       assert.equal(lock.landmark, "closure-seat");
     }
     assert.equal(resolveShoulderLock({ family: "Round", capacityMl: 100 }), null);
+  });
+
+  it("locks Empire by capacity, as a shoulder", () => {
+    for (const [capacityMl, key, pct, applicator] of [
+      [50, "empire:50-standard", 48, "Dropper"], [100, "empire:100-standard", 57, "Lotion Pump"],
+    ] as const) {
+      const lock = resolveShoulderLock({ family: "Empire", capacityMl, applicator });
+      assert.ok(lock, `Empire ${capacityMl} ml`);
+      assert.equal(lock.glassBodyKey, key);
+      assert.equal(lock.shoulderPct, pct);
+      assert.notEqual(lock.landmark, "closure-seat");
+    }
+    assert.equal(resolveShoulderLandmarkKind({ family: "Empire" }), "shoulder");
+    assert.equal(resolveShoulderLock({ family: "Empire", capacityMl: 30 }), null);
     assert.equal(resolveShoulderLandmarkKind({ family: "Boston Round" }), "shoulder");
   });
 
