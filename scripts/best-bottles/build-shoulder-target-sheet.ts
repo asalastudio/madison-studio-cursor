@@ -44,6 +44,7 @@ import { resolveBestBottlesHeroPresentation } from "../../src/lib/bestBottlesHer
 import { resolveShoulderLandmarkKind, resolveShoulderLock } from "../../src/lib/bestBottlesShoulderLock";
 import { resolveWholeVesselBounds } from "../../src/lib/product-image/rigPostprocess";
 import { detectGlassShoulderLandmark } from "../../src/lib/product-image/shoulderLandmark";
+import { findTouchingSidecar } from "./reference-sidecar-split";
 
 const CLIENT_ROOT = "/Users/jordanrichter/Projects/Clients/Nemat-International";
 const SITE_REPO = `${CLIENT_ROOT}/Best-Bottles-Website-02-20-2026`;
@@ -348,14 +349,22 @@ for (const row of rows) {
   let gap = -1;
   for (let x = left + 40; x < right; x++) if (!columnHasInk(x)) { gap = x; break; }
   let bottleRight = gap > 0 ? gap - 1 : right;
-  if (gap < 0) {
-    // No empty column anywhere: a shadow bridges the gap, and the "bottle"
-    // would be the whole frame. Diva's LBDiva46LtnMtGl read 869px wide against
-    // 464 for every other bottle on its body, and the sheet drew it half size.
-    // Fall back to the emptiest column that still has a denser object past it,
-    // which is what a sidecar cap looks like from here. Only this case takes
-    // the fallback: replacing the scan outright cut urns and bulb assemblies
-    // in half and lost a third of the heroes off the sheets.
+  // No empty column anywhere. Only a detached-sidecar frame pictures a cap
+  // beside the bottle; an assembled or capped frame is the bottle alone, and
+  // splitting it trimmed the right wall off assembled droppers (Empire 50 ml
+  // read a second, narrower body) and halved bulb sprayers.
+  const sidecar = gap < 0 && presentation === "detached-sidecar" && !measuredOnCapped
+    ? findTouchingSidecar(ink, info.width, info.height, { left, right, top, bottom })
+    : null;
+  if (sidecar?.kind === "cap") bottleRight = sidecar.left - 1;
+  if (sidecar?.kind === "unresolved") {
+    // A shadow bridges the gap, and the "bottle" would be the whole frame.
+    // Diva's LBDiva46LtnMtGl read 869px wide against 464 for every other
+    // bottle on its body, and the sheet drew it half size. Fall back to the
+    // emptiest column that still has a denser object past it, which is what a
+    // sidecar cap looks like from here. Only this case takes the fallback:
+    // replacing the scan outright cut urns and bulb assemblies in half and
+    // lost a third of the heroes off the sheets.
     const columnInk = (x: number) => {
       let n = 0;
       for (let y = top; y <= bottom; y += 2) if (ink(x, y)) n += 1;
