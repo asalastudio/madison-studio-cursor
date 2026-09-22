@@ -86,6 +86,7 @@ import {
 } from "../../src/lib/bestBottlesReferenceValidation";
 import { getExactOutputCanvasConstraints } from "../../src/lib/product-image/exactOutputCanvas";
 import { resolveWholeVesselBounds } from "../../src/lib/product-image/rigPostprocess";
+import { clipDetachedSidecar } from "./reference-sidecar-split";
 import { resolveBestBottlesShadowTopology } from "../../src/lib/bestBottlesShadowTopology";
 import {
   buildBestBottlesRawReconciliationPayload,
@@ -1592,7 +1593,12 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
           g: Math.round(corners.reduce((a, c) => a + c[1], 0) / 4),
           b: Math.round(corners.reduce((a, c) => a + c[2], 0) / 4),
         };
-        const vessel = resolveWholeVesselBounds(rgba, refW, refH, refBg);
+        const wholeVessel = resolveWholeVesselBounds(rgba, refW, refH, refBg);
+        // A drop shadow can join the bottle and its detached cap into one object
+        // on the Photoshop source; measure the bottle alone when it has.
+        const vessel = wholeVessel
+          ? clipDetachedSidecar(rgba, refW, refH, refBg, wholeVessel) ?? wholeVessel
+          : null;
         const measuredRefAspect = vessel && vessel.right > vessel.left
           ? (vessel.bottom - vessel.top + 1) / (vessel.right - vessel.left + 1)
           : null;

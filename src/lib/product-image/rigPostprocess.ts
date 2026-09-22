@@ -2368,6 +2368,28 @@ function shoulderLandmarkToControlBounds(
 }
 
 /**
+ * A detached hero's proportion box, held to the glass for bodies measured to the
+ * closure seat. An urn's widest glass is its belly, which the seat landmark
+ * measures clear of the cap; a whole-vessel box cannot tell a cap stood against
+ * the foot from glass. The Diva 100 ml reducer render read 1.39 against 1.88,
+ * and the frosted reducer's merged cap read 1.38 on render and reference alike,
+ * a pass that measured nothing. Every other family keeps its whole-vessel box.
+ */
+function holdDetachedAspectToGlass(
+  vessel: RigStrongBounds | null,
+  rig: FamilyRigConfig,
+  landmark: GlassShoulderLandmark | null,
+): RigStrongBounds | null {
+  if (!vessel || rig.shoulderLandmark !== "closure-seat" || landmark?.landmark !== "closure-seat") {
+    return vessel;
+  }
+  const right = typeof vessel.right === "number"
+    ? Math.min(vessel.right, landmark.bodyRightXPx)
+    : landmark.bodyRightXPx;
+  return { ...vessel, right };
+}
+
+/**
  * Measure the primary bottle's height/width ratio in a reference image.
  * Gates render proportions against byte-locked truth for lanes where canonical
  * mm cannot describe the pictured state (e.g. cap-off sidecar with fitment).
@@ -3344,12 +3366,16 @@ export async function normalizeBestBottlesRigBaseline(
               appliedHScaleX,
             );
       const finalAspectBounds = capState === "detached"
-        ? resolveWholeVesselBounds(
-            finalImageData.data,
-            width,
-            height,
-            bg,
-            finalBaseline,
+        ? holdDetachedAspectToGlass(
+            resolveWholeVesselBounds(
+              finalImageData.data,
+              width,
+              height,
+              bg,
+              finalBaseline,
+            ),
+            rig,
+            finalShoulderLandmark,
           )
         : finalPrimaryBounds;
       const finalGlassWidthBounds = detectGlassBodyWidthBounds(
@@ -3956,12 +3982,16 @@ export async function normalizeBestBottlesRigBaseline(
             appliedHScaleX,
           );
     const finalAspectBounds = capState === "detached"
-      ? resolveWholeVesselBounds(
-          finalAnalysisImageData.data,
-          width,
-          height,
-          bg,
-          finalBaseline,
+      ? holdDetachedAspectToGlass(
+          resolveWholeVesselBounds(
+            finalAnalysisImageData.data,
+            width,
+            height,
+            bg,
+            finalBaseline,
+          ),
+          rig,
+          finalShoulderLandmark,
         )
       : finalPrimaryBounds;
     const finalGlassWidthBounds = detectGlassBodyWidthBounds(
