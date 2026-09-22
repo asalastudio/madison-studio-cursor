@@ -1,5 +1,9 @@
 # Best Bottles hero images — handoff
 
+> **Superseded state (2026-09-21):** sections 2 and 6 below are out of date. Read
+> [`HERO-PROGRAM-HANDOFF-2026-09-21.md`](./HERO-PROGRAM-HANDOFF-2026-09-21.md) for the
+> current state and next actions; the fundamentals here still hold.
+
 **Written 2026-09-20 by the outgoing agent (Claude Code), for the agent continuing
 this work in Codex / ChatGPT with native image generation.**
 Every number below was re-measured while writing this, not recalled.
