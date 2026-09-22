@@ -9,7 +9,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-export type CanonTruth = { widthAxisMm: number | null; heightWithCapMm: number | null };
+export type CanonTruth = { widthAxisMm: number | null; heightWithCapMm: number | null; bodyHeightMm: number | null };
 
 const CSV_PATH = resolve("docs/best-bottles-canonical-truth/best-bottles-master-truth.csv");
 
@@ -46,16 +46,47 @@ export function lookupCanonTruth(graceSku: string | null | undefined): CanonTrut
       const [header, ...rows] = parseCsv(readFileSync(CSV_PATH, "utf8"));
       const at = (name: string) => header!.findIndex((column) => column.trim().toLowerCase() === name.toLowerCase());
       const sku = Math.max(at("graceSku"), at("grace_sku"));
-      const width = at("canon_widthAxisMm"), tall = at("canon_heightWithCapMm");
+      const width = at("canon_widthAxisMm"), tall = at("canon_heightWithCapMm"), body = at("canon_bodyHeightMm");
       const positive = (value: string | undefined) => {
         const parsed = Number.parseFloat(value ?? "");
         return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
       };
       if (sku >= 0) for (const row of rows) {
         const key = row[sku]?.trim();
-        if (key) cache.set(key, { widthAxisMm: positive(row[width]), heightWithCapMm: positive(row[tall]) });
+        if (key) cache.set(key, { widthAxisMm: positive(row[width]), heightWithCapMm: positive(row[tall]), bodyHeightMm: positive(row[body]) });
       }
     }
   }
   return cache.get(graceSku.trim()) ?? null;
+}
+
+type CatalogMillimetres = {
+  graceSku?: string | null;
+  heightWithoutCap?: string | null;
+  heightWithCap?: string | null;
+  diameter?: string | null;
+};
+
+/**
+ * The catalog row with its millimetres replaced by the canonical truth sheet's.
+ *
+ * Only Cylinder went through the canonical path, so every other family sent
+ * Convex's raw sizes to the model, and the edge tells the model the rendered
+ * height-to-width must match them. The Sleek 50 and 100 ml rows still carry
+ * the 72/78 mm widths of Empire-style junk against 28 and 36 mm of real glass,
+ * and Sleek release 13 came out visibly fat; Circle's 30 ml row gives 37 mm,
+ * its depth, for a 60 mm face. A row with no canonical entry keeps what it had.
+ */
+export function withCanonTruthGeometry<T extends CatalogMillimetres>(
+  product: T,
+): T & { canonicalBodyHeightMm?: number; canonicalAssembledHeightMm?: number; canonicalWidthAxisMm?: number; measurementSource?: string } {
+  const canon = lookupCanonTruth(product.graceSku);
+  if (!canon) return product;
+  return {
+    ...product,
+    ...(canon.bodyHeightMm != null ? { heightWithoutCap: `${canon.bodyHeightMm} mm`, canonicalBodyHeightMm: canon.bodyHeightMm } : {}),
+    ...(canon.heightWithCapMm != null ? { heightWithCap: `${canon.heightWithCapMm} mm`, canonicalAssembledHeightMm: canon.heightWithCapMm } : {}),
+    ...(canon.widthAxisMm != null ? { diameter: `${canon.widthAxisMm} mm`, canonicalWidthAxisMm: canon.widthAxisMm } : {}),
+    measurementSource: "best-bottles-canonical-truth-2026-07-12",
+  };
 }

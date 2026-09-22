@@ -59,7 +59,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 
-import { lookupCanonTruth } from "./canon-truth";
+import { lookupCanonTruth, withCanonTruthGeometry } from "./canon-truth";
 import path from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
@@ -1644,7 +1644,7 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
     const snapshotProduct = productFromSnapshot(productRow);
     const canonicalProduct = canonicalReadiness
       ? applyRoleAwareCanonicalCylinderGeometry(snapshotProduct, canonicalReadiness)
-      : snapshotProduct;
+      : withCanonTruthGeometry(snapshotProduct);
     if (isCylinderCloseoutFamily && !sidecarAuthority) {
       skips.push({ sku, productGroupSlug, reason: "missing reviewed sidecar generation authority" });
       continue;
@@ -1768,7 +1768,7 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       const snapshotProduct = productFromSnapshot(productRow);
       const canonicalProduct = canonicalReadiness
         ? applyRoleAwareCanonicalCylinderGeometry(snapshotProduct, canonicalReadiness)
-        : snapshotProduct;
+        : withCanonTruthGeometry(snapshotProduct);
       const product: BBProduct = {
         ...canonicalProduct,
         capState: verifiedReference.authority.capState,
