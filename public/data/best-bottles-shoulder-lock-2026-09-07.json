@@ -1,0 +1,294 @@
+{
+  "version": "shoulder-lock-2026-09-07",
+  "baselinePct": 91,
+  "source": "hero-reviews/catalog-replacements-2026-09-07",
+  "note": "Convex heightWithoutCap / heightWithCap remain product-truth millimeters. They do not choose the on-canvas percentage. Cylinder 50 ml has two glasses: 18-415 (~117 mm × 32 mm) locked at 56%; 16 mm roll-on (~98 mm × 37 mm) locked at 53%, placed on the shoulder ladder between the 81 mm / 28 ml lock (50.5%) and the 117 mm / 18-415 lock (56%).",
+  "closureSeatFamilies": [
+    "diva",
+    "circle",
+    "round"
+  ],
+  "closureSeatNote": "These families are measured foot-to-closure-seat (where the cap starts at the neck: the top of a neck ring, or the corner where a ringless body meets its collar or threads) instead of foot-to-shoulder: their glass has no straight wall for a shoulder to end. Every other family, including every body locked before 2026-09-21, is foot-to-shoulder.",
+  "bodies": [
+    {
+      "glassBodyKey": "cylinder:3.3-standard",
+      "label": "Cylinder 3.3 ml",
+      "shoulderPct": 26.5,
+      "bodyAspect": 2.109,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:4-standard",
+      "label": "Cylinder 4 ml",
+      "shoulderPct": 31.5,
+      "bodyAspect": 2.714,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:5-standard",
+      "label": "Cylinder 5 ml",
+      "shoulderPct": 36.5,
+      "bodyAspect": 2.362,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:9-standard",
+      "label": "Cylinder 9 ml",
+      "shoulderPct": 43.5,
+      "bodyAspect": 3.127,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:9-tall",
+      "label": "Cylinder 9 ml tall",
+      "shoulderPct": 62.5,
+      "bodyAspect": 5.326,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:25-standard",
+      "label": "Cylinder 25 ml",
+      "shoulderPct": 46.5,
+      "bodyAspect": 2.134,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:28-standard",
+      "label": "Cylinder 28 ml",
+      "shoulderPct": 50.5,
+      "bodyAspect": 2.203,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:30-standard",
+      "label": "Cylinder 30 ml",
+      "shoulderPct": 46.0,
+      "bodyAspect": 2.65,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:50-standard",
+      "label": "Cylinder 50 ml 18-415",
+      "shoulderPct": 56.0,
+      "bodyAspect": 3.167,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:50-rollon",
+      "label": "Cylinder 50 ml 16 mm roll-on",
+      "shoulderPct": 53,
+      "bodyAspect": 2.354,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:100-standard",
+      "label": "Cylinder 100 ml",
+      "shoulderPct": 67.5,
+      "bodyAspect": 4.184,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:114-standard",
+      "label": "Cylinder 114 ml plastic",
+      "shoulderPct": 49.5,
+      "bodyAspect": 2.673,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:227-standard",
+      "label": "Cylinder 227 ml plastic",
+      "shoulderPct": 63.0,
+      "bodyAspect": 3.045,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "cylinder:454-standard",
+      "label": "Cylinder 454 ml plastic",
+      "shoulderPct": 71.5,
+      "bodyAspect": 3.22,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "slim:30-standard",
+      "label": "Slim 30 ml",
+      "shoulderPct": 48.5,
+      "bodyAspect": 2.496,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "slim:50-standard",
+      "label": "Slim 50 ml",
+      "shoulderPct": 54,
+      "bodyAspect": 3.492,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "slim:100-standard",
+      "label": "Slim 100 ml",
+      "shoulderPct": 67.5,
+      "bodyAspect": 4.372,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "elegant:15-standard",
+      "label": "Elegant 15 ml",
+      "shoulderPct": 39,
+      "bodyAspect": 1.358,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "elegant:30-standard",
+      "label": "Elegant 30 ml",
+      "shoulderPct": 43,
+      "bodyAspect": 1.381,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "elegant:60-standard",
+      "label": "Elegant 60 ml",
+      "shoulderPct": 47,
+      "bodyAspect": 1.253,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "elegant:100-standard",
+      "label": "Elegant 100 ml",
+      "shoulderPct": 57,
+      "bodyAspect": 1.517,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:5-standard",
+      "label": "Sleek 5 ml",
+      "shoulderPct": 33,
+      "bodyAspect": 1.76,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:8-standard",
+      "label": "Sleek 8 ml",
+      "shoulderPct": 43,
+      "bodyAspect": 3.148,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:30-standard",
+      "label": "Sleek 30 ml",
+      "shoulderPct": 47,
+      "bodyAspect": 2.753,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:50-standard",
+      "label": "Sleek 50 ml",
+      "shoulderPct": 56,
+      "bodyAspect": 4.412,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "sleek:100-standard",
+      "label": "Sleek 100 ml",
+      "shoulderPct": 60.5,
+      "bodyAspect": 3.749,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "boston-round:15-standard",
+      "label": "Boston Round 15 ml",
+      "shoulderPct": 42,
+      "bodyAspect": 1.947,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "boston-round:30-standard",
+      "label": "Boston Round 30 ml",
+      "shoulderPct": 45,
+      "bodyAspect": 1.727,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "boston-round:60-standard",
+      "label": "Boston Round 60 ml",
+      "shoulderPct": 52,
+      "bodyAspect": 1.817,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "diva:30-standard",
+      "label": "Diva 30 ml",
+      "shoulderPct": 40,
+      "bodyAspect": 1.505,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "diva:46-standard",
+      "label": "Diva 46 ml",
+      "shoulderPct": 47,
+      "bodyAspect": 1.517,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "diva:100-standard",
+      "label": "Diva 100 ml",
+      "shoulderPct": 57,
+      "bodyAspect": 1.486,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "circle:15-standard",
+      "label": "Circle 15 ml",
+      "shoulderPct": 40,
+      "bodyAspect": 1.006,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "circle:30-standard",
+      "label": "Circle 30 ml",
+      "shoulderPct": 44,
+      "bodyAspect": 1.026,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "circle:50-standard",
+      "label": "Circle 50 ml",
+      "shoulderPct": 48,
+      "bodyAspect": 0.951,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "circle:100-standard",
+      "label": "Circle 100 ml",
+      "shoulderPct": 56,
+      "bodyAspect": 0.98,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "round:78-standard",
+      "label": "Round 78 ml",
+      "shoulderPct": 42.5,
+      "bodyAspect": 0.961,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "round:128-standard",
+      "label": "Round 128 ml",
+      "shoulderPct": 52,
+      "bodyAspect": 0.979,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "empire:50-standard",
+      "label": "Empire 50 ml",
+      "shoulderPct": 47.5,
+      "bodyAspect": 1.95,
+      "status": "locked"
+    },
+    {
+      "glassBodyKey": "empire:100-standard",
+      "label": "Empire 100 ml",
+      "shoulderPct": 57.5,
+      "bodyAspect": 1.973,
+      "status": "locked"
+    }
+  ]
+}

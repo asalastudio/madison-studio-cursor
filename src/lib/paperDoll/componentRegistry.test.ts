@@ -298,3 +298,59 @@ test("neck gate measures thread CREST, not the median of the whole band", async 
   // Too few neck rows → null rather than a bogus number.
   assert.equal(measureNeckThreadCrestWidth([300, 363, 363], bodyW), null);
 });
+
+// ─── Task 3: physical fitment keys (neck × applicator × finish × cap state) ─
+
+test("physical fitment keys keep neck size and cap state distinct", async () => {
+  const { buildPhysicalFitmentKey, buildFitmentSlotId } = await import("./componentRegistry");
+
+  const shared = {
+    applicator: "Fine Mist Sprayer",
+    finishColor: "Matte Black",
+  };
+
+  const neckA = buildPhysicalFitmentKey({
+    ...shared,
+    neckThreadSize: "13-415",
+    capState: "assembled-cap-on",
+  });
+  const neckB = buildPhysicalFitmentKey({
+    ...shared,
+    neckThreadSize: "17-415",
+    capState: "assembled-cap-on",
+  });
+  const capOff = buildPhysicalFitmentKey({
+    ...shared,
+    neckThreadSize: "13-415",
+    capState: "cap-off-applicator-exposed",
+  });
+
+  assert.notEqual(neckA, neckB);
+  assert.notEqual(neckA, capOff);
+  assert.equal(
+    buildFitmentSlotId({
+      neckThreadSize: "13-415",
+      applicator: "Fine Mist Sprayer",
+      capColor: "Matte Black",
+      capState: "assembled-cap-on",
+    }),
+    "fitment-13-415-fine-mist-sprayer-matte-black-assembled-cap-on",
+  );
+});
+
+test("equal applicator+capColor labels on different necks do not collapse", async () => {
+  const { buildFitmentSlotId } = await import("./componentRegistry");
+  const a = buildFitmentSlotId({
+    applicator: "Plastic Roller Ball",
+    capColor: "Black",
+    neckThreadSize: "13-415",
+    capState: "assembled-cap-on",
+  });
+  const b = buildFitmentSlotId({
+    applicator: "Plastic Roller Ball",
+    capColor: "Black",
+    neckThreadSize: "16mm",
+    capState: "assembled-cap-on",
+  });
+  assert.notEqual(a, b);
+});

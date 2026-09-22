@@ -26,7 +26,7 @@ export const BEST_BOTTLES_CATALOG_CANON_SOURCE_PATH =
 export const BEST_BOTTLES_CATALOG_CANON_PROMPT_FLAG = "catalog_canon_v3_prompt";
 
 const MODEL_BONE_CANVAS_CONTRACT =
-  "CYLINDER V6.1 BONE CANVAS CONTRACT: Render the output on the Best Bottles Bone canvas #F6EFE8 at 2080 × 2288. Keep this canvas color flat, seamless, and texture-free; this contract applies to reviewed Cylinder-family generation context.";
+  "CYLINDER V6.1 BONE CANVAS CONTRACT: Render the output on the Best Bottles Bone canvas #F5F3EF at 2080 × 2288. Keep this canvas color flat, seamless, and texture-free; this contract applies to reviewed Cylinder-family generation context.";
 const CLEAR_GLASS_SOURCE_ANCHOR =
   "The background should be visible through the glass with natural refraction and slight optical displacement.";
 const STUDIO_RIG_SHADOW_SENTENCE =

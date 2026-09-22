@@ -320,6 +320,7 @@ interface ReferenceIntakeRow {
 interface ReferenceIntakeData {
   generatedAt: string;
   localRoots: string[];
+  missingLocalRoots?: string[];
   summary: {
     totalRows: number;
     localMatches: number;
@@ -330,8 +331,32 @@ interface ReferenceIntakeData {
     conversionRequired: number;
     byFamily: Array<{ family: string; total: number; local: number; live: number; unresolved: number }>;
     byNextAction: Record<BestBottlesNeedsWorkAction, number>;
+    flatPngFamilyReadiness?: {
+      byFamily: Array<{
+        family: string;
+        loaded: number;
+        classified: number;
+        blocked: number;
+        rejected: number;
+        ready: boolean;
+      }>;
+      allReady: boolean;
+      loaded: number;
+      classified: number;
+      blocked: number;
+      rejected: number;
+    };
+    cylinderStorefrontGeneration?: {
+      totalTargets: number;
+      missingRepresentatives: number;
+      alreadyGenerated: number;
+    };
   };
   rows: ReferenceIntakeRow[];
+  cylinderCanonicalManifest?: {
+    sourceGroupCount: number;
+    targets: Array<{ productGroupId: string }>;
+  };
 }
 
 type WebsiteTruthStatus = "ready" | "needs_website_check" | "truth_conflict" | "alias_exception" | "component_lane";
@@ -3365,6 +3390,69 @@ export default function BestBottlesPipeline() {
                     <ReadinessMiniPill label="Website refs" value={referenceIntakeData.summary.liveSiteCandidates} tone="warn" />
                     <ReadinessMiniPill label="No source match" value={referenceIntakeData.summary.unresolved} />
                     <ReadinessMiniPill label="GIF conversion" value={referenceIntakeData.summary.conversionRequired} />
+                  </div>
+                )}
+                {referenceIntakeData?.summary.flatPngFamilyReadiness && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex flex-wrap gap-2 text-[11px] text-white/60">
+                      <ReadinessMiniPill
+                        label="Flat PNG loaded"
+                        value={referenceIntakeData.summary.flatPngFamilyReadiness.loaded}
+                      />
+                      <ReadinessMiniPill
+                        label="Classified"
+                        value={referenceIntakeData.summary.flatPngFamilyReadiness.classified}
+                        tone="ok"
+                      />
+                      <ReadinessMiniPill
+                        label="Blocked"
+                        value={referenceIntakeData.summary.flatPngFamilyReadiness.blocked}
+                        tone={
+                          referenceIntakeData.summary.flatPngFamilyReadiness.blocked > 0 ? "warn" : "ok"
+                        }
+                      />
+                      <ReadinessMiniPill
+                        label="Rejected"
+                        value={referenceIntakeData.summary.flatPngFamilyReadiness.rejected}
+                      />
+                      <ReadinessMiniPill
+                        label="Family matrix"
+                        value={referenceIntakeData.summary.flatPngFamilyReadiness.byFamily.length}
+                        tone={referenceIntakeData.summary.flatPngFamilyReadiness.allReady ? "ok" : "warn"}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-[11px] text-white/60">
+                      {referenceIntakeData.summary.flatPngFamilyReadiness.byFamily.slice(0, 12).map((family) => (
+                        <ReadinessMiniPill
+                          key={family.family}
+                          label={`${family.family}${family.ready ? "" : " !"}`}
+                          value={family.classified}
+                          tone={family.ready ? "ok" : "warn"}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {referenceIntakeData?.summary.cylinderStorefrontGeneration && (
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-white/60">
+                    <ReadinessMiniPill
+                      label="Cylinder gen groups"
+                      value={referenceIntakeData.summary.cylinderStorefrontGeneration.totalTargets}
+                      tone="ok"
+                    />
+                    <ReadinessMiniPill
+                      label="Missing heroes"
+                      value={referenceIntakeData.summary.cylinderStorefrontGeneration.missingRepresentatives}
+                      tone={
+                        referenceIntakeData.summary.cylinderStorefrontGeneration.missingRepresentatives > 0
+                          ? "warn"
+                          : "ok"
+                      }
+                    />
+                    <ReadinessMiniPill
+                      label="Already generated"
+                      value={referenceIntakeData.summary.cylinderStorefrontGeneration.alreadyGenerated}
+                    />
                   </div>
                 )}
                 {cylinderReferenceRigSummary && (
@@ -7627,11 +7715,11 @@ function resolveStudioSlugForGroup(group: ShapeGroup): string | null {
   const pinned = group.rows.find(
     (r) => r.is_hero_reference && typeof r.convex_slug === "string" && r.convex_slug,
   );
-  if (pinned?.convex_slug) return pinned.convex_slug;
-  const firstWithSlug = group.rows.find(
-    (r) => typeof r.convex_slug === "string" && r.convex_slug,
-  );
-  return firstWithSlug?.convex_slug ?? null;
+  const raw = pinned?.convex_slug
+    ?? group.rows.find((r) => typeof r.convex_slug === "string" && r.convex_slug)?.convex_slug
+    ?? null;
+  if (!raw) return null;
+  return raw.endsWith("-capclosure") ? raw.slice(0, -"-capclosure".length) : raw;
 }
 
 function ShapeGroupCard({

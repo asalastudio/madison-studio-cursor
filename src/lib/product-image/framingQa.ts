@@ -1,4 +1,5 @@
 import type { FamilyRigConfig, RigCapState } from "./familyRig";
+import type { PhysicalScaleQa } from "./physicalScaleQa";
 
 export type FramingQaStatus = "pass" | "warn" | "fail";
 export type FramingDecision = "pass" | "normalize" | "reject";
@@ -14,10 +15,17 @@ export interface FramingQaReport {
   status: FramingQaStatus;
   failures: string[];
   warnings: string[];
+  /** Pipeline evidence for the locked ±3 / 3–5 / >5 mm scale policy. */
+  physicalScale?: PhysicalScaleQa | null;
   /** Bottle-only pixel envelope used for scale, baseline, centerline, and crop QA. */
   primaryBounds?: FramingQaBounds | null;
   measurements: {
+    /** Full visible product / assembly envelope height %. */
     fillHeightPct: number | null;
+    /** Bare-glass foot-to-rim height % when body-control bounds are supplied. */
+    glassHeightPct: number | null;
+    /** Bare-glass width % used to enforce same-geometry diameter consistency. */
+    glassWidthPct: number | null;
     baselineYPx: number | null;
     targetBaselineYPx: number;
     baselineDeltaPx: number | null;
@@ -34,6 +42,8 @@ export interface FramingQaReport {
     relativeScaleZoneId: string | null;
     fillHeightPct: number;
     fillHeightRangePct: { min: number; max: number };
+    glassHeightPct: number | null;
+    glassHeightRangePct: { min: number; max: number } | null;
     baselinePct: number;
     primaryObjectCenterXPct: number;
   };
@@ -45,6 +55,14 @@ export interface BuildFramingQaReportInput {
   rig: FamilyRigConfig;
   bounds: FramingQaBounds | null;
   primaryBounds?: FramingQaBounds | null;
+  /**
+   * Exact glass-body (foot-to-rim) bounds. When present with a scale-card
+   * glass target, QA grades glass against glassHeightRangePct and does not
+   * compare the assembly envelope to the bare-glass band.
+   */
+  bodyControlBounds?: FramingQaBounds | null;
+  /** Bottle-only lateral bounds; excludes detached caps and sidecar components. */
+  glassWidthBounds?: FramingQaBounds | null;
   baselineYPx: number | null;
   capState?: RigCapState;
   fillHeightTolerancePct?: number;
@@ -72,7 +90,31 @@ function roundToTenth(value: number): number {
   return Number(value.toFixed(1));
 }
 
-function getFillHeightTarget(input: BuildFramingQaReportInput): {
+function heightPctFromBounds(
+  bounds: FramingQaBounds | null | undefined,
+  canvasHeight: number,
+): number | null {
+  if (!bounds || !(bounds.bottom >= bounds.top) || !(canvasHeight > 0)) return null;
+  return roundToTenth(((bounds.bottom - bounds.top + 1) / canvasHeight) * 100);
+}
+
+function widthPctFromBounds(
+  bounds: FramingQaBounds | null | undefined,
+  canvasWidth: number,
+): number | null {
+  if (
+    !bounds ||
+    typeof bounds.left !== "number" ||
+    typeof bounds.right !== "number" ||
+    !(bounds.right >= bounds.left) ||
+    !(canvasWidth > 0)
+  ) {
+    return null;
+  }
+  return roundToTenth(((bounds.right - bounds.left + 1) / canvasWidth) * 100);
+}
+
+function getAssembledFillHeightTarget(input: BuildFramingQaReportInput): {
   fillHeightPct: number;
   range: { min: number; max: number };
 } {
@@ -80,12 +122,27 @@ function getFillHeightTarget(input: BuildFramingQaReportInput): {
     min: input.rig.fillHeightPct - 2,
     max: input.rig.fillHeightPct + 2,
   };
-  // `bounds` and `primaryBounds` are both full visible product envelopes. In a
-  // detached-sidecar image the primary envelope still includes the seated
-  // sprayer/roller/pump; it is not a segmented glass-body mask. Never compare
-  // that envelope to `targetBodyHeightPx` or a correctly framed product will be
-  // shrunk until its actual bottle body is undersized.
   return { fillHeightPct: input.rig.fillHeightPct, range: assembledRange };
+}
+
+function getGlassHeightTarget(input: BuildFramingQaReportInput): {
+  glassHeightPct: number;
+  range: { min: number; max: number };
+} | null {
+  const glassPct =
+    typeof input.rig.glassHeightPct === "number" && Number.isFinite(input.rig.glassHeightPct)
+      ? input.rig.glassHeightPct
+      : typeof input.rig.targetBodyHeightPx === "number" &&
+          input.rig.targetBodyHeightPx > 0 &&
+          input.height > 0
+        ? roundToTenth((input.rig.targetBodyHeightPx / input.height) * 100)
+        : null;
+  if (glassPct == null) return null;
+  const range = input.rig.glassHeightRangePct ?? {
+    min: Math.max(0, glassPct - 2),
+    max: Math.min(100, glassPct + 2),
+  };
+  return { glassHeightPct: glassPct, range };
 }
 
 function getBoundsCenterXPct(bounds: FramingQaBounds | null, width: number): number | null {
@@ -110,6 +167,31 @@ function isBoundsInsideCanvas(
   );
 }
 
+function pushHeightBandIssues(params: {
+  label: string;
+  measuredPct: number | null;
+  range: { min: number; max: number };
+  tolerancePct: number;
+  failures: string[];
+  warnings: string[];
+}): void {
+  const { measuredPct, range, tolerancePct, failures, warnings, label } = params;
+  if (measuredPct == null) return;
+  if (measuredPct < range.min - tolerancePct) {
+    failures.push(
+      `${label} ${measuredPct}% is below target range ${range.min}-${range.max}%.`,
+    );
+  } else if (measuredPct > range.max + tolerancePct) {
+    failures.push(
+      `${label} ${measuredPct}% is above target range ${range.min}-${range.max}%.`,
+    );
+  } else if (measuredPct < range.min || measuredPct > range.max) {
+    warnings.push(
+      `${label} ${measuredPct}% is outside target range ${range.min}-${range.max}% but within tolerance.`,
+    );
+  }
+}
+
 export function buildFramingQaReport(input: BuildFramingQaReportInput): FramingQaReport {
   const failures: string[] = [];
   const warnings: string[] = [];
@@ -117,14 +199,19 @@ export function buildFramingQaReport(input: BuildFramingQaReportInput): FramingQ
   const baselineTolerancePx = input.baselineTolerancePx ?? 8;
   const baselineWarnTolerancePx = input.baselineWarnTolerancePx ?? 4;
   const centerTolerancePct = input.centerTolerancePct ?? 2.5;
-  const fillHeightTarget = getFillHeightTarget(input);
-  const targetRange = fillHeightTarget.range;
+  const assembledTarget = getAssembledFillHeightTarget(input);
+  const glassTarget = getGlassHeightTarget(input);
   const targetCenterXPct = input.rig.primaryObjectCenterXPct ?? 50;
   const targetBaselineYPx = Math.round(input.height * (1 - input.rig.baselinePct / 100));
 
-  const fillHeightPct = input.bounds
-    ? roundToTenth(((input.bounds.bottom - input.bounds.top + 1) / input.height) * 100)
-    : null;
+  const fillHeightPct = heightPctFromBounds(input.bounds, input.height);
+  const glassHeightPct = heightPctFromBounds(input.bodyControlBounds, input.height);
+  const glassWidthPct = widthPctFromBounds(
+    input.glassWidthBounds === undefined
+      ? input.bodyControlBounds
+      : input.glassWidthBounds,
+    input.width,
+  );
   const baselineDeltaPx =
     typeof input.baselineYPx === "number"
       ? input.baselineYPx - targetBaselineYPx
@@ -147,20 +234,36 @@ export function buildFramingQaReport(input: BuildFramingQaReportInput): FramingQ
     failures.push("Primary bottle crosses the output canvas bounds.");
   }
 
-  if (fillHeightPct != null) {
-    if (fillHeightPct < targetRange.min - fillHeightTolerancePct) {
-      failures.push(
-        `Product fill height ${fillHeightPct}% is below target range ${targetRange.min}-${targetRange.max}%.`,
-      );
-    } else if (fillHeightPct > targetRange.max + fillHeightTolerancePct) {
-      failures.push(
-        `Product fill height ${fillHeightPct}% is above target range ${targetRange.min}-${targetRange.max}%.`,
-      );
-    } else if (fillHeightPct < targetRange.min || fillHeightPct > targetRange.max) {
+  const hasScaleCardGlassGate = glassTarget != null;
+  if (hasScaleCardGlassGate) {
+    // Scale-card masters: grade bare glass against the glass band when measured.
+    // Never compare the full assembly envelope to the bare-glass ±2 band, and
+    // do not hard-fail assembled fill vs the legacy assembled band (cap-on
+    // assemblies are intentionally taller than bare glass).
+    if (input.bodyControlBounds) {
+      pushHeightBandIssues({
+        label: "Bare-glass foot-to-rim height",
+        measuredPct: glassHeightPct,
+        range: glassTarget.range,
+        tolerancePct: fillHeightTolerancePct,
+        failures,
+        warnings,
+      });
+    } else {
       warnings.push(
-        `Product fill height ${fillHeightPct}% is outside target range ${targetRange.min}-${targetRange.max}% but within tolerance.`,
+        "Bare-glass body-control bounds unavailable; assembly envelope was not graded against the glass band.",
       );
     }
+  } else {
+    // Legacy: assembly envelope vs assembled fill-height band.
+    pushHeightBandIssues({
+      label: "Product fill height",
+      measuredPct: fillHeightPct,
+      range: assembledTarget.range,
+      tolerancePct: fillHeightTolerancePct,
+      failures,
+      warnings,
+    });
   }
 
   if (baselineDeltaPx == null) {
@@ -229,6 +332,8 @@ export function buildFramingQaReport(input: BuildFramingQaReportInput): FramingQ
     primaryBounds: bottleBounds,
     measurements: {
       fillHeightPct,
+      glassHeightPct,
+      glassWidthPct,
       baselineYPx: input.baselineYPx,
       targetBaselineYPx,
       baselineDeltaPx,
@@ -243,8 +348,10 @@ export function buildFramingQaReport(input: BuildFramingQaReportInput): FramingQ
       family: input.rig.family,
       profileId: input.rig.profileId ?? null,
       relativeScaleZoneId: input.rig.relativeScaleZoneId ?? null,
-      fillHeightPct: fillHeightTarget.fillHeightPct,
-      fillHeightRangePct: targetRange,
+      fillHeightPct: assembledTarget.fillHeightPct,
+      fillHeightRangePct: assembledTarget.range,
+      glassHeightPct: glassTarget?.glassHeightPct ?? null,
+      glassHeightRangePct: glassTarget?.range ?? null,
       baselinePct: input.rig.baselinePct,
       primaryObjectCenterXPct: targetCenterXPct,
     },
@@ -252,6 +359,17 @@ export function buildFramingQaReport(input: BuildFramingQaReportInput): FramingQ
 }
 
 export function getFramingDecision(report: FramingQaReport): FramingDecision {
+  // Prefer bare-glass measurement for scale-card decisions when present.
+  const glassPct = report.measurements.glassHeightPct;
+  const glassRange = report.target.glassHeightRangePct;
+  if (glassPct != null && glassRange) {
+    if (glassPct < glassRange.min - 12 || glassPct > glassRange.max + 12) {
+      return "reject";
+    }
+    if (report.status === "pass") return "pass";
+    return "normalize";
+  }
+
   const fillHeightPct = report.measurements.fillHeightPct;
   const targetRange = report.target.fillHeightRangePct;
 

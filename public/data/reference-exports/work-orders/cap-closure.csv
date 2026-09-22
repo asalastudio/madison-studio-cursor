@@ -1,0 +1,12 @@
+groupSlug,websiteSku,graceSku,exportFileName,role,psdEstate,psdPath,status,heroRole,note
+cap-closure-18-400,18-400CpShortBlk,CMP-CAP-BLK-18-400,18-400CpShortBlk__CMP-CAP-BLK-18-400.png,identity-cap-on,,,no-source,,
+cap-closure-18-400,18-400CpShortBlk,CMP-CAP-BLK-18-400,18-400CpShortBlk__CMP-CAP-BLK-18-400.png,pdp-cap-off-sidecar,,,no-source,hero,
+cap-closure-18-415,CP18-415BrwnLthr,CMP-CAP-BRN-18415-LTR,CP18-415BrwnLthr__CMP-CAP-BRN-18415-LTR.png,identity-cap-on,,,missing-role,,
+cap-closure-18-415,CP18-415BrwnLthr,CMP-CAP-BRN-18415-LTR,CP18-415BrwnLthr__CMP-CAP-BRN-18415-LTR.png,pdp-cap-off-sidecar,,,missing-role,hero,
+cap-closure-18-415,CP18-415BrwnLthr,CMP-CAP-BRN-18415-LTR,CP18-415BrwnLthr__CMP-CAP-BRN-18415-LTR.png,UNDECIDED,original,"20. Closures - Cap, Sprayers, Lotion pumps, etc/6. 18-415 Caps/5. CP18-415BrwnLthr.psd",needs-role-decision,,
+cap-closure-20-400,20-400cp1ozShortBlk,CMP-CAP-BLK-20-400-1OZ,20-400cp1ozShortBlk__CMP-CAP-BLK-20-400-1OZ.png,identity-cap-on,,,missing-role,,
+cap-closure-20-400,20-400cp1ozShortBlk,CMP-CAP-BLK-20-400-1OZ,20-400cp1ozShortBlk__CMP-CAP-BLK-20-400-1OZ.png,pdp-cap-off-sidecar,,,missing-role,hero,
+cap-closure-20-400,20-400cp1ozShortBlk,CMP-CAP-BLK-20-400-1OZ,20-400cp1ozShortBlk__CMP-CAP-BLK-20-400-1OZ.png,UNDECIDED,original,Boston Rnd Bottles 20-400 (1oz and 2oz) + 18-400 half oz/20-400 and 18-400 Caps only images/28. 20-400cp1ozShortBlk.psd,needs-role-decision,,
+cap-closure-8-425,8-425CpShortWhite,CMP-CAP-WHT-8-425,8-425CpShortWhite__CMP-CAP-WHT-8-425.png,identity-cap-on,,,missing-role,,
+cap-closure-8-425,8-425CpShortWhite,CMP-CAP-WHT-8-425,8-425CpShortWhite__CMP-CAP-WHT-8-425.png,pdp-cap-off-sidecar,,,missing-role,hero,
+cap-closure-8-425,8-425CpShortWhite,CMP-CAP-WHT-8-425,8-425CpShortWhite__CMP-CAP-WHT-8-425.png,UNDECIDED,original,7.   8-425 5ml Elegant/5ml Elegant Alternating caps/2. 8-425CpShortWhite.psd,needs-role-decision,,

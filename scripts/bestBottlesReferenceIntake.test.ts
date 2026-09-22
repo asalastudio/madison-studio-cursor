@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 import {
@@ -584,5 +584,201 @@ describe("Best Bottles reference intake database update payload", () => {
     assert.equal(legacy.reference_source_url, undefined);
     assert.equal(legacy.best_reference_candidate_path, "https://storage.example/reference.png");
     assert.equal(legacy.status, "ready-to-generate");
+  });
+});
+
+describe("Task 3: cross-family flat-PNG intake and Cylinder generation budget", () => {
+  it("builds an exact 47-target Cylinder storefront-group manifest from catalog productGroupIds", async () => {
+    const {
+      buildCylinderCanonicalStorefrontManifest,
+      CYLINDER_CANONICAL_STOREFRONT_TARGET_COUNT,
+    } = await import("./bestBottlesReferenceIntake.ts");
+    const catalog = JSON.parse(
+      readFileSync(new URL("../public/data/best-bottles-catalog-lite.json", import.meta.url), "utf8"),
+    ) as { products: Array<Record<string, unknown>> };
+
+    const manifest = buildCylinderCanonicalStorefrontManifest(catalog.products);
+
+    assert.equal(manifest.sourceGroupCount, 51);
+    assert.equal(manifest.excluded.length, 4);
+    assert.equal(manifest.targets.length, CYLINDER_CANONICAL_STOREFRONT_TARGET_COUNT);
+    assert.equal(CYLINDER_CANONICAL_STOREFRONT_TARGET_COUNT, 47);
+
+    const reasons = manifest.excluded.map((row) => row.reason).sort();
+    assert.deepEqual(reasons, [
+      "duplicate-tall-cylinder-9ml-clear-13-415",
+      "plastic-cylinder",
+      "plastic-cylinder",
+      "plastic-cylinder",
+    ]);
+
+    const ids = new Set(manifest.targets.map((row) => row.productGroupId));
+    assert.equal(ids.size, 47);
+    for (const target of manifest.targets) {
+      assert.ok(target.representativeGraceSku);
+      assert.ok(target.productGroupId);
+    }
+  });
+
+  it("dedupes flat PNG sources by SHA while preserving family cohort assignments", async () => {
+    const { dedupeFlatPngSourcesBySha } = await import("./bestBottlesReferenceIntake.ts");
+    const rows = [
+      {
+        absolutePath: "/a/one.png",
+        relativePath: "one.png",
+        sourceSha256: "aa".repeat(32),
+        family: "Cylinder",
+        bodyIdentityKey: "cylinder|9|clear",
+        physicalFitmentKey: "13-415|fine-mist-sprayer|matte-black|assembled-cap-on",
+        productGroupId: "group-a",
+        classificationStatus: "classified" as const,
+        rejectionReason: null,
+      },
+      {
+        absolutePath: "/b/dup.png",
+        relativePath: "dup.png",
+        sourceSha256: "aa".repeat(32),
+        family: "Cylinder",
+        bodyIdentityKey: "cylinder|9|clear",
+        physicalFitmentKey: "13-415|fine-mist-sprayer|matte-black|assembled-cap-on",
+        productGroupId: "group-a",
+        classificationStatus: "classified" as const,
+        rejectionReason: null,
+      },
+      {
+        absolutePath: "/c/other.png",
+        relativePath: "other.png",
+        sourceSha256: "bb".repeat(32),
+        family: "Boston Round",
+        bodyIdentityKey: "boston-round|30|clear",
+        physicalFitmentKey: "18-415|fine-mist-sprayer|shiny-gold|assembled-cap-on",
+        productGroupId: "group-b",
+        classificationStatus: "classified" as const,
+        rejectionReason: null,
+      },
+    ];
+
+    const deduped = dedupeFlatPngSourcesBySha(rows);
+    assert.equal(deduped.unique.length, 2);
+    assert.equal(deduped.duplicateCount, 1);
+    assert.equal(deduped.unique[0]?.sourceSha256, "aa".repeat(32));
+  });
+
+  it("summarizes by-family loaded/classified/blocked and fails closed until every row is classified or rejected", async () => {
+    const {
+      summarizeFlatPngFamilyReadiness,
+      assertFlatPngFamiliesReadyForBulkGeneration,
+    } = await import("./bestBottlesReferenceIntake.ts");
+
+    const readiness = summarizeFlatPngFamilyReadiness([
+      {
+        absolutePath: "/a.png",
+        relativePath: "a.png",
+        sourceSha256: "11".repeat(32),
+        family: "Cylinder",
+        bodyIdentityKey: "cylinder|5|clear",
+        physicalFitmentKey: "13-415|cap-closure|white|assembled-cap-on",
+        productGroupId: "g1",
+        classificationStatus: "classified",
+        rejectionReason: null,
+      },
+      {
+        absolutePath: "/b.png",
+        relativePath: "b.png",
+        sourceSha256: "22".repeat(32),
+        family: "Cylinder",
+        bodyIdentityKey: null,
+        physicalFitmentKey: null,
+        productGroupId: null,
+        classificationStatus: "unclassified",
+        rejectionReason: null,
+      },
+      {
+        absolutePath: "/c.png",
+        relativePath: "c.png",
+        sourceSha256: "33".repeat(32),
+        family: "Boston Round",
+        bodyIdentityKey: null,
+        physicalFitmentKey: null,
+        productGroupId: null,
+        classificationStatus: "rejected",
+        rejectionReason: "not-a-product-reference",
+      },
+    ]);
+
+    const cylinder = readiness.byFamily.find((row) => row.family === "Cylinder");
+    assert.ok(cylinder);
+    assert.equal(cylinder.loaded, 2);
+    assert.equal(cylinder.classified, 1);
+    assert.equal(cylinder.blocked, 1);
+    assert.equal(cylinder.rejected, 0);
+    assert.equal(cylinder.ready, false);
+
+    const boston = readiness.byFamily.find((row) => row.family === "Boston Round");
+    assert.ok(boston);
+    assert.equal(boston.ready, true);
+
+    assert.equal(readiness.allReady, false);
+    assert.throws(
+      () => assertFlatPngFamiliesReadyForBulkGeneration(readiness),
+      /blocked|unclassified|not ready/i,
+    );
+
+    const cleared = summarizeFlatPngFamilyReadiness([
+      {
+        absolutePath: "/a.png",
+        relativePath: "a.png",
+        sourceSha256: "11".repeat(32),
+        family: "Cylinder",
+        bodyIdentityKey: "cylinder|5|clear",
+        physicalFitmentKey: "13-415|cap-closure|white|assembled-cap-on",
+        productGroupId: "g1",
+        classificationStatus: "classified",
+        rejectionReason: null,
+      },
+      {
+        absolutePath: "/b.png",
+        relativePath: "b.png",
+        sourceSha256: "22".repeat(32),
+        family: "Cylinder",
+        bodyIdentityKey: null,
+        physicalFitmentKey: null,
+        productGroupId: null,
+        classificationStatus: "rejected",
+        rejectionReason: "duplicate-opaque-legacy",
+      },
+    ]);
+    assert.equal(cleared.allReady, true);
+    assert.doesNotThrow(() => assertFlatPngFamiliesReadyForBulkGeneration(cleared));
+  });
+
+  it("reports missing flat-PNG intake roots clearly in dry-run without uploading", async () => {
+    const { inspectReferenceLocalRoots } = await import("./bestBottlesReferenceIntake.ts");
+    const missing = join(tmpdir(), `bb-missing-root-${Date.now()}`);
+    const present = mkdtempSync(join(tmpdir(), "bb-present-root-"));
+    const report = inspectReferenceLocalRoots([missing, present]);
+    assert.equal(report.missingRoots.length, 1);
+    assert.equal(report.missingRoots[0], resolve(missing));
+    assert.equal(report.existingRoots.length, 1);
+    assert.equal(report.existingRoots[0], resolve(present));
+  });
+
+  it("pins Cylinder generation budget to missing canonical storefront groups, not raw SKU count", async () => {
+    const {
+      buildCylinderCanonicalStorefrontManifest,
+      computeCanonicalStorefrontGenerationBudget,
+    } = await import("./bestBottlesReferenceIntake.ts");
+    const catalog = JSON.parse(
+      readFileSync(new URL("../public/data/best-bottles-catalog-lite.json", import.meta.url), "utf8"),
+    ) as { products: Array<Record<string, unknown>> };
+    const manifest = buildCylinderCanonicalStorefrontManifest(catalog.products);
+    const alreadyGenerated = new Set(manifest.targets.slice(0, 10).map((t) => t.productGroupId));
+    const budget = computeCanonicalStorefrontGenerationBudget(manifest, alreadyGenerated);
+    assert.equal(budget.totalTargets, 47);
+    assert.equal(budget.missingRepresentatives, 37);
+    assert.notEqual(budget.missingRepresentatives, catalog.products.filter((p) => {
+      const family = String(p.family ?? "");
+      return family === "Cylinder" || family === "Tall Cylinder";
+    }).length);
   });
 });

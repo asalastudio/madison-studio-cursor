@@ -138,27 +138,85 @@ describe("buildFramingQaReport", () => {
     assert.match(report.warnings.join(" "), /Primary bottle bounds unavailable/i);
   });
 
-  it("does not treat the full detached primary product as a body-only measurement", () => {
-    const primaryBounds = boundsForFillHeight(54.7);
+  it("grades bare glass against the glass band, not the assembly envelope", () => {
+    const glassBounds = boundsForFillHeight(54.7);
+    const assemblyBounds = boundsForFillHeight(75.2);
     const report = buildFramingQaReport({
       width: canvas.width,
       height: canvas.height,
       rig: rig({
         fillHeightPct: 75.2,
         fillHeightRangePct: { min: 73.2, max: 77.2 },
+        glassHeightPct: 54.7,
+        glassHeightRangePct: { min: 52.7, max: 56.7 },
         targetBodyHeightPx: Math.round(canvas.height * 0.547),
       }),
-      bounds: primaryBounds,
-      primaryBounds,
+      bounds: assemblyBounds,
+      primaryBounds: assemblyBounds,
+      bodyControlBounds: glassBounds,
       baselineYPx: 2082,
       capState: "detached",
     });
 
+    assert.equal(report.status, "pass");
+    assert.deepEqual(report.failures, []);
+    assert.equal(report.measurements.fillHeightPct, 75.2);
+    assert.equal(report.measurements.glassHeightPct, 54.7);
+    assert.equal(report.target.glassHeightPct, 54.7);
+    assert.deepEqual(report.target.glassHeightRangePct, { min: 52.7, max: 56.7 });
+  });
+
+  it("fails when measured bare glass is below the scale-card band even if assembly is tall", () => {
+    const glassBounds = boundsForFillHeight(40);
+    const assemblyBounds = boundsForFillHeight(75.2);
+    const report = buildFramingQaReport({
+      width: canvas.width,
+      height: canvas.height,
+      rig: rig({
+        fillHeightPct: 75.2,
+        fillHeightRangePct: { min: 73.2, max: 77.2 },
+        glassHeightPct: 54.7,
+        glassHeightRangePct: { min: 52.7, max: 56.7 },
+        targetBodyHeightPx: Math.round(canvas.height * 0.547),
+      }),
+      bounds: assemblyBounds,
+      primaryBounds: assemblyBounds,
+      bodyControlBounds: glassBounds,
+      baselineYPx: 2082,
+      capState: "assembled",
+    });
+
     assert.equal(report.status, "fail");
-    assert.match(report.failures.join(" "), /below target range/i);
-    assert.equal(report.measurements.fillHeightPct, 54.7);
-    assert.equal(report.target.fillHeightPct, 75.2);
-    assert.deepEqual(report.target.fillHeightRangePct, { min: 73.2, max: 77.2 });
+    assert.match(report.failures.join(" "), /Bare-glass foot-to-rim height .*below target range/i);
+    assert.doesNotMatch(report.failures.join(" "), /Product fill height/i);
+    assert.equal(report.measurements.glassHeightPct, 40);
+    assert.equal(report.measurements.fillHeightPct, 75.2);
+  });
+
+  it("does not fail a tall assembly solely because it exceeds the bare-glass band", () => {
+    const glassBounds = boundsForFillHeight(54.7);
+    const assemblyBounds = boundsForFillHeight(90.4);
+    const report = buildFramingQaReport({
+      width: canvas.width,
+      height: canvas.height,
+      rig: rig({
+        fillHeightPct: 75.2,
+        fillHeightRangePct: { min: 73.2, max: 77.2 },
+        glassHeightPct: 54.7,
+        glassHeightRangePct: { min: 52.7, max: 56.7 },
+        targetBodyHeightPx: Math.round(canvas.height * 0.547),
+      }),
+      bounds: assemblyBounds,
+      primaryBounds: assemblyBounds,
+      bodyControlBounds: glassBounds,
+      baselineYPx: 2082,
+      capState: "assembled",
+    });
+
+    assert.equal(report.status, "pass");
+    assert.deepEqual(report.failures, []);
+    assert.equal(report.measurements.fillHeightPct, 90.4);
+    assert.equal(report.measurements.glassHeightPct, 54.7);
   });
 
   it("passes a detached primary product at the assembled-profile target", () => {
@@ -169,7 +227,6 @@ describe("buildFramingQaReport", () => {
       rig: rig({
         fillHeightPct: 75.2,
         fillHeightRangePct: { min: 73.2, max: 77.2 },
-        targetBodyHeightPx: Math.round(canvas.height * 0.547),
       }),
       bounds: primaryBounds,
       primaryBounds,

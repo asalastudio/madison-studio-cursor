@@ -9,12 +9,11 @@ export function getBestBottlesImageAssetRoleForPreset(
 ): BestBottlesImageAssetRole {
   if (presetId === "master-scene-flexible-2000x2200") return "scene";
   if (presetId === "master-marketing-2080x2288") return "marketing";
-  if (
-    presetId === "master-angle-2080x2288" ||
-    presetId === "grid-card-exploded-2000x2200"
-  ) {
-    return "pdp-secondary";
-  }
+  if (presetId === "master-angle-2080x2288") return "pdp-secondary";
+  // Both grid-card presets are catalog heroes. The cap-off sidecar
+  // composition is the canonical Cylinder hero (reference lane
+  // `sidecar-v2`), so it must stay on the exact-SKU pipeline path:
+  // `requires_pipeline_reconciliation` gates link/approve in Postgres.
   return "pdp-primary";
 }
 

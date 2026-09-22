@@ -19,7 +19,10 @@ import {
   type GenerationAttemptTracker,
 } from "../_shared/generationAttemptLedger.ts";
 import { getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
-import { buildBestBottlesFamilyRigPromptAdjustment } from "../_shared/bestBottlesFamilyRigPrompt.ts";
+import {
+  buildBestBottlesCapStatePromptLine,
+  buildBestBottlesFamilyRigPromptAdjustment,
+} from "../_shared/bestBottlesFamilyRigPrompt.ts";
 import { buildInlineRefinementStabilizerBlock } from "../_shared/inlineRefinementPrompt.ts";
 import { buildBestBottlesApplicatorPromptRules } from "../_shared/bestBottlesApplicatorPromptRules.ts";
 import {
@@ -27,13 +30,19 @@ import {
   buildBestBottlesBackgroundAndShadowPrompt,
 } from "../_shared/bestBottlesBackgroundAndShadowPrompt.ts";
 import { formatBestBottlesBodyMaterialSkuLock } from "../_shared/bestBottlesBodyMaterialPrompt.ts";
-import { resolveBestBottlesPrecompiledPrompt } from "../_shared/bestBottlesPrecompiledPrompt.ts";
 import {
+  replaceBestBottlesPrecompiledFramingProfile,
+  resolveBestBottlesPrecompiledPrompt,
+} from "../_shared/bestBottlesPrecompiledPrompt.ts";
+import {
+  BEST_BOTTLES_PRODUCTION_MODEL,
+  BEST_BOTTLES_PRODUCTION_PROVIDER,
+  buildBestBottlesPersistedLibraryTags,
+  getBestBottlesProductionProviderIssue,
   resolveBestBottlesProductionResolution,
   shouldForceBestBottlesOpenAIProvider,
 } from "../_shared/bestBottlesProviderRouting.ts";
 import {
-  BEST_BOTTLES_CONTRACT_CANVAS,
   resolveBestBottlesRenderingContract,
   type BestBottlesRenderingContract,
 } from "../_shared/bestBottlesRenderingContract.ts";
@@ -509,9 +518,7 @@ function buildReferenceLockedBestBottlesPrompt(
       : "";
   const cylinderQualityAndAlignmentPrompt = buildCylinderQualityAndAlignmentPrompt(productContext);
   const familyRigPrompt = buildBestBottlesFamilyRigPromptAdjustment(productContext);
-  const capStateLine = familyRigPrompt.rigImposed
-    ? "- Preserve the exact cap/component state and visible components from Image 1. If a detached cap or over-cap is present, keep the cap-off/exploded relationship but place it according to the imposed rig baseline, gap, and spacing. For roll-on references, the exposed roller ball plug stays centered on the bottle neck and the detached over-cap stays upright to the right."
-    : "- Preserve the exact cap/component state from Image 1: if an actuator/nozzle or roller ball is exposed and a detached cap is visible beside the bottle, keep both exactly as photographed. Do not add, remove, close, or relocate the cap.";
+  const capStateLine = buildBestBottlesCapStatePromptLine(productContext, familyRigPrompt.rigImposed);
   const operatorConflictScope = familyRigPrompt.rigImposed
     ? "reference identity lock and imposed studio rig"
     : "reference lock";
@@ -2082,8 +2089,8 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       if (bestBottlesRenderingContract) {
         contractProductContext = bestBottlesRenderingContract.productContext;
         requestedOutputCanvas = {
-          width: BEST_BOTTLES_CONTRACT_CANVAS.width,
-          height: BEST_BOTTLES_CONTRACT_CANVAS.height,
+          width: bestBottlesRenderingContract.canvas.width,
+          height: bestBottlesRenderingContract.canvas.height,
         };
         generationAspectRatio = aspectRatioForCanvas(requestedOutputCanvas);
       }
@@ -2266,12 +2273,21 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     if (generationLane === "match") {
       enhancedPrompt = buildMatchLightPrompt(prompt, productData);
     } else if (!isRefinement && isBestBottlesStudioMasterRequest && precompiledPromptResolution.prompt) {
-      enhancedPrompt = precompiledPromptResolution.prompt;
+      const scaleCardPrompt = buildBestBottlesFamilyRigPromptAdjustment(
+        contractProductContext,
+      );
+      enhancedPrompt = scaleCardPrompt.rigImposed
+        ? replaceBestBottlesPrecompiledFramingProfile(
+            precompiledPromptResolution.prompt,
+            scaleCardPrompt.canvasCompositionLines,
+          )
+        : precompiledPromptResolution.prompt;
       console.log("[generate-madison-image] Using precompiled Best Bottles prompt", {
         sku: precompiledPromptResolution.sku,
         promptVersion: precompiledPromptResolution.promptVersion,
         shadowOwner: precompiledPromptResolution.shadowOwner,
         qaCount: precompiledPromptResolution.qaChecklist.length,
+        scaleCardRigInjected: scaleCardPrompt.rigImposed,
       });
     } else if (isBestBottlesReferenceLocked) {
       // Best Bottles PDP masters and their Image Editor refinements are
@@ -2364,6 +2380,44 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         enhancedPrompt = enhancedPrompt.replace(
           new RegExp(`\\b${term}\\b`, "gi"),
           ""
+        );
+      }
+    }
+
+    if (
+      !isRefinement &&
+      bestBottlesRenderingContract?.renderingLane === "bottle_catalog"
+    ) {
+      const hasBareGlassMeasurement =
+        typeof contractProductContext?.heightWithoutCap === "string" &&
+        contractProductContext.heightWithoutCap.trim().length > 0;
+      const hasAssembledMeasurement =
+        typeof contractProductContext?.heightWithCap === "string" &&
+        contractProductContext.heightWithCap.trim().length > 0;
+      const hasShoulderLock = enhancedPrompt.includes("SHOULDER LOCK");
+      const missingContracts = [
+        hasBareGlassMeasurement &&
+        !hasShoulderLock &&
+        !enhancedPrompt.includes("SCALE-CARD BARE GLASS")
+          ? "bare-glass scale-card"
+          : null,
+        hasAssembledMeasurement &&
+        !hasShoulderLock &&
+        !enhancedPrompt.includes("ASSEMBLED HEIGHT (hard maximum)")
+          ? "assembled-height maximum"
+          : null,
+      ].filter((value): value is string => Boolean(value));
+
+      if (missingContracts.length > 0) {
+        return new Response(
+          JSON.stringify({
+            error:
+              `Generation blocked before provider billing: final prompt is missing ${missingContracts.join(" and ")}.`,
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
     }
@@ -2643,29 +2697,44 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           allowBestBottlesProviderOverride,
         });
 
-    // NOTE: this lane stays pinned to gpt-image-2 on purpose. The Best Bottles
-    // reference-locked contract (canvas, Bone background, ambient-contact
-    // shadow, light contract) was validated against gpt-image-2 output; moving
-    // it to GPT Image 2.5 is a contract change that needs its own re-validation
-    // pass, not a silent model bump. See bestBottlesRenderingContract.ts.
+    const bestBottlesComparisonOnly = bestBottlesRenderingContract
+      ? bestBottlesRenderingContract.providerPolicy.comparisonOnly
+      : isBestBottlesReferenceLocked && !forceBestBottlesOpenAIProvider;
+
     if (forceBestBottlesOpenAIProvider) {
-      if (effectiveProvider !== "openai" || effectiveOpenAIModel !== "gpt-image-2") {
+      if (
+        effectiveProvider !== BEST_BOTTLES_PRODUCTION_PROVIDER
+        || effectiveOpenAIModel !== BEST_BOTTLES_PRODUCTION_MODEL
+      ) {
         console.log(
-          "Best Bottles reference-locked master -> forcing OpenAI GPT Image 2; no Gemini/Freepik fallback on this path.",
+          "Best Bottles reference-locked master -> locking OpenAI GPT Image 2.5 Sunburst; no alternate provider or model fallback on this path.",
           {
             requestedProvider: effectiveProvider,
             requestedModel: aiProvider ?? provider ?? "(none)",
           },
         );
       }
-      effectiveProvider = "openai";
-      effectiveOpenAIModel = "gpt-image-2";
+      effectiveProvider = BEST_BOTTLES_PRODUCTION_PROVIDER;
+      effectiveOpenAIModel = BEST_BOTTLES_PRODUCTION_MODEL;
     } else if (isBestBottlesReferenceLocked) {
       console.log("Best Bottles reference-locked provider override enabled for comparison run.", {
         requestedProvider: effectiveProvider,
         requestedModel: aiProvider ?? provider ?? "(none)",
         contractStatus: bestBottlesRenderingContract?.status ?? "(none)",
       });
+    }
+
+    const bestBottlesProviderIssue = getBestBottlesProductionProviderIssue({
+      isBestBottlesReferenceLocked,
+      comparisonOnly: bestBottlesComparisonOnly,
+      provider: effectiveProvider,
+      model: effectiveProvider === "openai" ? effectiveOpenAIModel : effectiveProvider,
+    });
+    if (bestBottlesProviderIssue) {
+      return new Response(
+        JSON.stringify({ error: bestBottlesProviderIssue }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (effectiveProvider === "auto") {
@@ -2692,19 +2761,19 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     }
 
     // Determine which provider to use based on tier and request.
-    // Best Bottles reference-locked masters are OpenAI GPT Image 2 only.
+    // Best Bottles production masters are OpenAI GPT Image 2.5 Sunburst only.
     // Other modes keep the broader Madison fallback behavior.
     let selectedProvider: "gemini" | "freepik" | "openai" = "gemini";
     let tierRestrictionApplied = false;
 
     if (effectiveProvider === "openai") {
-      // OpenAI GPT Image 2 is the Darkroom default and primary path.
+      // OpenAI is the Darkroom default and primary path.
       if (Deno.env.get("OPENAI_API_KEY")) {
         selectedProvider = "openai";
       } else if (isBestBottlesReferenceLocked) {
         return new Response(
           JSON.stringify({
-            error: "Best Bottles reference-locked master generation requires OPENAI_API_KEY for GPT Image 2.",
+            error: `Best Bottles reference-locked master generation requires OPENAI_API_KEY for ${BEST_BOTTLES_PRODUCTION_MODEL}.`,
           }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
@@ -2759,7 +2828,9 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       endpoint: selectedProvider === "openai"
         ? (referenceImagesPayload.length > 0 ? "edits" : "generations")
         : null,
-      requestSize: isBestBottlesReferenceLocked ? "2080x2288" : null,
+      requestSize: requestedOutputCanvas
+        ? `${requestedOutputCanvas.width}x${requestedOutputCanvas.height}`
+        : null,
       requestResolution: effectiveMadisonResolution ?? null,
       prompt: enhancedPrompt,
       referenceFingerprintSources: referenceImagesPayload.map((ref) => ref.data),
@@ -3285,15 +3356,14 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       const existing = Array.isArray(insertPayload.library_tags)
         ? (insertPayload.library_tags as string[])
         : [];
-      insertPayload.library_tags = Array.from(
-        new Set([
-          ...existing,
-          ...parentImageTags,
-          ...(pipelineMeta ? pipelineMeta.libraryTags : []),
-          ...(bestBottlesRenderingContract ? bestBottlesRenderingContract.libraryTags : []),
-          ...callerExtraTags,
-        ]),
-      );
+      insertPayload.library_tags = buildBestBottlesPersistedLibraryTags({
+        comparisonOnly: bestBottlesComparisonOnly,
+        existing,
+        parent: parentImageTags,
+        pipeline: pipelineMeta ? pipelineMeta.libraryTags : [],
+        contract: bestBottlesRenderingContract ? bestBottlesRenderingContract.libraryTags : [],
+        caller: callerExtraTags,
+      });
     }
 
     const savedImage = await insertGeneratedImageRecord(

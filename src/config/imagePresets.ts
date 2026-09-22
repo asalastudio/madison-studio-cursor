@@ -23,6 +23,7 @@ import {
   getBestBottlesCanvasTierForProduct,
   getBestBottlesCanvasTierForFamily,
 } from "./productImageCanvasTiers";
+import { resolveAssembledOnlyCatalogPresetId } from "../lib/bestBottlesAssembledOnlyProduct";
 
 export type ImagePresetKind = "final_render" | "paper_doll_layer";
 
@@ -52,7 +53,7 @@ export const BEST_BOTTLES_HERO_GRID_CANVAS = {
 
 export const BEST_BOTTLES_HERO_GRID_ASPECT_RATIO = "10:11";
 
-export const BEST_BOTTLES_GRID_BONE_BACKGROUND_HEX = "#F5F3EF";
+export const BEST_BOTTLES_GRID_BONE_BACKGROUND_HEX = "#F5F3EF" as const;
 
 const SHARED_LIGHTING_LANGUAGE =
   "single soft key light from upper-front-left at ~45° elevation (clock position 7:30–8:00 relative to the bottle base), " +
@@ -678,15 +679,19 @@ export function getBestBottlesCatalogPresetIdForProduct(
   if (!product) return getBestBottlesCatalogPresetIdForFamily(familyFallback);
   const resolvedFamily = [product.family, product.bottleCollection, familyFallback]
     .find((value) => Boolean(value?.trim()));
-  if (isCylinderCatalogFamily(resolvedFamily)) return GRID_CARD_EXPLODED_2000X2200.id;
-  const tier = getBestBottlesCanvasTierForProduct({
-    ...product,
-    family: resolvedFamily,
-  });
-  if (tier.id === "tall-narrow") return GRID_CARD_TALL_NARROW_1024X1536.id;
-  if (tier.id === "square-round") return GRID_CARD_SQUARE_ROUND_2048X2048.id;
-  if (tier.id === "wide-low") return GRID_CARD_WIDE_LOW_1536X1024.id;
-  return GRID_CARD_2000X2200.id;
+  const rawPresetId = isCylinderCatalogFamily(resolvedFamily)
+    ? GRID_CARD_EXPLODED_2000X2200.id
+    : (() => {
+      const tier = getBestBottlesCanvasTierForProduct({
+        ...product,
+        family: resolvedFamily,
+      });
+      if (tier.id === "tall-narrow") return GRID_CARD_TALL_NARROW_1024X1536.id;
+      if (tier.id === "square-round") return GRID_CARD_SQUARE_ROUND_2048X2048.id;
+      if (tier.id === "wide-low") return GRID_CARD_WIDE_LOW_1536X1024.id;
+      return GRID_CARD_2000X2200.id;
+    })();
+  return resolveAssembledOnlyCatalogPresetId(product, rawPresetId);
 }
 
 export function getImagePreset(id: string): ImagePreset {

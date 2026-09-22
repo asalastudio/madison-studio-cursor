@@ -36,7 +36,7 @@ async function main(): Promise<void> {
         family: "Cylinder",
         bottleCollection: "Cylinder",
         graceSku: sku,
-        targetBackgroundHex: "#F6EFE8",
+        targetBackgroundHex: "#F5F3EF",
         maskReferenceUrl: null,
         requireMaskControl: false,
       });

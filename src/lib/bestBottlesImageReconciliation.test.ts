@@ -45,6 +45,13 @@ const shadowExceptionMigrationSource = readFileSync(
   ),
   "utf8",
 );
+const shoulderLandmarkMigrationSource = readFileSync(
+  resolve(
+    currentDir,
+    "../../supabase/migrations/20260918103000_best_bottles_shoulder_landmark_evidence.sql",
+  ),
+  "utf8",
+);
 const reconciliationSqlTestSource = readFileSync(
   resolve(currentDir, "../../supabase/tests/best_bottles_image_reconciliation.sql"),
   "utf8",
@@ -99,11 +106,16 @@ describe("Best Bottles image reconciliation asset roles", () => {
     assert.equal(requiresBestBottlesPipelineReconciliation(role), true);
   });
 
-  it("keeps exploded and angle outputs as tracked secondary Library assets", () => {
-    assert.equal(
-      getBestBottlesImageAssetRoleForPreset("grid-card-exploded-2000x2200"),
-      "pdp-secondary",
-    );
+  it("treats the cap-off sidecar grid card as a catalog hero on the exact-SKU path", () => {
+    // The Cylinder hero set is sidecar composition; classifying it as
+    // secondary set requires_pipeline_reconciliation=false and made every
+    // sidecar hero unapprovable in replace_best_bottles_sku_job_hero.
+    const role = getBestBottlesImageAssetRoleForPreset("grid-card-exploded-2000x2200");
+    assert.equal(role, "pdp-primary");
+    assert.equal(requiresBestBottlesPipelineReconciliation(role), true);
+  });
+
+  it("keeps angle outputs as tracked secondary Library assets", () => {
     assert.equal(
       getBestBottlesImageAssetRoleForPreset("master-angle-2080x2288"),
       "pdp-secondary",
@@ -447,6 +459,31 @@ describe("Best Bottles generated master approval", () => {
         },
       },
     ]);
+  });
+
+  it("persists shoulder landmark measurements for the editor and audit trail", () => {
+    const payload = buildBestBottlesRigReconciliationPayload({
+      imageId: "image-shoulder",
+      organizationId: "org-1",
+      rawImageUrl: "https://example.invalid/raw.png",
+      lifecycleState: "qa-passed",
+      preTransformShoulderYPx: 881,
+      detectedShoulderYPx: 652,
+      targetShoulderYPx: 652,
+      shoulderDeltaPct: 0,
+      shoulderConfidence: 0.94,
+    });
+
+    assert.equal(payload.pre_transform_shoulder_y_px, 881);
+    assert.equal(payload.detected_shoulder_y_px, 652);
+    assert.equal(payload.target_shoulder_y_px, 652);
+    assert.equal(payload.shoulder_delta_pct, 0);
+    assert.equal(payload.shoulder_confidence, 0.94);
+    assert.match(shoulderLandmarkMigrationSource, /pre_transform_shoulder_y_px double precision/i);
+    assert.match(shoulderLandmarkMigrationSource, /detected_shoulder_y_px double precision/i);
+    assert.match(shoulderLandmarkMigrationSource, /target_shoulder_y_px double precision/i);
+    assert.match(shoulderLandmarkMigrationSource, /shoulder_delta_pct double precision/i);
+    assert.match(shoulderLandmarkMigrationSource, /shoulder_confidence double precision/i);
   });
 
   it("persists model-owned shadow evidence in the rig reconciliation payload", () => {

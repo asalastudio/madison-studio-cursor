@@ -5,6 +5,7 @@ import {
   deriveBestBottlesBodyTargetPx,
 } from "../config/bestBottlesCatalogScale";
 import { getBestBottlesCatalogFramingProfile } from "../config/bestBottlesFamilyProfiles";
+import { resolveShoulderLock } from "./bestBottlesShoulderLock";
 
 export type BestBottlesGenerationIdentityStatus = "ready" | "blocked";
 
@@ -38,7 +39,9 @@ export interface BestBottlesGenerationIdentity {
   identityBlockers: string[];
   identityHash: string;
   promptVersion: string;
-  scaleContractVersion: typeof BEST_BOTTLES_CATALOG_SCALE_VERSION;
+  scaleContractVersion: string;
+  glassBodyKey: string | null;
+  shoulderTargetPct: number | null;
   calibrationRegistryKey: string | null;
   resolvedAssembledTargetPct: number;
   resolvedBodyTargetPx: number | null;
@@ -326,17 +329,31 @@ export function buildBestBottlesGenerationIdentity(
   });
   const assembledHeightMm = positiveNumber(product.heightWithCap);
   const bodyHeightMm = positiveNumber(product.heightWithoutCap);
-  const resolvedBodyTargetPx =
-    assembledHeightMm != null
-    && bodyHeightMm != null
-    && bodyHeightMm <= assembledHeightMm
-      ? deriveBestBottlesBodyTargetPx({
-          canvasHeightPx: scaleProfile.canvas.heightPx,
-          assembledHeightPct: scaleProfile.targetProductHeightPct,
-          verifiedBodyHeightMm: bodyHeightMm,
-          verifiedAssembledHeightMm: assembledHeightMm,
-        })
-      : null;
+  const shoulderLock = resolveShoulderLock({
+    family: product.family,
+    bottleCollection: product.bottleCollection,
+    graceSku: product.graceSku,
+    websiteSku: product.websiteSku,
+    itemName: product.itemName,
+    capacityMl: product.capacityMl,
+    heightWithoutCap: product.heightWithoutCap,
+    applicator: product.applicator,
+  });
+  const scaleContractVersion = shoulderLock?.lockVersion ?? BEST_BOTTLES_CATALOG_SCALE_VERSION;
+  const glassBodyKey = shoulderLock?.glassBodyKey ?? null;
+  const shoulderTargetPct = shoulderLock?.shoulderPct ?? null;
+  const resolvedBodyTargetPx = shoulderLock
+    ? Math.round((shoulderLock.shoulderPct / 100) * scaleProfile.canvas.heightPx)
+    : assembledHeightMm != null
+      && bodyHeightMm != null
+      && bodyHeightMm <= assembledHeightMm
+        ? deriveBestBottlesBodyTargetPx({
+            canvasHeightPx: scaleProfile.canvas.heightPx,
+            assembledHeightPct: scaleProfile.targetProductHeightPct,
+            verifiedBodyHeightMm: bodyHeightMm,
+            verifiedAssembledHeightMm: assembledHeightMm,
+          })
+        : null;
   const registryFamily = slug(product.family || product.bottleCollection || product.category);
   const registryOwner = optionalText(product.productGroupId) ?? optionalText(product.graceSku);
   const calibrationRegistryKey =
@@ -444,7 +461,9 @@ export function buildBestBottlesGenerationIdentity(
     shadowPolicy.promptVersion,
     shadowPolicy.owner,
     shadowPolicy.contract,
-    BEST_BOTTLES_CATALOG_SCALE_VERSION,
+    scaleContractVersion,
+    glassBodyKey,
+    shoulderTargetPct,
     calibrationRegistryKey,
     scaleProfile.targetProductHeightPct,
     resolvedBodyTargetPx,
@@ -478,7 +497,9 @@ export function buildBestBottlesGenerationIdentity(
     identityBlockers: blockers,
     identityHash,
     promptVersion: shadowPolicy.promptVersion,
-    scaleContractVersion: BEST_BOTTLES_CATALOG_SCALE_VERSION,
+    scaleContractVersion,
+    glassBodyKey,
+    shoulderTargetPct,
     calibrationRegistryKey,
     resolvedAssembledTargetPct: scaleProfile.targetProductHeightPct,
     resolvedBodyTargetPx,

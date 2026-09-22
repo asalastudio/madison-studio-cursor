@@ -64,3 +64,66 @@ export function buildBestBottlesShopifyPushItemFromSkuJob(
     altText: job.product_group_display_name ?? job.website_sku,
   };
 }
+
+function normalizedProductGroupSlug(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+/**
+ * Builds the guarded publish item used by the Image Library's product-group
+ * hero action. The hero may represent any exact SKU in the selected group;
+ * Shopify publication still runs through that SKU's approved pipeline job.
+ */
+export function buildBestBottlesCatalogHeroPushItem(input: {
+  job: PipelineSkuJob;
+  imageId: string;
+  imageUrl: string;
+  productGroupSlug: string;
+}): BestBottlesShopifyPushItem {
+  const {
+    job,
+    imageId,
+    imageUrl,
+    productGroupSlug,
+  } = input;
+
+  if (
+    normalizedProductGroupSlug(job.product_group_slug) !==
+    normalizedProductGroupSlug(productGroupSlug)
+  ) {
+    throw new Error(
+      "The selected image's pipeline job does not belong to this product group.",
+    );
+  }
+
+  if (job.status !== "approved") {
+    throw new Error(
+      "The selected image's exact SKU pipeline job must be approved before publishing this catalog hero.",
+    );
+  }
+  if (
+    !imageId ||
+    job.generated_image_id !== imageId ||
+    job.approved_image_id !== imageId
+  ) {
+    throw new Error(
+      "The selected library image is not the exact approved image on its SKU pipeline job.",
+    );
+  }
+  if (
+    !imageUrl ||
+    job.generated_image_url !== imageUrl ||
+    job.approved_image_url !== imageUrl
+  ) {
+    throw new Error(
+      "The selected library image URL does not match the exact approved SKU pipeline image.",
+    );
+  }
+  if (!job.shopify_sku?.trim()) {
+    throw new Error(
+      "The approved exact-SKU pipeline job has no Shopify SKU.",
+    );
+  }
+
+  return buildBestBottlesShopifyPushItemFromSkuJob(job);
+}

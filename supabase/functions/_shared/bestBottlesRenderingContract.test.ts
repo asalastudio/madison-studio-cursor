@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 
 import {
   BEST_BOTTLES_CONTRACT_CANVAS,
+  BEST_BOTTLES_TOPOLOGY_WIDE_CANVAS,
+  resolveBestBottlesContractCanvas,
   resolveBestBottlesRenderingContract,
 } from "./bestBottlesRenderingContract";
 
@@ -228,6 +230,28 @@ describe("BestBottlesRenderingContract", () => {
     };
   }
 
+  it("honors the wide/low canvas only for approved vintage bulb topology", () => {
+    const vintageTassel = {
+      ...regular9ml,
+      graceSku: "GB-CYL-CLR-50ML-AST-BLK",
+      itemName: "50 ml clear cylinder with vintage bulb sprayer and tassel",
+      applicator: "Vintage Bulb Sprayer with Tassel",
+    };
+
+    assert.deepEqual(
+      resolveBestBottlesContractCanvas(vintageTassel, {
+        presetId: "grid-card-wide-low-1536x1024",
+      }),
+      BEST_BOTTLES_TOPOLOGY_WIDE_CANVAS,
+    );
+    assert.deepEqual(
+      resolveBestBottlesContractCanvas(regular9ml, {
+        presetId: "grid-card-wide-low-1536x1024",
+      }),
+      BEST_BOTTLES_CONTRACT_CANVAS,
+    );
+  });
+
   function amberPromptRecord(overrides: Record<string, unknown> = {}) {
     return {
       sku: amber9ml.graceSku,
@@ -410,14 +434,20 @@ describe("BestBottlesRenderingContract", () => {
     assert.equal(contract.rig?.profileId, "sample-vial");
     assert.equal(contract.rig?.relativeScaleZoneId, "sample-vial");
     assert.deepEqual(contract.rig?.fillHeightRangePct, { min: 55, max: 60 });
+    assert.equal(contract.rig?.glassHeightPct, undefined);
+    assert.equal(contract.rig?.shoulderTargetPct, 26.5);
+    assert.equal(contract.rig?.glassBodyKey, "cylinder:3.3-standard");
+    assert.equal(contract.rig?.scaleContractVersion, "shoulder-lock-2026-09-07");
     assert.equal(contract.providerPolicy.provider, "openai");
-    assert.equal(contract.providerPolicy.model, "gpt-image-2");
+    assert.equal(contract.providerPolicy.model, "gpt-image-2.5-sunburst");
     assert.equal(contract.providerPolicy.comparisonOnly, false);
     assert.equal(contract.qaPolicy.enforceFillHeight, true);
     assert.deepEqual(contract.qaPolicy.allowedDecisions, ["pass", "normalize", "reject"]);
     assert.ok(contract.libraryTags.includes("rendering-lane:bottle_catalog"));
     assert.ok(contract.libraryTags.includes("profile:sample-vial"));
     assert.ok(contract.libraryTags.includes("scale-zone:sample-vial"));
+    assert.ok(contract.libraryTags.includes("contract-provider:openai-image-2.5-sunburst"));
+    assert.ok(!contract.libraryTags.includes("contract-provider:openai-image-2"));
   });
 
   it("uses Convex measurements to separate regular 9ml roll-ons from slim 9ml sprayers", async () => {
@@ -541,7 +571,7 @@ describe("BestBottlesRenderingContract", () => {
     for (const [key, value] of Object.entries(roleFields)) {
       assert.equal(contract.productContext[key], value, key);
     }
-    assert.equal(contract.rig?.scaleContractVersion, "best-bottles-catalog-scale-v1");
+    assert.equal(contract.rig?.scaleContractVersion, "shoulder-lock-2026-09-07");
   });
 
   it("keeps caller sidecar authority when stale Convex role fields conflict", async () => {
@@ -579,8 +609,10 @@ describe("BestBottlesRenderingContract", () => {
     for (const [key, value] of Object.entries(callerSidecar)) {
       assert.equal(contract.productContext[key], value, key);
     }
-    assert.equal(contract.rig?.scaleContractVersion, "best-bottles-catalog-scale-v1");
+    assert.equal(contract.rig?.scaleContractVersion, "shoulder-lock-2026-09-07");
     assert.equal(contract.rig?.targetBodyHeightPx != null, true);
+    assert.equal(contract.rig?.shoulderTargetPct, 26.5);
+    assert.equal(contract.rig?.glassHeightPct, undefined);
   });
 
   it("fails closed on self-sealed malformed canonical dimensions", async () => {
@@ -713,5 +745,6 @@ describe("BestBottlesRenderingContract", () => {
     assert.equal(contract.status, "ready");
     assert.equal(contract.providerPolicy.comparisonOnly, true);
     assert.ok(contract.libraryTags.includes("contract-provider:comparison"));
+    assert.ok(!contract.libraryTags.includes("contract-provider:openai-image-2.5-sunburst"));
   });
 });

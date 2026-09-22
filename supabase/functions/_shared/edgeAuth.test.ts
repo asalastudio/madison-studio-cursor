@@ -33,8 +33,16 @@ function fakeFetch(routes: Record<string, Route>, calls: string[] = []): typeof 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-function env(fetchImpl: typeof fetch): EdgeAuthEnv {
-  return { supabaseUrl: "https://proj.supabase.co", anonKey: "anon-key", serviceRoleKey: "service-key", fetch: fetchImpl };
+function env(fetchImpl: typeof fetch, extras: Partial<EdgeAuthEnv> = {}): EdgeAuthEnv {
+  const serviceRoleKey = extras.serviceRoleKey ?? "service-key";
+  return {
+    supabaseUrl: "https://proj.supabase.co",
+    anonKey: "anon-key",
+    serviceRoleKey,
+    serviceRoleKeys: extras.serviceRoleKeys ?? [serviceRoleKey],
+    fetch: fetchImpl,
+    ...extras,
+  };
 }
 
 const request = (authorization?: string) =>
@@ -48,8 +56,28 @@ describe("edgeAuth", () => {
     const e = edgeAuthEnv((name) =>
       ({ SUPABASE_URL: "'https://proj.supabase.co/'", SUPABASE_ANON_KEY: '"anon"', SUPABASE_SERVICE_ROLE_KEY: " svc " })[name]
     );
-    assert.deepEqual(e, { supabaseUrl: "https://proj.supabase.co", anonKey: "anon", serviceRoleKey: "svc" });
+    assert.deepEqual(e, {
+      supabaseUrl: "https://proj.supabase.co",
+      anonKey: "anon",
+      serviceRoleKey: "svc",
+      serviceRoleKeys: ["svc"],
+    });
     assert.throws(() => edgeAuthEnv(() => undefined), /not configured/);
+  });
+
+  it("accepts legacy SERVICE_ROLE_KEY alongside a rotated SUPABASE_SERVICE_ROLE_KEY", async () => {
+    const e = edgeAuthEnv((name) =>
+      ({
+        SUPABASE_URL: "https://proj.supabase.co",
+        SUPABASE_ANON_KEY: "anon",
+        SUPABASE_SERVICE_ROLE_KEY: "sb_secret_new",
+        SERVICE_ROLE_KEY: "legacy-jwt-service",
+      })[name]
+    );
+    assert.deepEqual(e.serviceRoleKeys, ["sb_secret_new", "legacy-jwt-service"]);
+    assert.equal(e.serviceRoleKey, "sb_secret_new");
+    assert.deepEqual(await resolveCaller(request("Bearer sb_secret_new"), e), { kind: "service" });
+    assert.deepEqual(await resolveCaller(request("Bearer legacy-jwt-service"), e), { kind: "service" });
   });
 
   it("parses bearer tokens case-insensitively and rejects other schemes", () => {

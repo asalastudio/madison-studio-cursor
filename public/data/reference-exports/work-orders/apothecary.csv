@@ -1,0 +1,11 @@
+groupSlug,websiteSku,graceSku,exportFileName,role,psdEstate,psdPath,status,heroRole,note
+apothecary-15ml-cobalt-blue-Ground-glassapplicator,GB15ApthBlue,GB-APT-BLU-15ML-BLU-T,GB15ApthBlue__GB-APT-BLU-15ML-BLU-T.png,identity-cap-on,bbuat,2. PSD Capped /10. Apothecary/1. Half Oz -15ml Apoth/GB15ApthBlue..psd,ready,,
+apothecary-15ml-cobalt-blue-Ground-glassapplicator,GB15ApthBlue,GB-APT-BLU-15ML-BLU-T,GB15ApthBlue__GB-APT-BLU-15ML-BLU-T.png,pdp-cap-off-sidecar,,,missing-role,hero,
+apothecary-30ml-clear-Ground-glassapplicator,GB1ozApth,GB-APT-CLR-30ML-T,GB1ozApth__GB-APT-CLR-30ML-T.png,identity-cap-on,bbuat,2. PSD Capped /10. Apothecary/2. 1oz Apoth/2. GB1ozApth.psd,ready,,
+apothecary-30ml-clear-Ground-glassapplicator,GB1ozApth,GB-APT-CLR-30ML-T,GB1ozApth__GB-APT-CLR-30ML-T.png,pdp-cap-off-sidecar,,,missing-role,hero,
+apothecary-30ml-cobalt-blue-Ground-glassapplicator,GB1ozApthBlue,GB-APT-BLU-30ML-BLU-T,GB1ozApthBlue__GB-APT-BLU-30ML-BLU-T.png,identity-cap-on,bbuat,2. PSD Capped /10. Apothecary/2. 1oz Apoth/1. GB1ozApthBlue.psd,ready,,
+apothecary-30ml-cobalt-blue-Ground-glassapplicator,GB1ozApthBlue,GB-APT-BLU-30ML-BLU-T,GB1ozApthBlue__GB-APT-BLU-30ML-BLU-T.png,pdp-cap-off-sidecar,,,missing-role,hero,
+apothecary-30ml-green-Ground-glassapplicator,GB1ozApthGreen,GB-APT-GRN-30ML-GRN-T,GB1ozApthGreen__GB-APT-GRN-30ML-GRN-T.png,identity-cap-on,bbuat,2. PSD Capped /10. Apothecary/2. 1oz Apoth/3. GB1ozApthGreen.psd,ready,,
+apothecary-30ml-green-Ground-glassapplicator,GB1ozApthGreen,GB-APT-GRN-30ML-GRN-T,GB1ozApthGreen__GB-APT-GRN-30ML-GRN-T.png,pdp-cap-off-sidecar,,,missing-role,hero,
+pear-118ml-clear-Ground-stopper,GBPearClear4ozStpr,GB-DEC-CLR-118ML,GBPearClear4ozStpr__GB-DEC-CLR-118ML.png,identity-cap-on,bbuat,2. PSD Capped /10. Apothecary/4. 4oz Pear Apoth/GBPearClear4ozStpr.psd,ready,,
+pear-118ml-clear-Ground-stopper,GBPearClear4ozStpr,GB-DEC-CLR-118ML,GBPearClear4ozStpr__GB-DEC-CLR-118ML.png,pdp-cap-off-sidecar,,,missing-role,hero,

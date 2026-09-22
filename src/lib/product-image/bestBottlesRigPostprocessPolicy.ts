@@ -4,6 +4,7 @@ import { getBestBottlesCanvasTierForKnownFamily } from "@/config/productImageCan
 export interface BestBottlesRigPostprocessPolicyInput {
   libraryTags: string[];
   family?: string | null;
+  presetId?: string | null;
   aspectRatio: string;
   canvas: { widthPx: number; heightPx: number };
   sceneOverlay?: {
@@ -26,9 +27,23 @@ export type BestBottlesRigPostprocessDecision =
 
 const CANONICAL_MASTER_WIDTH = 2080;
 const CANONICAL_MASTER_HEIGHT = 2288;
+const TOPOLOGY_WIDE_PRESET_ID = "grid-card-wide-low-1536x1024";
+const TOPOLOGY_WIDE_WIDTH = 1536;
+const TOPOLOGY_WIDE_HEIGHT = 1024;
 
 function isCanonicalMasterCanvas(input: BestBottlesRigPostprocessPolicyInput): boolean {
   const aspect = input.aspectRatio.trim().toLowerCase().replace(/\s+/g, "");
+  const isTopologyWideCanvas =
+    input.presetId === TOPOLOGY_WIDE_PRESET_ID
+    && input.canvas.widthPx === TOPOLOGY_WIDE_WIDTH
+    && input.canvas.heightPx === TOPOLOGY_WIDE_HEIGHT
+    && (
+      aspect === "3:2"
+      || aspect === `${TOPOLOGY_WIDE_WIDTH}:${TOPOLOGY_WIDE_HEIGHT}`
+      || aspect === `${TOPOLOGY_WIDE_WIDTH}x${TOPOLOGY_WIDE_HEIGHT}`
+    );
+  if (isTopologyWideCanvas) return true;
+
   const isLegacyPdpCanvas =
     input.canvas.widthPx === CANONICAL_MASTER_WIDTH &&
     input.canvas.heightPx === CANONICAL_MASTER_HEIGHT &&
