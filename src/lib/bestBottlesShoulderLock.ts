@@ -124,9 +124,10 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   // Empire — locked 2026-09-21 by Jordan on the rebuilt sheet (the touching-cap
   // split fix removed a false narrower 50 ml body read off the dropper and lotion
   // pump). A square-section shoulder, measured as a shoulder. Against the Cylinder
-  // ladder's openings: 88 mm 48 vs 48, 107 mm 57 vs 53.
-  { glassBodyKey: "empire:50-standard", label: "Empire 50 ml", shoulderPct: 48, bodyAspect: 1.95, status: "locked" },
-  { glassBodyKey: "empire:100-standard", label: "Empire 100 ml", shoulderPct: 57, bodyAspect: 1.973, status: "locked" },
+  // ladder's openings: 88 mm 47.5 vs 48, 107 mm 57.5 vs 53. Set 48/57, then
+  // nudged to 47.5/57.5 on the sheet the same day.
+  { glassBodyKey: "empire:50-standard", label: "Empire 50 ml", shoulderPct: 47.5, bodyAspect: 1.95, status: "locked" },
+  { glassBodyKey: "empire:100-standard", label: "Empire 100 ml", shoulderPct: 57.5, bodyAspect: 1.973, status: "locked" },
 ] as const;
 
 const BODIES_BY_KEY = new Map(

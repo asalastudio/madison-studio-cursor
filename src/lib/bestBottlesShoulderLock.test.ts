@@ -237,7 +237,7 @@ describe("Best Bottles shoulder lock", () => {
 
   it("locks Empire by capacity, as a shoulder", () => {
     for (const [capacityMl, key, pct, applicator] of [
-      [50, "empire:50-standard", 48, "Dropper"], [100, "empire:100-standard", 57, "Lotion Pump"],
+      [50, "empire:50-standard", 47.5, "Dropper"], [100, "empire:100-standard", 57.5, "Lotion Pump"],
     ] as const) {
       const lock = resolveShoulderLock({ family: "Empire", capacityMl, applicator });
       assert.ok(lock, `Empire ${capacityMl} ml`);

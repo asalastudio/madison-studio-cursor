@@ -279,14 +279,14 @@
     {
       "glassBodyKey": "empire:50-standard",
       "label": "Empire 50 ml",
-      "shoulderPct": 48,
+      "shoulderPct": 47.5,
       "bodyAspect": 1.95,
       "status": "locked"
     },
     {
       "glassBodyKey": "empire:100-standard",
       "label": "Empire 100 ml",
-      "shoulderPct": 57,
+      "shoulderPct": 57.5,
       "bodyAspect": 1.973,
       "status": "locked"
     }
