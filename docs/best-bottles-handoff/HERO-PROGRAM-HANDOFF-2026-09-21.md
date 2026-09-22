@@ -82,8 +82,9 @@ replaces them. Where the two disagree, this one wins.
   - release 12 = 12 Diva heroes (PR #222)
   - release 13 = 13 Sleek heroes (PR #223)
   - production deploy of `f54f1c2f` is green
-- **Open:** https://github.com/asalastudio/best-bottles-website/pull/224, release 14,
-  9 Sleek heroes. CI (`verify`, Vercel) was still running when this was written.
+- **Release 14** (https://github.com/asalastudio/best-bottles-website/pull/224, 9 Sleek
+  heroes) was merged by `asalastudio` on 2026-09-22 06:02 UTC as `11d4fadc`. Confirm
+  its production deploy went green.
 - **Done count** (Jordan's rule: only shoulder-locked releases 6+ count): 104 of 370
   ladder groups before release 14.
   - Cylinder 31, Elegant 19, Boston Round 19, Sleek 13, Diva 12, Slim 10
@@ -148,7 +149,7 @@ working tree; every render on 09-21 ran with it. Ask Jordan before committing it
 
 ## 3. Next actions, in order
 
-### 3.1 Release 14 — PR #224 (9 Sleek, approved, awaiting Jordan's merge)
+### 3.1 Release 14 — PR #224 (9 Sleek, MERGED 2026-09-22)
 
 - Contents:
   - GBSleek5Gl, GBSleek5SpryGlMatt (new 33% lock)
@@ -184,10 +185,8 @@ working tree; every render on 09-21 ran with it. Ask Jordan before committing it
   - passed at the 33% lock
   - earlier attempts failed twice with the bottle drawn about 26% too tall (3.71 and 3.74
     against 2.96), which is a model draw to retry, not a rig fault
-- Next: Jordan's sign-off. Then ship both, either folded into release 14 if PR #224 is
-  still open, or as release 15.
-  - To fold them in: reset the registry and manifest to `origin/main`, then publish once
-    with the full 11-hero lock (see the trap in HANDOFF.md section 5).
+- Next: Jordan's sign-off, then ship both as **release 15**. Release 14 has already
+  merged, so do not add them to it.
 
 ### 3.4 Circle 20, Round 14, Empire 7 — ready, need Jordan's explicit go (~$17)
 
