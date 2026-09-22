@@ -166,7 +166,7 @@ describe("Best Bottles shoulder lock", () => {
 
   it("locks Sleek to five bodies by stated capacity, whatever the fitment", () => {
     for (const [capacityMl, key, pct] of [
-      [5, "sleek:5-standard", 33], [8, "sleek:8-standard", 46], [30, "sleek:30-standard", 47],
+      [5, "sleek:5-standard", 33], [8, "sleek:8-standard", 43], [30, "sleek:30-standard", 47],
       [50, "sleek:50-standard", 56], [100, "sleek:100-standard", 60.5],
     ] as const) {
       for (const applicator of ["Fine Mist Sprayer", "Lotion Pump", "Metal Roller Ball", "Reducer"]) {

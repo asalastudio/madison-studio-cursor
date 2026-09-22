@@ -85,11 +85,12 @@ export const BEST_BOTTLES_SHOULDER_LOCK_BODIES: readonly ShoulderLockBody[] = [
   // tall bodies below the Cylinder ladder's suggestion (30 ml 47 against 50.5,
   // 50 ml 56 against 63, 100 ml 60.5 against 66): a tall slim bottle at ladder
   // height reads too dominant on the card. The ladder is an opening position,
-  // not the decision. 2026-09-21: 5 ml 37 -> 33 and 8 ml 43 -> 46. The two share
-  // 17 mm glass, and at 37/43 the 5 ml drew 1.5x the 8 ml's scale (464 vs 308 px
-  // wide) and read zoomed in beside it; Jordan picked these on a re-scaled preview.
+  // not the decision. 2026-09-21: 5 ml 37 -> 33. The 5 ml and 8 ml share 17 mm
+  // glass, and at 37 the 5 ml drew 1.5x the 8 ml's scale (464 vs 308 px wide)
+  // and read zoomed in beside it; Jordan picked 33 on a re-scaled preview and
+  // kept the 8 ml at 43.
   { glassBodyKey: "sleek:5-standard", label: "Sleek 5 ml", shoulderPct: 33, bodyAspect: 1.76, status: "locked" },
-  { glassBodyKey: "sleek:8-standard", label: "Sleek 8 ml", shoulderPct: 46, bodyAspect: 3.148, status: "locked" },
+  { glassBodyKey: "sleek:8-standard", label: "Sleek 8 ml", shoulderPct: 43, bodyAspect: 3.148, status: "locked" },
   { glassBodyKey: "sleek:30-standard", label: "Sleek 30 ml", shoulderPct: 47, bodyAspect: 2.753, status: "locked" },
   { glassBodyKey: "sleek:50-standard", label: "Sleek 50 ml", shoulderPct: 56, bodyAspect: 4.412, status: "locked" },
   { glassBodyKey: "sleek:100-standard", label: "Sleek 100 ml", shoulderPct: 60.5, bodyAspect: 3.749, status: "locked" },
