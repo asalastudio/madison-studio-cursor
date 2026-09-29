@@ -72,7 +72,7 @@ describe("pass prompts", () => {
     assert.match(hero, /SET DESCRIPTION/);
     assert.match(hero, /INTEGRATE THE LIGHT/);
     assert.match(hero, /LEFT 45% of the frame/);
-    assert.match(hero, /PHENOLIC PLASTIC, NOT METAL/);
+    assert.doesNotMatch(hero, /PHENOLIC PLASTIC, NOT METAL/);
 
     const general = buildPlacePrompt("Travertine plinth, soft daylight.");
     assert.doesNotMatch(general, /LEFT 45%/);

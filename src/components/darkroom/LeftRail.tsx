@@ -380,6 +380,7 @@ export function LeftRail({
             onLibraryOpen={() => setShowProductLibrary(true)}
             disabled={isGenerating || backgroundPlateMode}
           />
+          {showHeroSetPresets && (
           <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
             <div className="mb-2 flex items-center gap-2">
               <Route className="h-3 w-3 text-[var(--darkroom-accent)]" />
@@ -417,6 +418,8 @@ export function LeftRail({
               </Button>
             </div>
           </div>
+          )}
+          {showHeroSetPresets && (
           <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
             <div className="mb-1.5 flex items-center gap-2">
               <Landmark className="h-3 w-3 text-[var(--darkroom-accent)]" />
@@ -469,6 +472,7 @@ export function LeftRail({
               </Button>
             </div>
           </div>
+          )}
 
           {showHeroSetPresets && (
             <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
