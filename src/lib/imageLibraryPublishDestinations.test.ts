@@ -20,12 +20,30 @@ describe("Image Library publish destinations", () => {
     );
   });
 
-  it("keeps the Tarife Sanity destination for non-Best Bottles orgs", () => {
+  it("shows the Tarife Sanity destination only for Tarife orgs", () => {
     assert.deepEqual(
-      getImageLibraryPublishDestinations(false).map((destination) =>
+      getImageLibraryPublishDestinations(false, true).map((destination) =>
         destination.value
       ),
       ["tarife-sanity"],
+    );
+  });
+
+  it("hides Best Bottles and Tarife destinations for other orgs", () => {
+    assert.deepEqual(getImageLibraryPublishDestinations(false), []);
+    assert.equal(
+      getDefaultImageLibraryPublishDestination({ isBestBottlesOrg: false }),
+      null,
+    );
+  });
+
+  it("defaults Tarife orgs to the Sanity product destination", () => {
+    assert.equal(
+      getDefaultImageLibraryPublishDestination({
+        isBestBottlesOrg: false,
+        isTarifeOrg: true,
+      }),
+      "tarife-sanity",
     );
   });
 

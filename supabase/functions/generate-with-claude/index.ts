@@ -5,6 +5,7 @@ import { getSemanticFields, formatSemanticContext } from '../_shared/productFiel
 import { buildAuthorProfilesSection } from '../_shared/authorProfiles.ts';
 import { buildBrandAuthoritiesSection } from '../_shared/brandAuthorities.ts';
 import { getMadisonMasterContext, getSchwartzTemplate, SQUAD_DEFINITIONS } from '../_shared/madisonMasters.ts';
+import { orgHasTarife, type OrgBrandConfig } from '../_shared/orgFeatures.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -1239,13 +1240,15 @@ serve(async (req) => {
     let usePhase35 = false;
     
     // Fetch organization's industry type for Phase 3.5/3
+    let orgBrandConfig: OrgBrandConfig = null;
     if (organizationId && mode === "generate") {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data: orgData } = await supabase
         .from('organizations')
-        .select('industry_type')
+        .select('industry_type, brand_config')
         .eq('id', organizationId)
         .maybeSingle();
+      orgBrandConfig = (orgData?.brand_config ?? null) as OrgBrandConfig;
       
       if (orgData?.industry_type && contentType) {
         // Try Phase 3.5 sequencing first
@@ -1526,9 +1529,14 @@ KEY PHRASES TO USE:
       'minimal': 'MINIMAL_MODERN',
       // Legacy support
       'story': 'HYBRID_JP_OGILVY',
+      'TARIFE_NATIVE': 'TARIFE_NATIVE',
+      'tarife-native': 'TARIFE_NATIVE',
     };
 
-    const mappedStyle = styleMapping[styleOverlay] || 'BRAND_VOICE';
+    let mappedStyle = styleMapping[styleOverlay] || 'BRAND_VOICE';
+    if (mappedStyle === 'TARIFE_NATIVE' && !orgHasTarife(orgBrandConfig)) {
+      mappedStyle = 'BRAND_VOICE';
+    }
     const selectedStyleOverlay = mappedStyle === 'BRAND_VOICE' 
       ? '' // No style overlay, just use brand knowledge
       : styleOverlayInstructions[mappedStyle as keyof typeof styleOverlayInstructions] || '';

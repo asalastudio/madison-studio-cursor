@@ -113,9 +113,9 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     description: "Flat #F5F3EF PDP canvas",
     useLabel: "PDP base",
     variations: [
-      "flat Best Bottles Bone #F5F3EF seamless studio background, premium product photography, soft upper-front-left key light, controlled contact shadow, no props",
+      "flat Bone #F5F3EF seamless studio background, premium product photography, soft upper-front-left key light, controlled contact shadow, no props",
       "clean bone #F5F3EF editorial studio canvas, uncluttered commercial product setup, subtle warm bounce, realistic soft shadow falling back-right",
-      "minimal Best Bottles bone backdrop, high-end ecommerce product photography, refined glass highlights, no texture, no vignette, no extra objects",
+      "minimal Bone #F5F3EF backdrop, high-end ecommerce product photography, refined glass highlights, no texture, no vignette, no extra objects",
       "warm Bone #F5F3EF seamless studio background, luxury studio lighting, clean centered product presentation, no labels, no props, no decorative scene elements",
     ],
   },

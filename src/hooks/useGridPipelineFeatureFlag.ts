@@ -1,4 +1,27 @@
 import { useOrganization } from "@/hooks/useOrganization";
+import { brandConfigFromOrganization, orgHasGridPipeline, orgHasTarife } from "@/lib/orgFeatures";
+
+/**
+ * Feature flags from `organizations.brand_config.features`.
+ * `grid_pipeline` = Best Bottles production surfaces.
+ * `tarife` = Tarife-only destinations and the TARIFE_NATIVE copy lane.
+ */
+export function useOrgFeatureFlags(): {
+  gridPipeline: boolean;
+  tarife: boolean;
+  isLoading: boolean;
+  organizationId: string | null;
+} {
+  const { organization, isLoading } = useOrganization();
+  const brandConfig = brandConfigFromOrganization(organization);
+
+  return {
+    gridPipeline: orgHasGridPipeline(brandConfig),
+    tarife: orgHasTarife(brandConfig),
+    isLoading,
+    organizationId: organization?.id ?? null,
+  };
+}
 
 /**
  * Returns true when the current organization has the Grid Pipeline feature
@@ -12,18 +35,10 @@ export function useGridPipelineFeatureFlag(): {
   isLoading: boolean;
   organizationId: string | null;
 } {
-  const { organization, isLoading } = useOrganization();
-
-  // brand_config is a JSONB column; we use optional chaining against the
-  // typed shape defined in src/types/shared.ts, falling back to `any` via
-  // index access since `features` isn't strongly typed yet.
-  const features = (organization as unknown as { brand_config?: { features?: Record<string, unknown> } })
-    ?.brand_config?.features;
-  const enabled = features?.grid_pipeline === true;
-
+  const flags = useOrgFeatureFlags();
   return {
-    enabled,
-    isLoading,
-    organizationId: organization?.id ?? null,
+    enabled: flags.gridPipeline,
+    isLoading: flags.isLoading,
+    organizationId: flags.organizationId,
   };
 }

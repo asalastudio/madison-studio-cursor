@@ -55,6 +55,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
+import { FeatureDisabledNotice } from "@/components/bestbottles/FeatureDisabledNotice";
 import { useBestBottlesCylinderProductionReadiness } from "@/hooks/useBestBottlesCylinderProductionReadiness";
 import {
   listPipelineGroups,
@@ -7841,21 +7842,6 @@ function FullPageSpinner({ label }: { label: string }) {
     <div className="min-h-screen flex items-center justify-center text-white/50">
       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
       {label}
-    </div>
-  );
-}
-
-function FeatureDisabledNotice() {
-  return (
-    <div className="min-h-screen flex items-center justify-center text-white/60 p-6">
-      <div className="max-w-md text-center space-y-2">
-        <h1 className="text-xl font-semibold text-white">Grid Pipeline unavailable</h1>
-        <p className="text-sm">
-          This workspace doesn't have the Grid Pipeline feature enabled. Ask an
-          admin to flip <code className="text-xs bg-white/5 px-1 py-0.5 rounded">brand_config.features.grid_pipeline</code> to{" "}
-          <code className="text-xs bg-white/5 px-1 py-0.5 rounded">true</code> on the organization.
-        </p>
-      </div>
     </div>
   );
 }

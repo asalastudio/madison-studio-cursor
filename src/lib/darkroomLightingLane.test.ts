@@ -68,7 +68,10 @@ describe("pass prompts", () => {
   });
 
   it("the place pass carries the set description, the light contract and the framing", () => {
-    const hero = buildPlacePrompt("Travertine plinth, soft daylight.", { heroFraming: true });
+    const hero = buildPlacePrompt("Travertine plinth, soft daylight.", {
+      heroFraming: true,
+      packagingContract: "best-bottles",
+    });
     assert.match(hero, /SET DESCRIPTION/);
     assert.match(hero, /INTEGRATE THE LIGHT/);
     assert.match(hero, /LEFT 45% of the frame/);
@@ -77,6 +80,15 @@ describe("pass prompts", () => {
     const general = buildPlacePrompt("Travertine plinth, soft daylight.");
     assert.doesNotMatch(general, /LEFT 45%/);
     assert.match(general, /focal point/);
+    assert.doesNotMatch(general, /PHENOLIC PLASTIC/);
+  });
+
+  it("keeps phenolic closure language off generic place prompts", () => {
+    const genericHero = buildPlacePrompt("Travertine plinth, soft daylight.", {
+      heroFraming: true,
+    });
+    assert.match(genericHero, /LEFT 45% of the frame/);
+    assert.doesNotMatch(genericHero, /PHENOLIC PLASTIC/);
   });
 
   it("the match pass changes only the light", () => {
