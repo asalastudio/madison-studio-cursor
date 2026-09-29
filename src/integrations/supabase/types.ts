@@ -109,6 +109,98 @@ export type Database = {
           },
         ]
       }
+      best_bottles_scale_calibrations: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          calibration_version: string
+          created_at: string
+          created_by: string
+          detached_component_bounds: Json | null
+          family: string
+          fitment_top_y_pct: number | null
+          geometry_key: string
+          glass_foot_y_pct: number
+          glass_rim_y_pct: number
+          grace_sku: string
+          id: string
+          organization_id: string
+          primary_bounds: Json
+          product_group_slug: string
+          review_note: string | null
+          source_height_px: number
+          source_reference_hash: string | null
+          source_reference_url: string
+          source_width_px: number
+          status: string
+          topology_key: string
+          updated_at: string
+          website_sku: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          calibration_version: string
+          created_at?: string
+          created_by: string
+          detached_component_bounds?: Json | null
+          family: string
+          fitment_top_y_pct?: number | null
+          geometry_key: string
+          glass_foot_y_pct: number
+          glass_rim_y_pct: number
+          grace_sku: string
+          id?: string
+          organization_id: string
+          primary_bounds: Json
+          product_group_slug: string
+          review_note?: string | null
+          source_height_px: number
+          source_reference_hash?: string | null
+          source_reference_url: string
+          source_width_px: number
+          status?: string
+          topology_key: string
+          updated_at?: string
+          website_sku?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          calibration_version?: string
+          created_at?: string
+          created_by?: string
+          detached_component_bounds?: Json | null
+          family?: string
+          fitment_top_y_pct?: number | null
+          geometry_key?: string
+          glass_foot_y_pct?: number
+          glass_rim_y_pct?: number
+          grace_sku?: string
+          id?: string
+          organization_id?: string
+          primary_bounds?: Json
+          product_group_slug?: string
+          review_note?: string | null
+          source_height_px?: number
+          source_reference_hash?: string | null
+          source_reference_url?: string
+          source_width_px?: number
+          status?: string
+          topology_key?: string
+          updated_at?: string
+          website_sku?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "best_bottles_scale_calibrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       best_bottles_image_reconciliations: {
         Row: {
           asset_role: string
@@ -8744,6 +8836,40 @@ export type Database = {
           organization_id: string
           role: string
         }[]
+      }
+      approve_best_bottles_scale_calibration: {
+        Args: {
+          p_calibration_id: string
+          p_organization_id: string
+          p_review_note?: string
+        }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          calibration_version: string
+          created_at: string
+          created_by: string
+          detached_component_bounds: Json | null
+          family: string
+          fitment_top_y_pct: number | null
+          geometry_key: string
+          glass_foot_y_pct: number
+          glass_rim_y_pct: number
+          grace_sku: string
+          id: string
+          organization_id: string
+          primary_bounds: Json
+          product_group_slug: string
+          review_note: string | null
+          source_height_px: number
+          source_reference_hash: string | null
+          source_reference_url: string
+          source_width_px: number
+          status: string
+          topology_key: string
+          updated_at: string
+          website_sku: string | null
+        }
       }
       approve_best_bottles_reconciled_image: {
         Args: {

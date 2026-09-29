@@ -26,7 +26,18 @@ export type EdgeCaller =
 export interface EdgeAuthEnv {
   supabaseUrl: string;
   anonKey: string;
+  /**
+   * Primary service-role secret for outbound PostgREST calls.
+   * Prefer the auto-injected SUPABASE_SERVICE_ROLE_KEY when present.
+   */
   serviceRoleKey: string;
+  /**
+   * Every bearer token that must count as a trusted service caller.
+   * Supabase may rotate SUPABASE_SERVICE_ROLE_KEY to an sb_secret_* while
+   * local batch scripts and legacy SERVICE_ROLE_KEY still hold the JWT —
+   * accept all configured aliases so automation does not die on rotation.
+   */
+  serviceRoleKeys: readonly string[];
   /** Injectable for tests; defaults to the global fetch. */
   fetch?: typeof fetch;
 }
@@ -46,17 +57,35 @@ export function cleanSecret(value: string | undefined | null): string {
   return (value ?? "").trim().replace(/^['"]|['"]$/g, "");
 }
 
+function uniqueSecrets(values: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const cleaned = cleanSecret(value);
+    if (!cleaned || seen.has(cleaned)) continue;
+    seen.add(cleaned);
+    out.push(cleaned);
+  }
+  return out;
+}
+
 /** Builds the env from a getter so Deno code passes `Deno.env.get` and tests pass a map. */
 export function edgeAuthEnv(get: (name: string) => string | undefined): EdgeAuthEnv {
   const supabaseUrl = cleanSecret(get("SUPABASE_URL")).replace(/\/$/, "");
   const anonKey = cleanSecret(get("SUPABASE_ANON_KEY"));
-  const serviceRoleKey = cleanSecret(get("SUPABASE_SERVICE_ROLE_KEY")) || cleanSecret(get("SUPABASE_SERVICE_KEY"));
+  const serviceRoleKeys = uniqueSecrets([
+    get("SUPABASE_SERVICE_ROLE_KEY"),
+    get("SUPABASE_SERVICE_KEY"),
+    // Legacy dashboard/CLI alias — still present after SUPABASE_* auto-rotation.
+    get("SERVICE_ROLE_KEY"),
+  ]);
+  const serviceRoleKey = serviceRoleKeys[0] ?? "";
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     throw new Error(
       "Edge auth is not configured: SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are required.",
     );
   }
-  return { supabaseUrl, anonKey, serviceRoleKey };
+  return { supabaseUrl, anonKey, serviceRoleKey, serviceRoleKeys };
 }
 
 export function bearerToken(req: Request): string | null {
@@ -68,7 +97,10 @@ export function bearerToken(req: Request): string | null {
 export async function resolveCaller(req: Request, env: EdgeAuthEnv): Promise<EdgeCaller> {
   const token = bearerToken(req);
   if (!token) return { kind: "anonymous", reason: "missing" };
-  if (token === env.serviceRoleKey) return { kind: "service" };
+  const acceptedServiceKeys = env.serviceRoleKeys?.length
+    ? env.serviceRoleKeys
+    : [env.serviceRoleKey];
+  if (acceptedServiceKeys.includes(token)) return { kind: "service" };
   if (token === env.anonKey) return { kind: "anonymous", reason: "anon_key" };
 
   const doFetch = env.fetch ?? fetch;

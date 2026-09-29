@@ -264,7 +264,7 @@ export function buildCyl9RollonRequirementSnapshot(input: {
     throw new Error(`Unresolved CYL-9ML roll-on identities: ${unresolved.map((row) => row.websiteSku).join(", ")}`);
   }
 
-  const assemblyMappings: RollonAssemblyRequirement[] = candidateRows.map((product) => {
+  const assemblyMappings: RollonAssemblyRequirement[] = candidateRows.map((product): RollonAssemblyRequirement => {
     const websiteSku = product.websiteSku as string;
     const graceSku = product.graceSku?.trim();
     if (!graceSku) throw new Error(`${websiteSku} is missing graceSku.`);

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { FAMILY_RIG, getFamilyRigForProduct } from "./familyRig";
-import * as rigPostprocess from "./rigPostprocess";
 import {
   addDeterministicContactShadow,
   applyMaskControlledForegroundMatte,
@@ -17,6 +19,8 @@ import {
   detectModelGeometryBaseline,
   detectModelShadowContactBounds,
   detectPrimaryBottleBounds,
+  evaluateShoulderLockQa,
+  resolveShoulderLockTolerancePct,
   evaluateDetachedCapGeometryQa,
   finalizeRigShadow,
   flattenBackgroundLikePixels,
@@ -110,7 +114,6 @@ describe("primary bottle transform authority", () => {
         ...FAMILY_RIG.cylinder,
         fillHeightPct: 79,
         fillWidthPct: 96,
-        targetBodyHeightPx: 1400,
       },
       detectedBaselineYPx: 2000,
       strongBounds: { top: 200, bottom: 2000, left: 400, right: 1900 },
@@ -608,6 +611,109 @@ describe("addDeterministicContactShadow", () => {
 });
 
 describe("computeRigFrameTransform", () => {
+  it("maps the detected glass shoulder and foot to the shoulder-lock landmarks", () => {
+    const height = 2288;
+    const rig = getFamilyRigForProduct({
+      graceSku: "GB-CYL-CLR-9ML-SPR-MBLK",
+      family: "Cylinder",
+      bottleCollection: "Cylinder",
+      capacityMl: 9,
+      applicator: "Fine Mist Sprayer",
+      heightWithCap: "126 mm",
+      heightWithoutCap: "105 mm",
+      diameter: "20 mm",
+    });
+    assert.ok(rig);
+    assert.equal(rig.shoulderTargetPct, 62.5);
+    assert.equal(rig.targetShoulderYPx, Math.round(height * 0.285));
+
+    const sourceShoulderYPx = 881;
+    const sourceFootYPx = 2082;
+    const result = computeRigFrameTransform({
+      width: 2080,
+      height,
+      rig,
+      detectedBaselineYPx: sourceFootYPx,
+      strongBounds: { top: 502, bottom: sourceFootYPx, left: 771, right: 1028 },
+      primaryBounds: { top: 502, bottom: sourceFootYPx, left: 771, right: 1028 },
+      bodyControlBounds: {
+        top: sourceShoulderYPx,
+        bottom: sourceFootYPx,
+        left: 811,
+        right: 988,
+      },
+      capState: "detached",
+      preserveGeneratedScale: true,
+    });
+
+    assert.equal(
+      Math.round(sourceShoulderYPx * result.scale + result.shiftYPx),
+      rig.targetShoulderYPx,
+    );
+    assert.equal(
+      Math.round(sourceFootYPx * result.scale + result.shiftYPx),
+      result.targetBaselineYPx,
+    );
+  });
+
+  it("fails shoulder QA when the landmark is missing or more than one percent off", () => {
+    assert.deepEqual(
+      evaluateShoulderLockQa({
+        canvasHeight: 2288,
+        targetShoulderYPx: 652,
+        measuredShoulderYPx: null,
+      }),
+      {
+        status: "fail",
+        deltaPct: null,
+        issue: "Cylinder glass shoulder landmark was not detectable after normalization.",
+      },
+    );
+    const offTarget = evaluateShoulderLockQa({
+      canvasHeight: 2288,
+      targetShoulderYPx: 652,
+      measuredShoulderYPx: 686,
+    });
+    assert.equal(offTarget.status, "fail");
+    assert.equal(offTarget.deltaPct, 1.5);
+    assert.match(offTarget.issue ?? "", /1\.5% from target/i);
+
+    assert.deepEqual(
+      evaluateShoulderLockQa({
+        canvasHeight: 2288,
+        targetShoulderYPx: 652,
+        measuredShoulderYPx: 662,
+      }),
+      { status: "pass", deltaPct: 0.4, issue: null },
+    );
+  });
+
+  it("holds the shoulder to 2 mm, never tighter than the old 1% of canvas", () => {
+    const canvasHeight = 2288;
+    // Cylinder 5 ml: 36.5% lock, 53 mm glass. A flat 1% was only ~1.4 mm here,
+    // so a render 1.6 mm out was refused against Jordan's stated 2 mm.
+    const fiveMl = resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: Math.round(0.365 * canvasHeight), bareGlassHeightMm: 53 });
+    assert.equal(fiveMl, 1.38);
+    // Cylinder 9 ml tall: 62.5%, 106 mm.
+    const nineTall = resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: Math.round(0.625 * canvasHeight), bareGlassHeightMm: 106 });
+    assert.equal(nineTall, 1.18);
+    // Both renders that missed at 1.1% now pass, and 1.5% still fails.
+    for (const tolerancePct of [fiveMl, nineTall]) {
+      assert.equal(evaluateShoulderLockQa({ canvasHeight, targetShoulderYPx: 1000, measuredShoulderYPx: 1025, tolerancePct }).status, "pass");
+      assert.equal(evaluateShoulderLockQa({ canvasHeight, targetShoulderYPx: 1000, measuredShoulderYPx: 1034, tolerancePct }).status, "fail");
+    }
+
+    // 100 ml: a strict 2 mm would be 0.88% — TIGHTER than the gate that passed
+    // the approved heroes. The rule loosens small bottles; it must not tighten
+    // large ones, so the old 1% is the floor.
+    assert.equal(resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: Math.round(0.675 * canvasHeight), bareGlassHeightMm: 154 }), 1);
+
+    // No glass height means no ruler: the gate stays exactly where it was.
+    assert.equal(resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: 835, bareGlassHeightMm: null }), 1);
+    assert.equal(resolveShoulderLockTolerancePct({ canvasHeight, targetBodyHeightPx: null, bareGlassHeightMm: 53 }), 1);
+    assert.equal(resolveShoulderLockTolerancePct({ canvasHeight: 0, targetBodyHeightPx: 835, bareGlassHeightMm: 53 }), 1);
+  });
+
   it("preserves provider scale for production masters while still seating the baseline", () => {
     const result = computeRigFrameTransform({
       width: 2080,
@@ -616,6 +722,7 @@ describe("computeRigFrameTransform", () => {
         ...FAMILY_RIG.cylinder,
         fillHeightPct: 69,
         fillHeightRangePct: { min: 67, max: 71 },
+        targetBodyHeightPx: 1094,
       },
       detectedBaselineYPx: 1980,
       strongBounds: { top: 250, bottom: 1980, left: 650, right: 1450 },
@@ -629,7 +736,48 @@ describe("computeRigFrameTransform", () => {
     assert.equal(result.shiftYPx, 102);
   });
 
-  it("uses the assembled profile target for a detached primary product without a body mask", () => {
+  it("scales the full assembly about the glass foot from body-control bounds, not the assembly envelope", () => {
+    const canvasHeight = 2288;
+    const targetBodyHeightPx = Math.round(0.478 * canvasHeight); // 9 ml Classic scale-card target
+    // Glass-only body is shorter than the seated sprayer + glass assembly envelope.
+    const bodyControlBounds = { top: 1100, bottom: 2000, left: 900, right: 1180 }; // 900px glass
+    const assemblyBounds = { top: 600, bottom: 2000, left: 900, right: 1180 }; // 1400px assembly
+    const result = computeRigFrameTransform({
+      width: 2080,
+      height: canvasHeight,
+      rig: {
+        ...FAMILY_RIG.cylinder,
+        fillHeightPct: 47.8,
+        targetBodyHeightPx,
+        fillHeightRangePct: { min: 45.8, max: 49.8 },
+      },
+      detectedBaselineYPx: 2000,
+      strongBounds: assemblyBounds,
+      primaryBounds: assemblyBounds,
+      bodyControlBounds,
+      capState: "assembled",
+    });
+
+    const measuredBodyHeightPx = bodyControlBounds.bottom - bodyControlBounds.top;
+    const scaledBodyHeightPx = measuredBodyHeightPx * result.scale;
+    assert.ok(
+      Math.abs(scaledBodyHeightPx - targetBodyHeightPx) <= 1,
+      `expected body ${targetBodyHeightPx}px, got ${scaledBodyHeightPx.toFixed(1)}px`,
+    );
+
+    const assemblyEnvelopeScale = (canvasHeight * (47.8 / 100)) / (assemblyBounds.bottom - assemblyBounds.top);
+    assert.ok(
+      Math.abs(result.scale - assemblyEnvelopeScale) > 0.05,
+      "must not size from the taller assembly envelope",
+    );
+    assert.equal(
+      Math.round(result.detectedBaselineYPx * result.scale + result.shiftYPx),
+      2082,
+      "glass foot must remain on the shared baseline",
+    );
+  });
+
+  it("fails closed when scale-card body target lacks exact body-control bounds", () => {
     const rig = getFamilyRigForProduct({
       graceSku: "GB-CYL-BLU-9ML-MRL-MCPR",
       family: "Cylinder",
@@ -641,31 +789,42 @@ describe("computeRigFrameTransform", () => {
       diameter: "20 ±0.5 mm",
     });
     assert.ok(rig);
+    assert.ok(rig.targetBodyHeightPx);
 
-    // Reproduces the geometry behind the worst manifest failure: a bottle plus
-    // right-side cap produces a 1,287px-wide full envelope. Detached topology
-    // must size from the bottle-only bounds, not from that combined width.
-    const primaryBounds = { top: 800, bottom: 1800, left: 620, right: 920 };
-    const result = computeRigFrameTransform({
-      width: 2080,
-      height: 2288,
-      rig,
-      detectedBaselineYPx: 1800,
-      strongBounds: { top: 800, bottom: 1800, left: 396, right: 1682 },
-      primaryBounds,
-      capState: "detached",
-    });
-    const transformedPrimaryHeightPx =
-      (primaryBounds.bottom - primaryBounds.top) * result.scale;
-    const expectedPrimaryHeightPx = 2288 * (rig.fillHeightPct / 100);
-
-    assert.ok(
-      Math.abs(transformedPrimaryHeightPx - expectedPrimaryHeightPx) <= 1,
-      `expected ${expectedPrimaryHeightPx.toFixed(1)}px primary target, got ${transformedPrimaryHeightPx.toFixed(1)}px`,
+    assert.throws(
+      () =>
+        computeRigFrameTransform({
+          width: 2080,
+          height: 2288,
+          rig,
+          detectedBaselineYPx: 1800,
+          strongBounds: { top: 800, bottom: 1800, left: 396, right: 1682 },
+          primaryBounds: { top: 800, bottom: 1800, left: 620, right: 920 },
+          capState: "detached",
+        }),
+      /body-control bounds/i,
     );
   });
 
-  it("reduces a 9 ml PDP sidecar to the global ecommerce-scale envelope", () => {
+  it("derives glass body-control bounds from vessel × heightWithoutCap/heightWithCap", async () => {
+    const { deriveGlassBodyControlBounds } = await import("./rigPostprocess");
+    const vessel = { top: 600, bottom: 2000, left: 900, right: 1180 };
+    const derived = deriveGlassBodyControlBounds({
+      vesselBounds: vessel,
+      detectedBaselineYPx: 2000,
+      heightWithoutCap: "70 mm",
+      heightWithCap: "98 mm",
+    });
+    assert.ok(derived);
+    assert.equal(derived.bottom, 2000);
+    assert.equal(derived.left, 900);
+    assert.equal(derived.right, 1180);
+    // 1400 * (70/98) ≈ 1000
+    assert.equal(derived.top, 2000 - Math.round(1400 * (70 / 98)));
+    assert.notEqual(derived.top, vessel.top);
+  });
+
+  it("reduces a 9 ml PDP sidecar so bare glass lands on targetBodyHeightPx", () => {
     const rig = getFamilyRigForProduct({
       graceSku: "GB-CYL-CLR-9ML-T-21",
       family: "Cylinder",
@@ -679,7 +838,10 @@ describe("computeRigFrameTransform", () => {
       mode: "fitment-attached-cap-right-sidecar",
     });
     assert.ok(rig);
-    const primaryBounds = { top: 250, bottom: 1980, left: 700, right: 1050 };
+    assert.ok(rig.targetBodyHeightPx);
+    // Assembly includes seated sprayer above glass; body-control is glass only.
+    const bodyControlBounds = { top: 480, bottom: 1980, left: 700, right: 1050 }; // 1500px glass
+    const primaryBounds = { top: 250, bottom: 1980, left: 700, right: 1050 }; // 1730px primary
     const result = computeRigFrameTransform({
       width: 2080,
       height: 2288,
@@ -687,11 +849,12 @@ describe("computeRigFrameTransform", () => {
       detectedBaselineYPx: 1980,
       strongBounds: { top: 250, bottom: 1980, left: 700, right: 1600 },
       primaryBounds,
+      bodyControlBounds,
       capState: "detached",
     });
 
-    assert.ok(result.scale > 0.85 && result.scale < 0.95);
-    assert.ok(Math.abs((primaryBounds.bottom - primaryBounds.top) * result.scale - 1579) <= 1);
+    const scaledBodyHeightPx = (bodyControlBounds.bottom - bodyControlBounds.top) * result.scale;
+    assert.ok(Math.abs(scaledBodyHeightPx - rig.targetBodyHeightPx!) <= 1);
     assert.equal(Math.round(result.detectedBaselineYPx * result.scale + result.shiftYPx), 2082);
   });
 
@@ -917,6 +1080,46 @@ describe("detectAlphaControlBounds", () => {
       foregroundPixels: 70,
       foregroundPixelRatio: 70 / (width * height),
     });
+  });
+});
+
+describe("detectGlassBodyWidthBounds", () => {
+  it("measures lower glass walls without counting a wider fitment or sidecar cap", () => {
+    const width = 100;
+    const height = 120;
+    const bg = { r: 245, g: 243, b: 239 };
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < pixels.length; i += 4) {
+      pixels[i] = bg.r;
+      pixels[i + 1] = bg.g;
+      pixels[i + 2] = bg.b;
+      pixels[i + 3] = 255;
+    }
+    const paint = (left: number, right: number, top: number, bottom: number) => {
+      for (let y = top; y <= bottom; y += 1) {
+        for (let x = left; x <= right; x += 1) {
+          const i = (y * width + x) * 4;
+          pixels[i] = 70;
+          pixels[i + 1] = 70;
+          pixels[i + 2] = 70;
+        }
+      }
+    };
+    paint(25, 75, 20, 35); // wider sprayer / fitment
+    paint(35, 37, 80, 108); // left glass wall
+    paint(64, 66, 80, 108); // right glass wall
+    paint(82, 95, 82, 109); // detached sidecar, outside primary control
+
+    const bounds = rigPostprocess.detectGlassBodyWidthBounds(
+      pixels,
+      width,
+      height,
+      bg,
+      { top: 20, bottom: 110, left: 20, right: 80 },
+    );
+
+    assert.equal(bounds?.left, 35);
+    assert.equal(bounds?.right, 66);
   });
 });
 
@@ -1765,6 +1968,80 @@ describe("detectTallestComponentBounds", () => {
   });
 });
 
+describe("detectComplexAssemblyBottleBounds", () => {
+  it("isolates the baseline-reaching bottle from a connected bulb and tassel", () => {
+    const width = 300;
+    const height = 180;
+    const baseline = 164;
+    const bg = { r: 245, g: 243, b: 239 };
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i += 1) {
+      pixels[i * 4] = bg.r;
+      pixels[i * 4 + 1] = bg.g;
+      pixels[i * 4 + 2] = bg.b;
+      pixels[i * 4 + 3] = 255;
+    }
+    const paint = (x0: number, x1: number, y0: number, y1: number) => {
+      for (let y = y0; y <= y1; y += 1) {
+        for (let x = x0; x <= x1; x += 1) {
+          const i = (y * width + x) * 4;
+          pixels[i] = 45;
+          pixels[i + 1] = 45;
+          pixels[i + 2] = 45;
+        }
+      }
+    };
+
+    paint(205, 244, 28, baseline); // bottle + assembled sprayer
+    paint(24, 90, 82, baseline); // bulb and tassel
+    paint(88, 207, 24, 34); // connected braided hose
+
+    const bounds = rigPostprocess.detectComplexAssemblyBottleBounds(
+      pixels,
+      width,
+      height,
+      bg,
+      baseline,
+    );
+
+    assert.deepEqual(bounds, {
+      left: 205,
+      right: 244,
+      top: 28,
+      bottom: baseline,
+    });
+  });
+});
+
+describe("resolveAssembledAspectBounds — assembled height over glass width", () => {
+  const primaryBounds = { top: 170, bottom: 2150, left: 455, right: 1606 };
+  const glassWidthBounds = { top: 1007, bottom: 2082, left: 570, right: 1510 };
+  const base = { capState: "assembled", isComplexAssembly: false, hasShoulderLock: true, primaryBounds, glassWidthBounds };
+
+  it("takes height from the assembly and width from the glass, not the shadow-spread frame", () => {
+    // Live case 2026-09-20, Elegant 60 ml dropper: strong bounds ran 22-77% of
+    // the canvas on the contact shadow while the glass sat at 27-73%.
+    const bounds = rigPostprocess.resolveAssembledAspectBounds(base);
+    assert.deepEqual(bounds, { top: 170, bottom: 2150, left: 570, right: 1510 });
+    const aspect = (bounds!.bottom - bounds!.top + 1) / (bounds!.right! - bounds!.left! + 1);
+    assert.ok(Math.abs(aspect / 2.03 - 1) < 0.06, `aspect ${aspect} should sit within 6% of the canonical 2.03`);
+    const strongAspect = (primaryBounds.bottom - primaryBounds.top + 1) / (primaryBounds.right - primaryBounds.left + 1);
+    assert.ok(strongAspect < 1.8, "the frame it replaces reads far too wide");
+  });
+
+  it("steps aside wherever the glass is not the widest thing or is not held by a lock", () => {
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, capState: "detached" }), null);
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, isComplexAssembly: true }), null);
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, hasShoulderLock: false }), null);
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, glassWidthBounds: null }), null);
+    assert.equal(rigPostprocess.resolveAssembledAspectBounds({ ...base, primaryBounds: null }), null);
+    assert.equal(
+      rigPostprocess.resolveAssembledAspectBounds({ ...base, glassWidthBounds: { top: 0, bottom: 10, left: 900, right: 900 } }),
+      null,
+    );
+  });
+});
+
 describe("resolveWholeVesselBounds — clear-glass sliver fix", () => {
   const width = 600;
   const height = 1000;
@@ -1856,6 +2133,75 @@ describe("resolveWholeVesselBounds — clear-glass sliver fix", () => {
     assert.ok(vessel!.right < 470, "sidecar cap must stay excluded");
   });
 
+  it("reunites 50 ml roll-on glass walls that are shorter than the roller column", () => {
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i += 1) {
+      pixels[i * 4] = bg.r; pixels[i * 4 + 1] = bg.g; pixels[i * 4 + 2] = bg.b; pixels[i * 4 + 3] = 255;
+    }
+    const paint = (x0: number, x1: number, y0: number, y1: number, delta: number) => {
+      for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) {
+        const i = (y * width + x) * 4;
+        pixels[i] = bg.r - delta; pixels[i + 1] = bg.g - delta; pixels[i + 2] = bg.b - delta;
+      }
+    };
+    // Walls are ~0.69 of the roller column, the live 50 ml roll-on sidecar split.
+    paint(100, 115, 348, 899, 60);
+    paint(230, 270, 100, 899, 60);
+    paint(385, 400, 350, 899, 60);
+    paint(116, 384, 860, 899, 14);
+    paint(470, 530, 650, 899, 60);
+
+    const vessel = rigPostprocess.resolveWholeVesselBounds(pixels, width, height, bg);
+    assert.ok(vessel);
+    assert.equal(vessel?.left, 100);
+    assert.equal(vessel?.right, 400);
+    assert.equal(vessel?.top, 100);
+    assert.ok(vessel!.right < 470, "sidecar cap must stay excluded");
+  });
+
+  it("reunites a flat flask whose glass is only 0.63 of its sprayer column", () => {
+    // Live case 2026-09-20, Elegant 15/30/60 ml: glass pieces read 0.627-0.653
+    // of the sprayer column, under the old 0.65 cut, so the vessel collapsed
+    // onto the sprayer and three correct renders failed the aspect gate.
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i += 1) {
+      pixels[i * 4] = bg.r; pixels[i * 4 + 1] = bg.g; pixels[i * 4 + 2] = bg.b; pixels[i * 4 + 3] = 255;
+    }
+    const paint = (x0: number, x1: number, y0: number, y1: number, delta: number) => {
+      for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) {
+        const i = (y * width + x) * 4;
+        pixels[i] = bg.r - delta; pixels[i + 1] = bg.g - delta; pixels[i + 2] = bg.b - delta;
+      }
+    };
+    paint(100, 115, 396, 899, 60);  // left wall: 504 of 800 rows = 0.63
+    paint(230, 270, 100, 899, 60);  // sprayer column, the tallest fragment
+    paint(385, 400, 398, 899, 60);  // right wall
+    paint(116, 384, 860, 899, 14);  // base band evidence across the interior
+    // The tallest real detached cap measured so far is 0.47 of its vessel.
+    paint(470, 530, 524, 899, 60);
+
+    const vessel = rigPostprocess.resolveWholeVesselBounds(pixels, width, height, bg);
+    assert.ok(vessel);
+    assert.equal(vessel?.left, 100);
+    assert.equal(vessel?.right, 400);
+    assert.equal(vessel?.top, 100, "vessel top must include the sprayer");
+    assert.ok(vessel!.right < 470, "sidecar cap must stay excluded");
+  });
+
+  it("still leaves out a base-aligned cap that clears the height cut, on evidence alone", () => {
+    // A cap 0.60 of the vessel passes the height pre-filter, as reducer caps
+    // (~0.85) always have. Clean background in the gap is what keeps it out.
+    const pixels = makeClearBottleFrame();
+    for (let y = 420; y <= 899; y += 1) for (let x = 470; x <= 530; x += 1) {
+      const i = (y * width + x) * 4;
+      pixels[i] = bg.r - 60; pixels[i + 1] = bg.g - 60; pixels[i + 2] = bg.b - 60;
+    }
+    const vessel = rigPostprocess.resolveWholeVesselBounds(pixels, width, height, bg);
+    assert.ok(vessel);
+    assert.equal(vessel?.left, 100);
+    assert.equal(vessel?.right, 400);
+  });
+
   it("refuses to fuse aligned objects with clean background between them", () => {
     const pixels = makeClearBottleFrame({ interiorEvidence: false });
     const vessel = rigPostprocess.resolveWholeVesselBounds(pixels, width, height, bg);
@@ -1917,5 +2263,18 @@ describe("trimModelOwnedShadowIntoBand", () => {
       "Lower shadow feather is darker than the contact band.",
     ]));
     assert.ok(!rigPostprocess.isModelShadowFailureTrimmable([]));
+  });
+});
+
+describe("shoulder landmark wiring", () => {
+  it("hands the detector the locked glass body's proportions and the canvas colour", () => {
+    // Without the proportions the detector cannot refuse a wrong landmark, and the
+    // rig's own shoulder QA re-detects around its target, so nothing else would.
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "rigPostprocess.ts"),
+      "utf8",
+    );
+    assert.match(source, /expectedBodyAspectRatio:\s*input\.rig\.glassBodyAspect/);
+    assert.match(source, /background:\s*input\.bg/);
   });
 });

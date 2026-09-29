@@ -106,6 +106,11 @@ export interface BestBottlesImageReconciliationStatusRow {
   detected_baseline_y_px: number | null;
   target_baseline_y_px: number | null;
   baseline_delta_px: number | null;
+  pre_transform_shoulder_y_px: number | null;
+  detected_shoulder_y_px: number | null;
+  target_shoulder_y_px: number | null;
+  shoulder_delta_pct: number | null;
+  shoulder_confidence: number | null;
   fill_height_pct: number | null;
   center_x_pct: number | null;
   target_center_x_pct: number | null;
@@ -175,6 +180,11 @@ export interface RecordBestBottlesRigResultInput extends RecordBestBottlesRawIma
   preTransformBaselineYPx?: number | null;
   detectedBaselineYPx?: number | null;
   targetBaselineYPx?: number | null;
+  preTransformShoulderYPx?: number | null;
+  detectedShoulderYPx?: number | null;
+  targetShoulderYPx?: number | null;
+  shoulderDeltaPct?: number | null;
+  shoulderConfidence?: number | null;
   fillHeightPct?: number | null;
   centerXPct?: number | null;
   targetCenterXPct?: number | null;
@@ -322,6 +332,11 @@ export function buildBestBottlesRigReconciliationPayload(
     pre_transform_baseline_y_px: input.preTransformBaselineYPx ?? null,
     detected_baseline_y_px: input.detectedBaselineYPx ?? null,
     target_baseline_y_px: input.targetBaselineYPx ?? null,
+    pre_transform_shoulder_y_px: input.preTransformShoulderYPx ?? null,
+    detected_shoulder_y_px: input.detectedShoulderYPx ?? null,
+    target_shoulder_y_px: input.targetShoulderYPx ?? null,
+    shoulder_delta_pct: input.shoulderDeltaPct ?? null,
+    shoulder_confidence: input.shoulderConfidence ?? null,
     fill_height_pct: input.fillHeightPct ?? null,
     center_x_pct: input.centerXPct ?? null,
     target_center_x_pct: input.targetCenterXPct ?? null,
@@ -482,6 +497,31 @@ export async function approveBestBottlesReconciledImage(input: {
   });
   if (error) {
     throw new Error(`Measured image could not be approved: ${error.message}`);
+  }
+}
+
+/**
+ * Explicit operator replacement for a previously approved/pushed/synced SKU
+ * hero. The database function resets destination state transactionally, then
+ * reruns the same exact-image reconciliation approval used for a first pass.
+ */
+export async function replaceBestBottlesSkuJobHero(input: {
+  organizationId: string;
+  pipelineSkuJobId: string;
+  imageId: string;
+}): Promise<void> {
+  const { error } = await (await db()).rpc(
+    "replace_best_bottles_sku_job_hero",
+    {
+      p_organization_id: input.organizationId,
+      p_pipeline_sku_job_id: input.pipelineSkuJobId,
+      p_image_id: input.imageId,
+    },
+  );
+  if (error) {
+    throw new Error(
+      `Group hero replacement could not be approved: ${error.message}`,
+    );
   }
 }
 

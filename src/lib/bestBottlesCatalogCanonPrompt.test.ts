@@ -53,7 +53,7 @@ describe("Best Bottles catalog canon prompt", () => {
     assert.doesNotMatch(modelGlass, /contact shadow are handled deterministically/i);
     assert.doesNotMatch(modelGlass, /deterministic post-processing responsibilities/i);
     assert.doesNotMatch(modelStudio, /Madison applies both deterministically after generation/i);
-    assert.match(modelGlass, /#F6EFE8/);
+    assert.match(modelGlass, /#F5F3EF/);
     assert.match(
       modelFinal,
       /resolved Cylinder V6\.1 model-owned contact-shadow contract/,

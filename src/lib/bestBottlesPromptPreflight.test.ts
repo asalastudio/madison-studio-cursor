@@ -4,10 +4,11 @@ import { describe, it } from "node:test";
 import {
   buildBestBottlesPromptPreflight,
   buildBestBottlesPromptSkuFromProduct,
+  inferBestBottlesPromptFamily,
 } from "./bestBottlesPromptPreflight";
 import { buildPromptForSku } from "./bestBottlesPromptCompiler";
+import { resolveBestBottlesShadowPolicy } from "./bestBottlesShadowPolicy";
 import { BEST_BOTTLES_CATALOG_CANON_PROMPT_FLAG } from "./bestBottlesCatalogCanonPrompt";
-import { getBestBottlesCatalogFramingProfile } from "@/config/bestBottlesFamilyProfiles";
 import { loadPromptSystem } from "../../scripts/generate-prompts";
 
 const promptSystem = loadPromptSystem(process.cwd());
@@ -58,6 +59,54 @@ function buildThreeMlPreflight(
 }
 
 describe("Best Bottles prompt preflight", () => {
+  it("files a bottle under its own family, not under the closure it ships with", () => {
+    // The family haystack includes the item name and applicator. A Slim glass
+    // bottle sold with a lotion pump used to be filed as the closure family
+    // "lotion_pump", which is a NON-bottle shadow context — so its policy
+    // contradicted its real family and generation threw. 233 bottle SKUs across
+    // 11 families were blocked; Cylinder escaped only because it matches first.
+    const slimWithPump = {
+      graceSku: "LB-SLM-CLR-50ML-LPM-MGLD",
+      websiteSku: "LBSlm50LtnMtGl",
+      family: "Slim",
+      bottleCollection: "Slim",
+      category: "Glass Bottle",
+      itemName: "Slim design 50 ml, 1.7oz clear glass bottle with matte gold lotion pump.",
+      applicator: "Lotion Pump",
+    };
+    const elegantWithDropper = {
+      graceSku: "GB-ELG-CLR-60ML-DRP-GLD",
+      family: "Elegant",
+      bottleCollection: "Elegant",
+      category: "Glass Bottle",
+      itemName: "Elegant design 60 ml clear glass bottle with gold dropper.",
+      applicator: "Dropper",
+    };
+    for (const bottle of [slimWithPump, elegantWithDropper]) {
+      const inferred = inferBestBottlesPromptFamily(bottle);
+      assert.notEqual(inferred, "lotion_pump");
+      assert.notEqual(inferred, "dropper");
+      assert.deepEqual(
+        resolveBestBottlesShadowPolicy({ graceSku: bottle.graceSku, family: inferred }),
+        resolveBestBottlesShadowPolicy({ graceSku: bottle.graceSku, family: bottle.family }),
+        `${bottle.graceSku} must resolve the same shadow policy from its inferred and catalog family`,
+      );
+    }
+
+    // A product whose own catalog family IS the closure is still a closure.
+    assert.equal(
+      inferBestBottlesPromptFamily({
+        graceSku: "CMP-LPM-MGLD-18-415",
+        family: "Lotion Pump",
+        category: "Closure",
+        itemName: "Matte gold lotion pump, 18-415.",
+      }),
+      "lotion_pump",
+    );
+    // With no catalog family at all, the text is the only signal left.
+    assert.equal(inferBestBottlesPromptFamily({ itemName: "Replacement glass dropper with pipette" }), "dropper");
+  });
+
   it("blocks explicit cap-off generation without confirmed PSD evidence", () => {
     const blocked = buildBestBottlesPromptPreflight({
       product: { ...baseProduct, capState: "detached" },
@@ -160,7 +209,7 @@ describe("Best Bottles prompt preflight", () => {
     assert.equal(directCompilerRecord.prompt_version, "best-bottles-reference-locked-v6.1");
     assert.equal(directCompilerRecord.shadow_owner, "model");
     assert.equal(directCompilerRecord.final_prompt.match(/GROUNDING SHADOW — MODEL OWNED:/g)?.length, 1);
-    assert.match(directCompilerRecord.final_prompt, /#F6EFE8/);
+    assert.match(directCompilerRecord.final_prompt, /#F5F3EF/);
     assert.doesNotMatch(directCompilerRecord.final_prompt, /Madison applies both deterministically after generation/i);
     assert.ok(smoke.record?.qa_checklist.includes("prompt-version:best-bottles-reference-locked-v6.1"));
     assert.ok(smoke.record?.qa_checklist.includes("shadow-owner:model"));
@@ -444,6 +493,40 @@ describe("Best Bottles prompt preflight", () => {
     );
   });
 
+  it("compiles an approved vintage tassel master for the topology-wide canvas", () => {
+    const preflight = buildBestBottlesPromptPreflight({
+      product: {
+        ...baseProduct,
+        graceSku: "GB-CYL-CLR-50ML-AST-BLK",
+        websiteSku: "GBCyl50AnSpTslBlk",
+        itemName: "50 ml Clear Cylinder Vintage Bulb Sprayer with Tassel",
+        itemDescription: "Clear glass bottle with vintage bulb, braided hose, and tassel.",
+        applicator: "Vintage Bulb Sprayer with Tassel",
+        capacityMl: 50,
+        heightWithoutCap: "97 mm",
+        heightWithCap: "126 mm",
+        diameter: "32 mm",
+        topologyReferenceId: "approved-tassel-psd-sha256",
+      },
+      referenceImagePath: "/references/GBCyl50AnSpTslBlk.png",
+      bodyMaterial: "clear glass",
+      canvas: { widthPx: 1536, heightPx: 1024 },
+      system: promptSystem,
+    });
+
+    assert.notEqual(preflight.status, "error");
+    assert.ok(preflight.record?.qa_checklist.includes("canvas_selected:1536x1024"));
+    assert.ok(preflight.record?.qa_checklist.includes("canvas_contract:topology-wide-v1"));
+    assert.ok(preflight.record?.qa_checklist.includes("primary_object_centerline:65pct"));
+    assert.equal(
+      preflight.warnings.some((warning) => /fixed 2080 x 2288 studio canvas/i.test(warning)),
+      false,
+    );
+    assert.match(preflight.record?.final_prompt ?? "", /Canvas is fixed at 1536 × 1024/);
+    assert.match(preflight.record?.final_prompt ?? "", /vertical centerline at 65% width/);
+    assert.doesNotMatch(preflight.record?.final_prompt ?? "", /2080(?:x| × | x )2288/);
+  });
+
   it("routes the compact 3ml Cylinder fine-mist SKU to the standard 10:11 frame", () => {
     const compactCylinder = {
       ...baseProduct,
@@ -528,10 +611,11 @@ describe("Best Bottles prompt preflight", () => {
     assert.ok(compactPreflight.record);
     assert.ok(tallPreflight.record);
     assert.match(compactPreflight.record.final_prompt, /CYLINDER SAMPLE VIAL FRAMING PROFILE/i);
-    assert.match(compactPreflight.record.final_prompt, /Approved fill-height range: 54-58%/i);
-    assert.match(compactPreflight.record.final_prompt, /fills approximately 56% of the canvas height/i);
-    assert.match(compactPreflight.record.final_prompt, /Relative scale zone: Sample vials \(sample-vial\)/i);
-    assert.match(compactPreflight.record.final_prompt, /versioned global catalog curve owns assembled height/i);
+    assert.match(compactPreflight.record.final_prompt, /SHOULDER LOCK \(shoulder-lock-2026-09-07 · cylinder:3\.3-standard\)/i);
+    assert.match(compactPreflight.record.final_prompt, /MUST land at 26\.5% of canvas height/i);
+    assert.doesNotMatch(compactPreflight.record.final_prompt, /Approved fill-height range:/i);
+    assert.doesNotMatch(compactPreflight.record.final_prompt, /fills approximately/i);
+    assert.doesNotMatch(compactPreflight.record.final_prompt, /versioned global catalog curve owns assembled height/i);
     assert.match(compactPreflight.record.final_prompt, /primary bottle centered on the canvas vertical centerline/i);
     assert.match(compactPreflight.record.final_prompt, /PRIMARY GOAL:/i);
     assert.match(compactPreflight.record.final_prompt, /The base should show clear curved glass geometry, transparent thickness, and crisp circular base rings/i);
@@ -569,9 +653,10 @@ describe("Best Bottles prompt preflight", () => {
     assert.doesNotMatch(compactPreflight.record.final_prompt, /exactly as Image 1 shows it/i);
     assert.doesNotMatch(compactPreflight.record.final_prompt, /external pump housing position/i);
     assert.match(tallPreflight.record.final_prompt, /CYLINDER STANDARD FRAMING PROFILE/i);
-    assert.match(tallPreflight.record.final_prompt, /Approved fill-height range: 67-71%/i);
-    assert.match(tallPreflight.record.final_prompt, /fills approximately 69% of the canvas height/i);
-    assert.match(tallPreflight.record.final_prompt, /Relative scale zone: Small Cylinder bottles \(small-cylinder\)/i);
+    assert.match(tallPreflight.record.final_prompt, /SHOULDER LOCK \(shoulder-lock-2026-09-07 · cylinder:9-standard\)/i);
+    assert.match(tallPreflight.record.final_prompt, /MUST land at 43\.5% of canvas height/i);
+    assert.doesNotMatch(tallPreflight.record.final_prompt, /Approved fill-height range:/i);
+    assert.doesNotMatch(tallPreflight.record.final_prompt, /fills approximately/i);
     assert.doesNotMatch(compactPreflight.record.final_prompt, /Do NOT vary the on-canvas size by ml capacity/i);
     assert.doesNotMatch(tallPreflight.record.final_prompt, /Do NOT vary the on-canvas size by ml capacity/i);
   });
@@ -637,18 +722,105 @@ describe("Best Bottles prompt preflight", () => {
     assert.ok(preflight.record);
     assert.equal(preflight.sku?.product_family, "cylinder");
     assert.match(preflight.record.final_prompt, /ROLLER BOTTLE FRAMING PROFILE/i);
-    const rollerProfile = getBestBottlesCatalogFramingProfile(cylinderRoller);
-    assert.ok(rollerProfile);
-    assert.match(
-      preflight.record.final_prompt,
-      new RegExp(`Approved fill-height range: ${rollerProfile.targetProductHeightRangePct.min}-${rollerProfile.targetProductHeightRangePct.max}%`, "i"),
-    );
-    assert.match(
-      preflight.record.final_prompt,
-      new RegExp(`fills approximately ${rollerProfile.targetProductHeightPct}% of the canvas height`, "i"),
-    );
+    assert.match(preflight.record.final_prompt, /SHOULDER LOCK \(shoulder-lock-2026-09-07 · cylinder:28-standard\)/i);
+    assert.match(preflight.record.final_prompt, /MUST land at 50\.5% of canvas height/i);
+    assert.doesNotMatch(preflight.record.final_prompt, /Approved fill-height range:/i);
+    assert.doesNotMatch(preflight.record.final_prompt, /fills approximately/i);
     assert.ok(preflight.record.qa_checklist.includes("cylinder_family_profile:roller-bottle"));
     assert.equal(preflight.record.qa_checklist.includes("cylinder_family_profile:cylinder-standard"), false);
+  });
+
+  it("locks every Cylinder glass body, including the 50 ml roll-on, to its shoulder", () => {
+    const lockedBodies = [
+      { capacityMl: 4, heightWithoutCap: "44 mm", key: "cylinder:4-standard", pct: "31.5" },
+      { capacityMl: 5, heightWithoutCap: "50 mm", key: "cylinder:5-standard", pct: "36.5" },
+      { capacityMl: 9, heightWithoutCap: "112 mm", itemName: "9 ml Tall Cylinder", key: "cylinder:9-tall", pct: "62.5" },
+      { capacityMl: 25, heightWithoutCap: "70 mm", key: "cylinder:25-standard", pct: "46.5" },
+      { capacityMl: 30, heightWithoutCap: "85 mm", key: "cylinder:30-standard", pct: "46" },
+      { capacityMl: 50, heightWithoutCap: "117 mm", key: "cylinder:50-standard", pct: "56" },
+      { capacityMl: 100, heightWithoutCap: "140 mm", key: "cylinder:100-standard", pct: "67.5" },
+      { capacityMl: 114, heightWithoutCap: "120 mm", key: "cylinder:114-standard", pct: "49.5" },
+      { capacityMl: 227, heightWithoutCap: "160 mm", key: "cylinder:227-standard", pct: "63" },
+      { capacityMl: 454, heightWithoutCap: "200 mm", key: "cylinder:454-standard", pct: "71.5" },
+    ] as const;
+
+    for (const body of lockedBodies) {
+      const preflight = buildBestBottlesPromptPreflight({
+        product: {
+          ...baseProduct,
+          graceSku: `GB-CYL-CLR-${body.capacityMl}ML-SPR`,
+          itemName: "itemName" in body ? body.itemName : `${body.capacityMl} ml Clear Cylinder`,
+          capacityMl: body.capacityMl,
+          heightWithoutCap: body.heightWithoutCap,
+          applicator: "Fine Mist Sprayer",
+        },
+        referenceImagePath: `/references/${body.key}.png`,
+        bodyMaterial: "clear glass",
+        canvas: { widthPx: 2080, heightPx: 2288 },
+        system: promptSystem,
+      });
+      assert.ok(preflight.record, body.key);
+      assert.match(
+        preflight.record.final_prompt,
+        new RegExp(`SHOULDER LOCK \\(shoulder-lock-2026-09-07 · ${body.key.replace(".", "\\.")}\\)`),
+        body.key,
+      );
+      assert.match(
+        preflight.record.final_prompt,
+        new RegExp(`MUST land at ${body.pct}% of canvas height`),
+        body.key,
+      );
+      assert.doesNotMatch(preflight.record.final_prompt, /fills approximately/i, body.key);
+      assert.doesNotMatch(preflight.record.final_prompt, /owns assembled height/i, body.key);
+    }
+
+    const rollon = buildBestBottlesPromptPreflight({
+      product: {
+        ...baseProduct,
+        graceSku: "GB-CYL-CLR-50ML-MRL-01",
+        websiteSku: "GBCyl50MtlRollBlk",
+        itemName: "50 ml Clear Cylinder Metal Roller",
+        applicator: "Metal Roller Ball",
+        capacityMl: 50,
+        heightWithoutCap: "98 mm",
+      },
+      referenceImagePath: "/references/GB-CYL-CLR-50ML-MRL-01.png",
+      bodyMaterial: "clear glass",
+      canvas: { widthPx: 2080, heightPx: 2288 },
+      system: promptSystem,
+    });
+    assert.ok(rollon.record);
+    assert.match(
+      rollon.record.final_prompt,
+      /SHOULDER LOCK \(shoulder-lock-2026-09-07 · cylinder:50-rollon\)/,
+    );
+    assert.match(rollon.record.final_prompt, /MUST land at 53% of canvas height/);
+    assert.match(rollon.record.final_prompt, /98 mm bare glass, 37 mm diameter, neck 16 mm/);
+    assert.doesNotMatch(rollon.record.final_prompt, /cylinder:50-standard/);
+    assert.doesNotMatch(rollon.record.final_prompt, /fills approximately/i);
+
+    const badVintage = buildBestBottlesPromptPreflight({
+      product: {
+        ...baseProduct,
+        graceSku: "GB-CYL-CLR-50ML-ASP-WHT",
+        itemName: "50 ml Clear Cylinder Vintage Bulb",
+        applicator: "Vintage Bulb",
+        capacityMl: 50,
+        heightWithoutCap: "85 ±1 mm",
+        heightWithCap: "110 ±2 mm",
+        diameter: "30 ±0.5 mm",
+        neckThreadSize: "18-415",
+      },
+      referenceImagePath: "/references/GB-CYL-CLR-50ML-ASP-WHT.png",
+      bodyMaterial: "clear glass",
+      canvas: { widthPx: 2080, heightPx: 2288 },
+      system: promptSystem,
+    });
+    assert.ok(badVintage.record);
+    assert.match(badVintage.record.final_prompt, /cylinder:50-standard/);
+    assert.match(badVintage.record.final_prompt, /117 mm bare glass, 32 mm diameter, neck 18-415/);
+    assert.doesNotMatch(badVintage.record.final_prompt, /85 mm bare glass/);
+    assert.doesNotMatch(badVintage.record.final_prompt, /cylinder:50-rollon/);
   });
 
   it("blocks missing references before prompt compilation", () => {

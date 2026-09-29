@@ -56,6 +56,48 @@ describe("Best Bottles smoke prompt addendums", () => {
     assert.match(prompt, /CANON PROMPT/);
   });
 
+  it("states the frosted finish without ever naming the look it must not have", () => {
+    // Jordan, 2026-09-20: remove the words "clear glass". An image model hears a
+    // negated look as a look, and v1 of this addendum said it three times.
+    const addendum = getSmokePromptAddendum("frosted-finish-v2");
+    assert.ok(addendum?.replaceGlassLine);
+    const everything = `${addendum!.replaceGlassLine}\n${addendum!.text}`;
+    assert.doesNotMatch(everything, /clear|transparen|see-through|not\s/i);
+    assert.match(everything, /frosted glass/i);
+    assert.match(everything, /from the shoulder to the base/i);
+  });
+
+  it("swaps the canon's multi-material GLASS paragraph for the frosted one, and only that", () => {
+    const canon = [
+      "PRESERVE BLOCK",
+      "",
+      "GLASS: preserve the glass's exact color, tint, frosting, and/or swirl pattern EXACTLY as shown in the reference — do not change, lighten, recolor, clear, or flatten it. For swirl glass: thinner swirls reading as more transparent.",
+      "",
+      "STUDIO DIRECTION",
+    ].join("\n");
+    const prompt = applySmokePromptAddendum(canon, getSmokePromptAddendum("frosted-finish-v2"));
+
+    assert.doesNotMatch(prompt, /preserve the glass's exact color/);
+    assert.doesNotMatch(prompt, /\bclear\b|transparen/i);
+    assert.match(prompt, /^PRESERVE BLOCK\n\nGLASS: this bottle is frosted glass\./);
+    assert.match(prompt, /STUDIO DIRECTION\n\nTEST-ONLY MATERIAL POLISH ADDENDUM \(frosted-finish-v2\):/);
+  });
+
+  it("refuses to run the frosted addendum when the canon GLASS paragraph is missing", () => {
+    // A silent no-op would send the old wording under the new tag.
+    assert.throws(
+      () => applySmokePromptAddendum("CANON PROMPT WITHOUT IT", getSmokePromptAddendum("frosted-finish-v2")),
+      /frosted-finish-v2 expects exactly one canon GLASS paragraph to replace; found 0/,
+    );
+  });
+
+  it("retires the first frosted addendum, which named the unwanted finish", () => {
+    assert.throws(
+      () => getSmokePromptAddendum("frosted-body-clear-neck-v1"),
+      /Retired Best Bottles smoke prompt addendum: frosted-body-clear-neck-v1/,
+    );
+  });
+
   it("rejects unknown smoke addendum ids", () => {
     assert.throws(
       () => getSmokePromptAddendum("unknown-addendum"),

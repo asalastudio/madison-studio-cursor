@@ -80,6 +80,14 @@ describe("Cylinder Shopify server-side publish guard", () => {
     assert.match(source, /consumed_at/);
     assert.match(
       source,
+      /const convexReadback = await callBestBottlesConvex\([\s\S]{0,180}"products:getBySku"/,
+    );
+    assert.match(source, /catalogHeroProductGroupSlug/);
+    assert.match(source, /background-qa:pass/);
+    assert.match(source, /canvas-hex:#F5F3EF/);
+    assert.match(source, /products:setProductGroupHeroFromApprovedSku/);
+    assert.match(
+      source,
       /isServiceRoleRequest\s*=\s*isExactConfiguredServiceRoleToken\(token,\s*serviceRoleKey\)/,
     );
     assert.match(source, /await supabase\.auth\.getUser\(token\)/);
@@ -105,6 +113,42 @@ describe("Cylinder Shopify server-side publish guard", () => {
       /const cylinderPublishRequested = syncBestBottlesConvex/,
       "Cylinder detection must not be gated by optional Convex sync",
     );
+  });
+
+  it("uses an explicit guarded replacement RPC for a terminal SKU hero", async () => {
+    const migration = await readFile(
+      new URL(
+        "../../migrations/20260917210000_replace_best_bottles_sku_job_hero.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(migration, /best_bottles_assert_org_member/);
+    assert.match(migration, /background-qa:pass/);
+    assert.match(migration, /canvas-hex:#F5F3EF/);
+    assert.match(migration, /link_best_bottles_generated_image/);
+    assert.match(migration, /approve_best_bottles_reconciled_image/);
+    assert.match(migration, /REVOKE ALL[\s\S]+FROM PUBLIC, anon/i);
+  });
+
+  it("keeps shadow QA advisory in the DB approval gate (policy 2026-07-18)", async () => {
+    // The client rig stopped emitting shadow_qa reports on 2026-07-19; the DB
+    // gate must not demand one or every Cylinder approval fails.
+    const migration = await readFile(
+      new URL(
+        "../../migrations/20260917233000_best_bottles_shadow_evidence_advisory.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(migration, /CREATE OR REPLACE FUNCTION public\.best_bottles_shadow_evidence_passes/);
+    const body = migration.slice(migration.indexOf("AS $$"), migration.indexOf("$$;"));
+    assert.doesNotMatch(body, /p_shadow_qa/, "shadow_qa must not gate approval");
+    assert.doesNotMatch(body, /contact-back-right-v1/, "numeric shadow contract must not gate approval");
+    // Lineage checks that still apply for Cylinder.
+    assert.match(body, /best-bottles-reference-locked-v6\.1/);
+    assert.match(body, /p_shadow_owner = 'model'/);
+    assert.match(body, /p_shadow_topology IS NOT NULL/);
   });
 
   it("stores authorization in a server-only durable single-use table", async () => {

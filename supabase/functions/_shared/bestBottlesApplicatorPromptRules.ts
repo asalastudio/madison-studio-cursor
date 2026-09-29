@@ -59,7 +59,7 @@ export function buildBestBottlesApplicatorPromptRules(
         `exact bottle body, bulb, hose, tassel, cap/collar, trim, ${requiredDipTubeTruth} glass thickness, silhouette, proportions, component relationships, colors, and material identity.`,
       fullVisibility: "Keep the full product visible, including full bulb, hose, and tassel.",
       canvasBounds:
-        "No cap, bulb, hose, bottle base, tassel strands, shadow, detached cap, or tassel end may touch or leave the canvas.",
+        "No cap, bulb, hose, bottle base, tassel strands, shadow, or tassel end may touch or leave the canvas. This is one assembled photograph with no cap-off sidecar.",
       glassMaterialLine: requiredDipTubeGlassLine,
       fitmentMaterialLine:
         "- Cap/collar/metal: preserve the exact bulb-sprayer collar, connector rings, trim finish, visible internal dip tube connection, and cap state from Image 1; polish metal with nuanced black/white reflection-card gradients, realistic depth, and no broad CGI stripe.",
@@ -80,7 +80,7 @@ export function buildBestBottlesApplicatorPromptRules(
         `exact bottle body, bulb, hose, cap/collar, trim, ${requiredDipTubeTruth} glass thickness, silhouette, proportions, component relationships, colors, and material identity. No tassel may be added unless Image 1 shows one.`,
       fullVisibility: "Keep the full product visible, including full bulb and hose.",
       canvasBounds:
-        "No cap, bulb, hose, bottle base, shadow, detached cap, or product edge may touch or leave the canvas.",
+        "No cap, bulb, hose, bottle base, shadow, or product edge may touch or leave the canvas. This is one assembled photograph with no cap-off sidecar.",
       glassMaterialLine: requiredDipTubeGlassLine,
       fitmentMaterialLine:
         "- Cap/collar/metal: preserve the exact bulb-sprayer collar, connector rings, trim finish, visible internal dip tube connection, and cap state from Image 1; polish metal with nuanced black/white reflection-card gradients, realistic depth, and no broad CGI stripe.",

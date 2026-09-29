@@ -40,6 +40,7 @@ import {
 import { assemblePrompt } from "@/lib/product-image/promptAssembler";
 import type { ApplicatorBucket, Product } from "@/integrations/convex/bestBottles";
 import { applicatorRequiresTubeBody } from "@/config/applicatorShapeDescriptors";
+import { buildFitmentSlotId } from "@/lib/paperDoll/componentRegistry";
 import { useAssembledPromptGeneration } from "@/hooks/useAssembledPromptGeneration";
 import { useBackgroundRemoval } from "@/hooks/useBackgroundRemoval";
 import {
@@ -72,6 +73,9 @@ interface Slot {
   /** For fitment slots, the applicator name + cap color. */
   applicator?: string;
   capColor?: string | null;
+  neckThreadSize?: string | null;
+  /** Cap presentation state — part of physical fitment identity. */
+  capState?: string | null;
   /**
    * For body slots only: which body variant.
    *  - "no-tube":  used by closures (Reducer, Stopper, Cap, Over Cap)
@@ -194,17 +198,30 @@ function buildSlots(
     const seen = new Set<string>();
     const slots: Slot[] = [];
     for (const variant of bucket.variants) {
-      const key = `${bucket.applicator}__${variant.capColor ?? "unspec"}`;
+      // Catalog products are assembled/cap-on unless a cap-off asset is the only image.
+      const capState =
+        variant.imageUrlCapOff && !variant.imageUrl
+          ? "cap-off-applicator-exposed"
+          : "assembled-cap-on";
+      const key = buildFitmentSlotId({
+        applicator: bucket.applicator,
+        neckThreadSize: variant.neckThreadSize,
+        capColor: variant.capColor,
+        capState,
+      });
       if (seen.has(key)) continue;
       seen.add(key);
+      const neckLabel = variant.neckThreadSize?.trim() || "neck unspec";
       slots.push({
-        id: `fitment-${bucket.applicator}-${variant.capColor ?? "unspec"}`,
+        id: key,
         kind: "fitment",
         label: variant.capColor ?? "Unspecified",
-        sublabel: bucket.applicator,
+        sublabel: `${bucket.applicator} · ${neckLabel} · ${capState}`,
         sourceProduct: variant,
         applicator: bucket.applicator,
         capColor: variant.capColor,
+        neckThreadSize: variant.neckThreadSize,
+        capState,
       });
     }
     return { applicator: bucket.applicator, slots };
@@ -612,17 +629,35 @@ export function ComponentsTabPanel({
               (classification.applicator ?? "").toLowerCase(),
           );
           if (matchingApp) {
-            targetSlot = classification.capColor
-              ? matchingApp.slots.find(
-                (slot) =>
-                  (slot.capColor ?? "").toLowerCase() ===
-                  (classification.capColor ?? "").toLowerCase(),
-                )
-              : matchingApp.slots.length === 1
-                ? matchingApp.slots[0]
-                : undefined;
+            const colorMatched = matchingApp.slots.filter((slot) => {
+              if (!classification.capColor) return true;
+              return (
+                (slot.capColor ?? "").toLowerCase() ===
+                (classification.capColor ?? "").toLowerCase()
+              );
+            });
+            const neckMatched =
+              classification.neckThreadSize
+                ? colorMatched.filter(
+                    (slot) =>
+                      (slot.neckThreadSize ?? "")
+                        .toLowerCase()
+                        .replace(/[.\s_/]+/g, "-") ===
+                      classification.neckThreadSize!
+                        .toLowerCase()
+                        .replace(/[.\s_/]+/g, "-"),
+                  )
+                : colorMatched;
+            targetSlot =
+              neckMatched.length === 1
+                ? neckMatched[0]
+                : colorMatched.length === 1
+                  ? colorMatched[0]
+                  : matchingApp.slots.length === 1
+                    ? matchingApp.slots[0]
+                    : undefined;
             unmatchedReason = classification.capColor
-              ? `Classified as ${classification.applicator} / ${classification.capColor}, but this cohort only has: ${matchingApp.slots.map((s) => s.capColor ?? "Unspecified").join(", ")}.`
+              ? `Classified as ${classification.applicator} / ${classification.capColor}${classification.neckThreadSize ? ` / ${classification.neckThreadSize}` : ""}, but this cohort only has: ${matchingApp.slots.map((s) => `${s.capColor ?? "Unspecified"} · ${s.neckThreadSize ?? "neck unspec"}`).join(", ")}.`
               : `Classified as ${classification.applicator}, but no cap color was found and this cohort has ${matchingApp.slots.length} colorways. Include a color token like MBLK, MSLV, MBLU, MCPR, MGLD, SBLK, SGLD, or SSLV.`;
           } else {
             unmatchedReason = `Classified as ${classification.applicator}, but this cohort has no ${classification.applicator} section.`;

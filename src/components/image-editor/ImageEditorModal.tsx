@@ -15,7 +15,7 @@
  * Keeps users in context by overlaying rather than navigating away.
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -76,6 +76,47 @@ import {
 // Background Removal
 import { BackgroundRemovalTab } from "./BackgroundRemovalTab";
 
+// Best Bottles scale card
+import { ScaleCardOverlay } from "@/components/best-bottles/ScaleCardOverlay";
+import { resolveScaleCardOverlayModel } from "@/lib/bestBottlesScaleCardOverlay";
+import type { FramingDecision } from "@/lib/product-image/framingQa";
+import type { BestBottlesScaleVerdict } from "@/lib/bestBottlesScaleVerdict";
+
+export interface ImageEditorProductContext {
+  name: string;
+  itemName?: string;
+  family?: string;
+  bottleCollection?: string;
+  graceSku?: string;
+  websiteSku?: string;
+  details?: string[];
+  capacityMl?: number | null;
+  /** Catalog glass height (no cap) — drives the scale-card target rim. */
+  heightWithoutCap?: string | number | null;
+  /** Catalog assembled height (with cap). */
+  heightWithCap?: string | number | null;
+  /** Convex applicator value (roller, sprayer, cap/closure…). */
+  applicator?: string | null;
+}
+
+/**
+ * Scale-card evidence carried from the Library's reconciliation row so the
+ * editor can draw the same instrument Studio uses and show PASS/FAIL.
+ */
+export interface ImageEditorScaleCardContext {
+  /** Rigged glass height as a % of canvas height (framing QA measurement). */
+  measuredGlassHeightPct?: number | null;
+  canvasHeightPx?: number | null;
+  measuredShoulderYPx?: number | null;
+  targetShoulderYPx?: number | null;
+  shoulderDeltaPct?: number | null;
+  shoulderConfidence?: number | null;
+  /** Framing QA decision recorded on the reconciliation row. */
+  framingDecision?: FramingDecision | null;
+  /** Honest, pixel-grounded verdict resolved by the Library. */
+  verdict?: BestBottlesScaleVerdict | null;
+}
+
 export interface ImageEditorImage {
   id: string;
   imageUrl: string;
@@ -87,6 +128,8 @@ export interface ImageEditorImage {
   createdAt?: string;
   sessionName?: string;
   libraryTags?: string[];
+  product?: ImageEditorProductContext;
+  scaleCard?: ImageEditorScaleCardContext;
 }
 
 export interface ImageEditorModalProps {
@@ -161,6 +204,71 @@ export function ImageEditorModal({
     ctaText: "",
   });
 
+  // Scale card (Best Bottles catalog heroes). The model needs a SKU glass
+  // height to draw the target rim; the measured line + verdict come from
+  // the reconciliation framing QA carried in `image.scaleCard`.
+  const scaleCardModel = useMemo(() => {
+    if (!image) return null;
+    const model = resolveScaleCardOverlayModel({
+      tags: image.libraryTags ?? [],
+      family: image.product?.family ?? null,
+      bottleCollection: image.product?.bottleCollection ?? null,
+      graceSku: image.product?.graceSku ?? null,
+      websiteSku: image.product?.websiteSku ?? null,
+      itemName: image.product?.itemName ?? image.product?.name ?? null,
+      capacityMl: image.product?.capacityMl ?? null,
+      heightWithoutCap: image.product?.heightWithoutCap ?? null,
+      heightWithCap: image.product?.heightWithCap ?? null,
+      applicator: image.product?.applicator ?? null,
+      measuredGlassHeightPct: image.scaleCard?.measuredGlassHeightPct ?? null,
+      canvasHeightPx: image.scaleCard?.canvasHeightPx ?? null,
+      measuredShoulderYPx: image.scaleCard?.measuredShoulderYPx ?? null,
+      shoulderConfidence: image.scaleCard?.shoulderConfidence ?? null,
+    });
+    return model.shoulder || model.target ? model : null;
+  }, [image]);
+  const [showScaleCard, setShowScaleCard] = useState(false);
+  const scaleVerdict = image?.scaleCard?.verdict ?? null;
+
+  // Overlay must align to the rendered <img> box (object-contain letterboxes
+  // inside the flex preview), so measure it and re-measure on resize.
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const previewImgRef = useRef<HTMLImageElement>(null);
+  const [imgBox, setImgBox] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const measureImgBox = useCallback(() => {
+    const container = previewContainerRef.current;
+    const img = previewImgRef.current;
+    if (!container || !img || !img.complete || img.naturalWidth === 0) {
+      setImgBox(null);
+      return;
+    }
+    // Layout metrics are relative to the positioned preview container and are
+    // unaffected by Framer Motion's scale-in transform. getBoundingClientRect
+    // measures the animated viewport box and previously froze an almost-square
+    // overlay over a true 10:11 image.
+    setImgBox({
+      top: img.offsetTop,
+      left: img.offsetLeft,
+      width: img.offsetWidth,
+      height: img.offsetHeight,
+    });
+  }, []);
+  useEffect(() => {
+    if (!isOpen) return;
+    measureImgBox();
+    const container = previewContainerRef.current;
+    const img = previewImgRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => measureImgBox());
+    observer.observe(container);
+    // The image can resize without the container resizing when verdict copy,
+    // metadata, or responsive layout changes the available preview height.
+    // Observe the rendered image itself so the overlay never retains stale
+    // dimensions and shifts the 91% baseline upward.
+    if (img) observer.observe(img);
+    return () => observer.disconnect();
+  }, [isOpen, measureImgBox, image?.id, selectedVariationId, activeTab]);
+
   // Reset state when image changes
   useEffect(() => {
     if (image) {
@@ -168,6 +276,8 @@ export function ImageEditorModal({
       setVariations([]);
       setSelectedVariationId(null);
       setActiveTab("refine");
+      // Catalog heroes open with the instrument on so scale is never a guess.
+      setShowScaleCard(source === "library" && Boolean(image.scaleCard));
       // Reset ad config
       setAdConfig({
         preset: AD_LAYOUT_PRESETS[0],
@@ -553,10 +663,78 @@ export function ImageEditorModal({
             <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_320px] min-h-0 overflow-hidden">
           {/* Main Image Preview */}
             <div className="flex flex-col p-3 md:p-6 bg-[var(--darkroom-bg)] md:border-r border-b md:border-b-0 border-[rgba(184,149,106,0.1)] overflow-hidden min-h-[200px] md:min-h-0">
+            {scaleCardModel && (
+              <div className="mb-2" data-testid="scale-card-controls">
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowScaleCard((value) => !value)}
+                    aria-pressed={showScaleCard}
+                    className={cn(
+                      "rounded-md border px-2.5 py-1 text-[11px] font-medium tracking-wide transition-colors",
+                      showScaleCard
+                        ? "border-[rgba(184,149,106,0.6)] bg-[rgba(184,149,106,0.18)] text-[var(--darkroom-text)]"
+                        : "border-[rgba(184,149,106,0.25)] text-[rgba(245,240,230,0.6)] hover:text-[var(--darkroom-text)]",
+                    )}
+                  >
+                    {scaleCardModel.mode === "shoulder-lock" ? "Shoulder lock" : "Scale card"}{" "}
+                    {showScaleCard ? "on" : "off"}
+                  </button>
+                  <span
+                    data-testid="scale-card-verdict"
+                    data-verdict={scaleVerdict?.verdict ?? "unknown"}
+                    title={scaleVerdict?.summary ?? "No reliable scale verdict for this image"}
+                    className={cn(
+                      "rounded-md border px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.12em]",
+                      scaleVerdict?.verdict === "pass" &&
+                        "border-emerald-400/70 bg-emerald-950/80 text-emerald-100",
+                      scaleVerdict?.verdict === "fail" &&
+                        "border-red-400/70 bg-red-950/80 text-red-100",
+                      (scaleVerdict?.verdict === "unverified" || !scaleVerdict) &&
+                        "border-amber-400/70 bg-amber-950/80 text-amber-100",
+                    )}
+                  >
+                    {scaleVerdict?.label ?? "Scale unverified"}
+                    {scaleVerdict?.visibleHeightPct != null
+                      ? ` · ${scaleVerdict.visibleHeightPct.toFixed(1)}% visible`
+                      : ""}
+                    {scaleVerdict?.scaleDeltaMm != null
+                      ? ` · HΔ ${scaleVerdict.scaleDeltaMm.toFixed(1)} mm`
+                      : ""}
+                    {scaleVerdict?.diameterDeltaMm != null
+                      ? ` · ØΔ ${scaleVerdict.diameterDeltaMm.toFixed(1)} mm`
+                      : ""}
+                    {scaleVerdict?.assembledDeltaMm != null
+                      ? ` · AΔ ${scaleVerdict.assembledDeltaMm.toFixed(1)} mm`
+                      : ""}
+                  </span>
+                </div>
+                {scaleVerdict && (
+                  <p
+                    data-testid="scale-card-verdict-detail"
+                    className={cn(
+                      "mt-1 text-right text-[10px] leading-snug",
+                      scaleVerdict.verdict === "fail"
+                        ? "text-red-300"
+                        : scaleVerdict.verdict === "pass"
+                          ? "text-emerald-300"
+                          : "text-amber-300",
+                    )}
+                  >
+                    {scaleVerdict.summary}
+                    {scaleVerdict.calibrationVersion
+                      ? ` · ${scaleVerdict.calibrationVersion}`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            )}
             <motion.div
+                ref={previewContainerRef}
                 className="relative flex-1 flex items-center justify-center bg-[var(--darkroom-bg)] rounded-xl overflow-hidden min-h-0"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
+              onAnimationComplete={measureImgBox}
             >
               {/* Show Ad Overlay when in ad tab */}
               {activeTab === "ad" && displayedImage ? (
@@ -572,11 +750,27 @@ export function ImageEditorModal({
                 <>
                 {displayedImage && (
               <img
+                ref={previewImgRef}
                 src={displayedImage}
-                alt="Selected image"
+                alt={image.product?.name || image.sessionName || "Selected image"}
                   className="max-w-full max-h-full object-contain rounded-lg"
+                  onLoad={measureImgBox}
               />
                 )}
+
+              {/* Scale-card overlay, pinned to the rendered image box */}
+              {scaleCardModel && showScaleCard && imgBox && activeTab !== "ad" && (
+                <div
+                  className="pointer-events-none absolute"
+                  style={{ top: imgBox.top, left: imgBox.left, width: imgBox.width, height: imgBox.height }}
+                >
+                  <ScaleCardOverlay
+                    model={scaleCardModel}
+                    density="full"
+                    verdict={scaleVerdict}
+                  />
+                </div>
+              )}
 
               {/* Text Overlay Preview (if set) */}
               {textOverlay.headline && (
@@ -601,6 +795,28 @@ export function ImageEditorModal({
                 </>
               )}
             </motion.div>
+
+              {image.product && (
+                <div className="mt-3 md:mt-4 rounded-lg border border-[rgba(184,149,106,0.16)] bg-[var(--darkroom-surface)] px-3 py-2.5">
+                  <div className="text-[13px] font-medium leading-snug text-[var(--darkroom-text)]">
+                    {image.product.name}
+                  </div>
+                  {(image.product.graceSku || image.product.websiteSku) && (
+                    <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 font-mono text-[11px] text-[rgba(245,240,230,0.62)]">
+                      {image.product.graceSku && <span>{image.product.graceSku}</span>}
+                      {image.product.websiteSku &&
+                        image.product.websiteSku !== image.product.graceSku && (
+                          <span>Website {image.product.websiteSku}</span>
+                        )}
+                    </div>
+                  )}
+                  {image.product.details && image.product.details.length > 0 && (
+                    <div className="mt-1 text-[11px] leading-relaxed text-[rgba(245,240,230,0.52)]">
+                      {image.product.details.join(" · ")}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Quick Actions - Stack on mobile, row on desktop */}
               <div className="grid grid-cols-3 md:flex md:flex-wrap md:justify-center gap-2 md:gap-3 mt-3 md:mt-4">

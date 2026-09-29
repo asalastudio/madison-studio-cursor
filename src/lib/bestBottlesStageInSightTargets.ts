@@ -60,7 +60,8 @@ export interface StageInSightGenerationTargets {
   rows: StageInSightGenerationTargetRow[];
 }
 
-const TARGET_FAMILY_INDEX = new Map(
+// Keyed by `string`: membership is tested against raw audit-row family names.
+const TARGET_FAMILY_INDEX = new Map<string, number>(
   STAGE_IN_SIGHT_GENERATION_FAMILY_TARGETS.map((target, index) => [
     target.family,
     index,

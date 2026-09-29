@@ -123,6 +123,34 @@ function extractFramingProfile(prompt: string): string | null {
   return prompt.slice(start, end).trim();
 }
 
+export function replaceBestBottlesPrecompiledFramingProfile(
+  prompt: string,
+  authoritativeCanvasLines: readonly string[],
+): string {
+  const start = findFramingProfileIndex(prompt);
+  if (start < 0 || authoritativeCanvasLines.length === 0) return prompt;
+
+  const remaining = prompt.slice(start + 1);
+  const nextBlockIndex = findFirstBlockIndex(remaining, [
+    "GROUNDING SHADOW — MODEL OWNED:",
+    ...DEPRECATED_CANON_BLOCK_HEADERS,
+  ]);
+  const end =
+    nextBlockIndex < 0 ? prompt.length : start + 1 + nextBlockIndex;
+  const replacement = [
+    "CANVAS AND COMPOSITION — SCALE-CARD AUTHORITY:",
+    ...authoritativeCanvasLines,
+  ].join("\n");
+
+  return [
+    prompt.slice(0, start).trimEnd(),
+    replacement,
+    prompt.slice(end).trimStart(),
+  ]
+    .filter((part) => part.length > 0)
+    .join("\n\n");
+}
+
 export function ensureBestBottlesStudioDirection(prompt: string): string {
   const framingProfile = extractFramingProfile(prompt);
   const framingIndex = findFramingProfileIndex(prompt);

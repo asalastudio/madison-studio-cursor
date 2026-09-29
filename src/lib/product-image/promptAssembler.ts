@@ -36,7 +36,9 @@ import {
 } from "./productHubPromptInjector";
 import {
   buildImposedRigBlock,
+  getFamilyRigForProduct,
   hasFamilyRig,
+  isCylinderFamilyAlias,
   type RigCapState,
 } from "./familyRig";
 
@@ -686,11 +688,36 @@ export function assemblePrompt(input: AssemblePromptInput): AssembledPrompt {
   // The rig is a catalog-grid construct: impose it only for the grid-card PDP
   // master presets, not editorial / scene-flexible presets (which keep their
   // own freeform composition language).
+  // Pass the product-resolved rig so Cylinder uses the Sep 7 shoulder lock
+  // (and other families keep SCALE-CARD BARE GLASS) instead of the family
+  // default fillHeightPct hint alone.
+  const productRig = hasFamilyRig(input.sku.family)
+    ? getFamilyRigForProduct({
+        family: input.sku.family ?? null,
+        bottleCollection: input.sku.bottleCollection ?? null,
+        category: input.sku.category ?? null,
+        graceSku: input.sku.graceSku ?? null,
+        sku: input.sku.graceSku ?? null,
+        websiteSku: input.sku.websiteSku ?? null,
+        itemName: input.sku.itemName ?? null,
+        name: input.sku.itemName ?? null,
+        itemDescription: input.sku.itemDescription ?? null,
+        applicator: input.sku.applicator ?? null,
+        capacity: input.sku.capacity ?? null,
+        capacityMl: input.sku.capacityMl ?? null,
+        heightWithCap: input.sku.heightWithCap ?? null,
+        heightWithoutCap: input.sku.heightWithoutCap ?? null,
+        diameter: input.sku.diameter ?? null,
+        capState: rigCapState,
+        requireScaleCard: isCylinderFamilyAlias(input.sku.family),
+      })
+    : null;
   const rigBlock =
     isBestBottlesGridHeroPreset(preset) && hasFamilyRig(input.sku.family)
       ? buildImposedRigBlock({
           family: input.sku.family ?? "",
           capState: rigCapState,
+          rig: productRig,
         })
       : null;
   const rigImposed = rigBlock !== null;

@@ -54,7 +54,19 @@ function looksLikeCapOffOrDetached(productContext?: BestBottlesFamilyRigProductC
   );
 }
 
+function isAssembledOnlyVintageBulb(productContext?: BestBottlesFamilyRigProductContext | null): boolean {
+  const sku = textValue(productContext?.sku).toUpperCase();
+  const websiteSku = textValue(productContext?.websiteSku);
+  const text = contextText(productContext);
+  if (/(?:^|-)ASP(?:-|$)/.test(sku) || /(?:^|-)AST(?:-|$)/.test(sku)) return true;
+  if (/ansp/i.test(websiteSku) || /antiquespray/i.test(text)) return true;
+  if (/(?:vintage|antique).*(?:bulb|spray)/.test(text)) return true;
+  if (/\bbulb sprayer\b/.test(text)) return true;
+  return /\btassel\b/.test(text) && /\b(?:bulb|antique|vintage|sprayer)\b/.test(text);
+}
+
 function resolveCapState(productContext?: BestBottlesFamilyRigProductContext | null): RigCapState {
+  if (isAssembledOnlyVintageBulb(productContext)) return "assembled";
   const capState = textValue(productContext?.capState).toLowerCase();
   const mode = textValue(productContext?.mode).toLowerCase();
   if (
@@ -96,6 +108,18 @@ const LEGACY_CANVAS_COMPOSITION_LINES = [
   "- Fixed-family QA target: centerline drift <= 10 px, baseline drift <= 12 px, and product-height drift <= 2% versus the attached reference or family master. Do not exceed these tolerances.",
   "- Do not recompose or normalize the product to a new fill percentage. The image must read like the same product photo professionally retouched.",
 ];
+
+export function buildBestBottlesCapStatePromptLine(
+  productContext: BestBottlesFamilyRigProductContext | null | undefined,
+  rigImposed: boolean,
+): string {
+  if (isAssembledOnlyVintageBulb(productContext)) {
+    return "- This is one complete assembled image. The vintage style bulb and any tassel stay attached. There is no cap-off state, no detached cap, and no sidecar object.";
+  }
+  return rigImposed
+    ? "- Preserve the exact cap/component state and visible components from Image 1. If a detached cap or over-cap is present, keep the cap-off/exploded relationship but place it according to the imposed rig baseline, gap, and spacing. For roll-on references, the exposed roller ball plug stays centered on the bottle neck and the detached over-cap stays upright to the right."
+    : "- Preserve the exact cap/component state from Image 1: if an actuator/nozzle or roller ball is exposed and a detached cap is visible beside the bottle, keep both exactly as photographed. Do not add, remove, close, or relocate the cap.";
+}
 
 export function buildBestBottlesFamilyRigPromptAdjustment(
   productContext?: BestBottlesFamilyRigProductContext | null,
@@ -148,6 +172,11 @@ export function buildBestBottlesFamilyRigPromptAdjustment(
       "- Catalog grid standard: render this as part of a professional e-commerce product family grid, not as an isolated creative hero. Keep the stable invisible shelf line and fixed camera system defined by the imposed rig.",
       "- Cap/closure/roller/sprayer color, finish, or cap height may change only the purchasable component. It must not change product body identity, camera angle, component relationships, or the imposed rig placement.",
       "- Applicator type is not cap state: roll-on, roller-ball, sprayer, pump, and closure SKUs remain assembled/cap-on unless product context or reference filename explicitly says cap-off, detached, exploded, over-cap, loose cap, cap beside, or cap to the right.",
+      ...(isAssembledOnlyVintageBulb(productContext)
+        ? [
+            "- Vintage style bulb and vintage style bulb tassel are one complete assembled image. The bulb, hose, and tassel stay attached. There is no cap-off state, no detached cap, and no sidecar object.",
+          ]
+        : []),
       "- Do not preserve the reference image's flat lighting, pure-white background, weak shadow, or low-end capture finish. Re-stage the same locked product as a luxury catalog photograph on the imposed rig.",
     ],
     canvasCompositionLines: [

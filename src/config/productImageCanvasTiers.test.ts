@@ -147,6 +147,33 @@ describe("Best Bottles product image canvas tiers", () => {
     );
   });
 
+  it("keeps vintage bulb and tassel SKUs on the assembled grid card, never cap-off sidecar", () => {
+    assert.equal(
+      getBestBottlesCatalogPresetIdForProduct({
+        graceSku: "GB-CYL-CLR-50ML-ASP-BLK",
+        websiteSku: "GBCyl50AnSpBlk",
+        family: "Cylinder",
+        bottleCollection: "Cylinder",
+        itemName: "50 ml Clear Cylinder with Vintage Style Bulb",
+        applicator: "Vintage style bulb",
+        capacityMl: 50,
+      }),
+      "grid-card-2000x2200",
+    );
+    assert.equal(
+      getBestBottlesCatalogPresetIdForProduct({
+        graceSku: "GB-CYL-CLR-50ML-AST-BLK",
+        websiteSku: "GBCyl50AnSpTslBlk",
+        family: "Cylinder",
+        bottleCollection: "Cylinder",
+        itemName: "50 ml Clear Cylinder with Vintage Style Bulb Tassel",
+        applicator: "Vintage style bulb tassel",
+        capacityMl: 50,
+      }),
+      "grid-card-2000x2200",
+    );
+  });
+
   it("exports exactly four production canvas tiers", () => {
     assert.deepEqual(
       BEST_BOTTLES_CANVAS_TIERS.map((tier) => tier.id),

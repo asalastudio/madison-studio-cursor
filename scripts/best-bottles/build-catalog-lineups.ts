@@ -145,7 +145,7 @@ async function renderLineup(
       width: canvasWidth,
       height: canvasHeight,
       channels: 4,
-      background: "#F6EFE8",
+      background: "#F5F3EF",
     },
   })
     .composite([

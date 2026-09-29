@@ -37,6 +37,19 @@ describe("family batch production cutover source contract", () => {
     );
   });
 
+  it("persists shoulder detector evidence and leaves shoulder misses blocking", () => {
+    assert.match(source, /preTransformShoulderYPx: rigged\.preTransformShoulderYPx/);
+    assert.match(source, /detectedShoulderYPx: rigged\.detectedShoulderYPx/);
+    assert.match(source, /targetShoulderYPx: rigged\.targetShoulderYPx/);
+    assert.match(source, /shoulderDeltaPct: rigged\.shoulderDeltaPct/);
+    assert.match(source, /shoulderConfidence: rigged\.shoulderConfidence/);
+    assert.doesNotMatch(
+      source,
+      /blockingQaIssues[\s\S]{0,300}shoulder landmark/i,
+      "Cylinder shoulder-landmark failures must reach the retry/reject path",
+    );
+  });
+
   it("routes shadow-only misses to review instead of throwing a systemic generation failure", () => {
     assert.doesNotMatch(source, /V6\.1 shadow QA did not pass/);
     assert.match(source, /shadowReviewPending/);

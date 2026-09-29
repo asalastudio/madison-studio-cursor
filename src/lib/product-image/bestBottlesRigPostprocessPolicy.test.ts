@@ -28,6 +28,31 @@ describe("shouldRunBestBottlesRigPostprocess", () => {
     assert.deepEqual(decision, { run: false, reason: "non-canonical-master-canvas" });
   });
 
+  it("runs the rig for the explicit topology-wide preset", () => {
+    const decision = shouldRunBestBottlesRigPostprocess({
+      libraryTags: ["brand:best-bottles", "studio-master"],
+      family: "Cylinder",
+      presetId: "grid-card-wide-low-1536x1024",
+      aspectRatio: "3:2",
+      canvas: { widthPx: 1536, heightPx: 1024 },
+      sceneOverlay: undefined,
+    });
+
+    assert.deepEqual(decision, { run: true, reason: "rig-family-canonical-master" });
+  });
+
+  it("does not treat a generic landscape preset as a governed wide master", () => {
+    const decision = shouldRunBestBottlesRigPostprocess({
+      libraryTags: ["brand:best-bottles", "studio-master"],
+      family: "Cylinder",
+      aspectRatio: "3:2",
+      canvas: { widthPx: 1536, heightPx: 1024 },
+      sceneOverlay: undefined,
+    });
+
+    assert.deepEqual(decision, { run: false, reason: "non-canonical-master-canvas" });
+  });
+
   it("still runs for angle overlays when the canvas remains the canonical PDP master", () => {
     const decision = shouldRunBestBottlesRigPostprocess({
       libraryTags: ["brand:best-bottles", "studio-master", "angle"],

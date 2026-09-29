@@ -1,0 +1,79 @@
+# Assembled: dropper seated in the bottle, no sidecar.
+# SKU GB-SLM-CLR-30ML-DRP-CPR · Madison image dde0f8c9-c903-467e-ad47-fe3f1bca0c9d · rendered 2026-09-20T02:43:11.910169+00:00
+# This is generated_images.final_prompt — the text the image model actually received,
+# AFTER the edge function replaced the client framing block. Verbatim below.
+
+You are enhancing the attached product reference image into a premium photorealistic ecommerce product photograph.
+
+The reference image is the source of truth for product identity and geometry. Preserve the exact bottle silhouette, proportions, neck, threads, roller ball, sprayer, pump, collar, cap, detached cap, tassel, applicator, and all hardware exactly as shown. Do not redesign, recolor, resize, reposition, duplicate, remove, or add any product component.
+
+This is not a new product design. It is a photographic material-and-lighting enhancement of the existing product.
+
+PRIMARY GOAL:
+Make the clear glass look like real luxury product-photography glass: transparent, colorless, optically clean, premium, dimensional, and specular.
+
+The bottle is empty clear glass. There is no liquid, tint, frosting, haze, cloudy white fill, residue, bubbles, dust, speckles, noisy sidewalls, or insert inside the bottle. The background should be visible through the glass with natural refraction and slight optical displacement.
+
+GLASS APPEARANCE:
+Render the glass using believable real-studio optical behavior:
+
+- Crisp transparent outer edges.
+- Visible wall thickness at the sidewalls, shoulder, neck, and base.
+- Clean rim glints on the lip, shoulder, threads, and base rings.
+- Subtle edge density where the glass overlaps itself.
+- Natural refraction through the front and back walls.
+- The rear wall of the bottle should be faintly visible through the front wall.
+- The internal dip tube, if present in the reference, should remain faintly visible through the glass and slightly refracted.
+- The base should show clear curved glass geometry, transparent thickness, and crisp circular base rings.
+
+The glass should be defined by clean studio-card reflections and natural specular behavior, not by drawn lines, artificial parallel rails, painted texture, cloudy fill, or sidewall noise. Keep the mid-body mostly transparent and quiet while preserving crisp rim, shoulder, thread, edge, and base definition.
+
+CYLINDER V6.1 BONE CANVAS CONTRACT: Render the output on the Best Bottles Bone canvas #F5F3EF at 2080 × 2288. Keep this canvas color flat, seamless, and texture-free; this contract applies to reviewed Cylinder-family generation context.
+
+CANVAS AND COMPOSITION — SCALE-CARD AUTHORITY:
+- Canvas: exact 2080 x 2288, 10:11 portrait PDP master.
+IMPOSED STUDIO RIG - UNIVERSAL PDP (COMPOSITION AUTHORITY, OVERRIDES REFERENCE FRAMING):
+- This rig defines composition. It SUPERSEDES any earlier instruction to preserve, match, or stay within tolerance of the reference image's centerline, baseline, crop, footprint, framing, padding, or scale.
+- Still locked to the reference (do NOT change these): product geometry, silhouette, proportions, height-to-width ratio, colors, component shapes, cap-on vs cap-off state, number of components, and material identity. The reference governs WHAT the product is; this rig governs WHERE and HOW it sits on the canvas.
+- Baseline: seat the bottle base's visible bottom contact pixels at 8-10% up from the canvas bottom. Every Universal PDP SKU shares this one horizontal shelf line. Do not lift the bottle base above this shelf line or let it float in the frame.
+- Place the assembled bottle centered on the canvas vertical centerline, standing upright on the baseline.
+- Assembled/cap-on means exactly ONE product object: no detached cap, no loose cap beside the bottle, no extra cap-like cylinder, and no duplicate cap shell.
+- CATALOG MEASUREMENTS (Convex product truth): heightWithoutCap = 87 mm; heightWithCap = 109 mm. These millimeters describe the physical bottle. They do not choose the on-canvas percentage.
+- SHOULDER LOCK (shoulder-lock-2026-09-07 · slim:30-standard): seat the glass foot on the shared 91% baseline. The glass shoulder — where the body ends and the neck begins, or where glass meets the cap/collar — MUST land at 48.5% of canvas height above that baseline (42.5% down from the top of the canvas). Every SKU that shares this glass body (Slim 30 ml) uses this same shoulder horizon. Fitments (roller, sprayer, pump, cap) rise above the shoulder by their real physical height; do not scale the bottle to the top of the fitment.
+- Do not use assembled envelope or fitment top as the scale driver.
+- Fitments rise above the locked shoulder by their real physical height. Do not treat the full assembly (glass + cap/applicator) as the scale driver.
+- Surface rule: flat Bone background only. No mirror reflection, no glossy floor, no reflective tabletop, no rectangular studio plate, no inner background rectangle, no visible paper edge, no texture patch, and no second background color.
+- Ecommerce fill is mandatory: the SHOULDER LOCK horizon above must dominate the canvas. Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow).
+- FINAL ALIGNMENT QA: before accepting the image, seat the bottle base and any detached cap bottom on the shared rig baseline; no sibling variant may float higher, sink lower, or use a different floor line.
+- Same fixed studio rig for the whole family: identical camera distance, lens, optical compression, baseline, and centerline. Only the purchasable component differences change between siblings.
+- Do not treat the uploaded reference canvas as the placement lock. The imposed studio rig sets centerline, baseline, product scale, crop, and placement.
+- Do not perform an editorial recomposition outside the rig. The image must read like the same product professionally retouched and placed on the fixed family studio system.
+
+GROUNDING SHADOW — MODEL OWNED:
+The bottle stands on a very subtle, light, softly feathered grounded shadow.
+Barely there — like quiet natural studio light. No hard edges, no long casts, no reflections, no floor plane.
+- Keep all physical proportions locked to the reference; this framing profile controls only placement, scale on canvas, baseline, centering, and grounding shadow.
+
+STUDIO DIRECTION:
+Strict studio-direction refinement for restrained premium ecommerce photography:
+Use the restrained studio product-photography sensibility associated with Kinfolk and Aesop only as a mood reference: quiet premium lighting, clean restraint, and a subtle dimensional contact shadow.
+This is not lifestyle photography. Do not add props, labels, packaging, typography, scenes, brand marks, retail environments, Aesop-style product design, or any brand-specific asset.
+The catalog contract remains absolute: preserve the exact 2080x2288 canvas, product fill-height target, shared baseline, centerline, crop, product scale, detached-cap sidecar position, geometry, color, material, and component placement.
+The declared model-owned contact shadow is the sole grounding shadow; do not add or alter any second shadow, floor plane, reflection, hard cast shadow, smear, horizon, vignette, or background texture.
+Preserve the photographed surface texture, translucency, edge density, tonal variation, highlights, and imperfections of every cap, actuator, collar, fitment, and detached sidecar exactly as shown in the Product Reference. Studio direction may change only the illumination falling on those components, never their material finish or surface character.
+The attached Product Reference remains the source of truth. Changes are limited to scene lighting, the specified glass treatment, the flat Bone background, and contact shadow realism.
+
+FINAL V2 STUDIO CHECK:
+This v2 studio direction is the final controlling instruction for visual style and finish. Do not apply any older Best Bottles parchment, darkroom, paper-doll, visual-squad, generic ecommerce, or post-generation prompt language after this point.
+Only the reference identity lock, essential material truth, and resolved Madison framing contract are allowed to constrain it.
+Respect the resolved family framing measurements while making the photograph feel like the approved v2 studio direction.
+The resolved Cylinder V6.1 model-owned contact-shadow contract does not weaken product identity, geometry, material, canvas, or framing authority.
+
+VISUAL CALIBRATION TARGET — best-bottles-pdp-v2.
+Secondary reference image clear-v3-e2bdaaa1 is STYLE-ONLY.
+Match the approved target's clear-glass wall definition, edge density, refraction, specular rhythm, material separation, and premium glass finish.
+Do not use the secondary reference to recolor the product or any component; product color remains controlled only by the primary Product Reference.
+Render the final canvas in the approved warm tone #F5F3EF and match the reference's refined natural contact/drop shadow: local grounding, soft feathered falloff, restrained spread, and no pasted-on or floating appearance.
+Do not copy the secondary reference's silhouette, bottle family, closure, applicator, scale, crop, geometry, composition, component design, label, typography, brand, or scene.
+The primary Product Reference is the sole authority for product identity, geometry, component count, closure state, scale relationships, centerline, and baseline.
+COMPOSITION SAFETY: render exactly one finished SKU product and only the components physically attached to it in the primary Product Reference. The canvas must contain no detached cap, overcap, bottle, cylinder, accessory, duplicate, ghost object, packaging, prop, or second product anywhere. Never infer or stage a separate object. If a component is absent from the primary Product Reference, it must be absent from the final image.

@@ -53,6 +53,8 @@ export type BestBottlesReferenceLineage = "clean" | "legacy" | "keeper" | "unkno
 
 export const BEST_BOTTLES_LINEAGE_TAG_CLEAN = "reference-lineage:clean" as const;
 export const BEST_BOTTLES_LINEAGE_TAG_LEGACY = "reference-lineage:legacy" as const;
+export const BEST_BOTTLES_LINEAGE_TAG_FLATTENED_SINGLE_SOURCE =
+  "reference-lineage:flattened-single-source" as const;
 const KEEPER_BACKFILL_TAG_PREFIX = "keeper-backfill";
 
 /**
@@ -68,7 +70,12 @@ export function getBestBottlesReferenceLineage(
   let resolved: BestBottlesReferenceLineage = "unknown";
   for (const raw of tags) {
     const tag = String(raw ?? "").trim().toLowerCase();
-    if (tag === BEST_BOTTLES_LINEAGE_TAG_CLEAN) return "clean";
+    if (
+      tag === BEST_BOTTLES_LINEAGE_TAG_CLEAN
+      || tag === BEST_BOTTLES_LINEAGE_TAG_FLATTENED_SINGLE_SOURCE
+    ) {
+      return "clean";
+    }
     if (tag === BEST_BOTTLES_LINEAGE_TAG_LEGACY) resolved = "legacy";
     else if (resolved === "unknown" && tag.startsWith(KEEPER_BACKFILL_TAG_PREFIX)) {
       resolved = "keeper";

@@ -8,6 +8,16 @@ import {
 } from "../_shared/bestBottlesVisualIdentity.ts";
 import { buildShopifyPushDryRunResult } from "../_shared/shopifyPushDryRun.ts";
 import {
+  formatConvexServerError,
+  shouldFallbackCatalogHeroToPrimarySku,
+} from "../_shared/bestBottlesConvexError.ts";
+import {
+  buildStagedUploadsCreateInput,
+  SHOPIFY_GRAPHQL_TIMEOUT_MS,
+  SHOPIFY_SOURCE_IMAGE_TIMEOUT_MS,
+  shouldStageShopifyImageUpload,
+} from "../_shared/shopifyStagedUpload.ts";
+import {
   assertCylinderShopifyPublishAuthorized,
   executeCylinderShopifyGuardedMutation,
   isCylinderProductSku,
@@ -558,7 +568,7 @@ async function loadTrustedShopifyPublishAuthorization(
   if (error) throw new Error(`Shopify publish authorization lookup failed: ${error.message}`);
   if (!data) return null;
 
-  const row = data as ShopifyPublishAuthorizationRow;
+  const row = data as unknown as ShopifyPublishAuthorizationRow;
   return {
     id: row.id,
     purpose: row.purpose,
@@ -781,17 +791,28 @@ async function shopifyGraphql<T>(
   query: string,
   variables: Record<string, unknown>,
 ): Promise<T> {
-  const response = await fetch(
-    `https://${config.shopDomain}/admin/api/${config.apiVersion}/graphql.json`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": config.accessToken,
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://${config.shopDomain}/admin/api/${config.apiVersion}/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": config.accessToken,
+        },
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(SHOPIFY_GRAPHQL_TIMEOUT_MS),
       },
-      body: JSON.stringify({ query, variables }),
-    },
-  );
+    );
+  } catch (error) {
+    const timedOut = error instanceof Error && /abort|timeout/i.test(error.message);
+    throw new Error(
+      timedOut
+        ? `Shopify API timed out after ${SHOPIFY_GRAPHQL_TIMEOUT_MS}ms.`
+        : `Shopify API request failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 
   const text = await response.text();
   let body: ShopifyGraphqlBody<T> = {};
@@ -933,12 +954,114 @@ async function findVariantBySku(config: ShopifyConfig, sku: string): Promise<Sho
   return null;
 }
 
+async function downloadShopifySourceImage(imageUrl: string): Promise<Uint8Array> {
+  let response: Response;
+  try {
+    response = await fetch(imageUrl, {
+      signal: AbortSignal.timeout(SHOPIFY_SOURCE_IMAGE_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const timedOut = error instanceof Error && /abort|timeout/i.test(error.message);
+    throw new Error(
+      timedOut
+        ? `Timed out downloading the Madison source image after ${SHOPIFY_SOURCE_IMAGE_TIMEOUT_MS}ms.`
+        : `Could not download the Madison source image: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!response.ok) {
+    throw new Error(`Could not download the Madison source image (${response.status}).`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function stageShopifyProductImage(
+  config: ShopifyConfig,
+  sku: string,
+  imageUrl: string,
+  bytes: Uint8Array,
+): Promise<string> {
+  const stagedInput = buildStagedUploadsCreateInput({
+    imageUrl,
+    sku,
+    fileSize: bytes.byteLength,
+  });
+  const data = await shopifyGraphql<{
+    stagedUploadsCreate?: {
+      stagedTargets?: Array<{
+        url?: string | null;
+        resourceUrl?: string | null;
+        parameters?: Array<{ name?: string | null; value?: string | null }>;
+      }>;
+      userErrors?: Array<{ field?: string[] | null; message: string }>;
+    };
+  }>(config, `
+    mutation StagedUploadsCreate($input: [StagedUploadInput!]!) {
+      stagedUploadsCreate(input: $input) {
+        stagedTargets {
+          url
+          resourceUrl
+          parameters { name value }
+        }
+        userErrors { field message }
+      }
+    }
+  `, { input: [stagedInput] });
+
+  const stagedErrors = data.stagedUploadsCreate?.userErrors ?? [];
+  if (stagedErrors.length > 0) {
+    throw new Error(`Shopify staged upload failed: ${userErrorMessage(stagedErrors)}`);
+  }
+  const target = data.stagedUploadsCreate?.stagedTargets?.[0];
+  if (!target?.url || !target.resourceUrl) {
+    throw new Error("Shopify staged upload did not return a resource URL.");
+  }
+
+  const form = new FormData();
+  for (const parameter of target.parameters ?? []) {
+    if (parameter.name && parameter.value != null) {
+      form.append(parameter.name, parameter.value);
+    }
+  }
+  form.append(
+    "file",
+    new Blob([bytes], { type: stagedInput.mimeType }),
+    stagedInput.filename,
+  );
+
+  let uploadResponse: Response;
+  try {
+    uploadResponse = await fetch(target.url, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(SHOPIFY_SOURCE_IMAGE_TIMEOUT_MS),
+    });
+  } catch (error) {
+    throw new Error(
+      `Shopify staged binary upload failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!uploadResponse.ok) {
+    throw new Error(`Shopify staged binary upload failed (${uploadResponse.status}).`);
+  }
+  return target.resourceUrl;
+}
+
 async function createProductMedia(
   config: ShopifyConfig,
   productId: string,
   imageUrl: string,
   altText: string,
+  sku: string,
 ): Promise<{ id: string; status?: string; url?: string | null }> {
+  const originalSource = shouldStageShopifyImageUpload(imageUrl)
+    ? await stageShopifyProductImage(
+      config,
+      sku,
+      imageUrl,
+      await downloadShopifySourceImage(imageUrl),
+    )
+    : imageUrl;
+
   const mutation = `
     mutation ProductImageCreate($productId: ID!, $media: [CreateMediaInput!]!) {
       productCreateMedia(productId: $productId, media: $media) {
@@ -971,7 +1094,7 @@ async function createProductMedia(
     media: [
       {
         mediaContentType: "IMAGE",
-        originalSource: imageUrl,
+        originalSource,
         alt: altText.slice(0, 512),
       },
     ],
@@ -1256,6 +1379,7 @@ serve(async (req) => {
       attachToVariant?: boolean;
       syncBestBottlesConvex?: boolean;
       enforceBestBottlesFinishMatch?: boolean;
+      catalogHeroProductGroupSlug?: string;
       dryRun?: boolean;
       includeExistingVariantMedia?: boolean;
     };
@@ -1276,6 +1400,8 @@ serve(async (req) => {
     const shopifyConfig = await getShopifyConfig(supabase, organizationId);
     const dryRun = body.dryRun === true;
     const syncBestBottlesConvex = body.syncBestBottlesConvex === true;
+    const catalogHeroProductGroupSlug =
+      body.catalogHeroProductGroupSlug?.trim() ?? "";
     const bbConvexUrl = syncBestBottlesConvex ? getBestBottlesConvexUrl() : "";
     const bbConvexWriteToken = syncBestBottlesConvex && !dryRun ? getBestBottlesConvexWriteToken() : "";
     if (syncBestBottlesConvex && !bbConvexUrl) {
@@ -1336,7 +1462,7 @@ serve(async (req) => {
             notes: item.manualVisualIdentityApproval.notes?.trim() ?? "",
           }
         : undefined;
-      const dbImage = item.imageId ? imageById.get(item.imageId) : null;
+      const dbImage = item.imageId ? imageById.get(item.imageId) ?? null : null;
       const imageUrl = dbImage?.image_url ?? item.imageUrl?.trim();
       const label = toShopifyAltText(
         item.altText?.trim() || dbImage?.session_name,
@@ -1374,6 +1500,38 @@ serve(async (req) => {
               [sku, requestedWebsiteSku ?? "", requestedGraceSku ?? ""],
             )
           : null;
+        if (catalogHeroProductGroupSlug) {
+          if (!pipelineSkuJob) {
+            throw new Error(
+              "Catalog hero publication requires the exact pipeline SKU job.",
+            );
+          }
+          if (!pipelineSkuJob.product_group_slug?.trim()) {
+            throw new Error(
+              "The exact pipeline SKU job has no product group membership.",
+            );
+          }
+          if (
+            pipelineSkuJob.product_group_slug.trim().toLowerCase() !==
+            catalogHeroProductGroupSlug.toLowerCase()
+          ) {
+            throw new Error(
+              `Exact SKU job belongs to ${pipelineSkuJob.product_group_slug}, not ${catalogHeroProductGroupSlug}.`,
+            );
+          }
+          if (mode !== "cap-on") {
+            throw new Error("Catalog group heroes must use the main product image slot.");
+          }
+          const tags = dbImage?.library_tags ?? [];
+          if (
+            !tags.includes("background-qa:pass") ||
+            !tags.includes("canvas-hex:#F5F3EF")
+          ) {
+            throw new Error(
+              "Catalog hero publication requires canonical #F5F3EF background QA.",
+            );
+          }
+        }
 
         let bestBottlesProduct: ResolvedBestBottlesProduct | null = null;
         if (syncBestBottlesConvex) {
@@ -1532,6 +1690,7 @@ serve(async (req) => {
             variant.product.id,
             imageUrl,
             label,
+            sku,
           ),
           (authorizationId) => claimTrustedShopifyPublishAuthorization(supabase, {
             authorizationId,
@@ -1580,7 +1739,7 @@ serve(async (req) => {
           );
           if (!mutation.ok) {
             throw new Error(
-              mutation.body?.errorMessage ||
+              formatConvexServerError(mutation.body?.errorMessage) ||
                 `Best Bottles Convex sync failed with status ${mutation.status}`,
             );
           }
@@ -1593,11 +1752,90 @@ serve(async (req) => {
             );
           }
 
+          if (!bestBottlesProduct.graceSku) {
+            throw new Error(
+              "Best Bottles Convex read-back requires the resolved canonical Grace SKU.",
+            );
+          }
+          let groupHeroMutationValue: unknown = null;
+          if (catalogHeroProductGroupSlug) {
+            const groupHeroMutation = await callBestBottlesConvex(
+              bbConvexUrl,
+              "mutation",
+              "products:setProductGroupHeroFromApprovedSku",
+              {
+                productGroupSlug: catalogHeroProductGroupSlug,
+                websiteSku: bestBottlesProduct.websiteSku,
+                graceSku: bestBottlesProduct.graceSku,
+                heroImageUrl: shopifyImageUrl,
+                writeToken: bbConvexWriteToken,
+              },
+            );
+            if (
+              !groupHeroMutation.ok &&
+              shouldFallbackCatalogHeroToPrimarySku(groupHeroMutation.body?.errorMessage)
+            ) {
+              const primarySkuMutation = await callBestBottlesConvex(
+                bbConvexUrl,
+                "mutation",
+                "products:setProductGroupPrimarySku",
+                {
+                  productGroupSlug: catalogHeroProductGroupSlug,
+                  websiteSku: bestBottlesProduct.websiteSku,
+                  graceSku: bestBottlesProduct.graceSku,
+                  writeToken: bbConvexWriteToken,
+                },
+              );
+              if (!primarySkuMutation.ok) {
+                throw new Error(
+                  formatConvexServerError(primarySkuMutation.body?.errorMessage) ||
+                    `Best Bottles group hero fallback failed with status ${primarySkuMutation.status}`,
+                );
+              }
+              const primarySkuResult = primarySkuMutation.body?.value as {
+                success?: boolean;
+                heroImageUrl?: string | null;
+                error?: string;
+              } | null;
+              if (
+                primarySkuResult?.success !== true ||
+                primarySkuResult.heroImageUrl !== shopifyImageUrl
+              ) {
+                throw new Error(
+                  primarySkuResult?.error ||
+                    "Best Bottles primary-SKU fallback did not confirm the exact Shopify CDN URL.",
+                );
+              }
+              groupHeroMutationValue = {
+                ...primarySkuResult,
+                fallback: "setProductGroupPrimarySku",
+              };
+            } else if (!groupHeroMutation.ok) {
+              throw new Error(
+                formatConvexServerError(groupHeroMutation.body?.errorMessage) ||
+                  `Best Bottles group hero sync failed with status ${groupHeroMutation.status}`,
+              );
+            } else {
+              groupHeroMutationValue = groupHeroMutation.body?.value ?? null;
+              const groupHeroMutationResult = groupHeroMutationValue as {
+                success?: boolean;
+                heroImageUrl?: string;
+              } | null;
+              if (
+                groupHeroMutationResult?.success !== true ||
+                groupHeroMutationResult.heroImageUrl !== shopifyImageUrl
+              ) {
+                throw new Error(
+                  "Best Bottles group hero mutation did not confirm the exact Shopify CDN URL.",
+                );
+              }
+            }
+          }
           const convexReadback = await callBestBottlesConvex(
             bbConvexUrl,
             "query",
-            "products:getByWebsiteSku",
-            { websiteSku: bestBottlesProduct.websiteSku },
+            "products:getBySku",
+            { graceSku: bestBottlesProduct.graceSku },
           );
           const convexReadbackValue = convexReadback.body?.value as Record<string, unknown> | null | undefined;
           convexReadbackImageUrl = typeof convexReadbackValue?.[field] === "string"
@@ -1613,6 +1851,7 @@ serve(async (req) => {
             readbackImageUrl: convexReadbackImageUrl,
             readbackMatched: convexReadbackMatched,
             mutation: mutation.body?.value ?? null,
+            groupHeroMutation: groupHeroMutationValue,
           };
         }
 

@@ -7,6 +7,12 @@
  * rig math used by the local generator and prompt assembler.
  */
 
+import {
+  resolveShoulderLock,
+  type ResolvedShoulderLock,
+  type ShoulderLandmarkKind,
+} from "./bestBottlesShoulderLock.ts";
+
 export interface FamilyRigConfig {
   family: string;
   profileId?: string;
@@ -15,9 +21,25 @@ export interface FamilyRigConfig {
   relativeScaleZoneLabel?: string;
   scaleContractVersion?: string;
   geometryScaleVersion?: string;
+  /** Assembled framing hint — not bare-glass scale-card %. */
   fillHeightPct: number;
   targetBodyHeightPx?: number;
   fillHeightRangePct?: { min: number; max: number };
+  glassHeightPct?: number;
+  glassHeightRangePct?: { min: number; max: number };
+  scaleTag?: string;
+  glassBodyKey?: string;
+  shoulderTargetPct?: number;
+  /** The locked glass body's foot-to-shoulder height over outer width. */
+  glassBodyAspect?: number;
+  /** The point on the glass the lock is measured to; absent means the shoulder. */
+  shoulderLandmark?: ShoulderLandmarkKind;
+  shoulderYFromTopPct?: number;
+  targetShoulderYPx?: number;
+  bareGlassHeightMm?: number;
+  assembledHeightMm?: number;
+  assembledHeightPct?: number;
+  assembledHeightPx?: number;
   fillWidthPct: number;
   baselinePct: number;
   primaryObjectCenterXPct?: number;
@@ -34,15 +56,47 @@ export interface FamilyRigProductInput {
   applicator?: string | null;
   capacity?: string | null;
   capacityMl?: number | null;
-  heightWithCap?: string | null;
-  heightWithoutCap?: string | null;
+  heightWithCap?: string | number | null;
+  heightWithoutCap?: string | number | null;
   diameter?: string | null;
   capState?: string | null;
   mode?: string | null;
+  /**
+   * Master / scale-card lane: missing heightWithoutCap throws.
+   * Refinements / non-master callers omit this and keep legacy assembled rig.
+   */
+  requireScaleCard?: boolean;
 }
 
 const BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX = 2288;
-const BEST_BOTTLES_CATALOG_SCALE_VERSION = "best-bottles-catalog-scale-v1";
+const BEST_BOTTLES_MASTER_CANVAS_WIDTH_PX = 2080;
+
+export const BEST_BOTTLES_SCALE_CARD_VERSION =
+  "best-bottles-scale-card-v2-2026-09-18" as const;
+
+export const BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS = [
+  { level: "Mini", mmMinInclusive: 0, mmMaxExclusive: 45, glassPct: 52 },
+  { level: "Small", mmMinInclusive: 45, mmMaxExclusive: 65, glassPct: 58 },
+  { level: "Medium", mmMinInclusive: 65, mmMaxExclusive: 95, glassPct: 64 },
+  { level: "Large", mmMinInclusive: 95, mmMaxExclusive: 135, glassPct: 70 },
+  { level: "Standard", mmMinInclusive: 135, mmMaxExclusive: Number.POSITIVE_INFINITY, glassPct: 74 },
+] as const;
+
+/** Overlay samples — one point inside each v2 band. Not interpolated. */
+export const BEST_BOTTLES_SCALE_CARD_CONTROL_POINTS = [
+  { mm: 37, glassPct: 52.0, level: "Mini" as const },
+  { mm: 53, glassPct: 58.0, level: "Small" as const },
+  { mm: 70, glassPct: 64.0, level: "Medium" as const },
+  { mm: 117, glassPct: 70.0, level: "Large" as const },
+  { mm: 154, glassPct: 74.0, level: "Standard" as const },
+] as const;
+
+export type BestBottlesGlassScale = {
+  glassHeightPct: number;
+  targetGlassHeightPx: number;
+  tag: string;
+  level: (typeof BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS)[number]["level"];
+};
 
 export const FAMILY_RIG: Record<string, FamilyRigConfig> = {
   defaultPdp: {
@@ -185,6 +239,117 @@ const BEST_BOTTLES_GLOBAL_SCALE_KNOTS = [
   { capacityMl: 454, assembledHeightPct: 84 },
 ] as const;
 
+function roundToOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function resolveBestBottlesScaleCardBand(heightWithoutCapMm: number) {
+  for (const band of BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS) {
+    if (
+      heightWithoutCapMm >= band.mmMinInclusive &&
+      heightWithoutCapMm < band.mmMaxExclusive
+    ) {
+      return band;
+    }
+  }
+  return BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS[BEST_BOTTLES_SCALE_CARD_HEIGHT_BANDS.length - 1]!;
+}
+
+/**
+ * Resolve bare-glass catalog scale from verified heightWithoutCap (mm).
+ * Capacity must not be passed here — size is set by foot-to-rim glass only.
+ * Mirrored from `src/config/bestBottlesCatalogScale.ts` for Deno parity.
+ */
+export function resolveBestBottlesGlassScale(
+  heightWithoutCapMm: number,
+): BestBottlesGlassScale {
+  if (!Number.isFinite(heightWithoutCapMm) || heightWithoutCapMm <= 0) {
+    throw new Error("A positive bare-glass heightWithoutCapMm is required.");
+  }
+
+  const band = resolveBestBottlesScaleCardBand(heightWithoutCapMm);
+  const glassHeightPct = roundToOneDecimal(band.glassPct);
+  return {
+    glassHeightPct,
+    targetGlassHeightPx: Math.round(
+      (glassHeightPct / 100) * BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX,
+    ),
+    tag: band.level,
+    level: band.level,
+  };
+}
+
+function applyShoulderLockTarget(
+  rig: FamilyRigConfig,
+  lock: ResolvedShoulderLock,
+  heightWithoutCapMm: number | null,
+  heightWithCapMm: number | null,
+): FamilyRigConfig {
+  return {
+    ...rig,
+    scaleContractVersion: lock.lockVersion,
+    geometryScaleVersion: undefined,
+    glassBodyKey: lock.glassBodyKey,
+    shoulderTargetPct: lock.shoulderPct,
+    glassBodyAspect: lock.bodyAspect,
+    ...(lock.landmark === "closure-seat" ? { shoulderLandmark: lock.landmark } : {}),
+    shoulderYFromTopPct: lock.shoulderYFromTopPct,
+    targetShoulderYPx: Math.round(
+      (lock.shoulderYFromTopPct / 100) * BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX,
+    ),
+    targetBodyHeightPx: Math.round(
+      (lock.shoulderPct / 100) * BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX,
+    ),
+    scaleTag: lock.label,
+    glassHeightPct: undefined,
+    glassHeightRangePct: undefined,
+    assembledHeightPct: undefined,
+    assembledHeightPx: undefined,
+    ...(heightWithoutCapMm != null ? { bareGlassHeightMm: heightWithoutCapMm } : {}),
+    ...(heightWithCapMm != null ? { assembledHeightMm: heightWithCapMm } : {}),
+  };
+}
+
+function applyScaleCardGlassTarget(
+  rig: FamilyRigConfig,
+  heightWithoutCapMm: number,
+  heightWithCapMm: number | null,
+): FamilyRigConfig {
+  const glassScale = resolveBestBottlesGlassScale(heightWithoutCapMm);
+  const assembledHeightPct =
+    heightWithCapMm != null && heightWithCapMm >= heightWithoutCapMm
+      ? roundToOneDecimal(
+          glassScale.glassHeightPct *
+            (heightWithCapMm / heightWithoutCapMm),
+        )
+      : null;
+  return {
+    ...rig,
+    scaleContractVersion: BEST_BOTTLES_SCALE_CARD_VERSION,
+    geometryScaleVersion: undefined,
+    // Keep fillHeightPct / fillHeightRangePct as assembled framing.
+    glassHeightPct: glassScale.glassHeightPct,
+    glassHeightRangePct: {
+      min: Math.max(0, glassScale.glassHeightPct - 2),
+      max: Math.min(100, glassScale.glassHeightPct + 2),
+    },
+    targetBodyHeightPx: glassScale.targetGlassHeightPx,
+    scaleTag: glassScale.tag,
+    bareGlassHeightMm: heightWithoutCapMm,
+    ...(assembledHeightPct != null && heightWithCapMm != null
+      ? {
+        assembledHeightMm: heightWithCapMm,
+        assembledHeightPct,
+        assembledHeightPx: Math.round(
+          (assembledHeightPct / 100) *
+            BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX,
+        ),
+      }
+      : {}),
+  };
+}
+
+/** @deprecated Prefer resolveBestBottlesGlassScale(heightWithoutCapMm) for masters. */
 export function resolveBestBottlesGlobalScalePct(capacityMl: number): number {
   const first = BEST_BOTTLES_GLOBAL_SCALE_KNOTS[0];
   const last = BEST_BOTTLES_GLOBAL_SCALE_KNOTS[BEST_BOTTLES_GLOBAL_SCALE_KNOTS.length - 1];
@@ -200,44 +365,6 @@ export function resolveBestBottlesGlobalScalePct(capacityMl: number): number {
     }
   }
   return last.assembledHeightPct;
-}
-
-function withGlobalCylinderSidecarScale(
-  input: FamilyRigProductInput,
-  rig: FamilyRigConfig,
-): FamilyRigConfig {
-  if (!isCylinderProduct(input)) return rig;
-  const capStateText = `${input.capState ?? ""} ${input.mode ?? ""}`;
-  if (!/\b(?:detached|cap[-_\s]?off|sidecar)\b/i.test(capStateText)) return rig;
-
-  const capacityMl = getCapacityMl(input);
-  const heightWithCapMm = parseFirstNumber(input.heightWithCap);
-  const heightWithoutCapMm = parseFirstNumber(input.heightWithoutCap);
-  if (
-    capacityMl == null
-    || heightWithCapMm == null
-    || heightWithoutCapMm == null
-    || heightWithoutCapMm > heightWithCapMm
-  ) {
-    return rig;
-  }
-
-  const fillHeightPct = resolveBestBottlesGlobalScalePct(capacityMl);
-  return {
-    ...rig,
-    scaleContractVersion: BEST_BOTTLES_CATALOG_SCALE_VERSION,
-    geometryScaleVersion: undefined,
-    fillHeightPct,
-    targetBodyHeightPx: Math.round(
-      BEST_BOTTLES_MASTER_CANVAS_HEIGHT_PX
-        * (fillHeightPct / 100)
-        * (heightWithoutCapMm / heightWithCapMm),
-    ),
-    fillHeightRangePct: {
-      min: Math.max(0, fillHeightPct - 2),
-      max: Math.min(100, fillHeightPct + 2),
-    },
-  };
 }
 
 function isSampleVialProduct(input: FamilyRigProductInput): boolean {
@@ -342,12 +469,34 @@ function cylinderProfile(input: FamilyRigProductInput): FamilyRigConfig {
   };
 }
 
-export function getFamilyRigForProduct(input?: FamilyRigProductInput | null): FamilyRigConfig | null {
-  if (!input) return null;
+function tryParseBareGlassHeightMm(value: string | number | null | undefined): number | null {
+  if (value == null || (typeof value === "string" && value.trim() === "")) {
+    return null;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  const match = value.match(/(-?\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const parsed = Number.parseFloat(match[1]!);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+}
 
-  if (isSampleVialProduct(input)) return withGlobalCylinderSidecarScale(input, cylinderProfile(input));
+function requireBareGlassHeightMm(value: string | number | null | undefined): number {
+  const parsed = tryParseBareGlassHeightMm(value);
+  if (parsed == null) {
+    throw new Error("A verified positive bare-glass heightWithoutCap is required.");
+  }
+  return parsed;
+}
+
+function resolveLegacyFamilyRig(input: FamilyRigProductInput): FamilyRigConfig | null {
+  if (isSampleVialProduct(input)) {
+    return cylinderProfile(input);
+  }
   if (isRollerBottleProduct(input)) {
-    return withGlobalCylinderSidecarScale(input, {
+    return {
       family: "roller-bottle",
       profileId: "roller-bottle",
       profileLabel: "Roller Bottle",
@@ -358,11 +507,63 @@ export function getFamilyRigForProduct(input?: FamilyRigProductInput | null): Fa
       fillWidthPct: 58,
       baselinePct: 9,
       primaryObjectCenterXPct: 50,
-    });
+    };
   }
-  if (isCylinderProduct(input)) return withGlobalCylinderSidecarScale(input, cylinderProfile(input));
-
+  if (isCylinderProduct(input)) {
+    return cylinderProfile(input);
+  }
   return getFamilyRig(input.family ?? input.bottleCollection);
+}
+
+export function getFamilyRigForProduct(input?: FamilyRigProductInput | null): FamilyRigConfig | null {
+  if (!input) return null;
+
+  const rig = resolveLegacyFamilyRig(input);
+  if (!rig) return null;
+
+  const lock = resolveShoulderLock({
+    family: input.family,
+    bottleCollection: input.bottleCollection,
+    graceSku: input.sku,
+    sku: input.sku,
+    websiteSku: input.websiteSku,
+    itemName: input.name,
+    name: input.name,
+    capacity: input.capacity,
+    capacityMl: input.capacityMl,
+    heightWithoutCap: input.heightWithoutCap,
+    applicator: input.applicator,
+  });
+  if (lock) {
+    return applyShoulderLockTarget(
+      rig,
+      lock,
+      tryParseBareGlassHeightMm(input.heightWithoutCap),
+      tryParseBareGlassHeightMm(input.heightWithCap),
+    );
+  }
+
+  const isCylinder = isCylinderFamilyAlias(input.family ?? input.bottleCollection);
+  if (isCylinder && input.requireScaleCard) {
+    throw new Error(
+      `Shoulder lock is required for Cylinder masters. Missing lock for family=${input.family ?? input.bottleCollection ?? "unknown"} capacity=${input.capacityMl ?? input.capacity ?? "unknown"}.`,
+    );
+  }
+
+  const heightWithoutCapMm = tryParseBareGlassHeightMm(input.heightWithoutCap);
+  if (heightWithoutCapMm == null) {
+    if (input.requireScaleCard) {
+      requireBareGlassHeightMm(input.heightWithoutCap);
+    }
+    // Non-master lanes: legacy assembled profile without scale-card overwrite.
+    return rig;
+  }
+
+  return applyScaleCardGlassTarget(
+    rig,
+    heightWithoutCapMm,
+    tryParseBareGlassHeightMm(input.heightWithCap),
+  );
 }
 
 export function hasFamilyRig(family?: string | null): boolean {
@@ -397,6 +598,9 @@ function formatFamilyLabel(cfg: FamilyRigConfig): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Foot-to-shoulder ÷ width at or above which a glass body counts as a slender vial. */
+const SLENDER_GLASS_BODY_ASPECT = 4.5;
+
 export function buildImposedRigBlock(input: BuildRigBlockInput): string | null {
   const cfg = input.rig ?? getFamilyRig(input.family);
   if (!cfg) return null;
@@ -404,9 +608,80 @@ export function buildImposedRigBlock(input: BuildRigBlockInput): string | null {
   const familyLabel = formatFamilyLabel(cfg);
   const baselineLow = cfg.baselinePct - 1;
   const baselineHigh = cfg.baselinePct + 1;
-  const fillRangeLine = cfg.fillHeightRangePct
-    ? ` Keep final QA inside the approved ${cfg.fillHeightRangePct.min}-${cfg.fillHeightRangePct.max}% fill-height range.`
+  const assembledRangeLine = cfg.fillHeightRangePct
+    ? ` Keep final assembled QA inside the approved ${cfg.fillHeightRangePct.min}-${cfg.fillHeightRangePct.max}% fill-height range.`
     : "";
+  const glassRangeLine = cfg.glassHeightRangePct
+    ? ` Keep bare-glass QA inside ${cfg.glassHeightRangePct.min}-${cfg.glassHeightRangePct.max}%.`
+    : "";
+  const scaleContractLabel =
+    typeof cfg.scaleContractVersion === "string" && cfg.scaleContractVersion.length > 0
+      ? cfg.scaleContractVersion
+      : "best-bottles-scale-card-v2";
+  const measurementParts = [
+    typeof cfg.bareGlassHeightMm === "number"
+      ? `heightWithoutCap = ${cfg.bareGlassHeightMm} mm`
+      : null,
+    typeof cfg.assembledHeightMm === "number"
+      ? `heightWithCap = ${cfg.assembledHeightMm} mm`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+  // The shoulder lock pins a body's height, so the only way the model can obey
+  // "fill the canvas" on a slender vial is to widen the glass — Cylinder 9 ml
+  // tall (5.3:1) came back 12–30% too fat. State its width outright instead.
+  const slenderGlassWidthPx =
+    typeof cfg.glassBodyAspect === "number" &&
+      cfg.glassBodyAspect >= SLENDER_GLASS_BODY_ASPECT &&
+      typeof cfg.targetBodyHeightPx === "number"
+      ? Math.round(cfg.targetBodyHeightPx / cfg.glassBodyAspect)
+      : null;
+  const slenderGlassWidthPct = slenderGlassWidthPx != null
+    ? Math.round((slenderGlassWidthPx / BEST_BOTTLES_MASTER_CANVAS_WIDTH_PX) * 1000) / 10
+    : null;
+  const shoulderLockClause =
+    typeof cfg.shoulderTargetPct === "number" &&
+    typeof cfg.shoulderYFromTopPct === "number" &&
+    typeof cfg.glassBodyKey === "string" &&
+    typeof cfg.scaleTag === "string"
+      ? [
+        ...(measurementParts.length > 0
+          ? [
+            `- CATALOG MEASUREMENTS (Convex product truth): ${measurementParts.join("; ")}. These millimeters describe the physical bottle. They do not choose the on-canvas percentage.`,
+          ]
+          : []),
+        cfg.shoulderLandmark === "closure-seat"
+          ? `- SHOULDER LOCK (${scaleContractLabel} · ${cfg.glassBodyKey}): seat the glass foot on the shared 91% baseline. The closure seat — the top edge of the glass neck ring, exactly where the cap or collar starts — MUST land at ${cfg.shoulderTargetPct}% of canvas height above that baseline (${cfg.shoulderYFromTopPct}% down from the top of the canvas). The whole glass body, from its foot up through the rounded body to that neck ring, sits below this line. Every SKU that shares this glass body (${cfg.scaleTag}) uses this same horizon. Fitments (roller, sprayer, pump, cap) rise above the closure seat by their real physical height; do not scale the bottle to the top of the fitment.`
+          : `- SHOULDER LOCK (${scaleContractLabel} · ${cfg.glassBodyKey}): seat the glass foot on the shared 91% baseline. The glass shoulder — where the body ends and the neck begins, or where glass meets the cap/collar — MUST land at ${cfg.shoulderTargetPct}% of canvas height above that baseline (${cfg.shoulderYFromTopPct}% down from the top of the canvas). Every SKU that shares this glass body (${cfg.scaleTag}) uses this same shoulder horizon. Fitments (roller, sprayer, pump, cap) rise above the shoulder by their real physical height; do not scale the bottle to the top of the fitment.`,
+        ...(slenderGlassWidthPx != null
+          ? [
+            `- SLENDER GLASS WIDTH LOCK: this body is a slender vial, ${cfg.glassBodyAspect}:1 tall-to-wide between the foot and the locked shoulder. At this shoulder lock the glass is ${slenderGlassWidthPx}px wide — ${slenderGlassWidthPct}% of the canvas width. Hold that width; the neck, fitment, and cap stay in proportion to it. Wide empty Bone margins on both sides are correct.`,
+          ]
+          : []),
+        "- Do not use assembled envelope or fitment top as the scale driver.",
+      ]
+      : [];
+  const bareGlassClause =
+    shoulderLockClause.length === 0 &&
+    typeof cfg.glassHeightPct === "number" &&
+    typeof cfg.targetBodyHeightPx === "number" &&
+    typeof cfg.bareGlassHeightMm === "number" &&
+    typeof cfg.scaleTag === "string"
+      ? [
+        `- SCALE-CARD BARE GLASS (authoritative body size — ${scaleContractLabel}): bare-glass heightWithoutCap = ${cfg.bareGlassHeightMm} mm → ecommerce band ${cfg.scaleTag}; foot-to-rim glass height MUST equal ${cfg.glassHeightPct}% of canvas height = ${cfg.targetBodyHeightPx}px. Seat the glass foot on the shared 91% baseline (9% up from the canvas bottom). This percentage is bare glass only — never treat it as the full assembly (glass + cap/applicator) height.${glassRangeLine} Scale the bottle body to this fill target; do not copy a tiny reference footprint or leave large empty canvas around a short bottle.`,
+      ]
+      : [];
+  const scaleDriverClause = shoulderLockClause.length > 0 ? shoulderLockClause : bareGlassClause;
+  const assembledFramingLine =
+    shoulderLockClause.length > 0
+      ? "- Fitments rise above the locked shoulder by their real physical height. Do not treat the full assembly (glass + cap/applicator) as the scale driver."
+      : bareGlassClause.length > 0 &&
+          typeof cfg.assembledHeightMm === "number" &&
+          typeof cfg.assembledHeightPct === "number" &&
+          typeof cfg.assembledHeightPx === "number"
+        ? `- ASSEMBLED HEIGHT (hard maximum): catalog heightWithCap = ${cfg.assembledHeightMm} mm. At this bottle's calibrated glass scale, the bottle plus installed cap/applicator must be no taller than ${cfg.assembledHeightPct}% of the canvas = ${cfg.assembledHeightPx}px, from the shared bottle-foot baseline to the highest installed component. Do not use the scale-card curve again for this assembled envelope; use the same local pixels/mm established by the bare glass. Exceeding ${cfg.assembledHeightMm + 2} mm equivalent is a QA failure.`
+        : bareGlassClause.length > 0
+          ? `- Assembled framing is unverified because catalog heightWithCap is unavailable. Do not infer full-assembly height from the legacy ${cfg.fillHeightPct}% framing hint.`
+          : `- Render the product at the resolved ${familyLabel} PDP framing target. Fit the full assembly within ~${cfg.fillHeightPct}% of the canvas height and ~${cfg.fillWidthPct}% of the width, centered, with comfortable even margins.${assembledRangeLine}`;
   const placementLines = input.capState === "detached"
     ? [
       "- Keep the primary bottle BODY centered on the canvas vertical centerline. The detached component does not shift the primary bottle.",
@@ -433,9 +708,16 @@ export function buildImposedRigBlock(input: BuildRigBlockInput): string | null {
     "- Still locked to the reference (do NOT change these): product geometry, silhouette, proportions, height-to-width ratio, colors, component shapes, cap-on vs cap-off state, number of components, and material identity. The reference governs WHAT the product is; this rig governs WHERE and HOW it sits on the canvas.",
     `- Baseline: seat the bottle base's visible bottom contact pixels at ${baselineLow}-${baselineHigh}% up from the canvas bottom. Every ${familyLabel} SKU shares this one horizontal shelf line. Do not lift the bottle base above this shelf line or let it float in the frame.`,
     ...placementLines,
-    `- Render the product at the resolved ${familyLabel} PDP framing target. Fit the full assembly within ~${cfg.fillHeightPct}% of the canvas height and ~${cfg.fillWidthPct}% of the width, centered, with comfortable even margins.${fillRangeLine}`,
+    ...scaleDriverClause,
+    assembledFramingLine,
     "- Surface rule: flat Bone background only. No mirror reflection, no glossy floor, no reflective tabletop, no rectangular studio plate, no inner background rectangle, no visible paper edge, no texture patch, and no second background color.",
-    "- Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow).",
+    shoulderLockClause.length > 0 && slenderGlassWidthPx != null
+      ? "- Vertical fill only: the SHOULDER LOCK horizon above sets the scale. Never widen, thicken, or enlarge the vial, neck, fitment, or cap to fill the frame, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow)."
+      : shoulderLockClause.length > 0
+      ? "- Ecommerce fill is mandatory: the SHOULDER LOCK horizon above must dominate the canvas. Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow)."
+      : bareGlassClause.length > 0
+        ? "- Ecommerce fill is mandatory: the SCALE-CARD BARE GLASS height above must dominate the canvas. Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow)."
+        : "- Do not leave the product tiny with excessive empty margins, and do not crop any part (cap, base, applicator, detached cap, or grounding shadow).",
     "- FINAL ALIGNMENT QA: before accepting the image, seat the bottle base and any detached cap bottom on the shared rig baseline; no sibling variant may float higher, sink lower, or use a different floor line.",
     "- Same fixed studio rig for the whole family: identical camera distance, lens, optical compression, baseline, and centerline. Only the purchasable component differences change between siblings.",
   ].join("\n");

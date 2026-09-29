@@ -19,6 +19,15 @@ test("Best Bottles Studio deep-link route is registered in both app route tables
   assert.equal(studioRouteMatches?.length, 2);
 });
 
+test("Best Bottles scale-card pilot route is registered in both app route tables", () => {
+  const pilotRouteMatches = appSource.match(
+    /path="\/best-bottles\/scale-card-pilot"/g,
+  );
+
+  assert.equal(pilotRouteMatches?.length, 2);
+  assert.match(appSource, /BestBottlesScaleCardPilot/);
+});
+
 test("CYL-9ML Studio mounts ReleaseWorkbench without removing legacy Components", () => {
   assert.match(bestBottlesStudioSource, /isCyl9ReleaseWorkbenchGroup/);
   assert.match(bestBottlesStudioSource, /<ReleaseWorkbench/);

@@ -1,0 +1,6 @@
+groupSlug,websiteSku,graceSku,exportFileName,role,psdEstate,psdPath,status,heroRole,note
+plastic-bottle-10ml-clear,PB10SpryNat,CMP-SPR-CLR-10ML,PB10SpryNat__CMP-SPR-CLR-10ML.png,identity-cap-on,,,no-source,,
+plastic-bottle-10ml-clear,PB10SpryNat,CMP-SPR-CLR-10ML,PB10SpryNat__CMP-SPR-CLR-10ML.png,pdp-cap-off-sidecar,,,no-source,hero,
+plastic-bottle-30ml-clear,PB1ozClearcap,OTH-PLS-CLR-30ML,PB1ozClearcap__OTH-PLS-CLR-30ML.png,identity-cap-on,,,missing-role,,
+plastic-bottle-30ml-clear,PB1ozClearcap,OTH-PLS-CLR-30ML,PB1ozClearcap__OTH-PLS-CLR-30ML.png,pdp-cap-off-sidecar,,,missing-role,hero,
+plastic-bottle-30ml-clear,PB1ozClearcap,OTH-PLS-CLR-30ML,PB1ozClearcap__OTH-PLS-CLR-30ML.png,UNDECIDED,original,Plastic bottles - 1oz and 10ml/PB1ozClearcap.psd,needs-role-decision,,

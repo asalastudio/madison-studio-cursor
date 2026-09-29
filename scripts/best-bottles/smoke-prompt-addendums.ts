@@ -1,6 +1,12 @@
 export interface SmokePromptAddendum {
   id: string;
   text: string;
+  /**
+   * Replaces the canon's multi-material `GLASS:` paragraph for this run. Opt-in
+   * like the addendum itself, so default prompts — and the prompt hashes that
+   * stored raw renders must match to be re-rigged — do not move.
+   */
+  replaceGlassLine?: string;
 }
 
 const CLEAR_GLASS_POLISH_ADDENDUM: SmokePromptAddendum = {
@@ -133,6 +139,31 @@ const CYLINDER_TRUTH_V2_ADDENDUM: SmokePromptAddendum = {
   ].join("\n"),
 };
 
+// 2026-09-20: a frosted bottle with a BARE NECK (plain cap, reducer, roll-on)
+// came out as clear glass 5 of 5, while the same frosted glass under a sprayer,
+// pump or dropper came out frosted 5 of 5, on an identical prompt.
+//
+// v1 (`frosted-body-clear-neck-v1`, retired below) answered by saying what the
+// body is NOT: "clear glass" three times over. One of its two renders came out
+// frosted; the other came out as the wrong product entirely.
+//
+// Jordan, same day: never name the look you do not want — remove the words
+// "clear glass". Clear bottles need nothing special and are left alone. So v2 is
+// positive only. It also swaps the canon's GLASS paragraph for a frosted-only
+// one: that paragraph serves every non-clear material at once, so a frosted
+// bottle was also being told about cobalt saturation and swirl patterns, and it
+// carries "clear" and "transparent" inside negated lists. Nothing in v2 says
+// clear, transparent or see-through; a test pins that.
+const FROSTED_FINISH_V2_ADDENDUM: SmokePromptAddendum = {
+  id: "frosted-finish-v2",
+  replaceGlassLine:
+    "GLASS: this bottle is frosted glass. The whole body, from the shoulder to the base, is an even, matte, acid-etched, milky-white translucent surface, exactly as shown in the reference. Light diffuses across it: broad soft highlights, a muted milky tone, and edges that read as soft tonal steps against the background. The bottle is empty — no liquid; the milky tone is the glass itself. The threaded neck finish is glossy, exactly as shown in the reference.",
+  text: [
+    "FROSTED FINISH:",
+    "The body of this bottle is frosted glass from the shoulder to the base: matte, milky-white, softly diffusing, exactly as in the Product Reference.",
+  ].join("\n"),
+};
+
 const ADDENDUMS = new Map<string, SmokePromptAddendum>([
   [CLEAR_GLASS_POLISH_ADDENDUM.id, CLEAR_GLASS_POLISH_ADDENDUM],
   [KINFOLK_AESOP_STUDIO_V2_ADDENDUM.id, KINFOLK_AESOP_STUDIO_V2_ADDENDUM],
@@ -141,6 +172,7 @@ const ADDENDUMS = new Map<string, SmokePromptAddendum>([
   [COMPONENT_IDENTITY_GLASS_PRESENCE_V2_ADDENDUM.id, COMPONENT_IDENTITY_GLASS_PRESENCE_V2_ADDENDUM],
   [CYLINDER_TRUTH_V1_ADDENDUM.id, CYLINDER_TRUTH_V1_ADDENDUM],
   [CYLINDER_TRUTH_V2_ADDENDUM.id, CYLINDER_TRUTH_V2_ADDENDUM],
+  [FROSTED_FINISH_V2_ADDENDUM.id, FROSTED_FINISH_V2_ADDENDUM],
 ]);
 
 // 2026-07-05: after a controlled A/B, component-identity-lock-v1 (the minimal
@@ -154,7 +186,12 @@ const RETIRED_ADDENDUM_IDS = new Set([
   "component-identity-glass-presence-v2",
   "cylinder-truth-v1",
   "cylinder-truth-v2",
+  // 2026-09-20: named the unwanted finish ("clear glass") three times; 1 of 2.
+  "frosted-body-clear-neck-v1",
 ]);
+
+/** How the canon's KEEP_MATERIAL paragraph begins (src/config/bestBottlesCatalogCanon.ts). */
+const CANON_GLASS_LINE_PREFIX = "GLASS: preserve the glass's exact color";
 
 export function getSmokePromptAddendum(id: string | undefined): SmokePromptAddendum | null {
   const normalizedId = id?.trim();
@@ -180,8 +217,22 @@ export function applySmokePromptAddendum(
 ): string {
   if (!addendum) return prompt;
 
+  let base = prompt;
+  if (addendum.replaceGlassLine) {
+    // Fail closed: if the canon paragraph is not where it is expected, a silent
+    // no-op would send the old wording while the image is tagged as the new one.
+    const lines = base.split("\n");
+    const glassLines = lines.filter((line) => line.startsWith(CANON_GLASS_LINE_PREFIX));
+    if (glassLines.length !== 1) {
+      throw new Error(
+        `${addendum.id} expects exactly one canon GLASS paragraph to replace; found ${glassLines.length}.`,
+      );
+    }
+    base = lines.map((line) => (line.startsWith(CANON_GLASS_LINE_PREFIX) ? addendum.replaceGlassLine! : line)).join("\n");
+  }
+
   return [
-    prompt.trimEnd(),
+    base.trimEnd(),
     "",
     `TEST-ONLY MATERIAL POLISH ADDENDUM (${addendum.id}):`,
     addendum.text,

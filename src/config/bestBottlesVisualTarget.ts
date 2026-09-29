@@ -1,9 +1,11 @@
 import { KEEP_MATERIAL } from "./bestBottlesCatalogCanon";
+import { BEST_BOTTLES_GRID_BONE_BACKGROUND_HEX } from "./imagePresets";
 
 export const BEST_BOTTLES_VISUAL_TARGET_VERSION = "best-bottles-pdp-v2" as const;
 
-/** Median corner tone across the seven approved aluminum references. */
-export const BEST_BOTTLES_VISUAL_TARGET_CANVAS_HEX = "#F6EFE8" as const;
+/** Canonical Best Bottles catalog canvas. Never derive this from style references. */
+export const BEST_BOTTLES_VISUAL_TARGET_CANVAS_HEX =
+  BEST_BOTTLES_GRID_BONE_BACKGROUND_HEX;
 
 export type BestBottlesVisualTargetMaterial = "glass" | "aluminum";
 

@@ -47,14 +47,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { ImageEditorModal, type ImageEditorImage } from "@/components/image-editor/ImageEditorModal";
+import { ImageEditorModal, type ImageEditorImage, type ImageEditorProductContext } from "@/components/image-editor/ImageEditorModal";
+import {
+  resolveBestBottlesScaleVerdict,
+  type BestBottlesScaleVerdict,
+} from "@/lib/bestBottlesScaleVerdict";
 import { ProductSelector } from "@/components/forge/ProductSelector";
 import { SanityMediaPlacementDialog } from "@/components/library/SanityMediaPlacementDialog";
 import { CreateFilledHoverTwinDialog } from "@/components/library/CreateFilledHoverTwinDialog";
-import { BestBottlesReconciliationBadges } from "@/components/bestbottles/BestBottlesReconciliationBadges";
 import { useProducts, type Product } from "@/hooks/useProducts";
 import {
   getBestBottlesCatalogProducts,
@@ -81,27 +85,48 @@ import {
 } from "@/lib/imageLibraryTags";
 import {
   backfillPipelineConvexImages,
+  listPipelineGroups,
   listPipelineSkuJobs,
   markPipelineSkuJobSyncedBySku,
+  updatePipelineGroupStatus,
+  type PipelineGroup,
   type PipelineSkuJob,
 } from "@/lib/bestBottlesPipeline";
-import { expectedBestBottlesVisualIdentityForProduct } from "@/lib/bestBottlesShopifyPushIdentity";
+import {
+  buildBestBottlesCatalogHeroPushItem,
+  expectedBestBottlesVisualIdentityForProduct,
+} from "@/lib/bestBottlesShopifyPushIdentity";
+import { attachPublishAuthorizations } from "@/lib/bestBottlesShopifyPublishAuthorizationClient";
+import { extractFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { isAssembledOnlyVintageBulbIdentity } from "@/lib/bestBottlesAssembledOnlyProduct";
 import { isCylinderProductSku } from "@/lib/bestBottlesShopifyPublishAuthorization";
 import {
   BEST_BOTTLES_RECONCILIATION_QUERY_KEY,
   indexBestBottlesImageReconciliations,
   listBestBottlesImageReconciliationStatus,
+  replaceBestBottlesSkuJobHero,
 } from "@/lib/bestBottlesImageReconciliation";
+import { approveBestBottlesGeneratedMaster } from "@/lib/bestBottlesMasterApproval";
+import {
+  analyzeBestBottlesBackgroundImage,
+  BEST_BOTTLES_BACKGROUND_QA_FAIL_TAG,
+  BEST_BOTTLES_BACKGROUND_QA_PASS_TAG,
+  BEST_BOTTLES_CANVAS_HEX_TAG,
+} from "@/lib/bestBottlesBackgroundQa";
 import {
   getBestBottlesImageProvenance,
   type BestBottlesImageProvenance,
-  type BestBottlesImageProvenanceKind,
 } from "@/lib/bestBottlesImageProvenance";
 import {
   BEST_BOTTLES_LINEAGE_TAG_CLEAN,
   BEST_BOTTLES_LINEAGE_TAG_LEGACY,
   getBestBottlesReferenceLineage,
 } from "@/lib/bestBottlesImageCoverage";
+import {
+  BEST_BOTTLES_CATALOG_HERO_DEFAULT_FAMILY,
+  getCatalogHeroLibraryPreset,
+  isBestBottlesCatalogHeroLibraryImage,
+} from "@/lib/bestBottlesCatalogHeroLibrary";
 import {
   getDefaultImageLibraryPublishDestination,
   getImageLibraryPublishDestinations,
@@ -156,6 +181,7 @@ interface GeneratedImage {
 
 type AssetTypeFilter =
   | "all"
+  | "catalog-heroes"
   | "product"
   | "product-photography"
   | "generated-output"
@@ -451,25 +477,22 @@ function BestBottlesFamilyRail({
   );
 }
 
-function isEmpireVintageBulbSprayerProduct(product: BestBottlesProduct | undefined): boolean {
-  if (!product) return false;
-  const isEmpire =
-    product.family === "Empire" ||
-    /^(?:GB|LB)Emp/i.test(product.websiteSku) ||
-    /Empire/i.test(product.itemName);
-  const applicatorText = `${product.applicator ?? ""} ${product.itemName}`.toLowerCase();
-  return isEmpire && /(vintage|antique).*(bulb|spray)/.test(applicatorText);
-}
-
-function isEmpireVintageBulbSprayerSku(
+function isAssembledOnlyVintageBulbSku(
   websiteSku: string,
   productsByWebsiteSku: Map<string, BestBottlesProduct>,
 ): boolean {
   const normalizedSku = websiteSku.trim();
   if (!normalizedSku) return false;
-  const product = productsByWebsiteSku.get(normalizedSku.toUpperCase());
-  if (product) return isEmpireVintageBulbSprayerProduct(product);
-  return /^(?:GB|LB)Emp\d+AnSp/i.test(normalizedSku);
+  const product = productsByWebsiteSku.get(normalizedSku.toUpperCase())
+    ?? productsByWebsiteSku.get(normalizedSku);
+  return isAssembledOnlyVintageBulbIdentity({
+    graceSku: product?.graceSku,
+    websiteSku: product?.websiteSku ?? normalizedSku,
+    applicator: product?.applicator,
+    itemName: product?.itemName,
+    itemDescription: product?.itemDescription,
+    family: product?.family,
+  });
 }
 
 function matchesGlassWand9MlVialIdentity(value: string | null | undefined): boolean {
@@ -661,29 +684,6 @@ async function hydrateImagesWithAncestorTags(images: GeneratedImage[]): Promise<
   });
 }
 
-async function extractFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
-  if (!error) return fallback;
-  try {
-    const context = (error as { context?: { json?: () => Promise<unknown>; text?: () => Promise<string> } })
-      .context;
-    if (context && typeof context.json === "function") {
-      const body = await context.json();
-      if (body && typeof body === "object" && "error" in body) {
-        const message = (body as { error?: unknown }).error;
-        if (typeof message === "string" && message.trim()) return message;
-      }
-    }
-    if (context && typeof context.text === "function") {
-      const text = await context.text();
-      if (text.trim()) return text;
-    }
-  } catch {
-    // Fall back to the top-level error below.
-  }
-
-  return error instanceof Error ? error.message : fallback;
-}
-
 type ShopifyPushResult = {
   status?: string;
   sku?: string;
@@ -816,6 +816,10 @@ function matchesGeneratedBestBottlesOutput(image: GeneratedImage): boolean {
   return resolveBestBottlesImageProvenance(image).isRegeneratedOutput;
 }
 
+function matchesCatalogHeroLibraryImage(image: GeneratedImage): boolean {
+  return isBestBottlesCatalogHeroLibraryImage(image.library_tags);
+}
+
 function matchesReferenceLikeBestBottlesAsset(image: GeneratedImage): boolean {
   return resolveBestBottlesImageProvenance(image).isReferenceLike;
 }
@@ -936,6 +940,14 @@ export default function ImageLibrary() {
   // until the operator opts into it. Clean = 0 today, so this view starts empty
   // and fills only with drift-free generations.
   const [referenceLineageFilter, setReferenceLineageFilter] = useState<ReferenceLineageFilter>("clean");
+  const applyCatalogHeroPreset = useCallback(() => {
+    const preset = getCatalogHeroLibraryPreset(BEST_BOTTLES_CATALOG_HERO_DEFAULT_FAMILY);
+    setAssetTypeFilter(preset.assetType);
+    setReferenceLineageFilter(preset.lineage);
+    setBestBottlesFamilyFilter(preset.family);
+    setSkuSizeFilter(preset.skuSize);
+  }, []);
+  const catalogHeroPresetActive = assetTypeFilter === "catalog-heroes";
   const [imageLibraryRowLimit, setImageLibraryRowLimit] = useState(IMAGE_LIBRARY_INITIAL_ROWS);
   const [viewMode, setViewMode] = useState<"grid" | "masonry">("grid");
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -958,6 +970,10 @@ export default function ImageLibrary() {
   const [sanityPublishImage, setSanityPublishImage] = useState<GeneratedImage | null>(null);
   const [sanityPublishProduct, setSanityPublishProduct] = useState<Product | null>(null);
   const [sanityPublishLoading, setSanityPublishLoading] = useState(false);
+  const [groupHeroApprovalLoading, setGroupHeroApprovalLoading] = useState(false);
+  const [groupHeroApprovalError, setGroupHeroApprovalError] = useState<string | null>(null);
+  const [locallyApprovedGroupHeroImageId, setLocallyApprovedGroupHeroImageId] =
+    useState<string | null>(null);
   const [publishDestination, setPublishDestination] =
     useState<PublishDestination>("tarife-sanity");
   const [bestBottlesSlug, setBestBottlesSlug] = useState("");
@@ -1068,9 +1084,16 @@ export default function ImageLibrary() {
       staleTime: 5 * 60 * 1000,
     });
 
-  const { data: pipelineSkuJobs = [] } = useQuery({
+  const { data: pipelineSkuJobs = [], refetch: refetchPipelineSkuJobs } = useQuery({
     queryKey: ["best-bottles-pipeline-sku-jobs", currentOrganizationId],
     queryFn: async () => listPipelineSkuJobs(currentOrganizationId!),
+    enabled: isBestBottlesOrg && Boolean(currentOrganizationId),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: pipelineGroups = [], refetch: refetchPipelineGroups } = useQuery({
+    queryKey: ["best-bottles-pipeline-groups", currentOrganizationId],
+    queryFn: async () => listPipelineGroups(currentOrganizationId!),
     enabled: isBestBottlesOrg && Boolean(currentOrganizationId),
     staleTime: 2 * 60 * 1000,
   });
@@ -1173,6 +1196,79 @@ export default function ImageLibrary() {
     );
   }, [resolveBestBottlesProductForSku]);
 
+  const resolveLibraryProductIdentity = useCallback((image: GeneratedImage): ImageEditorProductContext | undefined => {
+    // The reconciliation row carries the exact SKU the render was generated
+    // for; prefer it over filename/tag heuristics so the editor never labels
+    // a roll-on render as its cap/closure sibling.
+    const reconciledGraceSku = bestBottlesImageReconciliationById
+      .get(image.id)?.grace_sku?.trim();
+    const product =
+      (reconciledGraceSku ? resolveBestBottlesProductForSku(reconciledGraceSku) : null) ??
+      resolveBestBottlesProductForImage(image);
+    const skuFromTag = (Array.isArray(image.library_tags) ? image.library_tags : [])
+      .find((tag) => /^sku:/i.test(tag))
+      ?.replace(/^sku:/i, "")
+      .trim();
+    const graceSku = product?.graceSku || reconciledGraceSku || detectGraceSku(image) || skuFromTag || undefined;
+    const websiteSku = product?.websiteSku || detectWebsiteSku(image) || undefined;
+    const shortName = [
+      product?.family,
+      product?.capacity ?? (product?.capacityMl != null ? `${product.capacityMl} ml` : null),
+      product?.color,
+      product?.applicator,
+    ].filter((value): value is string => Boolean(value?.trim())).join(" ");
+    const catalogName = product?.itemName?.trim();
+    const name =
+      shortName ||
+      (catalogName && catalogName.length <= 72 ? catalogName : catalogName?.split(/[.]/)[0]?.trim()) ||
+      image.session_name?.trim() ||
+      graceSku ||
+      websiteSku;
+    if (!name) return undefined;
+    const details = [
+      product?.family,
+      product?.capacity ?? (product?.capacityMl != null ? `${product.capacityMl} ml` : null),
+      product?.color,
+      product?.applicator,
+      product?.capColor ? `${product.capColor} cap` : null,
+      product?.neckThreadSize,
+    ].filter((value): value is string => Boolean(value?.trim()));
+    return {
+      name,
+      graceSku,
+      websiteSku: websiteSku && websiteSku !== graceSku ? websiteSku : undefined,
+      details: details.length > 0 ? details : undefined,
+      heightWithoutCap: product?.heightWithoutCap ?? null,
+      heightWithCap: product?.heightWithCap ?? null,
+      applicator: product?.applicator ?? null,
+    };
+  }, [
+    bestBottlesImageReconciliationById,
+    resolveBestBottlesProductForImage,
+    resolveBestBottlesProductForSku,
+  ]);
+
+  /**
+   * Scale-card verdict for a Library tile. Only rendered for renders that
+   * have a reconciliation row (i.e. went through the rig), so marketing and
+   * scene assets stay unbadged.
+   */
+  const resolveTileScaleVerdict = useCallback(
+    (image: GeneratedImage): BestBottlesScaleVerdict | null => {
+      const reconciliation = bestBottlesImageReconciliationById.get(image.id);
+      if (!reconciliation) return null;
+      const identity = resolveLibraryProductIdentity(image);
+      return resolveBestBottlesScaleVerdict({
+        reconciliation,
+        tags: image.library_tags ?? [],
+        heightWithoutCap: identity?.heightWithoutCap ?? null,
+        heightWithCap: identity?.heightWithCap ?? null,
+        applicator: identity?.applicator ?? null,
+      });
+    },
+    [bestBottlesImageReconciliationById, resolveLibraryProductIdentity],
+  );
+
   const getBestBottlesDarkroomWorkflowForImage = useCallback(
     (image: GeneratedImage): BestBottlesDarkroomAssetWorkflow => {
       const websiteSku = detectWebsiteSku(image);
@@ -1263,6 +1359,15 @@ export default function ImageLibrary() {
     }
     return map;
   }, [pipelineSkuJobs]);
+
+  const pipelineGroupsBySlug = useMemo(() => {
+    const map = new Map<string, PipelineGroup>();
+    for (const group of pipelineGroups) {
+      if (!group.convex_slug) continue;
+      map.set(normalizeBestBottlesSlug(group.convex_slug), group);
+    }
+    return map;
+  }, [pipelineGroups]);
 
   const resolvePipelineSkuJobForImage = useCallback((image: GeneratedImage) => {
     for (const sku of [detectShopifySku(image), detectGraceSku(image), detectWebsiteSku(image)]) {
@@ -1507,7 +1612,7 @@ export default function ImageLibrary() {
     websiteSku: string,
     requestedMode: BestBottlesPdpMode,
   ): BestBottlesPdpMode =>
-    isEmpireVintageBulbSprayerSku(websiteSku, bestBottlesProductsByWebsiteSku)
+    isAssembledOnlyVintageBulbSku(websiteSku, bestBottlesProductsByWebsiteSku)
       ? PRIMARY_PDP_MODE
       : requestedMode;
 
@@ -1547,21 +1652,43 @@ export default function ImageLibrary() {
   const selectedBestBottlesPrimaryOnly =
     selectedBestBottlesWebsiteSkus.length > 0 &&
     selectedBestBottlesWebsiteSkus.every((sku) =>
-      isEmpireVintageBulbSprayerSku(sku, bestBottlesProductsByWebsiteSku),
+      isAssembledOnlyVintageBulbSku(sku, bestBottlesProductsByWebsiteSku),
     );
   const selectedBestBottlesHasPrimaryOnly =
     selectedBestBottlesWebsiteSkus.some((sku) =>
-      isEmpireVintageBulbSprayerSku(sku, bestBottlesProductsByWebsiteSku),
+      isAssembledOnlyVintageBulbSku(sku, bestBottlesProductsByWebsiteSku),
     );
+  const selectedGroupHeroPipelineJob = sanityPublishImage
+    ? resolvePipelineSkuJobForImage(sanityPublishImage)
+    : null;
+  const selectedGroupHeroPipelineGroup = selectedGroupHeroPipelineJob
+    ? pipelineGroupsBySlug.get(
+        normalizeBestBottlesSlug(
+          selectedGroupHeroPipelineJob.product_group_slug,
+        ),
+      )
+    : null;
+  const selectedGroupHeroApproved =
+    Boolean(sanityPublishImage) &&
+    Boolean(selectedGroupHeroPipelineJob) &&
+    normalizeBestBottlesSlug(
+      selectedGroupHeroPipelineJob?.product_group_slug ?? "",
+    ) ===
+      normalizeBestBottlesSlug(
+        resolveEnteredBestBottlesGroupSlug(bestBottlesSlug),
+      ) &&
+    (selectedGroupHeroPipelineGroup?.madison_approved_image_id ===
+      sanityPublishImage?.id ||
+      locallyApprovedGroupHeroImageId === sanityPublishImage?.id);
   const bulkBestBottlesRowsWithSku = bulkBestBottlesRows.filter((row) => row.websiteSku.trim());
   const bulkBestBottlesPrimaryOnly =
     bulkBestBottlesRowsWithSku.length > 0 &&
     bulkBestBottlesRowsWithSku.every((row) =>
-      isEmpireVintageBulbSprayerSku(row.websiteSku, bestBottlesProductsByWebsiteSku),
+      isAssembledOnlyVintageBulbSku(row.websiteSku, bestBottlesProductsByWebsiteSku),
     );
   const bulkBestBottlesHasPrimaryOnly =
     bulkBestBottlesRowsWithSku.some((row) =>
-      isEmpireVintageBulbSprayerSku(row.websiteSku, bestBottlesProductsByWebsiteSku),
+      isAssembledOnlyVintageBulbSku(row.websiteSku, bestBottlesProductsByWebsiteSku),
     );
 
   const familyRailImages = useMemo(() => {
@@ -1589,7 +1716,9 @@ export default function ImageLibrary() {
       });
     }
 
-    if (assetTypeFilter === "roll-ons") {
+    if (assetTypeFilter === "catalog-heroes") {
+      result = result.filter(matchesCatalogHeroLibraryImage);
+    } else if (assetTypeFilter === "roll-ons") {
       result = result.filter(matchesRollOnLibraryScope);
     } else if (assetTypeFilter === "empty-plates") {
       result = result.filter(matchesEmptyPlateScope);
@@ -1765,6 +1894,19 @@ export default function ImageLibrary() {
 
   // Handlers
   const handleImageClick = (image: GeneratedImage) => {
+    const reconciliation = bestBottlesImageReconciliationById.get(image.id);
+    const scaleVerdict = resolveTileScaleVerdict(image);
+    const scaleCard: ImageEditorImage["scaleCard"] = reconciliation
+      ? {
+          measuredGlassHeightPct:
+            reconciliation.framing_qa?.measurements?.glassHeightPct ?? null,
+          canvasHeightPx: reconciliation.canvas_height_px ?? null,
+          measuredShoulderYPx: reconciliation.detected_shoulder_y_px ?? null,
+          shoulderConfidence: reconciliation.shoulder_confidence ?? null,
+          framingDecision: reconciliation.framing_decision ?? null,
+          verdict: scaleVerdict,
+        }
+      : undefined;
     setSelectedImage({
       id: image.id,
       imageUrl: image.image_url,
@@ -1776,6 +1918,8 @@ export default function ImageLibrary() {
       createdAt: image.created_at,
       sessionName: image.session_name || undefined,
       libraryTags: image.library_tags ?? [],
+      product: resolveLibraryProductIdentity(image),
+      scaleCard,
     });
     setImageEditorOpen(true);
   };
@@ -2620,12 +2764,153 @@ export default function ImageLibrary() {
     setBestBottlesPdpMode("cap-on");
     setBestBottlesGroupSearch("");
     setBestBottlesSkuSearch("");
+    setLocallyApprovedGroupHeroImageId(null);
+    setGroupHeroApprovalError(null);
     setSanityPublishOpen(true);
   };
 
   const openSanityMediaPlacement = (image: GeneratedImage) => {
     setSanityMediaImage(image);
     setSanityMediaOpen(true);
+  };
+
+  const handleApproveGroupHero = async () => {
+    if (!sanityPublishImage || !currentOrganizationId || !user) return;
+    const slug = resolveEnteredBestBottlesGroupSlug(bestBottlesSlug);
+    const group = bestBottlesProductGroupsBySlug.get(
+      normalizeBestBottlesSlug(slug),
+    );
+    if (!group) {
+      throw new Error(`No Best Bottles product group was found for "${slug}".`);
+    }
+    const pipelineSkuJob = resolvePipelineSkuJobForImage(sanityPublishImage);
+    if (!pipelineSkuJob) {
+      throw new Error(
+        "The selected image has no exact pipeline SKU job. Its filename/tag must resolve to one exact catalog SKU.",
+      );
+    }
+    if (
+      normalizeBestBottlesSlug(pipelineSkuJob.product_group_slug) !==
+      normalizeBestBottlesSlug(group.slug)
+    ) {
+      throw new Error(
+        `The selected image's exact SKU belongs to ${pipelineSkuJob.product_group_slug}, not ${group.slug}.`,
+      );
+    }
+    const reconciliation = bestBottlesImageReconciliationById.get(
+      sanityPublishImage.id,
+    );
+    const framingPassed =
+      reconciliation?.lifecycle_state !== "qa-failed" &&
+      reconciliation?.framing_decision === "pass" &&
+      reconciliation.qa_issues.length === 0;
+    if (!framingPassed) {
+      throw new Error(
+        "The selected image must pass framing QA before it can become a group hero.",
+      );
+    }
+    // Mirror the Postgres link gate client-side so the operator sees which
+    // condition is failing instead of the generic RPC message.
+    if (!reconciliation.requires_pipeline_reconciliation) {
+      throw new Error(
+        `This render was recorded as a "${reconciliation.asset_role}" asset, not a catalog hero, so the pipeline will not link it to ${pipelineSkuJob.grace_sku}. Regenerate it with a Grid Card preset (assembled or cap-off sidecar).`,
+      );
+    }
+    if (!reconciliation.final_image_url) {
+      throw new Error(
+        "This render has no rigged final image yet. Wait for the rig/QA pass to finish, then retry.",
+      );
+    }
+    const reconciledSku = (reconciliation.grace_sku ?? "").trim().toUpperCase();
+    if (reconciledSku && reconciledSku !== pipelineSkuJob.grace_sku.trim().toUpperCase()) {
+      throw new Error(
+        `This render was generated for ${reconciledSku}, but the selected group resolves to ${pipelineSkuJob.grace_sku}. Pick the image that was generated for that exact SKU.`,
+      );
+    }
+
+    const backgroundQa = await analyzeBestBottlesBackgroundImage(
+      sanityPublishImage.image_url,
+    );
+    if (backgroundQa.status !== "pass") {
+      await removeLibraryTag(
+        sanityPublishImage.id,
+        BEST_BOTTLES_BACKGROUND_QA_PASS_TAG,
+      );
+      await removeLibraryTag(
+        sanityPublishImage.id,
+        BEST_BOTTLES_CANVAS_HEX_TAG,
+      );
+      await addLibraryTag(
+        sanityPublishImage.id,
+        BEST_BOTTLES_BACKGROUND_QA_FAIL_TAG,
+      );
+      await refetch();
+      throw new Error(backgroundQa.message);
+    }
+
+    await removeLibraryTag(
+      sanityPublishImage.id,
+      BEST_BOTTLES_BACKGROUND_QA_FAIL_TAG,
+    );
+    for (const tag of [
+      BEST_BOTTLES_BACKGROUND_QA_PASS_TAG,
+      BEST_BOTTLES_CANVAS_HEX_TAG,
+    ]) {
+      const nextTags = await addLibraryTag(sanityPublishImage.id, tag);
+      if (!nextTags) {
+        throw new Error(`Could not record ${tag} on the selected image.`);
+      }
+    }
+
+    const terminalJob =
+      pipelineSkuJob.status === "approved" ||
+      pipelineSkuJob.status === "shopify-pushed" ||
+      pipelineSkuJob.status === "synced" ||
+      Boolean(pipelineSkuJob.approved_image_id);
+    const exactImageAlreadyApproved =
+      terminalJob &&
+      pipelineSkuJob.approved_image_id === sanityPublishImage.id &&
+      pipelineSkuJob.approved_image_url === sanityPublishImage.image_url;
+    if (terminalJob && !exactImageAlreadyApproved) {
+      await replaceBestBottlesSkuJobHero({
+        organizationId: currentOrganizationId,
+        pipelineSkuJobId: pipelineSkuJob.id,
+        imageId: sanityPublishImage.id,
+      });
+    } else if (!exactImageAlreadyApproved) {
+      await approveBestBottlesGeneratedMaster({
+        organizationId: currentOrganizationId,
+        pipelineSkuJobId: pipelineSkuJob.id,
+        imageId: sanityPublishImage.id,
+      });
+    }
+
+    const pipelineGroup = pipelineGroupsBySlug.get(
+      normalizeBestBottlesSlug(group.slug),
+    );
+    if (!pipelineGroup) {
+      throw new Error(
+        `No Madison pipeline group was found for "${group.slug}".`,
+      );
+    }
+    await updatePipelineGroupStatus(pipelineGroup.id, {
+      madison_status: "approved",
+      madison_approved_image_id: sanityPublishImage.id,
+      madison_approved_at: new Date().toISOString(),
+      madison_approved_by: user.id,
+      madison_last_error: null,
+    });
+
+    setLocallyApprovedGroupHeroImageId(sanityPublishImage.id);
+    await Promise.all([
+      refetch(),
+      refetchPipelineSkuJobs(),
+      refetchPipelineGroups(),
+    ]);
+    toast({
+      title: "Approved as group hero",
+      description: `${pipelineSkuJob.grace_sku} is approved for ${group.slug} on the exact #F5F3EF canvas.`,
+    });
   };
 
   const handleConfirmSanityPublish = async () => {
@@ -2671,25 +2956,119 @@ export default function ImageLibrary() {
     try {
       if (publishDestination === "best-bottles-grid") {
         const slug = resolveEnteredBestBottlesGroupSlug(bestBottlesSlug);
-        const { data, error } = await supabase.functions.invoke("push-bestbottles-grid-hero", {
+        if (!currentOrganizationId) {
+          throw new Error("An organization is required to publish a Best Bottles catalog hero.");
+        }
+        const group = bestBottlesProductGroupsBySlug.get(
+          normalizeBestBottlesSlug(slug),
+        );
+        if (!group) {
+          throw new Error(`No Best Bottles product group was found for "${slug}".`);
+        }
+        const pipelineSkuJob = resolvePipelineSkuJobForImage(sanityPublishImage);
+        if (!pipelineSkuJob) {
+          throw new Error(
+            "The selected image has no exact pipeline SKU job.",
+          );
+        }
+        const pipelineGroup = pipelineGroupsBySlug.get(
+          normalizeBestBottlesSlug(group.slug),
+        );
+        const groupHeroApproved =
+          pipelineGroup?.madison_approved_image_id === sanityPublishImage.id ||
+          locallyApprovedGroupHeroImageId === sanityPublishImage.id;
+        if (!groupHeroApproved) {
+          throw new Error(
+            "Approve this exact image as the selected product group's hero before publishing.",
+          );
+        }
+
+        const pushItem = buildBestBottlesCatalogHeroPushItem({
+          job: pipelineSkuJob,
+          imageId: sanityPublishImage.id,
+          imageUrl: sanityPublishImage.image_url,
+          productGroupSlug: group.slug,
+        });
+
+        const { data: preflightData, error: preflightError } =
+          await supabase.functions.invoke("push-shopify-product-images", {
+            body: {
+              organizationId: currentOrganizationId,
+              items: [pushItem],
+              attachToVariant: true,
+              syncBestBottlesConvex: true,
+              enforceBestBottlesFinishMatch: true,
+              catalogHeroProductGroupSlug: group.slug,
+              dryRun: true,
+            },
+          });
+        if (preflightError) {
+          throw new Error(
+            await extractFunctionErrorMessage(
+              preflightError,
+              "Best Bottles catalog preflight failed",
+            ),
+          );
+        }
+        if (preflightData?.error) throw new Error(preflightData.error);
+        const preflightResults = Array.isArray(preflightData?.results)
+          ? preflightData.results
+          : [];
+        const preflightFailure = preflightResults.find(
+          (result: { status?: string; message?: string }) =>
+            result.status !== "dry-run",
+        );
+        if (
+          Number(preflightData?.failedCount ?? 0) > 0 ||
+          preflightFailure
+        ) {
+          throw new Error(
+            preflightFailure?.message ??
+              "Shopify dry-run preflight did not resolve the exact approved SKU.",
+          );
+        }
+
+        const authorizedItems = await attachPublishAuthorizations({
+          organizationId: currentOrganizationId,
+          items: [pushItem],
+        });
+        const { data, error } = await supabase.functions.invoke("push-shopify-product-images", {
           body: {
             organizationId: currentOrganizationId,
-            imageUrl: sanityPublishImage.image_url,
-            slug,
+            items: authorizedItems,
+            attachToVariant: true,
+            syncBestBottlesConvex: true,
+            enforceBestBottlesFinishMatch: true,
+            catalogHeroProductGroupSlug: group.slug,
           },
         });
         if (error) throw new Error(await extractFunctionErrorMessage(error, "Best Bottles catalog update failed"));
         if (data?.error) throw new Error(data.error);
+        const failedCount = Number(data?.failedCount ?? 0);
+        if (failedCount > 0) {
+          const firstFailure = Array.isArray(data?.results)
+            ? data.results.find((result: { status?: string }) => result.status === "failed")
+            : null;
+          throw new Error(
+            firstFailure?.message ??
+              `${failedCount} catalog hero publish${failedCount === 1 ? "" : "es"} failed.`,
+          );
+        }
 
-        await markBestBottlesSkuJobsFromShopifyResults(currentOrganizationId, data?.forwarded?.results);
+        await markBestBottlesSkuJobsFromShopifyResults(currentOrganizationId, data?.results);
         await reconcileBestBottlesPublish({
           organizationId: currentOrganizationId,
-          productGroupSlug: data?.slug ?? slug,
+          productGroupSlug: group.slug,
+          skus: [
+            pipelineSkuJob.grace_sku,
+            pipelineSkuJob.website_sku,
+            pipelineSkuJob.shopify_sku,
+          ].filter((sku): sku is string => Boolean(sku)),
         });
 
         toast({
           title: "Best Bottles Shopify hero updated",
-          description: `Product group "${data?.slug ?? slug}" now uses Shopify media and has been reconciled to Convex.`,
+          description: `Product group "${group.slug}" now uses Shopify media and has been reconciled to Convex.`,
         });
       } else if (publishDestination === "best-bottles-pdp") {
         const websiteSkus = splitWebsiteSkus(bestBottlesWebsiteSku);
@@ -2765,6 +3144,8 @@ export default function ImageLibrary() {
       setBestBottlesPdpMode("cap-on");
       setBestBottlesGroupSearch("");
       setBestBottlesSkuSearch("");
+      setLocallyApprovedGroupHeroImageId(null);
+      setGroupHeroApprovalError(null);
     } catch (e: unknown) {
       const rawMessage = await extractFunctionErrorMessage(e, "Unable to publish");
       const message =
@@ -2859,77 +3240,26 @@ export default function ImageLibrary() {
     }
   };
 
-  const getCategoryBadgeColor = (category: string | null) => {
-    switch (category?.toLowerCase()) {
-      case "product":
-        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-      case "lifestyle":
-        return "bg-green-500/20 text-green-400 border-green-500/30";
-      case "ecommerce":
-        return "bg-purple-500/20 text-purple-400 border-purple-500/30";
-      case "social":
-        return "bg-pink-500/20 text-pink-400 border-pink-500/30";
-      case "editorial":
-        return "bg-amber-500/20 text-amber-400 border-amber-500/30";
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
-    }
-  };
-
-  const getProvenanceBadgeColor = (kind: BestBottlesImageProvenanceKind) => {
-    switch (kind) {
-      case "generated-output":
-        return "border-sky-400/50 bg-sky-500/15 text-sky-200";
-      case "keeper-backfill":
-        return "border-amber-400/50 bg-amber-500/15 text-amber-200";
-      case "reference-import":
-        return "border-violet-400/50 bg-violet-500/15 text-violet-200";
-      case "shopify-source":
-        return "border-[#95BF47]/60 bg-[#95BF47]/15 text-[#D8F7A0]";
-      default:
-        return "border-[var(--darkroom-border)] bg-black/35 text-[var(--darkroom-text)]/75";
-    }
-  };
-
-  const getBestBottlesSyncBadge = (image: GeneratedImage) => {
-    if (!isBestBottlesOrg) return null;
-    const job = resolvePipelineSkuJobForImage(image);
-    const detectedSku = detectShopifySku(image) || detectGraceSku(image) || detectWebsiteSku(image);
-    if (!job && !detectedSku) return null;
-
-    if (job?.status === "synced" || job?.convex_synced_at) {
+  const getBestBottlesBackgroundBadge = (image: GeneratedImage) => {
+    const tags = Array.isArray(image.library_tags) ? image.library_tags : [];
+    if (tags.includes(BEST_BOTTLES_BACKGROUND_QA_PASS_TAG)) {
       return {
-        label: "Convex synced",
-        title: `${job.website_sku || job.grace_sku} has a Convex cached Shopify image URL. This is destination sync state, not proof that this library card is a regenerated output.`,
-        className: "border-emerald-400/50 bg-emerald-500/15 text-emerald-300",
+        label: "Background pass",
+        title: "Background QA passed on exact Best Bottles Bone #F5F3EF.",
+        className: "border-emerald-400/60 bg-emerald-950/70 text-emerald-100",
       };
     }
-
-    if (
-      job?.status === "shopify-pushed" ||
-      job?.shopify_pushed_at ||
-      job?.shopify_image_url ||
-      job?.shopify_media_id
-    ) {
+    if (tags.includes(BEST_BOTTLES_BACKGROUND_QA_FAIL_TAG)) {
       return {
-        label: "Shopify pushed",
-        title: `${job.website_sku || job.grace_sku} has Shopify media but is not fully Convex synced yet. This is destination sync state, not generation provenance.`,
-        className: "border-[#95BF47]/60 bg-[#95BF47]/15 text-[#BFEA73]",
+        label: "Background failed",
+        title: "Background QA failed. Regenerate on exact Best Bottles Bone #F5F3EF.",
+        className: "border-red-400/70 bg-red-950/75 text-red-200",
       };
     }
-
-    if (job) {
-      return {
-        label: "Pipeline tracked",
-        title: `${job.website_sku || job.grace_sku} exists in the Madison pipeline but has not been pushed to Shopify yet.`,
-        className: "border-sky-400/40 bg-sky-500/15 text-sky-300",
-      };
-    }
-
     return {
-      label: "SKU matched",
-      title: `${detectedSku} matches a Best Bottles SKU signal, but no pipeline sync record was found.`,
-      className: "border-[var(--darkroom-border)] bg-black/35 text-[var(--darkroom-text)]/75",
+      label: "Background review",
+      title: "This image has not been measured against exact Best Bottles Bone #F5F3EF.",
+      className: "border-amber-400/70 bg-amber-950/75 text-amber-100",
     };
   };
 
@@ -3000,12 +3330,33 @@ export default function ImageLibrary() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
             {/* Left: Asset type + Sort */}
             <div className="flex items-center gap-2 flex-wrap">
+            {isBestBottlesOrg && (
+              <Button
+                type="button"
+                size="sm"
+                aria-pressed={catalogHeroPresetActive}
+                onClick={applyCatalogHeroPreset}
+                className={cn(
+                  "h-9 text-xs",
+                  catalogHeroPresetActive
+                    ? "bg-[var(--darkroom-accent)] text-[var(--darkroom-bg)] hover:bg-[var(--darkroom-accent-hover)]"
+                    : "border-[var(--darkroom-accent)]/50 bg-transparent text-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent)]/10",
+                )}
+                variant={catalogHeroPresetActive ? "default" : "outline"}
+                title="Show catalog-grid heroes only. Starts on Cylinder; switch families in the rail without leaving this stack."
+              >
+                Catalog heroes
+              </Button>
+            )}
             <Select value={assetTypeFilter} onValueChange={(v) => setAssetTypeFilter(v as AssetTypeFilter)}>
                 <SelectTrigger className="w-full md:w-[180px] bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] text-sm">
                 <SelectValue placeholder="Asset type" />
               </SelectTrigger>
               <SelectContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)]">
                 <SelectItem value="all" className="text-[var(--darkroom-text)]">All assets</SelectItem>
+                {isBestBottlesOrg && (
+                  <SelectItem value="catalog-heroes" className="text-[var(--darkroom-text)]">Catalog heroes</SelectItem>
+                )}
                 <SelectItem value="product" className="text-[var(--darkroom-text)]">Product images</SelectItem>
                 <SelectItem value="product-photography" className="text-[var(--darkroom-text)]">All product photos</SelectItem>
                 {isBestBottlesOrg && (
@@ -3198,14 +3549,21 @@ export default function ImageLibrary() {
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-24 md:pb-8">
         <div className={cn(isBestBottlesOrg && "grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]")}>
           {isBestBottlesOrg && (
-            <BestBottlesFamilyRail
-              options={bestBottlesFamilyOptions}
-              activeFamily={bestBottlesFamilyFilter}
-              totalCount={familyRailImages.length}
-              filteredCount={filteredImages.length}
-              isLoading={bestBottlesProductsLoading}
-              onSelect={setBestBottlesFamilyFilter}
-            />
+            <div className="space-y-2">
+              {catalogHeroPresetActive && (
+                <p className="px-1 text-[10px] uppercase tracking-[0.16em] text-[var(--darkroom-accent)]">
+                  Catalog hero stack · Cylinder first
+                </p>
+              )}
+              <BestBottlesFamilyRail
+                options={bestBottlesFamilyOptions}
+                activeFamily={bestBottlesFamilyFilter}
+                totalCount={familyRailImages.length}
+                filteredCount={filteredImages.length}
+                isLoading={bestBottlesProductsLoading}
+                onSelect={setBestBottlesFamilyFilter}
+              />
+            </div>
           )}
           <div className="min-w-0">
         {isLoading ? (
@@ -3216,12 +3574,16 @@ export default function ImageLibrary() {
           <div className="flex flex-col items-center justify-center py-12 md:py-20 text-center px-4">
             <Camera className="w-12 h-12 md:w-16 md:h-16 text-[var(--darkroom-text)]/20 mb-4" />
             <h3 className="text-lg md:text-xl font-serif text-[var(--darkroom-text)] mb-2">
-              {isBestBottlesOrg && referenceLineageFilter === "clean"
+              {isBestBottlesOrg && assetTypeFilter === "catalog-heroes"
+                ? "No catalog heroes in this family yet"
+                : isBestBottlesOrg && referenceLineageFilter === "clean"
                 ? "No clean work yet"
                 : "No images yet"}
             </h3>
             <p className="text-sm md:text-base text-[var(--darkroom-text)]/60 mb-6 max-w-md">
-              {isBestBottlesOrg && referenceLineageFilter === "clean"
+              {isBestBottlesOrg && assetTypeFilter === "catalog-heroes"
+                ? "This stack shows grid-card heroes only. Stay here and pick Empire, Circle, or another family in the rail — or generate the next master from Product Studio → Masters."
+                : isBestBottlesOrg && referenceLineageFilter === "clean"
                 ? "This view shows only new, drift-free pipeline work. It fills as you generate from clean references — switch to “Legacy imports” or “All lineages” to see existing images."
                 : searchQuery || assetTypeFilter !== "all"
                 ? assetTypeFilter === "empty-plates"
@@ -3284,7 +3646,7 @@ export default function ImageLibrary() {
                   )}>
                     <img
                       src={storageThumbnailUrl(image.image_url, { width: 500 })}
-                      alt={image.session_name || "Generated image"}
+                      alt={resolveLibraryProductIdentity(image)?.name || image.session_name || "Generated image"}
                       className="w-full h-full object-cover"
                       loading="lazy"
                       decoding="async"
@@ -3310,13 +3672,47 @@ export default function ImageLibrary() {
                       )}
                     </div>
 
+                    {/* Scale-card verdict (Best Bottles catalog heroes only) */}
+                    {(() => {
+                      const verdict = resolveTileScaleVerdict(image);
+                      if (!verdict) return null;
+                      return (
+                        <div
+                          data-testid="tile-scale-verdict"
+                          data-verdict={verdict.verdict}
+                          title={verdict.summary}
+                          className={cn(
+                            "absolute bottom-2 right-2 z-10 rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em]",
+                            verdict.verdict === "pass" &&
+                              "border-emerald-400/70 bg-emerald-950/85 text-emerald-100",
+                            verdict.verdict === "fail" &&
+                              "border-red-400/70 bg-red-950/85 text-red-100",
+                            verdict.verdict === "unverified" &&
+                              "border-amber-400/70 bg-amber-950/85 text-amber-100",
+                          )}
+                        >
+                          {verdict.label}
+                          {verdict.scaleDeltaMm != null
+                            ? ` · HΔ ${verdict.scaleDeltaMm.toFixed(1)} mm`
+                            : ""}
+                          {verdict.diameterDeltaMm != null
+                            ? ` · ØΔ ${verdict.diameterDeltaMm.toFixed(1)} mm`
+                            : ""}
+                          {verdict.assembledDeltaMm != null
+                            ? ` · AΔ ${verdict.assembledDeltaMm.toFixed(1)} mm`
+                            : ""}
+                        </div>
+                      );
+                    })()}
+
                     {/* Actions Menu */}
-                    <div className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
+                    <div className="absolute top-2 right-2 z-10">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                           <Button
                             size="sm"
                             variant="ghost"
+                            aria-label="Image actions"
                             className="h-8 w-8 p-0 bg-black/40 hover:bg-black/60"
                           >
                             <MoreVertical className="w-4 h-4 text-white" />
@@ -3380,6 +3776,7 @@ export default function ImageLibrary() {
                             <Download className="w-4 h-4 mr-2" />
                             Download
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-[var(--darkroom-border)]" />
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
@@ -3397,7 +3794,7 @@ export default function ImageLibrary() {
                             }}
                             className="text-[var(--darkroom-text)] focus:bg-[var(--darkroom-border)]"
                           >
-                            <Upload className="w-4 h-4 mr-2" />
+                            <ShoppingBag className="w-4 h-4 mr-2" />
                             {publishLabel}
                           </DropdownMenuItem>
                           {isBestBottlesOrg && (
@@ -3519,125 +3916,23 @@ export default function ImageLibrary() {
                       </DropdownMenu>
                     </div>
 
-                    {isBestBottlesOrg && (
-                      <div className="absolute top-12 right-2 z-10 flex flex-col items-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openSanityPublish(image);
-                          }}
-                          title="Publish this image to Best Bottles Shopify media"
-                          className="h-8 border border-[#95BF47] bg-[#95BF47] px-2 text-xs font-semibold text-[#0B1F0A] shadow-[0_0_0_1px_rgba(149,191,71,0.25)] hover:bg-[#A7D65A]"
-                        >
-                          <ShoppingBag className="h-3.5 w-3.5 md:mr-1" />
-                          <span className="hidden md:inline">Publish Shopify</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openSanityMediaPlacement(image);
-                          }}
-                          title="Push this image into Sanity media"
-                          className="h-8 border-white/55 bg-black/65 px-2 text-xs font-semibold text-white hover:bg-black/80 hover:text-white"
-                        >
-                          <Upload className="h-3.5 w-3.5 md:mr-1" />
-                          <span className="hidden md:inline">Push to Sanity</span>
-                          <span className="md:hidden">Sanity</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Category Badge - use goal_type for display */}
-                    <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 items-end">
-                    {isBestBottlesOrg && (() => {
-                      const workflow = getBestBottlesDarkroomWorkflowForImage(image);
-                      if (workflow.status === "not-darkroom-workflow") return null;
-                      return (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px]",
-                            bestBottlesDarkroomStatusClassName(workflow.status),
-                          )}
-                          title={workflow.pushBlocked
-                            ? "Blocked from PDP, Shopify, and Grace until matched to verified product truth."
-                            : "SKU-bound candidate; continue visual QA before publish."}
-                        >
-                          {bestBottlesDarkroomStatusLabel(workflow.status)}
-                        </Badge>
-                      );
-                    })()}
-                    {(() => {
-                      const provenance = isBestBottlesOrg ? resolveBestBottlesImageProvenance(image) : null;
-                      if (provenance && provenance.kind !== "unknown") {
-                        return (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              getProvenanceBadgeColor(provenance.kind),
-                            )}
-                            title={provenance.description}
-                          >
-                            {provenance.label}
-                          </Badge>
-                        );
-                      }
-                      if (!image.goal_type) return null;
-                      return (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-xs capitalize",
-                            getCategoryBadgeColor(image.goal_type)
-                          )}
-                        >
-                          {image.goal_type.replace(/_/g, ' ')}
-                        </Badge>
-                      );
-                    })()}
-                    {(image.library_tags ?? [])
-                      .filter((t) => t.startsWith("sku:"))
-                      .slice(0, 2)
-                      .map((t) => (
-                        <Badge
-                          key={t}
-                          variant="outline"
-                          className="text-[10px] border-[var(--darkroom-accent)]/40 text-[var(--darkroom-accent)] max-w-[120px] truncate"
-                          title={t}
-                        >
-                          {t.replace(/^sku:/, "")}
-                        </Badge>
-                      ))}
-                    {isBestBottlesOrg && !bestBottlesImageReconciliationError && (
-                      <BestBottlesReconciliationBadges
-                        reconciliation={bestBottlesImageReconciliationById.get(image.id) ?? null}
-                        isStudioMaster={
-                          (image.library_tags ?? []).includes("brand:best-bottles") &&
-                          (image.library_tags ?? []).includes("studio-master")
-                        }
-                      />
-                    )}
-                    {(() => {
-                      const syncBadge = getBestBottlesSyncBadge(image);
-                      if (!syncBadge) return null;
-                      return (
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[10px]", syncBadge.className)}
-                          title={syncBadge.title}
-                        >
-                          {syncBadge.label}
-                        </Badge>
-                      );
-                    })()}
-                    </div>
                   </div>
+                  {(() => {
+                    const identity = resolveLibraryProductIdentity(image);
+                    if (!identity) return null;
+                    return (
+                      <div className="px-2.5 py-2 border-t border-[var(--darkroom-border)]">
+                        <div className="truncate text-[12px] font-medium leading-snug text-[var(--darkroom-text)]">
+                          {identity.name}
+                        </div>
+                        {identity.graceSku && (
+                          <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--darkroom-text)]/55">
+                            {identity.graceSku}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -3807,7 +4102,7 @@ export default function ImageLibrary() {
             )}
             {bulkBestBottlesHasPrimaryOnly && (
               <p className="text-[11px] text-[var(--darkroom-text)]/50">
-                Empire vintage bulb sprayer rows publish to the main PDP image only.
+                Vintage style bulb and vintage style bulb tassel rows publish as one assembled image. They have no cap-off state.
               </p>
             )}
           </div>
@@ -4317,6 +4612,8 @@ export default function ImageLibrary() {
             setBestBottlesPdpMode("cap-on");
             setBestBottlesGroupSearch("");
             setBestBottlesSkuSearch("");
+            setLocallyApprovedGroupHeroImageId(null);
+            setGroupHeroApprovalError(null);
           }
         }}
       >
@@ -4471,11 +4768,126 @@ export default function ImageLibrary() {
                   className="bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] font-mono text-sm"
                 />
                 <p className="text-[11px] text-[var(--darkroom-text)]/50">
-                  Uploads to Shopify product media, attaches the image to the primary variant,
-                  writes the Shopify CDN URL to the Best Bottles Convex catalog hero/thumbnail
-                  path, then runs the reconciliation pass so the production UI reads the current
-                  Shopify URL.
+                  Approves this exact image for{" "}
+                  <span className="font-mono">
+                    {selectedGroupHeroPipelineJob?.grace_sku ??
+                      "its matched SKU"}
+                  </span>
+                  , publishes through that SKU&apos;s guarded Shopify job, then assigns the
+                  resulting Shopify CDN URL to this product group&apos;s heroImageUrl.
                 </p>
+                {sanityPublishImage && (
+                  <div className="rounded-md border border-[var(--darkroom-border)] bg-[var(--darkroom-bg)] p-3">
+                    <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-[var(--darkroom-text)]/50">
+                      Group hero gates
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(() => {
+                        const reconciliation =
+                          bestBottlesImageReconciliationById.get(
+                            sanityPublishImage.id,
+                          );
+                        const framingPassed =
+                          reconciliation?.lifecycle_state !== "qa-failed" &&
+                          reconciliation?.framing_decision === "pass" &&
+                          reconciliation.qa_issues.length === 0;
+                        const backgroundBadge =
+                          getBestBottlesBackgroundBadge(sanityPublishImage);
+                        return (
+                          <>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px]",
+                                framingPassed
+                                  ? "border-emerald-400/60 bg-emerald-950/70 text-emerald-100"
+                                  : "border-amber-400/70 bg-amber-950/75 text-amber-100",
+                              )}
+                            >
+                              {framingPassed
+                                ? "Framing pass"
+                                : "Framing review"}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px]",
+                                backgroundBadge.className,
+                              )}
+                            >
+                              {backgroundBadge.label}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px]",
+                                selectedGroupHeroApproved
+                                  ? "border-violet-400/70 bg-violet-950/75 text-violet-100"
+                                  : "border-amber-400/70 bg-amber-950/75 text-amber-100",
+                              )}
+                            >
+                              {selectedGroupHeroApproved
+                                ? "Group approved"
+                                : "Group unapproved"}
+                            </Badge>
+                          </>
+                        );
+                      })()}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-3 w-full border-violet-400/60 text-violet-100 hover:bg-violet-500/15"
+                      disabled={
+                        groupHeroApprovalLoading ||
+                        !normalizeBestBottlesSlug(bestBottlesSlug)
+                      }
+                      onClick={async () => {
+                        setGroupHeroApprovalLoading(true);
+                        setGroupHeroApprovalError(null);
+                        try {
+                          await handleApproveGroupHero();
+                        } catch (error) {
+                          setGroupHeroApprovalError(
+                            error instanceof Error
+                              ? error.message
+                              : "Unknown error",
+                          );
+                          toast({
+                            title: "Group hero approval failed",
+                            description:
+                              error instanceof Error
+                                ? error.message
+                                : "Unknown group hero approval error.",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setGroupHeroApprovalLoading(false);
+                        }
+                      }}
+                    >
+                      {groupHeroApprovalLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Checking exact SKU and QA…
+                        </>
+                      ) : selectedGroupHeroApproved ? (
+                        "Approved as group hero"
+                      ) : (
+                        "Approve as group hero"
+                      )}
+                    </Button>
+                    {groupHeroApprovalError && (
+                      <p
+                        role="alert"
+                        data-testid="group-hero-approval-error"
+                        className="mt-2 rounded border border-red-400/50 bg-red-950/50 px-2.5 py-2 text-[11px] leading-relaxed text-red-100"
+                      >
+                        {groupHeroApprovalError}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ) : publishDestination === "best-bottles-pdp" ? (
@@ -4618,7 +5030,7 @@ export default function ImageLibrary() {
                 )}
                 {selectedBestBottlesHasPrimaryOnly && (
                   <p className="text-[11px] text-[var(--darkroom-text)]/50">
-                    Empire vintage bulb sprayer images are assigned to the main PDP image only.
+                    Vintage style bulb and vintage style bulb tassel images are one assembled photograph with no cap-off state.
                   </p>
                 )}
               </div>
@@ -4658,6 +5070,8 @@ export default function ImageLibrary() {
                 setBestBottlesPdpMode("cap-on");
                 setBestBottlesGroupSearch("");
                 setBestBottlesSkuSearch("");
+                setLocallyApprovedGroupHeroImageId(null);
+                setGroupHeroApprovalError(null);
               }}
             >
               Cancel
@@ -4667,8 +5081,10 @@ export default function ImageLibrary() {
               className="bg-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent-hover)] text-[var(--darkroom-bg)]"
               disabled={
                 sanityPublishLoading ||
+                groupHeroApprovalLoading ||
                 (publishDestination === "best-bottles-grid"
-                  ? !normalizeBestBottlesSlug(bestBottlesSlug)
+                  ? !normalizeBestBottlesSlug(bestBottlesSlug) ||
+                    !selectedGroupHeroApproved
                   : publishDestination === "best-bottles-pdp"
                     ? !bestBottlesWebsiteSku.trim() || selectedBestBottlesHasProductGroupSlug
                     : !sanityPublishProduct)
@@ -4795,7 +5211,10 @@ export default function ImageLibrary() {
           // Refresh the library to show the new refinement
           await refetch();
           // Update modal to show the new image
-          setSelectedImage(newImage);
+          setSelectedImage((current) => ({
+            ...newImage,
+            product: current?.product ?? newImage.product,
+          }));
           // Show success message
           toast({
             title: "Refinement saved",

@@ -47,7 +47,7 @@
  * marked `rendered` in the manifest. Pass --manifest <path> to pin the file.
  *
  * Env (mirrors live-cylinder-smoke.ts where noted):
- *   BB_GEN_AI_PROVIDER        default openai-image-2   (smoke: BB_SMOKE_AI_PROVIDER)
+ *   BB_GEN_AI_PROVIDER        default openai-image-2.5-sunburst   (smoke: BB_SMOKE_AI_PROVIDER)
  *   BB_GEN_PROMPT_MODE        canon-framing | canon-only
  *   BB_GEN_RESOLUTION         standard | high | 4k
  *   BB_GEN_PROMPT_ADDENDUM    (optional smoke addendum id)
@@ -57,7 +57,9 @@
  *   MADISON_BEST_BOTTLES_ORG_ID / MADISON_BEST_BOTTLES_USER_ID  (defaults below)
  */
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+
+import { lookupCanonTruth, withCanonTruthGeometry } from "./canon-truth";
 import path from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
@@ -84,6 +86,7 @@ import {
 } from "../../src/lib/bestBottlesReferenceValidation";
 import { getExactOutputCanvasConstraints } from "../../src/lib/product-image/exactOutputCanvas";
 import { resolveWholeVesselBounds } from "../../src/lib/product-image/rigPostprocess";
+import { clipDetachedSidecar } from "./reference-sidecar-split";
 import { resolveBestBottlesShadowTopology } from "../../src/lib/bestBottlesShadowTopology";
 import {
   buildBestBottlesRawReconciliationPayload,
@@ -105,6 +108,7 @@ import {
   type CylinderRoleGenerationAuthority,
   type CylinderVerifiedReferenceBytes,
 } from "../../src/lib/bestBottlesCylinderRoleAuthority";
+import { resolveBestBottlesHeroPresentation } from "../../src/lib/bestBottlesHeroPresentation";
 import { loadPromptSystem } from "../generate-prompts";
 import {
   buildCylinderSmokePromptRecord,
@@ -135,7 +139,7 @@ const USER_ID =
 const preset = IMAGE_PRESETS["grid-card-exploded-2000x2200"];
 if (!preset) throw new Error("Missing grid-card-exploded-2000x2200 preset.");
 
-const aiProvider = process.env.BB_GEN_AI_PROVIDER?.trim() || "openai-image-2";
+const aiProvider = process.env.BB_GEN_AI_PROVIDER?.trim() || "openai-image-2.5-sunburst";
 const allowBestBottlesProviderOverride = !/^openai|^gpt-image|^dall-e/i.test(aiProvider);
 const skipRigPostprocess = process.env.BB_GEN_SKIP_RIG_POSTPROCESS === "1";
 const promptAddendum = getSmokePromptAddendum(process.env.BB_GEN_PROMPT_ADDENDUM);
@@ -162,6 +166,19 @@ const family = getArg("--family", "Cylinder");
 const productGroup = getArg("--product-group", "");
 // Defer bulb+tassel SKUs (their scale-to-bottle-height framing fix is separate).
 const skipTassel = process.argv.includes("--skip-tassel");
+const includeBulbTassel = process.argv.includes("--include-bulb-tassel");
+const referenceFolder = getArg("--reference-folder", "");
+// Cylinder is fenced: generation must use the exact promoted immutable role
+// reference. Jordan lifted that for the flattened-Photoshop route on
+// 2026-09-19 — the PSD flat is the original source the promoted derivative was
+// made from, and every other family already generates from it. It stays opt-in:
+// it needs a --reference-folder, only ever applies to a target that came from
+// that folder, and tags the image so its provenance is never mistaken for a
+// promoted reference. Without the flag the fence is exactly as it was.
+const allowFlattenedPsdReference = process.argv.includes("--allow-flattened-psd-reference");
+if (allowFlattenedPsdReference && !referenceFolder) {
+  throw new Error("--allow-flattened-psd-reference requires --reference-folder.");
+}
 const skusArg = getArg("--skus", "");
 // Optional explicit graceSku allowlist for curated cross-group pilots
 // (e.g. one representative each of 3/4/5/9ml to check the capacity scale).
@@ -253,6 +270,7 @@ function productFromSnapshot(row: ProductRow) {
     heightWithoutCap: getText(row, "heightWithoutCap"),
     heightWithCap: getText(row, "heightWithCap"),
     diameter: getText(row, "diameter"),
+    neckThreadSize: getText(row, "neckThreadSize"),
   };
 }
 
@@ -305,6 +323,12 @@ interface Skip {
   sku: string;
   productGroupSlug: string | null;
   reason: string;
+}
+
+/** True only when this target's reference bytes were read from --reference-folder. */
+function isFlattenedPsdTarget(target: FamilyTarget): boolean {
+  const lineage = target.verifiedReference?.lineageUrl;
+  return typeof lineage === "string" && localHeroFilePaths.has(lineage);
 }
 
 // ---------------------------------------------------------------------------
@@ -416,6 +440,147 @@ const cylinderReadinessByIdentity = cylinderRoleAwareInput
   ? cylinderRoleAwareInput.index
   : new Map<string, CylinderRoleAwareReadinessRow>();
 
+const sidecarOverridesPath = getArg("--sidecar-overrides", "");
+if (sidecarOverridesPath) {
+  const overrides = JSON.parse(readFileSync(path.resolve(sidecarOverridesPath), "utf8")) as Record<
+    string,
+    Record<string, unknown>
+  >;
+  let applied = 0;
+  for (const row of cylinderReadinessByIdentity.values()) {
+    const patch = overrides[row.graceSku];
+    if (!patch) continue;
+    Object.assign(row.references.pdpCapOffSidecar, patch);
+    applied += 1;
+  }
+  console.log(`sidecar overrides applied    : ${applied} from ${sidecarOverridesPath}`);
+}
+
+type LocalHeroReference = {
+  graceSku: string;
+  websiteSku: string | null;
+  filePath: string;
+  productGroupSlug: string | null;
+  isBulbOrTassel: boolean;
+};
+
+function normalizeHeroKey(value: string | null | undefined): string {
+  return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+}
+
+function isBulbOrTasselHero(value: string): boolean {
+  return /\b(?:ASP|AST|ANTIQUE|TASSEL|VINTAGE)\b/i.test(value);
+}
+
+function loadLocalHeroFolder(folderArg: string): Map<string, LocalHeroReference> {
+  const folder = path.resolve(folderArg);
+  if (!existsSync(folder)) {
+    throw new Error(`Reference folder does not exist: ${folder}`);
+  }
+  const byKey = new Map<string, LocalHeroReference>();
+  const remember = (key: string, ref: LocalHeroReference) => {
+    const normalized = normalizeHeroKey(key);
+    if (normalized) byKey.set(normalized, ref);
+  };
+  const manifestPath = path.join(folder, "..", `${path.basename(folder)}.manifest.json`);
+  const manifestRows = existsSync(manifestPath)
+    ? (JSON.parse(readFileSync(manifestPath, "utf8")) as {
+        rows?: Array<{
+          graceSku?: string;
+          websiteSku?: string;
+          outputFile?: string;
+          productGroupSlug?: string;
+        }>;
+      }).rows ?? []
+    : [];
+  const files = new Map(
+    readdirSync(folder)
+      .filter((name) => /\.png$/i.test(name))
+      .map((name) => [name, path.join(folder, name)]),
+  );
+  for (const row of manifestRows) {
+    const fileName = row.outputFile ?? `${row.graceSku ?? ""}.png`;
+    const filePath = files.get(fileName);
+    if (!filePath || !row.graceSku) continue;
+    const ref: LocalHeroReference = {
+      graceSku: row.graceSku,
+      websiteSku: row.websiteSku ?? null,
+      filePath,
+      productGroupSlug: row.productGroupSlug ?? null,
+      isBulbOrTassel: isBulbOrTasselHero(
+        [row.graceSku, row.websiteSku, row.productGroupSlug, fileName].join(" "),
+      ),
+    };
+    remember(row.graceSku, ref);
+    remember(row.websiteSku, ref);
+    remember(path.parse(fileName).name, ref);
+  }
+  for (const [fileName, filePath] of files) {
+    const stem = path.parse(fileName).name;
+    if (byKey.has(normalizeHeroKey(stem))) continue;
+    const ref: LocalHeroReference = {
+      graceSku: stem,
+      websiteSku: null,
+      filePath,
+      productGroupSlug: null,
+      isBulbOrTassel: isBulbOrTasselHero(stem),
+    };
+    remember(stem, ref);
+  }
+  console.log(`local hero folder            : ${files.size} PNG(s) from ${folder}`);
+  return byKey;
+}
+
+const localHeroByKey = referenceFolder ? loadLocalHeroFolder(referenceFolder) : new Map<string, LocalHeroReference>();
+/** File paths that came from --reference-folder, so a target can prove its route. */
+const localHeroFilePaths = new Set([...localHeroByKey.values()].map((hero) => hero.filePath));
+
+function lookupLocalHero(...keys: Array<string | null | undefined>): LocalHeroReference | null {
+  for (const key of keys) {
+    const found = localHeroByKey.get(normalizeHeroKey(key));
+    if (found) return found;
+  }
+  return null;
+}
+
+function buildLocalHeroVerifiedReference(localHero: LocalHeroReference, bytes: Buffer, width: number, height: number): CylinderVerifiedReferenceBytes {
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  // A dropper hero shows the dropper seated in the bottle. Telling the model
+  // "detached sidecar" against a reference with nothing detached makes it
+  // invent a loose part, so the authority has to match what the reference
+  // shows. The assembled shape mirrors buildCylinderRoleGenerationAuthority
+  // for a real identity-cap-on role.
+  const assembled = resolveBestBottlesHeroPresentation({
+    groupSlug: localHero.productGroupSlug,
+    websiteSku: localHero.websiteSku,
+  }) === "assembled";
+  return {
+    authority: assembled
+      ? {
+          referenceRoleId: "identity-cap-on",
+          componentTopology: "assembled",
+          capState: "assembled",
+          capOffReferenceId: null,
+          topologyReferenceId: sha256,
+          shadowTopology: "complex-contact",
+        }
+      : {
+          referenceRoleId: "pdp-cap-off-sidecar",
+          componentTopology: "fitment-attached-cap-right-sidecar",
+          capState: "detached",
+          capOffReferenceId: sha256,
+          topologyReferenceId: sha256,
+          shadowTopology: "detached-sidecar",
+        },
+    bytes: new Uint8Array(bytes),
+    sha256,
+    dataUrl: `data:image/png;base64,${bytes.toString("base64")}`,
+    lineageUrl: localHero.filePath,
+    width,
+    height,
+  };
+}
+
 function loadManifest(): Manifest {
   try {
     const parsed = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
@@ -480,7 +645,13 @@ async function rigPostprocessOutput(input: {
     preTransformBaselineYPx: number | null;
     detectedBaselineYPx: number | null;
     targetBaselineYPx: number | null;
+    preTransformShoulderYPx: number | null;
+    detectedShoulderYPx: number | null;
+    targetShoulderYPx: number | null;
+    shoulderDeltaPct: number | null;
+    shoulderConfidence: number | null;
     fillHeightPct: number | null;
+    glassHeightPct: number | null;
     centerXPct: number | null;
     targetCenterXPct: number | null;
     centerDeltaPct: number | null;
@@ -500,7 +671,7 @@ async function rigPostprocessOutput(input: {
 }> {
   const shadowTopology = resolveBestBottlesShadowTopology(input.product, {});
   const rigged = await input.page.evaluate(
-    async ({ imageUrl, expectedPrimaryAspectRatio, product, targetBackgroundHex, shadowTopology }) => {
+    async ({ imageUrl, expectedPrimaryAspectRatio, product, targetBackgroundHex, shadowTopology, canonTruth }) => {
       // PAINT-AFTER REMOVED (2026-07-10): the global corner-sampled colorCorrectToTarget
       // shift tinted the whole image and washed out clear glass. The bone background is
       // now painted by the model in-scene (framing-profile directive), so the rig runs
@@ -534,6 +705,10 @@ async function rigPostprocessOutput(input: {
         heightWithCap: product.heightWithCap,
         heightWithoutCap: product.heightWithoutCap,
         diameter: product.diameter,
+        // A flat flask's catalog diameter is not its pictured width; the canonical
+        // truth sheet's front-view axis is what an assembled frame is held to.
+        canonWidthAxisMm: canonTruth?.widthAxisMm ?? null,
+        canonHeightWithCapMm: canonTruth?.heightWithCapMm ?? null,
         capState: product.capState ?? null,
         mode: product.mode ?? null,
         shadowTopology,
@@ -548,24 +723,35 @@ async function rigPostprocessOutput(input: {
       product: input.product,
       targetBackgroundHex: BEST_BOTTLES_VISUAL_TARGET_CANVAS_HEX,
       shadowTopology,
+      canonTruth: lookupCanonTruth(input.sku),
     },
   );
 
   if (rigged.detectedBaselineYPx === null || rigged.targetBaselineYPx === null) {
     throw new Error(`${input.sku} rig postprocess failed: baseline was not detectable.`);
   }
-  if (rigged.qaIssues.length > 0) {
+  // Soft / recoverable issues must not burn another Sunburst call:
+  // - body-control derivation miss already fell back inside normalize
+  // - framingQa "warn" is reviewable; only "fail" regenerates
+  const blockingQaIssues = rigged.qaIssues.filter(
+    (issue) => !/body-control bounds could not be derived/i.test(issue),
+  );
+  if (blockingQaIssues.length > 0) {
     // Surface QA failures to the retry loop so they trigger a regeneration.
-    throw new Error(`${input.sku} rig postprocess failed: ${rigged.qaIssues.join(" ")}`);
+    throw new Error(`${input.sku} rig postprocess failed: ${blockingQaIssues.join(" ")}`);
   }
-  if (rigged.framingQa?.status !== "pass") {
+  if (rigged.framingQa?.status === "fail") {
     throw new Error(`${input.sku} rig postprocess failed: framing QA did not pass.`);
   }
   // A shadow-only miss is not an identity or geometry failure. Preserve the
   // generated asset and route it to explicit review without spending another
   // model call on the same identity-locked bottle.
+  const bodyControlReviewPending = rigged.qaIssues.some((issue) =>
+    /body-control bounds could not be derived/i.test(issue),
+  );
   const shadowReviewPending =
-    rigged.shadowOwner === "model" && rigged.shadowQa?.status !== "pass";
+    (rigged.shadowOwner === "model" && rigged.shadowQa?.status !== "pass")
+    || bodyControlReviewPending;
 
   const base64 = rigged.dataUrl.replace(/^data:image\/png;base64,/, "");
   const bytes = Buffer.from(base64, "base64");
@@ -610,7 +796,13 @@ async function rigPostprocessOutput(input: {
       preTransformBaselineYPx: rigged.preTransformBaselineYPx,
       detectedBaselineYPx: rigged.detectedBaselineYPx,
       targetBaselineYPx: rigged.targetBaselineYPx,
+      preTransformShoulderYPx: rigged.preTransformShoulderYPx,
+      detectedShoulderYPx: rigged.detectedShoulderYPx,
+      targetShoulderYPx: rigged.targetShoulderYPx,
+      shoulderDeltaPct: rigged.shoulderDeltaPct,
+      shoulderConfidence: rigged.shoulderConfidence,
       fillHeightPct: rigged.framingQa?.measurements.fillHeightPct ?? null,
+      glassHeightPct: rigged.framingQa?.measurements.glassHeightPct ?? null,
       centerXPct: rigged.framingQa?.measurements.centerXPct ?? null,
       targetCenterXPct: rigged.framingQa?.measurements.targetCenterXPct ?? null,
       centerDeltaPct: rigged.framingQa?.measurements.centerDeltaPct ?? null,
@@ -662,7 +854,7 @@ function buildCatalogTruthSnapshot(target: FamilyTarget): BestBottlesCatalogTrut
     heightWithoutCap: product.heightWithoutCap ?? null,
     heightWithCap: product.heightWithCap ?? null,
     diameter: product.diameter ?? null,
-    neckThreadSize: null,
+    neckThreadSize: product.neckThreadSize ?? null,
     applicator: product.applicator ?? null,
     capState: target.sidecarAuthority?.capState ?? target.product.capState ?? null,
     capColor: product.capColor ?? null,
@@ -815,6 +1007,8 @@ function buildBodyForTarget(target: FamilyTarget) {
     `prompt:${identity.promptVersion}`,
     `rig:${identity.rigVersion}`,
     `scale-contract:${identity.scaleContractVersion}`,
+    identity.glassBodyKey ? `glass-body:${identity.glassBodyKey}` : null,
+    identity.shoulderTargetPct != null ? `shoulder-pct:${identity.shoulderTargetPct}` : null,
     `scale-registry:${identity.calibrationRegistryKey}`,
     `scale-assembled-target:${identity.resolvedAssembledTargetPct}`,
     `scale-body-target-px:${identity.resolvedBodyTargetPx}`,
@@ -822,6 +1016,9 @@ function buildBodyForTarget(target: FamilyTarget) {
     `qa:${identity.qaStatus}`,
     `component-topology:${componentTopology}`,
     `topology-reference:${topologyReferenceId}`,
+    // Never let a render made from a local Photoshop flat read as if it came
+    // from a promoted immutable reference.
+    isFlattenedPsdTarget(target) ? "reference-route:flattened-psd" : null,
     ...visualTargetTags,
   ].filter((tag): tag is string => Boolean(tag));
 
@@ -972,7 +1169,14 @@ async function generateOnce(target: FamilyTarget, page: Page | null): Promise<Ge
       }
       return supabase.functions.invoke("generate-madison-image", { body });
     };
-    const { data, error } = isCylinderCloseoutFamily
+    const flattenedPsdRoute = allowFlattenedPsdReference && isFlattenedPsdTarget(target);
+    if (flattenedPsdRoute && isCylinderCloseoutFamily) {
+      console.log(`  [${target.sku}] reference route: FLATTENED PSD (${path.basename(target.verifiedReference!.lineageUrl)}) — immutable-role fence lifted by --allow-flattened-psd-reference`);
+    }
+    const { data, error } = flattenedPsdRoute
+      // The drift check still runs: the bytes sent must be the bytes verified.
+      ? await invokeRemoteGeneration(target.verifiedReference)
+      : isCylinderCloseoutFamily
       ? await invokeWithCylinderVerifiedReference({
           row: target.canonicalReadiness,
           presetId: preset.id,
@@ -1206,14 +1410,18 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
   );
   const snapshot = JSON.parse(readFileSync(convexSnapshotPath, "utf8")) as { products: ProductRow[] };
   const productBySku = new Map<string, ProductRow>();
+  const productByWebsiteSku = new Map<string, ProductRow>();
   for (const row of snapshot.products) {
     const sku = getText(row, "graceSku");
+    const website = getText(row, "websiteSku");
     if (sku) productBySku.set(sku, row);
+    if (website) productByWebsiteSku.set(website, row);
   }
 
   const targets: FamilyTarget[] = [];
   const skips: Skip[] = [];
   const seenWebsiteSkus = new Set<string>();
+  const usedLocalHeroPaths = new Set<string>();
 
   const sortedJobRows = [...((jobRows ?? []) as SkuJobRow[])].sort((left, right) => {
     const leftTarget = publicationTargetByWebsiteSku.get(left.website_sku ?? "");
@@ -1227,10 +1435,24 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
     const websiteSku = String(job.website_sku ?? "").trim();
     const publicationTarget = publicationTargetByWebsiteSku.get(websiteSku);
     const sku = publicationTarget?.graceSku ?? job.grace_sku;
-    if (skuFilter && !skuFilter.has(sku) && !skuFilter.has(job.grace_sku)) continue;
-    if (cylinderCloseout && seenWebsiteSkus.has(websiteSku)) continue;
-    if (cylinderCloseout) seenWebsiteSkus.add(websiteSku);
-    const productGroupSlug = job.product_group_slug ?? "unknown";
+    const localHero = lookupLocalHero(sku, job.grace_sku, websiteSku);
+    const skuFilterAllows = !skuFilter
+      || skuFilter.has(sku)
+      || skuFilter.has(job.grace_sku)
+      || skuFilter.has(websiteSku)
+      || Boolean(localHero && (
+        skuFilter.has(localHero.graceSku)
+        || (localHero.websiteSku != null && skuFilter.has(localHero.websiteSku))
+      ));
+    if (!skuFilterAllows) continue;
+    // One reference file is one hero. The catalog carries `-01` twin rows that
+    // share a website SKU, and the website-SKU dedupe below is skipped for
+    // local heroes — so without this the same render is billed twice.
+    // Canonical publication rows sort first, so the twin is what gets dropped.
+    if (localHero && usedLocalHeroPaths.has(localHero.filePath)) continue;
+    if (cylinderCloseout && websiteSku && seenWebsiteSkus.has(websiteSku) && !localHero) continue;
+    if (cylinderCloseout && websiteSku) seenWebsiteSkus.add(websiteSku);
+    const productGroupSlug = localHero?.productGroupSlug ?? job.product_group_slug ?? "unknown";
     let referenceUrl = "";
     let resolvedReferenceHash = "";
     let referenceAspectRatio: number | null = null;
@@ -1243,11 +1465,16 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       ? resolveCylinderImmutableReferenceForPreset(canonicalReadiness, preset.id)
       : null;
     let sidecarAuthority: CylinderRoleGenerationAuthority | null = null;
-    if (cylinderCloseout && !publicationTarget) {
+    if (localHero && localHero.isBulbOrTassel && !includeBulbTassel) {
+      skips.push({ sku: localHero.graceSku, productGroupSlug, reason: "bulb/tassel held for 1536x1024 canvas" });
+      usedLocalHeroPaths.add(localHero.filePath);
+      continue;
+    }
+    if (cylinderCloseout && !publicationTarget && !localHero) {
       skips.push({ sku, productGroupSlug, reason: "not in canonical Cylinder publication ledger" });
       continue;
     }
-    if (isCylinderCloseoutFamily && cylinderRoleAwareReadiness && !roleReference) {
+    if (isCylinderCloseoutFamily && cylinderRoleAwareReadiness && !roleReference && !localHero) {
       skips.push({
         sku,
         productGroupSlug,
@@ -1259,16 +1486,31 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       ? roleReference?.publicUrl?.trim() ?? ""
       : job.best_reference_candidate_path?.trim() ?? "";
 
-    // Resolve the reference: must be a usable public https image URL.
-    const refIssue = getBestBottlesReferenceUrlIssue(referenceUrl);
-    if (refIssue) {
-      skips.push({ sku, productGroupSlug, reason: `no usable reference: ${refIssue}` });
-      continue;
-    }
-
     try {
       let referenceBytes: Buffer;
-      if (isCylinderCloseoutFamily) {
+      if (localHero) {
+        referenceBytes = readFileSync(localHero.filePath);
+        const image = sharp(referenceBytes, { failOn: "error" });
+        const metadata = await image.metadata();
+        if (!metadata.width || !metadata.height) {
+          skips.push({ sku: localHero.graceSku, productGroupSlug, reason: "local hero PNG has no canvas size" });
+          continue;
+        }
+        verifiedReference = buildLocalHeroVerifiedReference(
+          localHero,
+          referenceBytes,
+          metadata.width,
+          metadata.height,
+        );
+        referenceUrl = verifiedReference.dataUrl;
+        resolvedReferenceHash = verifiedReference.sha256;
+        sidecarAuthority = verifiedReference.authority;
+      } else if (isCylinderCloseoutFamily) {
+        const refIssue = getBestBottlesReferenceUrlIssue(referenceUrl);
+        if (refIssue) {
+          skips.push({ sku, productGroupSlug, reason: `no usable reference: ${refIssue}` });
+          continue;
+        }
         const verified = await verifyCylinderImmutableReferenceBytesForPreset(
           canonicalReadiness,
           preset.id,
@@ -1279,6 +1521,11 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
         verifiedReference = verified;
         sidecarAuthority = verified.authority;
       } else {
+        const refIssue = getBestBottlesReferenceUrlIssue(referenceUrl);
+        if (refIssue) {
+          skips.push({ sku, productGroupSlug, reason: `no usable reference: ${refIssue}` });
+          continue;
+        }
         const response = await fetch(referenceUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         referenceBytes = Buffer.from(await response.arrayBuffer());
@@ -1286,14 +1533,29 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       }
       const image = sharp(referenceBytes, { failOn: "error" });
       const [metadata, stats] = await Promise.all([image.metadata(), image.stats()]);
+      const reviewedSidecarProvenance = Boolean(
+        localHero
+        || (
+          isCylinderCloseoutFamily
+          && roleReference
+          && /^(?:approved|reviewed)$/i.test(String(roleReference.sourceReviewStatus ?? ""))
+          && (
+            roleReference.sourceRoute === "reviewed-immutable-sidecar-remediation"
+            || roleReference.sourceRoute === "reviewed-bbuat-studio-capped"
+            || roleReference.sourceRoute === "production-readiness-cap-on"
+          )
+        ),
+      );
       const canonicalIssue = getBestBottlesCanonicalReferenceIssue(
         referenceUrl,
         metadata.width && metadata.height
           ? { width: metadata.width, height: metadata.height }
           : null,
         {
-          referenceSource: job.reference_source,
-          referenceName: job.expected_canonical_filename,
+          referenceSource: reviewedSidecarProvenance || localHero
+            ? "flattened-product-truth"
+            : job.reference_source,
+          referenceName: localHero ? path.basename(localHero.filePath) : job.expected_canonical_filename,
         },
       );
       if (canonicalIssue) {
@@ -1331,7 +1593,12 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
           g: Math.round(corners.reduce((a, c) => a + c[1], 0) / 4),
           b: Math.round(corners.reduce((a, c) => a + c[2], 0) / 4),
         };
-        const vessel = resolveWholeVesselBounds(rgba, refW, refH, refBg);
+        const wholeVessel = resolveWholeVesselBounds(rgba, refW, refH, refBg);
+        // A drop shadow can join the bottle and its detached cap into one object
+        // on the Photoshop source; measure the bottle alone when it has.
+        const vessel = wholeVessel
+          ? clipDetachedSidecar(rgba, refW, refH, refBg, wholeVessel) ?? wholeVessel
+          : null;
         const measuredRefAspect = vessel && vessel.right > vessel.left
           ? (vessel.bottom - vessel.top + 1) / (vessel.right - vessel.left + 1)
           : null;
@@ -1366,7 +1633,10 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       continue;
     }
 
-    const productRow = productBySku.get(sku);
+    const productRow = productBySku.get(sku)
+      ?? productBySku.get(localHero?.graceSku ?? "")
+      ?? productByWebsiteSku.get(websiteSku)
+      ?? productByWebsiteSku.get(localHero?.websiteSku ?? "");
     if (!productRow) {
       skips.push({ sku, productGroupSlug, reason: "no Convex product metadata (snapshot join miss)" });
       continue;
@@ -1374,7 +1644,7 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
     const snapshotProduct = productFromSnapshot(productRow);
     const canonicalProduct = canonicalReadiness
       ? applyRoleAwareCanonicalCylinderGeometry(snapshotProduct, canonicalReadiness)
-      : snapshotProduct;
+      : withCanonTruthGeometry(snapshotProduct);
     if (isCylinderCloseoutFamily && !sidecarAuthority) {
       skips.push({ sku, productGroupSlug, reason: "missing reviewed sidecar generation authority" });
       continue;
@@ -1420,7 +1690,120 @@ async function resolveTargets(): Promise<{ targets: FamilyTarget[]; skips: Skip[
       continue;
     }
 
+    // Claim the reference only once a row is accepted. Claiming it on read let a
+    // row that was then refused shadow the correct one: the catalog files each
+    // frosted Elegant 15 ml twice under one website SKU, a wrong `CLR` row that
+    // the identity check rightly blocks and the correct `FRS` row after it,
+    // which the duplicate filter above then skipped.
+    if (localHero) usedLocalHeroPaths.add(localHero.filePath);
     targets.push(target);
+  }
+
+  const leftoverHeroes = [...new Map(
+    [...localHeroByKey.values()]
+      .filter((hero) => !usedLocalHeroPaths.has(hero.filePath))
+      .filter((hero) =>
+        !skuFilter
+        || skuFilter.has(hero.graceSku)
+        || (hero.websiteSku != null && skuFilter.has(hero.websiteSku)),
+      )
+      .map((hero) => [hero.filePath, hero]),
+  ).values()];
+  for (const localHero of leftoverHeroes) {
+    const productRow = productBySku.get(localHero.graceSku)
+      ?? productByWebsiteSku.get(localHero.websiteSku ?? "");
+    const productGroupSlug = localHero.productGroupSlug ?? "unknown";
+    if (localHero.isBulbOrTassel && !includeBulbTassel) {
+      skips.push({ sku: localHero.graceSku, productGroupSlug, reason: "bulb/tassel held for 1536x1024 canvas" });
+      continue;
+    }
+    if (!productRow) {
+      skips.push({ sku: localHero.graceSku, productGroupSlug, reason: "no Convex product metadata (snapshot join miss)" });
+      continue;
+    }
+    const matchingJob = ((jobRows ?? []) as SkuJobRow[]).find((job) =>
+      job.grace_sku === localHero.graceSku || job.website_sku === localHero.websiteSku,
+    );
+    const websiteSku = localHero.websiteSku ?? getText(productRow, "websiteSku") ?? "";
+    const sku = localHero.graceSku;
+    const readinessKey = cylinderProductionIdentityKey(websiteSku, sku);
+    const canonicalReadiness = readinessKey
+      ? cylinderReadinessByIdentity.get(readinessKey) ?? null
+      : null;
+    try {
+      const referenceBytes = readFileSync(localHero.filePath);
+      const image = sharp(referenceBytes, { failOn: "error" });
+      const [metadata, stats] = await Promise.all([image.metadata(), image.stats()]);
+      if (!metadata.width || !metadata.height) {
+        skips.push({ sku, productGroupSlug, reason: "local hero PNG has no canvas size" });
+        continue;
+      }
+      const verifiedReference = buildLocalHeroVerifiedReference(
+        localHero,
+        referenceBytes,
+        metadata.width,
+        metadata.height,
+      );
+      const canonicalIssue = getBestBottlesCanonicalReferenceIssue(
+        verifiedReference.dataUrl,
+        { width: metadata.width, height: metadata.height },
+        {
+          referenceSource: "flattened-product-truth",
+          referenceName: path.basename(localHero.filePath),
+        },
+      );
+      if (canonicalIssue) {
+        skips.push({ sku, productGroupSlug, reason: `canonical reference blocked: ${canonicalIssue}` });
+        continue;
+      }
+      const alpha = stats.channels.find((channel) => channel.channel === "alpha");
+      if (alpha && alpha.min < 255) {
+        skips.push({
+          sku,
+          productGroupSlug,
+          reason: "canonical reference blocked: pixel alpha evidence contains transparent or partially transparent pixels",
+        });
+        continue;
+      }
+      const snapshotProduct = productFromSnapshot(productRow);
+      const canonicalProduct = canonicalReadiness
+        ? applyRoleAwareCanonicalCylinderGeometry(snapshotProduct, canonicalReadiness)
+        : withCanonTruthGeometry(snapshotProduct);
+      const product: BBProduct = {
+        ...canonicalProduct,
+        capState: verifiedReference.authority.capState,
+        mode: verifiedReference.authority.componentTopology,
+        capOffReferenceId: verifiedReference.authority.capOffReferenceId,
+        topologyReferenceId: verifiedReference.authority.topologyReferenceId,
+        componentTopology: verifiedReference.authority.componentTopology,
+      };
+      const identity = buildBestBottlesGenerationIdentity(product, {
+        bodyMaterial: inferBestBottlesBodyMaterial(product),
+        sourceReference: verifiedReference.dataUrl,
+      });
+      const identityIssue = getBestBottlesGenerationIdentityIssue(identity);
+      if (identityIssue) {
+        skips.push({ sku, productGroupSlug, reason: `identity blocked: ${identityIssue}` });
+        continue;
+      }
+      targets.push({
+        pipelineSkuJobId: matchingJob?.id ?? "",
+        sku,
+        productGroupSlug,
+        referenceUrl: verifiedReference.dataUrl,
+        referenceHash: verifiedReference.sha256,
+        verifiedReference,
+        product,
+        canonicalReadiness,
+        sidecarAuthority: verifiedReference.authority,
+      });
+    } catch (referenceError) {
+      skips.push({
+        sku,
+        productGroupSlug,
+        reason: `canonical reference inspection failed: ${referenceError instanceof Error ? referenceError.message : String(referenceError)}`,
+      });
+    }
   }
 
   targets.sort((a, b) => a.sku.localeCompare(b.sku));
@@ -1489,7 +1872,7 @@ async function main(): Promise<void> {
   console.log(`=== Best Bottles family batch — family="${family}" run=${runId} ===`);
   console.log(`provider=${aiProvider} promptMode=${promptMode} resolution=${resolution} concurrency=${concurrency} maxAttempts=${maxAttempts} systemicQaFailureThreshold=${systemicQaFailureThreshold}`);
   console.log(`manifest: ${path.relative(process.cwd(), manifestPath)}`);
-  console.log(`dryRun=${dryRun} limit=${limit ?? "none"} productGroup=${productGroup || "ALL"} skus=${skusArg || "ALL"} rig=${skipRigPostprocess ? "SKIPPED" : "on"}`);
+  console.log(`dryRun=${dryRun} limit=${limit ?? "none"} productGroup=${productGroup || "ALL"} skus=${skusArg || "ALL"} referenceFolder=${referenceFolder || "none"} rig=${skipRigPostprocess ? "SKIPPED" : "on"}`);
 
   const { targets: allTargets, skips } = await resolveTargets();
   if (isCylinderCloseoutFamily && !skuFilter && !productGroup && limit === null) {
@@ -1524,6 +1907,12 @@ async function main(): Promise<void> {
   console.log(`\nskip reasons:`);
   for (const [reason, count] of Object.entries(skipReasons).sort((a, b) => b[1] - a[1])) {
     console.log(`  ${count.toString().padStart(3)}  ${reason}`);
+  }
+  if (dryRun || skuFilter) {
+    console.log(`\nskip details:`);
+    for (const skip of skips) {
+      console.log(`  ↷ ${skip.sku}  ${skip.reason}`);
+    }
   }
 
   if (dryRun) {
@@ -1564,11 +1953,23 @@ async function main(): Promise<void> {
       console.log(`component topology lineage  : ${body.precompiledPromptRecord.qa_checklist.filter((tag) => tag.startsWith("component-topology:")).join(", ") || "missing"}`);
       console.log(`shadow topology lineage     : ${body.precompiledPromptRecord.qa_checklist.filter((tag) => tag.startsWith("shadow-topology:")).join(", ") || "missing"}`);
       console.log(`shadow contact lineage      : ${body.precompiledPromptRecord.qa_checklist.filter((tag) => tag.startsWith("shadow-contact:")).join(", ") || "missing"}`);
+      console.log(`shoulder lock present        : ${/SHOULDER LOCK/.test(finalPrompt)}`);
+      const glassSpecLine = finalPrompt.split("\n").find((line) => line.includes("GLASS BODY SPECIFICATION"));
+      const shoulderLockLine = finalPrompt.split("\n").find((line) => line.startsWith("- SHOULDER LOCK"));
+      if (glassSpecLine) console.log(`  ${glassSpecLine.trim()}`);
+      if (shoulderLockLine) console.log(`  ${shoulderLockLine.trim()}`);
       console.log(`single-product guard present : ${hasCompositionSafety}`);
       if (!hasCompositionSafety) {
         console.log(`single-product guard evidence: ${finalPrompt.split("\n").filter((line) => /COMPOSITION SAFETY|detached cap|exactly one finished/i.test(line)).join(" | ") || "missing from final prompt"}`);
       }
       console.log(`cap/volume cue line present  : ${capVolumeCue ? `YES → ${capVolumeCue.trim()}` : "no"}`);
+      // The checks above sample a few lines. To read what the model is actually told —
+      // e.g. whether a frosted SKU carries any clear-glass wording — write it all out.
+      const promptDumpPath = process.env.BB_GEN_DUMP_PROMPT?.trim();
+      if (promptDumpPath) {
+        writeFileSync(path.resolve(promptDumpPath), `${finalPrompt}\n`);
+        console.log(`sample prompt written        : ${promptDumpPath}`);
+      }
     } else {
       console.log(`\n(no targets resolved — nothing to sample)`);
     }
@@ -1595,7 +1996,7 @@ async function main(): Promise<void> {
       browser = await chromium.launch({ headless: true });
       for (let i = 0; i < concurrency; i++) {
         const page = await browser.newPage();
-        await page.goto("http://127.0.0.1:8081/", { waitUntil: "domcontentloaded" });
+        await page.goto("http://127.0.0.1:8080/", { waitUntil: "domcontentloaded" });
         pages.push(page);
       }
     } else {

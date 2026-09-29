@@ -119,6 +119,48 @@ export function buildClosureId(key: ClosureKey): string {
   return ["closure", slugify(key.neckThreadSize), slugify(key.applicator), slugify(key.colorway)].join("__");
 }
 
+/**
+ * Physical fitment identity inside a storefront product group:
+ * neckThreadSize × applicator × finish/color × cap state.
+ * Components-tab slots must use this (not applicator+capColor alone).
+ */
+export type FitmentCapState =
+  | "assembled-cap-on"
+  | "cap-off-applicator-exposed"
+  | "detached-cap-or-sidecar"
+  | "unspecified";
+
+export interface PhysicalFitmentKey {
+  neckThreadSize: string;
+  applicator: string;
+  finishColor: string;
+  capState: FitmentCapState | string;
+}
+
+export function buildPhysicalFitmentKey(key: PhysicalFitmentKey): string {
+  return [
+    slugify(key.neckThreadSize || "unspec"),
+    slugify(key.applicator || "unspec"),
+    slugify(key.finishColor || "unspec"),
+    slugify(key.capState || "unspecified"),
+  ].join("|");
+}
+
+export function buildFitmentSlotId(input: {
+  neckThreadSize?: string | null;
+  applicator: string;
+  capColor?: string | null;
+  capState?: string | null;
+}): string {
+  return [
+    "fitment",
+    slugify(input.neckThreadSize || "unspec"),
+    slugify(input.applicator || "unspec"),
+    slugify(input.capColor || "unspec"),
+    slugify(input.capState || "assembled-cap-on"),
+  ].join("-");
+}
+
 export function buildBodyPlateId(key: BodyPlateKey): string {
   return [
     "body",

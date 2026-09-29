@@ -3,7 +3,11 @@ import {
   isCylinderFamilyAlias,
   type FamilyRigConfig,
 } from "./familyRig.ts";
-import { shouldForceBestBottlesOpenAIProvider } from "./bestBottlesProviderRouting.ts";
+import {
+  BEST_BOTTLES_COMPARISON_PROVIDER_TAG,
+  BEST_BOTTLES_PRODUCTION_MODEL,
+  shouldForceBestBottlesOpenAIProvider,
+} from "./bestBottlesProviderRouting.ts";
 
 export type BestBottlesRenderingLane =
   | "bottle_catalog"
@@ -41,6 +45,16 @@ export const BEST_BOTTLES_CONTRACT_CANVAS: BestBottlesContractCanvas = {
   backgroundHex: "#F5F3EF",
   baselinePct: 9,
   primaryObjectCenterXPct: 50,
+};
+
+export const BEST_BOTTLES_TOPOLOGY_WIDE_CANVAS: BestBottlesContractCanvas = {
+  width: 1536,
+  height: 1024,
+  backgroundHex: "#F5F3EF",
+  baselinePct: 9,
+  // Preserve the bottle's catalog scale while reserving camera-left room for
+  // the hose, bulb, and tassel. This matches the approved PSD composition.
+  primaryObjectCenterXPct: 65,
 };
 
 export interface BestBottlesContractProduct {
@@ -117,7 +131,7 @@ export interface BestBottlesRenderingContract {
   rig: FamilyRigConfig | null;
   providerPolicy: {
     provider: "openai" | "requested";
-    model: "gpt-image-2" | null;
+    model: "gpt-image-2.5-sunburst" | null;
     comparisonOnly: boolean;
   };
   qaPolicy: {
@@ -216,7 +230,7 @@ const BLOCKED_CONTRACT = {
   rig: null,
   providerPolicy: {
     provider: "openai" as const,
-    model: "gpt-image-2" as const,
+    model: BEST_BOTTLES_PRODUCTION_MODEL,
     comparisonOnly: false,
   },
   qaPolicy: {
@@ -371,6 +385,7 @@ function callerRoleTopologyContext(
 function contractProductContext(
   product: BestBottlesContractProduct,
   inputContext?: Record<string, unknown> | null,
+  canvas: BestBottlesContractCanvas = BEST_BOTTLES_CONTRACT_CANVAS,
 ): Record<string, unknown> {
   return {
     ...product,
@@ -378,9 +393,35 @@ function contractProductContext(
     sku: product.graceSku ?? null,
     name: product.itemName ?? null,
     collection: product.bottleCollection ?? null,
-    canvas: "2080x2288",
+    canvas: `${canvas.width}x${canvas.height}`,
+    primaryObjectCenterXPct: canvas.primaryObjectCenterXPct,
     rigVersion: "best-bottles-rendering-contract-v1",
   };
+}
+
+function isTopologyWideProduct(product: BestBottlesContractProduct): boolean {
+  return [
+    product.graceSku,
+    product.websiteSku,
+    product.itemName,
+    product.itemDescription,
+    product.applicator,
+    product.capStyle,
+  ].some((value) => /\b(?:tassel|antique\s+bulb|vintage\s+bulb)\b/i.test(textValue(value)));
+}
+
+export function resolveBestBottlesContractCanvas(
+  product: BestBottlesContractProduct,
+  inputContext?: Record<string, unknown> | null,
+): BestBottlesContractCanvas {
+  const presetId = textValue(inputContext?.presetId);
+  if (
+    presetId === "grid-card-wide-low-1536x1024"
+    && isTopologyWideProduct(product)
+  ) {
+    return BEST_BOTTLES_TOPOLOGY_WIDE_CANVAS;
+  }
+  return BEST_BOTTLES_CONTRACT_CANVAS;
 }
 
 async function resolveProductTruth(
@@ -470,12 +511,13 @@ function componentRig(profileId: "component-enhancement" | "packaging-enhancemen
 function resolveRig(
   product: BestBottlesContractProduct,
   lane: BestBottlesRenderingLane,
+  canvas: BestBottlesContractCanvas,
   inputContext?: Record<string, unknown> | null,
 ): FamilyRigConfig | null {
   if (lane === "component_enhancement") return componentRig("component-enhancement");
   if (lane === "packaging_enhancement") return componentRig("packaging-enhancement");
   if (lane !== "bottle_catalog") return null;
-  return getFamilyRigForProduct({
+  const rig = getFamilyRigForProduct({
     family: product.family,
     bottleCollection: product.bottleCollection,
     category: product.category,
@@ -491,7 +533,22 @@ function resolveRig(
     diameter: product.diameter,
     capState: textValue(inputContext?.capState) || null,
     mode: textValue(inputContext?.mode) || null,
+    // Bottle catalog masters are the scale-card fail-closed lane.
+    requireScaleCard: true,
   });
+  if (!rig) return null;
+  return {
+    ...rig,
+    baselinePct: canvas.baselinePct,
+    primaryObjectCenterXPct: canvas.primaryObjectCenterXPct,
+    ...(typeof (rig.shoulderTargetPct ?? rig.glassHeightPct) === "number"
+      ? {
+          targetBodyHeightPx: Math.round(
+            ((rig.shoulderTargetPct ?? rig.glassHeightPct)! / 100) * canvas.height,
+          ),
+        }
+      : {}),
+  };
 }
 
 function resolvePromptProfile(lane: BestBottlesRenderingLane): BestBottlesPromptProfile {
@@ -670,7 +727,7 @@ function resolveProviderPolicy(
   if (forceOpenAI) {
     return {
       provider: "openai",
-      model: "gpt-image-2",
+      model: BEST_BOTTLES_PRODUCTION_MODEL,
       comparisonOnly: false,
     };
   }
@@ -699,7 +756,9 @@ function libraryTagsForContract(contract: Omit<BestBottlesRenderingContract, "li
     `prompt-profile:${contract.promptProfile}`,
     `canvas:${contract.canvas.width}x${contract.canvas.height}`,
     `qa-policy:${contract.qaPolicy.kind}`,
-    contract.providerPolicy.comparisonOnly ? "contract-provider:comparison" : "contract-provider:openai-image-2",
+    contract.providerPolicy.comparisonOnly
+      ? BEST_BOTTLES_COMPARISON_PROVIDER_TAG
+      : "contract-provider:openai-image-2.5-sunburst",
     contract.sku ? `sku:${contract.sku}` : null,
     contract.rig?.profileId ? `profile:${contract.rig.profileId}` : null,
     contract.rig?.relativeScaleZoneId ? `scale-zone:${contract.rig.relativeScaleZoneId}` : null,
@@ -760,12 +819,13 @@ export async function resolveBestBottlesRenderingContract(
     };
   }
 
+  const canvas = resolveBestBottlesContractCanvas(product, input.productContext);
   const providerPolicy = resolveProviderPolicy(input);
-  const rig = resolveRig(product, definition.renderingLane, input.productContext);
+  const rig = resolveRig(product, definition.renderingLane, canvas, input.productContext);
   const status = statusForDefinition(definition);
   const promptProfile = resolvePromptProfile(definition.renderingLane);
   const productContext = {
-    ...contractProductContext(product, input.productContext),
+    ...contractProductContext(product, input.productContext, canvas),
     ...(sealedCanonical.geometry ? { canonicalGeometryContract: sealedCanonical.geometry } : {}),
     renderingLane: definition.renderingLane,
     bottleScaleStatus: definition.bottleScaleStatus,
@@ -786,7 +846,7 @@ export async function resolveBestBottlesRenderingContract(
     bottleScaleStatus: definition.bottleScaleStatus,
     enhancementStatus: definition.enhancementStatus,
     promptProfile,
-    canvas: BEST_BOTTLES_CONTRACT_CANVAS,
+    canvas,
     rig,
     providerPolicy,
     qaPolicy: resolveQaPolicy(definition.renderingLane),

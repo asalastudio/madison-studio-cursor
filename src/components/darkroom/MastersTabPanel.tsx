@@ -57,6 +57,11 @@ import {
   IMAGE_PRESET_LIST,
   getBestBottlesCatalogPresetIdForProduct,
 } from "@/config/imagePresets";
+import {
+  CAP_OFF_SIDECAR_PRESET_ID,
+  isAssembledOnlyVintageBulbIdentity,
+  resolveAssembledOnlyGenerationState,
+} from "@/lib/bestBottlesAssembledOnlyProduct";
 import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 import {
   BACKGROUND_PRESETS,
@@ -88,24 +93,34 @@ const CYLINDER_MASK_CONTROL_ENABLED = false;
 
 const MASTER_IMAGE_MODEL_OPTIONS = [
   {
+    value: "openai-image-2.5-sunburst",
+    label: "GPT Image 2.5 Sunburst",
+    description: "Best Bottles PDP default — scale-card masters lock to Sunburst server-side",
+  },
+  {
+    value: "openai-image-2.5-flare",
+    label: "GPT Image 2.5 Flare",
+    description: "Faster 2.5 tier — PDP masters still force Sunburst on the Best Bottles path",
+  },
+  {
     value: "openai-image-2",
     label: "GPT Image 2",
-    description: "Primary high-fidelity reference edit model",
+    description: "Legacy high-fidelity model — Best Bottles reference-locked path still forces Sunburst",
   },
   // Google image models — supported server side (aiProvider mapping → Gemini).
-  // Provider policy (Jordan 2026-07-20): PDP masters ALWAYS render on GPT
-  // Image 2 — the server force is unconditional and these selections do not
+  // Provider policy: Best Bottles PDP masters always render on GPT Image 2.5
+  // Sunburst — the server force is unconditional and these selections do not
   // override it. Nano Banana is for hero thumbnails and marketing assets,
   // where the rig contract is not geometry-locked.
   {
     value: "nano-banana-pro",
     label: "Nano Banana Pro (Gemini 3 Pro Image)",
-    description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2",
+    description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2.5 Sunburst",
   },
   {
     value: "nano-banana-2",
     label: "Nano Banana 2 (Gemini 3.1 Flash Image)",
-    description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2",
+    description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2.5 Sunburst",
   },
 ] as const;
 
@@ -287,7 +302,10 @@ import {
   type MarketingCopySpec,
   type MarketingLayout,
 } from "@/lib/product-image/promptAssembler";
-import type { Product } from "@/integrations/convex/bestBottles";
+import type {
+  Product,
+  ProductGroup,
+} from "@/integrations/convex/bestBottles";
 import {
   useAssembledPromptGeneration,
   type AssembledGenerateOptions,
@@ -318,9 +336,20 @@ import {
 } from "@/lib/bestBottlesGenerationIdentity";
 import { updatePipelineSkuJobReference } from "@/lib/bestBottlesPipeline";
 import { resolveBestBottlesShadowPolicy } from "@/lib/bestBottlesShadowPolicy";
+import {
+  buildBestBottlesCatalogHeroLibraryTags,
+  isBestBottlesCatalogHeroPresetId,
+} from "@/lib/bestBottlesCatalogHeroLibrary";
+import {
+  resolveLoadedCatalogHeroMembership,
+  resolveLoadedCatalogHeroes,
+  type LoadedCatalogHero,
+} from "@/lib/bestBottlesLoadedCatalogHeroes";
+import { BEST_BOTTLES_SCALE_CARD_VERSION } from "@/config/bestBottlesCatalogScale";
 import { resolveBestBottlesDottedCapComponentSku } from "@/lib/bestBottlesDottedCapReference";
 import { RigReviewPanel } from "@/components/bestbottles/RigReviewPanel";
 import { ShadowSmokeComparisonPanel } from "@/components/bestbottles/ShadowSmokeComparisonPanel";
+import { ScaleProofPanel } from "@/components/best-bottles/ScaleProofPanel";
 import { useBestBottlesApprovedComparison } from "@/hooks/useBestBottlesApprovedComparison";
 import {
   EMPTY_RIG_MANUAL_CHECKS,
@@ -348,7 +377,12 @@ type ParsedReferenceFilename = { graceSku: string; modifier?: string };
 type ParsedReferenceFilenameToken = { raw: string; key: string; modifier?: string };
 type ReferenceImportMode = "product-truth" | "mask-control";
 
-type BatchScope = "current-group" | "current-applicator" | "selected-skus" | "full-family";
+type BatchScope =
+  | "loaded-heroes"
+  | "current-group"
+  | "current-applicator"
+  | "selected-skus"
+  | "full-family";
 
 interface BatchScopeOption {
   value: BatchScope;
@@ -400,6 +434,11 @@ interface ReferenceImportPreflight {
 }
 
 const BATCH_SCOPE_OPTIONS: BatchScopeOption[] = [
+  {
+    value: "loaded-heroes",
+    label: "Loaded heroes",
+    description: "The scanned catalog-card set (All 47). One hero per product group.",
+  },
   {
     value: "current-group",
     label: "Current group",
@@ -1027,6 +1066,18 @@ function isCylinderFamilyName(family?: string | null): boolean {
   return normalized === "cylinder" || normalized === "tall cylinder";
 }
 
+function assembledOnlyIdentityFromProduct(product: Product | null | undefined) {
+  if (!product) return null;
+  return {
+    graceSku: product.graceSku,
+    websiteSku: product.websiteSku,
+    applicator: product.applicator,
+    itemName: product.itemName,
+    itemDescription: product.itemDescription,
+    family: product.family,
+  };
+}
+
 interface MastersTabPanelProps {
   /** Selected variant from the Studio's left rail. */
   selectedProduct: Product | null;
@@ -1045,6 +1096,8 @@ interface MastersTabPanelProps {
    * absent (older callers).
    */
   allFamilyProducts?: Product[];
+  /** Authoritative product groups used to prove each uploaded SKU's membership. */
+  familyGroups?: ProductGroup[];
   /** Family name for Library tagging. */
   familyName?: string | null;
   /** Recovered/persisted product references keyed by Grace SKU. */
@@ -1055,17 +1108,24 @@ interface MastersTabPanelProps {
   onMasterGenerationFailed?: (errorMessage: string, product: Product) => void | Promise<void>;
   /** Optional callback when a master is approved. Parent can persist. */
   onApproveMaster?: (result: AssembledGenerationResult, product: Product) => void;
+  /** Select a SKU from the scanned hero folder without changing product groups. */
+  onSelectProduct?: (product: Pick<Product, "graceSku">) => void;
+  /** Report the uploaded-hero working set so Studio can populate the rail. */
+  onLoadedHeroesChange?: (heroes: LoadedCatalogHero[]) => void;
 }
 
 export function MastersTabPanel({
   selectedProduct,
   familyVariants,
   allFamilyProducts,
+  familyGroups,
   familyName,
   persistedReferenceImagesBySku,
   onMasterGenerated,
   onMasterGenerationFailed,
   onApproveMaster,
+  onSelectProduct,
+  onLoadedHeroesChange,
 }: MastersTabPanelProps) {
   const [presetId, setPresetId] = useState<string>(DEFAULT_IMAGE_PRESET_ID);
   const [liquidEnabled, setLiquidEnabled] = useState(false);
@@ -1104,6 +1164,10 @@ export function MastersTabPanel({
     () => getBestBottlesCatalogPresetIdForProduct(selectedProduct, familyName),
     [familyName, selectedProduct],
   );
+  const resolveSkuGenerationPresetId = (sku: Product) => {
+    if (hasFlexibleOverlay) return presetId;
+    return getBestBottlesCatalogPresetIdForProduct(sku, familyName);
+  };
 
   useEffect(() => {
     setPresetId(routedCatalogPresetId);
@@ -1574,6 +1638,44 @@ export function MastersTabPanel({
           reason: "Filename does not match a loaded Grace SKU, website SKU, or supported family naming pattern.",
         };
       }
+      const matchedProducts = familyProducts.filter(
+        (product) =>
+          product.graceSku.trim().toUpperCase() ===
+          match.graceSku.trim().toUpperCase(),
+      );
+      if (matchedProducts.length !== 1) {
+        return {
+          file,
+          name,
+          relativePath,
+          size: file.size,
+          key: null,
+          graceSku: match.graceSku,
+          modifier: match.modifier ?? null,
+          status: "unsupported",
+          reason:
+            matchedProducts.length === 0
+              ? "The matched Grace SKU is missing from the loaded catalog."
+              : "The matched Grace SKU is ambiguous in the loaded catalog.",
+        };
+      }
+      const membership = resolveLoadedCatalogHeroMembership(
+        matchedProducts[0]!,
+        familyGroups ?? [],
+      );
+      if (!membership.ok) {
+        return {
+          file,
+          name,
+          relativePath,
+          size: file.size,
+          key: null,
+          graceSku: match.graceSku,
+          modifier: match.modifier ?? null,
+          status: "unsupported",
+          reason: membership.reason,
+        };
+      }
 
       const key = folderKey(match.graceSku, match.modifier);
       if (seenKeys.has(key)) {
@@ -1761,6 +1863,23 @@ export function MastersTabPanel({
           if (!match) {
             throw new Error("Filename did not yield a reference match");
           }
+          const matchedProducts = familyProducts.filter(
+            (product) =>
+              product.graceSku.trim().toUpperCase() ===
+              match.graceSku.trim().toUpperCase(),
+          );
+          if (matchedProducts.length !== 1) {
+            throw new Error(
+              matchedProducts.length === 0
+                ? "Matched SKU is missing from the loaded catalog"
+                : "Matched SKU is ambiguous in the loaded catalog",
+            );
+          }
+          const membership = resolveLoadedCatalogHeroMembership(
+            matchedProducts[0]!,
+            familyGroups ?? [],
+          );
+          if (!membership.ok) throw new Error(membership.reason);
 
           const ts = Date.now();
           const rand = Math.random().toString(36).slice(2, 8);
@@ -1926,6 +2045,29 @@ export function MastersTabPanel({
     return set;
   }, [allFamilyProducts, familyVariants]);
 
+  const loadedCatalogHeroes = useMemo(() => {
+    const products = uniqueProductsByGraceSku(allFamilyProducts ?? familyVariants ?? []);
+    if (products.length === 0 || referenceFolder.size === 0) return [];
+    return resolveLoadedCatalogHeroes({
+      folderEntries: Array.from(referenceFolder.values()).map((entry) => ({
+        matchKey: entry.matchKey,
+        url: entry.url,
+        name: entry.name,
+      })),
+      products,
+      productGroups: familyGroups ?? [],
+    });
+  }, [allFamilyProducts, familyGroups, familyVariants, referenceFolder]);
+
+  useEffect(() => {
+    onLoadedHeroesChange?.(loadedCatalogHeroes);
+  }, [loadedCatalogHeroes, onLoadedHeroesChange]);
+
+  useEffect(() => {
+    if (selectedProduct || loadedCatalogHeroes.length === 0) return;
+    onSelectProduct?.(loadedCatalogHeroes[0]!.product);
+  }, [loadedCatalogHeroes, onSelectProduct, selectedProduct]);
+
   const orphanReferences = useMemo(() => {
     if (referenceFolder.size === 0 || familyGraceSet.size === 0) return [];
     const orphans: Array<{ key: string; name: string }> = [];
@@ -1943,7 +2085,7 @@ export function MastersTabPanel({
   const uncoveredSkus = useMemo(() => {
     if (!familyVariants || familyVariants.length === 0) return [];
     if (!hasAnyReferenceSource) return [];
-    return familyVariants.filter((v) => lookupAvailableReference(v, presetId) === null);
+    return familyVariants.filter((v) => lookupAvailableReference(v, resolveSkuGenerationPresetId(v)) === null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     familyVariants,
@@ -1961,8 +2103,8 @@ export function MastersTabPanel({
     return source.filter(
       (v) =>
         isCylinderVariantProductionQualified(v) &&
-        lookupAvailableReference(v, presetId) !== null &&
-        getMaskControlIssueForSku(v, presetId) === null &&
+        lookupAvailableReference(v, resolveSkuGenerationPresetId(v)) !== null &&
+        getMaskControlIssueForSku(v, resolveSkuGenerationPresetId(v)) === null &&
         getMeasurementIssue(v) === null,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1984,7 +2126,7 @@ export function MastersTabPanel({
     if (!hasAnyReferenceSource) return [];
     const source = uniqueProductsByGraceSku(allFamilyProducts ?? familyVariants ?? []);
     return source
-      .filter((v) => lookupAvailableReference(v, presetId) !== null)
+      .filter((v) => lookupAvailableReference(v, resolveSkuGenerationPresetId(v)) !== null)
       .map((product) => ({ product, issue: getMeasurementIssue(product) }))
       .filter((entry): entry is { product: Product; issue: string } => entry.issue !== null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2647,10 +2789,26 @@ export function MastersTabPanel({
     setUsePersistedReferences((current) => !current);
   };
 
-  const selectedPreset = useMemo(
-    () => MASTERS_PRESETS.find((p) => p.id === presetId) ?? MASTERS_PRESETS[0],
-    [presetId],
+  const isAssembledOnlySelected = isAssembledOnlyVintageBulbIdentity(
+    assembledOnlyIdentityFromProduct(selectedProduct),
   );
+  const availablePresets = useMemo(
+    () =>
+      isAssembledOnlySelected
+        ? MASTERS_PRESETS.filter((preset) => preset.id !== CAP_OFF_SIDECAR_PRESET_ID)
+        : MASTERS_PRESETS,
+    [isAssembledOnlySelected],
+  );
+  const selectedPreset = useMemo(
+    () => availablePresets.find((p) => p.id === presetId) ?? availablePresets[0] ?? MASTERS_PRESETS[0],
+    [availablePresets, presetId],
+  );
+
+  useEffect(() => {
+    if (isAssembledOnlySelected && presetId === CAP_OFF_SIDECAR_PRESET_ID) {
+      setPresetId(DEFAULT_IMAGE_PRESET_ID);
+    }
+  }, [isAssembledOnlySelected, presetId]);
   const buildPromptPreflightForSku = (
     product: Product,
     referenceImagePath: string | null | undefined,
@@ -2663,11 +2821,28 @@ export function MastersTabPanel({
           product.graceSku,
         )
       : null;
+    const skuPresetId = resolveSkuGenerationPresetId(product);
     const roleAwareTopology = isCylinderProduct
-      ? getCylinderGenerationTopologyForPreset(roleAwareRow, selectedPreset.id)
+      ? getCylinderGenerationTopologyForPreset(roleAwareRow, skuPresetId)
       : null;
-    const detachedSidecar = selectedPreset.id === "grid-card-exploded-2000x2200";
-    const generationTopology = roleAwareTopology ?? (
+    const roleAwareReference = isCylinderProduct
+      ? getCylinderReferenceForPreset(roleAwareRow, skuPresetId)
+      : null;
+    const assembledOnlyState = resolveAssembledOnlyGenerationState(
+      assembledOnlyIdentityFromProduct(product),
+      skuPresetId,
+    );
+    const detachedSidecar = assembledOnlyState.mode === "cap-off";
+    const generationTopology = isAssembledOnlyVintageBulbIdentity(
+      assembledOnlyIdentityFromProduct(product),
+    )
+      ? {
+          capState: "assembled" as const,
+          mode: "cap-on" as const,
+          componentTopology: "assembled" as const,
+          requiresCapOffReference: false,
+        }
+      : roleAwareTopology ?? (
       isCylinderProduct
         ? null
         : {
@@ -2687,6 +2862,10 @@ export function MastersTabPanel({
         capOffReferenceId: generationTopology?.requiresCapOffReference
           ? referenceImagePath ?? undefined
           : undefined,
+        topologyReferenceId:
+          roleAwareReference?.productionStatus === "generation-authorized"
+            ? roleAwareReference.exportSha256 ?? undefined
+            : undefined,
         componentTopology: generationTopology?.componentTopology ?? null,
       },
       referenceImagePath,
@@ -2803,8 +2982,9 @@ export function MastersTabPanel({
           }
         : null;
 
+    const skuGenerationPresetId = resolveSkuGenerationPresetId(sku);
     const assembled = assemblePrompt({
-      presetId,
+      presetId: skuGenerationPresetId,
       sku,
       liquid,
       cameraAngle,
@@ -2853,6 +3033,29 @@ export function MastersTabPanel({
     }
     const skuBodyMaterial = inferBestBottlesBodyMaterial(sku);
     const isCylinderSku = isCylinderFamilyName(sku.family);
+    const heroMembership = isBestBottlesCatalogHeroPresetId(
+      skuGenerationPresetId,
+    )
+      ? resolveLoadedCatalogHeroMembership(sku, familyGroups ?? [])
+      : null;
+    if (heroMembership && !heroMembership.ok) {
+      toast({
+        title: "Exact product-group membership required",
+        description: heroMembership.reason,
+        variant: "destructive",
+      });
+      return null;
+    }
+    const heroProductGroupSlug =
+      heroMembership?.ok === true ? heroMembership.productGroupSlug : null;
+    const assembledOnlySku = isAssembledOnlyVintageBulbIdentity(
+      assembledOnlyIdentityFromProduct(sku),
+    );
+    const assembledOnlyState = resolveAssembledOnlyGenerationState(
+      assembledOnlyIdentityFromProduct(sku),
+      skuGenerationPresetId,
+    );
+    const rolePresetId = skuGenerationPresetId;
     const cylinderRoleAwareRow = isCylinderSku
       ? getCylinderRoleAwareReadinessForIdentity(
           cylinderRoleAwareReadinessIndex,
@@ -2860,11 +3063,18 @@ export function MastersTabPanel({
           sku.graceSku,
         )
       : null;
-    const cylinderGenerationTopology = isCylinderSku
-      ? getCylinderGenerationTopologyForPreset(cylinderRoleAwareRow, selectedPreset.id)
-      : null;
+    const cylinderGenerationTopology = assembledOnlySku
+      ? {
+          capState: "assembled" as const,
+          mode: "cap-on" as const,
+          componentTopology: "assembled" as const,
+          requiresCapOffReference: false,
+        }
+      : isCylinderSku
+        ? getCylinderGenerationTopologyForPreset(cylinderRoleAwareRow, rolePresetId)
+        : null;
     const cylinderRoleReference = isCylinderSku
-      ? getCylinderReferenceForPreset(cylinderRoleAwareRow, selectedPreset.id)
+      ? getCylinderReferenceForPreset(cylinderRoleAwareRow, rolePresetId)
       : null;
     if (
       isCylinderSku &&
@@ -2872,7 +3082,7 @@ export function MastersTabPanel({
         !cylinderGenerationTopology ||
         !isCylinderReferenceAuthorizedForPreset(
           cylinderRoleAwareRow,
-          selectedPreset.id,
+          rolePresetId,
           referenceUrl,
         )
       )
@@ -2959,12 +3169,16 @@ export function MastersTabPanel({
     });
     let capIdentityReferenceUrl: string | null = null;
     if (capIdentityReferenceSku) {
-      const { data: capReferenceRows, error: capReferenceError } = await (supabase as any)
-        .from("best_bottles_pipeline_sku_jobs")
-        .select("grace_sku,website_sku,reference_issue")
-        .eq("organization_id", currentOrganizationId)
-        .eq("grace_sku", capIdentityReferenceSku)
-        .limit(2);
+      // Without an organization no org-scoped row can match, so take the same
+      // blocked path below as an empty lookup rather than query `organization_id=eq.null`.
+      const { data: capReferenceRows, error: capReferenceError } = currentOrganizationId
+        ? await supabase
+            .from("best_bottles_pipeline_sku_jobs")
+            .select("grace_sku,website_sku,reference_issue")
+            .eq("organization_id", currentOrganizationId)
+            .eq("grace_sku", capIdentityReferenceSku)
+            .limit(2)
+        : { data: null, error: null };
       const exactRows = Array.isArray(capReferenceRows)
         ? capReferenceRows.filter((row) =>
             row?.grace_sku === capIdentityReferenceSku &&
@@ -3018,21 +3232,21 @@ export function MastersTabPanel({
         collection: sku.bottleCollection ?? undefined,
         family: sku.family,
         category: sku.category,
-        presetId: selectedPreset.id,
+        presetId: rolePresetId,
         capState: cylinderGenerationTopology?.capState ?? (
-          selectedPreset.id === "grid-card-exploded-2000x2200" ? "detached" : null
+          assembledOnlyState.capState === "detached" ? "detached" : null
         ),
         mode: cylinderGenerationTopology?.mode ?? (
-          selectedPreset.id === "grid-card-exploded-2000x2200" ? "cap-off" : null
+          assembledOnlyState.mode === "cap-off" ? "cap-off" : null
         ),
         componentTopology: cylinderGenerationTopology?.componentTopology ?? (
-          selectedPreset.id === "grid-card-exploded-2000x2200"
+          assembledOnlyState.mode === "cap-off"
             ? "fitment-attached-cap-right-sidecar"
             : "assembled"
         ),
         capOffReferenceId: cylinderGenerationTopology?.requiresCapOffReference
           ? cylinderPreparation?.verifiedReference.authority.capOffReferenceId ?? null
-          : !isCylinderSku && selectedPreset.id === "grid-card-exploded-2000x2200"
+          : !isCylinderSku && assembledOnlyState.requiresCapOffReference
             ? referenceUrl ?? null
             : null,
         topologyReferenceId:
@@ -3096,6 +3310,10 @@ export function MastersTabPanel({
       extraLibraryTags: [
         "brand:best-bottles",
         "studio-master",
+        ...buildBestBottlesCatalogHeroLibraryTags({
+          presetId: skuGenerationPresetId,
+          scaleCardVersion: BEST_BOTTLES_SCALE_CARD_VERSION,
+        }),
         "prompt-source:json-precompiler",
         `prompt-family:${promptPreflight.sku.product_family}`,
         `prompt-material:${promptPreflight.sku.body_material}`,
@@ -3103,6 +3321,9 @@ export function MastersTabPanel({
         `prompt-frame:${promptPreflight.sku.frame_class}`,
         `prompt-qa:${promptPreflight.status}`,
         familyName ? `family:${familyName.toLowerCase().replace(/\s+/g, "-")}` : null,
+        heroProductGroupSlug
+          ? `product-group:${heroProductGroupSlug}`
+          : null,
         `sku:${sku.graceSku}`,
         sku.websiteSku ? `websiteSku:${sku.websiteSku}` : null,
         isCylinderSku ? "reference-lineage:flattened-single-source" : null,
@@ -3141,7 +3362,7 @@ export function MastersTabPanel({
       return await orchestrateCylinderStudioGeneration({
         product: sku,
         row: cylinderRoleAwareRow,
-        presetId: selectedPreset.id,
+        presetId: skuGenerationPresetId,
         referenceUrl,
         prepared: preparedCylinderGeneration,
         invoke: invokeGeneration,
@@ -3333,8 +3554,8 @@ export function MastersTabPanel({
     return familyVariants.filter(
       (v) =>
         isCylinderVariantProductionQualified(v) &&
-        lookupAvailableReference(v, presetId) !== null &&
-        getMaskControlIssueForSku(v, presetId) === null &&
+        lookupAvailableReference(v, resolveSkuGenerationPresetId(v)) !== null &&
+        getMaskControlIssueForSku(v, resolveSkuGenerationPresetId(v)) === null &&
         getMeasurementIssue(v) === null,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3384,7 +3605,13 @@ export function MastersTabPanel({
     [fullFamilyBatchCandidates, selectedBatchSkuKeys],
   );
 
+  const loadedHeroBatchCandidates = useMemo(
+    () => uniqueProductsByGraceSku(loadedCatalogHeroes.map((hero) => hero.product)),
+    [loadedCatalogHeroes],
+  );
+
   const batchScopeCandidates = useMemo(() => {
+    if (batchScope === "loaded-heroes") return loadedHeroBatchCandidates;
     if (batchScope === "current-applicator") return currentApplicatorBatchCandidates;
     if (batchScope === "selected-skus") return selectedSkuBatchCandidates;
     if (batchScope === "full-family") return fullFamilyBatchCandidates;
@@ -3394,14 +3621,16 @@ export function MastersTabPanel({
     currentApplicatorBatchCandidates,
     currentGroupBatchCandidates,
     fullFamilyBatchCandidates,
+    loadedHeroBatchCandidates,
     selectedSkuBatchCandidates,
   ]);
 
   const batchPreflightEntries = useMemo<BatchPreflightEntry[]>(
     () =>
       batchScopeCandidates.map((product) => {
-        const { reference, source } = lookupReferenceCandidateForDiagnostics(product, presetId);
-        const maskControl = lookupMaskControlForSku(product, presetId);
+        const skuPresetId = resolveSkuGenerationPresetId(product);
+        const { reference, source } = lookupReferenceCandidateForDiagnostics(product, skuPresetId);
+        const maskControl = lookupMaskControlForSku(product, skuPresetId);
         const referenceIsMaskControl =
           CYLINDER_MASK_CONTROL_ENABLED &&
           isCylinderFamilyName(product.family) &&
@@ -3554,9 +3783,11 @@ export function MastersTabPanel({
       setUsePersistedReferences(true);
     }
     openBatchPreflight(
-      matchedFamilyVariants.length === 0 && allReferenceMatchedVariants.length > 0
-        ? "full-family"
-        : "current-group",
+      loadedCatalogHeroes.length > 0
+        ? "loaded-heroes"
+        : matchedFamilyVariants.length === 0 && allReferenceMatchedVariants.length > 0
+          ? "full-family"
+          : "current-group",
     );
   };
 
@@ -3590,8 +3821,9 @@ export function MastersTabPanel({
     };
     for (let i = 0; i < variantsToGenerate.length; i++) {
       const sku = variantsToGenerate[i];
-      const ref = lookupAvailableReference(sku, presetId);
-      const maskControl = lookupMaskControlForSku(sku, presetId);
+      const skuPresetId = resolveSkuGenerationPresetId(sku);
+      const ref = lookupAvailableReference(sku, skuPresetId);
+      const maskControl = lookupMaskControlForSku(sku, skuPresetId);
       setBatchProgress({
         current: i + 1,
         total: variantsToGenerate.length,
@@ -3623,11 +3855,11 @@ export function MastersTabPanel({
             cylinderPreparation = await prepareCylinderStudioGeneration({
               product: sku,
               row: cylinderRoleRow,
-              presetId,
+              presetId: skuPresetId,
               referenceUrl: ref.url,
             });
             verifiedCylinderPreparations.set(
-              getCylinderVerifiedReferenceCacheKey(cylinderRoleRow, presetId),
+              getCylinderVerifiedReferenceCacheKey(cylinderRoleRow, skuPresetId),
               cylinderPreparation,
             );
             cylinderRoleAuthorized = true;
@@ -3682,7 +3914,7 @@ export function MastersTabPanel({
         }
         const preparedCylinderGeneration = isCylinderBatchSku
           ? verifiedCylinderPreparations.get(
-              getCylinderVerifiedReferenceCacheKey(cylinderRoleRow, presetId),
+              getCylinderVerifiedReferenceCacheKey(cylinderRoleRow, skuPresetId),
             ) ?? null
           : null;
         const result = await generateOne(
@@ -3730,6 +3962,10 @@ export function MastersTabPanel({
     openBatchPreflight("current-group");
   };
 
+  const handleGenerateLoadedHeroes = () => {
+    openBatchPreflight("loaded-heroes");
+  };
+
   const handleGenerateWholeFolder = () => {
     openBatchPreflight("full-family");
   };
@@ -3749,7 +3985,7 @@ export function MastersTabPanel({
           <LEDIndicator state="off" />
           <span className="uppercase tracking-wider text-xs">No variant selected</span>
         </div>
-        <p>Click any SKU in the left rail to load it here. The preset picker and generation controls will unlock as soon as a variant is selected.</p>
+        <p>Scan the catalog-hero folder, then click any uploaded hero. 5 ml, 9 ml, and the rest stay in this same list — you do not need the product-group picker.</p>
       </div>
     );
   }
@@ -3775,12 +4011,21 @@ export function MastersTabPanel({
         <Label className="text-xs uppercase tracking-wider" style={{ color: "var(--darkroom-text-dim)" }}>
           Preset
         </Label>
-        <Select value={presetId} onValueChange={setPresetId}>
+        <Select
+          value={presetId}
+          onValueChange={(nextPresetId) => {
+            if (isAssembledOnlySelected && nextPresetId === CAP_OFF_SIDECAR_PRESET_ID) {
+              setPresetId(DEFAULT_IMAGE_PRESET_ID);
+              return;
+            }
+            setPresetId(nextPresetId);
+          }}
+        >
           <SelectTrigger className="bg-white/[0.03] border-white/10 text-white">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {MASTERS_PRESETS.map((preset) => (
+            {availablePresets.map((preset) => (
               <SelectItem key={preset.id} value={preset.id}>
                 {preset.label}
               </SelectItem>
@@ -3788,7 +4033,9 @@ export function MastersTabPanel({
           </SelectContent>
         </Select>
         <p className="text-xs" style={{ color: "var(--darkroom-text-dim)" }}>
-          {selectedPreset.purpose}
+          {isAssembledOnlySelected
+            ? "Vintage style bulb and vintage style bulb tassel are one assembled image. There is no cap-off state."
+            : selectedPreset.purpose}
         </p>
         <p className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
           Canvas: <span className="font-mono">{selectedPreset.canvas.widthPx} × {selectedPreset.canvas.heightPx}</span>
@@ -4417,6 +4664,61 @@ export function MastersTabPanel({
           </div>
 	        </div>
 
+        {loadedCatalogHeroes.length > 0 && (
+          <div
+            className="space-y-2 rounded border p-2"
+            style={{ borderColor: "var(--darkroom-border-subtle)" }}
+            data-testid="loaded-catalog-heroes"
+          >
+            <div
+              className="flex items-center justify-between text-[10px] uppercase tracking-wider"
+              style={{ color: "var(--darkroom-text-dim)" }}
+            >
+              <span>Loaded catalog heroes</span>
+              <span>{loadedCatalogHeroes.length} uploaded</span>
+            </div>
+            <p className="text-[11px]" style={{ color: "var(--darkroom-text-muted)" }}>
+              These scanned references are the working set. Click a card to load that SKU — no product-group picker.
+            </p>
+            <div className="grid max-h-[360px] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4">
+              {loadedCatalogHeroes.map((hero) => {
+                const active = selectedProduct?.graceSku.toUpperCase() === hero.graceSku;
+                return (
+                  <button
+                    key={hero.graceSku}
+                    type="button"
+                    onClick={() => onSelectProduct?.(hero.product)}
+                    className="overflow-hidden rounded border text-left transition-colors"
+                    style={{
+                      borderColor: active
+                        ? "var(--darkroom-accent)"
+                        : "var(--darkroom-border-subtle)",
+                      background: active ? "rgba(184, 149, 106, 0.08)" : "var(--darkroom-surface)",
+                    }}
+                  >
+                    <div className="relative aspect-[10/11] bg-[#F5F3EF]">
+                      <img
+                        src={hero.imageUrl}
+                        alt={hero.name}
+                        className="absolute inset-0 h-full w-full object-contain"
+                      />
+                    </div>
+                    <div className="space-y-0.5 px-1.5 py-1">
+                      <div className="truncate font-mono text-[10px]" style={{ color: "var(--darkroom-text)" }}>
+                        {hero.graceSku}
+                      </div>
+                      <div className="truncate text-[10px]" style={{ color: "var(--darkroom-text-dim)" }}>
+                        {hero.capacityLabel}
+                        {hero.product.color ? ` · ${hero.product.color}` : ""}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <Dialog open={isReferenceImportOpen} onOpenChange={setIsReferenceImportOpen}>
           <DialogContent className="max-w-4xl max-h-[86vh] overflow-y-auto border-white/10 bg-[#11100f] text-white">
             <DialogHeader>
@@ -4943,9 +5245,31 @@ export function MastersTabPanel({
       )}
 
       {canShowBatchGenerateShortcuts &&
-        (matchedFamilyVariants.length > 1 ||
+        (loadedCatalogHeroes.length > 0 ||
+          matchedFamilyVariants.length > 1 ||
           allReferenceMatchedVariants.length > matchedFamilyVariants.length) && (
           <div className="space-y-2">
+            {loadedCatalogHeroes.length > 0 && (
+              <Button
+                onClick={handleGenerateLoadedHeroes}
+                disabled={isGenerating || batchProgress !== null}
+                variant="outline"
+                className="w-full border-[var(--darkroom-accent,#B8956A)]/45 bg-[var(--darkroom-accent,#B8956A)]/10 text-white hover:bg-[var(--darkroom-accent,#B8956A)]/20 hover:text-white"
+                title={`Generate catalog heroes for the scanned All ${loadedCatalogHeroes.length} set. One image per product group.`}
+              >
+                {batchProgress ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating batch…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate loaded heroes ({loadedCatalogHeroes.length})
+                  </>
+                )}
+              </Button>
+            )}
             {allReferenceMatchedVariants.length > matchedFamilyVariants.length && (
               <Button
                 onClick={handleGenerateWholeFolder}
@@ -5088,9 +5412,10 @@ export function MastersTabPanel({
                   </div>
                 </div>
               </div>
-              {masterAiProvider !== "openai-image-2" && (
+              {masterAiProvider !== "openai-image-2.5-sunburst" &&
+                masterAiProvider !== "openai-image-2" && (
                 <div className="text-[10px] leading-snug text-amber-300">
-                  Pricing shown is for GPT Image 2. The selected model is {selectedImageModel.label}.
+                  Pricing shown is for GPT Image. The selected model is {selectedImageModel.label}.
                 </div>
               )}
             </div>
@@ -5103,6 +5428,11 @@ export function MastersTabPanel({
                 <div>Color: <span className="font-mono text-white/75">{batchColorSummary}</span></div>
                 {selectedProduct && (
                   <div>Active SKU: <span className="font-mono text-white/75">{selectedProduct.graceSku}</span></div>
+                )}
+                {batchScope === "loaded-heroes" && (
+                  <div className="pt-1 text-[10px] leading-snug text-white/45">
+                    Loaded heroes is the scanned catalog-card set, not this 50 ml group.
+                  </div>
                 )}
                 {batchScope === "current-applicator" && (
                   <div className="pt-1 text-[10px] leading-snug text-white/45">
@@ -5278,8 +5608,8 @@ export function MastersTabPanel({
                           currentApplicatorBatchCandidates
                             .filter(
                               (product) =>
-                                lookupAvailableReference(product, presetId) !== null &&
-                                getMaskControlIssueForSku(product, presetId) === null &&
+                                lookupAvailableReference(product, resolveSkuGenerationPresetId(product)) !== null &&
+                                getMaskControlIssueForSku(product, resolveSkuGenerationPresetId(product)) === null &&
                                 getMeasurementIssue(product) === null,
                             )
                             .slice(0, 8),
@@ -5312,8 +5642,8 @@ export function MastersTabPanel({
                 <div className="max-h-56 overflow-auto space-y-1 pr-1">
                   {fullFamilyBatchCandidates.map((product) => {
                     const key = productBatchKey(product);
-                    const { reference, source } = lookupReferenceCandidateForDiagnostics(product, presetId);
-                    const maskIssue = getMaskControlIssueForSku(product, presetId);
+                    const { reference, source } = lookupReferenceCandidateForDiagnostics(product, resolveSkuGenerationPresetId(product));
+                    const maskIssue = getMaskControlIssueForSku(product, resolveSkuGenerationPresetId(product));
                     const referenceIssue =
                       reference && isCylinderFamilyName(product.family)
                         ? getRetiredTransparentBestBottlesReferenceIssue([reference]) ??
@@ -5599,6 +5929,17 @@ export function MastersTabPanel({
               candidateImageUrl={result.imageUrl}
             />
           )}
+          <ScaleProofPanel
+            label={selectedProduct.itemName}
+            heightWithoutCapMm={parseDimensionMm(selectedProduct.heightWithoutCap)}
+            measuredGlassHeightPct={
+              result.rigReview?.framingQa?.measurements.glassHeightPct
+              ?? result.rigReview?.framingQa?.measurements.fillHeightPct
+              ?? null
+            }
+            beforeImageUrl={approvedComparisonUrl ?? null}
+            afterImageUrl={result.imageUrl}
+          />
           <RigReviewPanel
             imageUrl={result.imageUrl}
             imageAlt={selectedProduct.itemName}

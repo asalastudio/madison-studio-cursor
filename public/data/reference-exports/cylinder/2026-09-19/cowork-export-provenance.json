@@ -1,0 +1,1982 @@
+{
+  "version": "cowork-cylinder-reference-export-provenance-v1",
+  "generatedAt": "2026-09-19",
+  "producedBy": "Claude (Cowork) reference-prep lane",
+  "note": "CANDIDATES for promotion, not approved references. No review signature is present or implied: review.finalStatus / reviewerId / reviewedAt must be supplied by a human after looking at each file. Source PSDs were opened read-only and their SHA-256 re-verified after export. No pixel was upscaled.",
+  "summary": {
+    "files": 33,
+    "pass_": 33,
+    "fail": 0,
+    "groups": 21,
+    "bothRoles": 12,
+    "capOnOnly": [
+      "GBCyl100AnSpMtSl",
+      "GBCyl100AnSpTslMtSl",
+      "GBCyl50AnSpMtSl",
+      "GBCyl50AnSpTslMtSl",
+      "GBSpry3mlClBlk",
+      "GBcyl25AnSpIvyGl",
+      "GBcyl25AnSpTslIvyGl"
+    ],
+    "sidecarOnly": [
+      "GBTallCyl9MtlRollBlkDot",
+      "GBTallCylFrst9MtlRollBlkDot"
+    ],
+    "downscaled": [
+      "GBCyl100RdcrMtSl",
+      "GBCyl100SpryMtGl",
+      "GBSpry3mlClBlk",
+      "GBSpry4mlClBlk",
+      "LBCyl100LtnMtGl"
+    ]
+  },
+  "rows": [
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl100AnSpMtSl__GB-CYL-CLR-100ML-ASP-MSLV.png",
+      "websiteSku": "GBCyl100AnSpMtSl",
+      "graceSku": "GB-CYL-CLR-100ML-ASP-MSLV",
+      "groupSlug": "cylinder-100ml-clear-18-415-antiquespray",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl100AnSpMtSl__GB-CYL-CLR-100ML-ASP-MSLV.png",
+        "sha256": "d72e2908b2c063dbf888e753206806c3f963db4154418ad984fbb34562519789",
+        "bytes": 193769,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          830,
+          1016,
+          1251,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/35. GBCyl100AnSpMtSl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/35. GBCyl100AnSpMtSl.psd",
+        "psdSha256": "9bdb5e8a7f2c7c07155d8cdeff3229be25f29676c42e6e1c97a8fe3a110fe315",
+        "bytes": 1024260,
+        "psdCanvasPx": [
+          720,
+          1152
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Group 1",
+          "Layer 4",
+          "Layer 7"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          422,
+          1089
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl100AnSpTslMtSl__GB-CYL-CLR-100ML-AST-MSLV.png",
+      "websiteSku": "GBCyl100AnSpTslMtSl",
+      "graceSku": "GB-CYL-CLR-100ML-AST-MSLV",
+      "groupSlug": "cylinder-100ml-clear-18-415-antiquespray-tassel",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl100AnSpTslMtSl__GB-CYL-CLR-100ML-AST-MSLV.png",
+        "sha256": "039ad6e650380dd22d3866761f4aecd8a7dd569f5befa30f21f3d0c7aa667b04",
+        "bytes": 289334,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          717,
+          1048,
+          1365,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/49. GBCyl100AnSpTslMtSl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/49. GBCyl100AnSpTslMtSl.psd",
+        "psdSha256": "04fe6a10b4ed129a2493c3721c090da1dec4202aca44e69972d7d84c4d2c8226",
+        "bytes": 2394476,
+        "psdCanvasPx": [
+          1152,
+          1152
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 12",
+          "Layer 16",
+          "Layer 14",
+          "Group 1",
+          "Layer 15",
+          "Layer 13"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [
+          "Layer 9"
+        ],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          649,
+          1057
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl100RdcrMtSl__GB-CYL-CLR-100ML-RDC-MSLV.png",
+      "websiteSku": "GBCyl100RdcrMtSl",
+      "graceSku": "GB-CYL-CLR-100ML-RDC-MSLV",
+      "groupSlug": "cylinder-100ml-clear-18-415-reducer",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl100RdcrMtSl__GB-CYL-CLR-100ML-RDC-MSLV.png",
+        "sha256": "68c9b09fcfb4c980e849b76ecde41f6476c867ffc95c9de7c4a38aa357990fbf",
+        "bytes": 180152,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          824,
+          92,
+          1256,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/9. GBCyl100RdcrMtSl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/9. GBCyl100RdcrMtSl.psd",
+        "psdSha256": "a5cd550691a63ef6f96218889e281cce0bb5525429879c5ed763d30774d26c04",
+        "bytes": 2607050,
+        "psdCanvasPx": [
+          1750,
+          2625
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Group 1",
+          "Layer 10"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          501,
+          2322
+        ],
+        "scale": 0.866925,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl100SpryMtGl__GB-CYL-CLR-100ML-SPR-MGLD.png",
+      "websiteSku": "GBCyl100SpryMtGl",
+      "graceSku": "GB-CYL-CLR-100ML-SPR-MGLD",
+      "groupSlug": "cylinder-100ml-clear-18-415-perfumespray",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl100SpryMtGl__GB-CYL-CLR-100ML-SPR-MGLD.png",
+        "sha256": "1bc6d2b82980a0ef8a310a8eb89c42152c173e5be772e8eb8ba3996c21b6675e",
+        "bytes": 285489,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          850,
+          93,
+          1231,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/11. GBCyl100SpryMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/11. GBCyl100SpryMtGl.psd",
+        "psdSha256": "89cea0b681cc76bfeafee49accfc584b0b331ec3fa4ce68a4734c0df04c1d3f3",
+        "bytes": 3720411,
+        "psdCanvasPx": [
+          1750,
+          2713
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Group 1",
+          "Layer 22",
+          "Layer 24"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          501,
+          2623
+        ],
+        "scale": 0.767442,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl25DrpGl__GBCyl25DrpGl.png",
+      "websiteSku": "GBCyl25DrpGl",
+      "graceSku": "GBCyl25DrpGl",
+      "groupSlug": "cylinder-25ml-clear-18-415-dropper",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl25DrpGl__GBCyl25DrpGl.png",
+        "sha256": "beacb9e1091815af461f9d7d401502cf64454dc89a3468a682bd904504140123",
+        "bytes": 295557,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          817,
+          658,
+          1265,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /55. GBCyl30DrpGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /55. GBCyl30DrpGl.psd",
+        "psdSha256": "28abed59508957a6e3063d18fe0d6032087494da9fb522cf301142fab50f3b1d",
+        "bytes": 7419510,
+        "psdCanvasPx": [
+          1470,
+          1470
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 4",
+          "Layer 12",
+          "Layer 13",
+          "Layer 3",
+          "Layer 6"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          449,
+          1448
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl25RdcrShnGl__GBCyl25RdcrShnGl.png",
+      "websiteSku": "GBCyl25RdcrShnGl",
+      "graceSku": "GBCyl25RdcrShnGl",
+      "groupSlug": "cylinder-25ml-clear-18-415-reducer",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl25RdcrShnGl__GBCyl25RdcrShnGl.png",
+        "sha256": "bf4384ac6041de9ea74fbfa0b9bc2358dbf47ab328c1cf01a25e93f06eaa262a",
+        "bytes": 209040,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          817,
+          897,
+          1265,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /1. GBCyl30RdcrShnGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /1. GBCyl30RdcrShnGl.psd",
+        "psdSha256": "00e3540017067199590550801c0044372a66304d257ffde333277b48a9961bf8",
+        "bytes": 2024310,
+        "psdCanvasPx": [
+          1750,
+          1400
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 4",
+          "Layer 2"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          449,
+          1208
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl50AnSpMtSl__GB-CYL-CLR-50ML-ASP-MSLV.png",
+      "websiteSku": "GBCyl50AnSpMtSl",
+      "graceSku": "GB-CYL-CLR-50ML-ASP-MSLV",
+      "groupSlug": "cylinder-50ml-clear-18-415-antiquespray",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl50AnSpMtSl__GB-CYL-CLR-50ML-ASP-MSLV.png",
+        "sha256": "623ebb5a1b60e8e780fd22427f9b186610b1e4f517ec0a14ff410ecd37580169",
+        "bytes": 672656,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          548,
+          135,
+          1531,
+          2103
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/35. GBCyl50AnSpMtSl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/35. GBCyl50AnSpMtSl.psd",
+        "psdSha256": "272fbe43b85a81b763f595471229062c8680304f5663d656ba9b08e30ca8a18a",
+        "bytes": 3991642,
+        "psdCanvasPx": [
+          1400,
+          2100
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 4 copy",
+          "Layer 9",
+          "Layer 8"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          984,
+          1971
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl50AnSpTslMtSl__GB-CYL-CLR-50ML-AST-MSLV.png",
+      "websiteSku": "GBCyl50AnSpTslMtSl",
+      "graceSku": "GB-CYL-CLR-50ML-AST-MSLV",
+      "groupSlug": "cylinder-50ml-clear-18-415-antiquespray-tassel",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl50AnSpTslMtSl__GB-CYL-CLR-50ML-AST-MSLV.png",
+        "sha256": "9e176bf73c0a836c6fc6c3ce242895f6c6be432c91675651cde6e6d7fda9eab8",
+        "bytes": 868365,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          337,
+          229,
+          1744,
+          2103
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/49. GBCyl50AnSpTslMtSl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/49. GBCyl50AnSpTslMtSl.psd",
+        "psdSha256": "db3076d27439a8760b47076621a8913aa13c5cc9e4c7f895dba0e5c3af6ca25a",
+        "bytes": 5481830,
+        "psdCanvasPx": [
+          2800,
+          2100
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 4 copy",
+          "Layer 11",
+          "Layer 10"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          1409,
+          1877
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl50RdcrMtSl__GB-CYL-CLR-50ML-RDC-MSLV.png",
+      "websiteSku": "GBCyl50RdcrMtSl",
+      "graceSku": "GB-CYL-CLR-50ML-RDC-MSLV",
+      "groupSlug": "cylinder-50ml-clear-18-415-reducer",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl50RdcrMtSl__GB-CYL-CLR-50ML-RDC-MSLV.png",
+        "sha256": "f9e0db37c49d481c4894c75402df0ff6233a444c318d047f9b860b2811db01e4",
+        "bytes": 174928,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          817,
+          444,
+          1262,
+          2103
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/9. GBCyl50RdcrMtSl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/9. GBCyl50RdcrMtSl.psd",
+        "psdSha256": "e74bfd9325fdcb699452a1bc4f2d067111d4eeac51f038936421b3f144349985",
+        "bytes": 1968103,
+        "psdCanvasPx": [
+          1400,
+          1925
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 14",
+          "Layer 11"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          447,
+          1661
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl50SpryMtGl__GB-CYL-CLR-50ML-SPR-MGLD.png",
+      "websiteSku": "GBCyl50SpryMtGl",
+      "graceSku": "GB-CYL-CLR-50ML-SPR-MGLD",
+      "groupSlug": "cylinder-50ml-clear-18-415-perfumespray",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl50SpryMtGl__GB-CYL-CLR-50ML-SPR-MGLD.png",
+        "sha256": "e90d55153d1701dbaf46c7e40c639e416c2dc2f4be222804450a6781d74d0bec",
+        "bytes": 349322,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          817,
+          144,
+          1262,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/11. GBCyl50SpryMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/11. GBCyl50SpryMtGl.psd",
+        "psdSha256": "b1991ec5158f32e5d695c8c15dcc3e3e25805b627ce04875af672cb296974e9b",
+        "bytes": 2973152,
+        "psdCanvasPx": [
+          1400,
+          2100
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 6",
+          "Layer 8",
+          "Layer 7"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          447,
+          1961
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBCyl5SpryBlkMatt__GB-CYL-CLR-5ML-SPR-MBLK.png",
+      "websiteSku": "GBCyl5SpryBlkMatt",
+      "graceSku": "GB-CYL-CLR-5ML-SPR-MBLK",
+      "groupSlug": "cylinder-5.5ml-clear-13-415-finemist",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBCyl5SpryBlkMatt__GB-CYL-CLR-5ML-SPR-MBLK.png",
+        "sha256": "6bb489ae4ad7f1f3b6c2257beccf8089b2dc4b13c3e7b18dd874bccb434ca4b7",
+        "bytes": 124750,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          936,
+          1246,
+          1143,
+          2103
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /5.  13-415 Bottles/2. Clear 5ml Cylinder/2. Clear 5ml Cly (Capped) PSD/3. GBCyl5SpryBlkMatt.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /5.  13-415 Bottles/2. Clear 5ml Cylinder/2. Clear 5ml Cly (Capped) PSD/3. GBCyl5SpryBlkMatt.psd",
+        "psdSha256": "58f3b9216edf03c6e90f30fc1c2a3036d117dd1d8d00563ac22b37141a5a0216",
+        "bytes": 1030056,
+        "psdCanvasPx": [
+          600,
+          975
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 31",
+          "Layer 29",
+          "Layer 33"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          207,
+          859
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBSpry3mlClBlk__GB-SPR-CLR-3ML-BLK.png",
+      "websiteSku": "GBSpry3mlClBlk",
+      "graceSku": "GB-SPR-CLR-3ML-BLK",
+      "groupSlug": "cylinder-3.3ml-clear-12mm-finemist",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBSpry3mlClBlk__GB-SPR-CLR-3ML-BLK.png",
+        "sha256": "3d7d6f6e3ca364a8b366eafa33d35419ef388d9ed657dd2e9d3e703c5eea29ff",
+        "bytes": 659163,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          795,
+          93,
+          1286,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "original",
+        "relativePath": "Small spray bottles 3ml and 4ml/GBSpry3mlClBlk..psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/Best-Bottles-Original-Photoshop-Sources/Small spray bottles 3ml and 4ml/GBSpry3mlClBlk..psd",
+        "psdSha256": "4010a54843424f947432363420d864fe520fe259c682e93950a214d660f02445",
+        "bytes": 10511241,
+        "psdCanvasPx": [
+          6000,
+          4000
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 4 copy",
+          "Layer 2",
+          "Layer 7",
+          "Layer 6 copy",
+          "Layer 8"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [
+          "Layer 6"
+        ],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          526,
+          2151
+        ],
+        "scale": 0.935844,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [
+        "role assigned from visual read of the PSD pair (overcap on vs beside), confirmed by Jordan 2026-09-19; source sits outside the capped/uncapped trees",
+        "canon-police conflict open on this SKU (aspect 4.212 vs canon 2.643) \u2014 resolve before signing"
+      ],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBSpry4mlClBlk__GB-SPR-CLR-4ML-BLK.png",
+      "websiteSku": "GBSpry4mlClBlk",
+      "graceSku": "GB-SPR-CLR-4ML-BLK",
+      "groupSlug": "cylinder-4ml-clear-12mm-finemist",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBSpry4mlClBlk__GB-SPR-CLR-4ML-BLK.png",
+        "sha256": "b6c3d122704a2f1334aec26c96f8f4797478d40c87f30bd35829380c6c742cbf",
+        "bytes": 583178,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          830,
+          93,
+          1251,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "original",
+        "relativePath": "Small spray bottles 3ml and 4ml/GBSpry4mlClBlk.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/Best-Bottles-Original-Photoshop-Sources/Small spray bottles 3ml and 4ml/GBSpry4mlClBlk.psd",
+        "psdSha256": "df4a28c21ae7a5dba2e659d6b0641ce0bb742181c737a17f99a9d935f32032ea",
+        "bytes": 10111597,
+        "psdCanvasPx": [
+          6000,
+          4000
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 10",
+          "Layer 2",
+          "Layer 7",
+          "Layer 6 copy"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          501,
+          2395
+        ],
+        "scale": 0.840501,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [
+        "role assigned from visual read of the PSD pair (overcap on vs beside), confirmed by Jordan 2026-09-19; source sits outside the capped/uncapped trees"
+      ],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBcyl25AnSpIvyGl__GBcyl25AnSpIvyGl.png",
+      "websiteSku": "GBcyl25AnSpIvyGl",
+      "graceSku": "GBcyl25AnSpIvyGl",
+      "groupSlug": "cylinder-25ml-clear-18-415-antique",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBcyl25AnSpIvyGl__GBcyl25AnSpIvyGl.png",
+        "sha256": "aa210b5f0b0aa158a2ac264420991167e443326be2a9ad494c002f833ff72815",
+        "bytes": 690537,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          560,
+          586,
+          1521,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /38. GBCyl30AnSpIvyGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /38. GBCyl30AnSpIvyGl.psd",
+        "psdSha256": "2295cca165f1527b2f1f5536b56e3e1b0f4bed49c5dd26df5d0aee17f2551443",
+        "bytes": 3533042,
+        "psdCanvasPx": [
+          1750,
+          1750
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 12",
+          "Layer 16",
+          "Layer 10"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          962,
+          1520
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBcyl25AnSpTslIvyGl__GBcyl25AnSpTslIvyGl.png",
+      "websiteSku": "GBcyl25AnSpTslIvyGl",
+      "graceSku": "GBcyl25AnSpTslIvyGl",
+      "groupSlug": "cylinder-25ml-clear-18-415-antiquetassel",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBcyl25AnSpTslIvyGl__GBcyl25AnSpTslIvyGl.png",
+        "sha256": "4fdc94927141f24f6a84f264d8abbaa683ffdad5303149807bb391b162eb2788",
+        "bytes": 1021712,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          359,
+          606,
+          1721,
+          2103
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /43. GBCyl30AnSpTslIvyGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /43. GBCyl30AnSpTslIvyGl.psd",
+        "psdSha256": "3af7ffcf8836100df58e332d00a2dfb31719fa411d3b41abde822c321c192ca0",
+        "bytes": 5632328,
+        "psdCanvasPx": [
+          2275,
+          2100
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 8",
+          "Layer 12",
+          "Layer 7"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          1363,
+          1500
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "GBcyl25SpryMtGl__GBcyl25SpryMtGl.png",
+      "websiteSku": "GBcyl25SpryMtGl",
+      "graceSku": "GBcyl25SpryMtGl",
+      "groupSlug": "cylinder-25ml-clear-18-415-finemist",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/GBcyl25SpryMtGl__GBcyl25SpryMtGl.png",
+        "sha256": "9bf3245cbd3206ba67530e0e23fcee67f41b11c755e14f2f145b6b92405147f8",
+        "bytes": 332034,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          817,
+          594,
+          1265,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /11. GBCyl30SpryMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /11. GBCyl30SpryMtGl.psd",
+        "psdSha256": "c083ce55cc06275d3405f62d27da66deaaf199ef6c4d4ff52e1fe7babc21cf3d",
+        "bytes": 2646178,
+        "psdCanvasPx": [
+          1750,
+          1750
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 26",
+          "Layer 22",
+          "Layer 20"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          449,
+          1512
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "LBCyl100LtnMtGl__LB-CYL-CLR-100ML-LPM-MGLD.png",
+      "websiteSku": "LBCyl100LtnMtGl",
+      "graceSku": "LB-CYL-CLR-100ML-LPM-MGLD",
+      "groupSlug": "cylinder-100ml-clear-18-415-lotionpump",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/LBCyl100LtnMtGl__LB-CYL-CLR-100ML-LPM-MGLD.png",
+        "sha256": "cb9cc6cbd02b2652488139e801ebc6794ed24d573d333428722d5e499a533e86",
+        "bytes": 301944,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          850,
+          93,
+          1231,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/12. LBCyl100LtnMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/3. Cylindrical 100ml/1. Cylindrical 100ml PSD/12. LBCyl100LtnMtGl.psd",
+        "psdSha256": "5713ceba3cc9933c955d6d239e3c609727023e7535a0f1c33325640e007a95e7",
+        "bytes": 3784663,
+        "psdCanvasPx": [
+          1750,
+          2713
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Group 1",
+          "Layer 22",
+          "Layer 25"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          501,
+          2623
+        ],
+        "scale": 0.767442,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "LBCyl25LtnMtGl__LB-CYL-CLR-25ML-LPM-MGLD.png",
+      "websiteSku": "LBCyl25LtnMtGl",
+      "graceSku": "LB-CYL-CLR-25ML-LPM-MGLD",
+      "groupSlug": "cylinder-25ml-clear-18-415-lotionpump",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/LBCyl25LtnMtGl__LB-CYL-CLR-25ML-LPM-MGLD.png",
+        "sha256": "6758a394a73c4b5923f276ffa66b5de91c7a433bb9777263c90bb2010bf1c5ee",
+        "bytes": 328340,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          817,
+          594,
+          1265,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /12. LBCyl30LtnMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/1. Cylindrical 30ml /1. Cylindrical 30ml PSD /12. LBCyl30LtnMtGl.psd",
+        "psdSha256": "e2a4710503f3c508e33e6b9626fb38e1fe3b79d242d676e0f83552c0b76502ff",
+        "bytes": 2458008,
+        "psdCanvasPx": [
+          1750,
+          1750
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 21",
+          "Layer 27",
+          "Layer 24"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          449,
+          1512
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "identity-cap-on",
+      "file": "LBCyl50LtnMtGl__LB-CYL-CLR-50ML-LPM-MGLD.png",
+      "websiteSku": "LBCyl50LtnMtGl",
+      "graceSku": "LB-CYL-CLR-50ML-LPM-MGLD",
+      "groupSlug": "cylinder-50ml-clear-18-415-lotionpump",
+      "topology": "assembled-cap-on",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/identity-cap-on/LBCyl50LtnMtGl__LB-CYL-CLR-50ML-LPM-MGLD.png",
+        "sha256": "ebedf602e87550ecbdfa3990990ed99c26b8e00c85b84982e260fad65d183973",
+        "bytes": 372071,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          817,
+          143,
+          1262,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/12. LBCyl50LtnMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/2. PSD Capped /2.  18-415 Bottles Capped/2. Cylindrical 50ml /1. Cylindrical 50ml PSD/12. LBCyl50LtnMtGl.psd",
+        "psdSha256": "89b617529f4c16540e92f6625485cecc948e02bc66f007aaa02670ccfc6143f2",
+        "bytes": 2918095,
+        "psdCanvasPx": [
+          1400,
+          2100
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 6",
+          "Layer 9",
+          "Layer 8"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          447,
+          1962
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBCyl100RdcrMtSl__GB-CYL-CLR-100ML-RDC-MSLV.png",
+      "websiteSku": "GBCyl100RdcrMtSl",
+      "graceSku": "GB-CYL-CLR-100ML-RDC-MSLV",
+      "groupSlug": "cylinder-100ml-clear-18-415-reducer",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl100RdcrMtSl__GB-CYL-CLR-100ML-RDC-MSLV.png",
+        "sha256": "6206d5830e31355ebee01990ec069c76365e99bd04e352fbc8c65b33b39d6450",
+        "bytes": 228094,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          653,
+          93,
+          1428,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /3. Cylindrical 100ml/1. Cylindrical 100ml PSD/9. GBCyl100RdcrMtSl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /3. Cylindrical 100ml/1. Cylindrical 100ml PSD/9. GBCyl100RdcrMtSl.psd",
+        "psdSha256": "9b6246c9dc01b0a5407ca1bc73cbc6ba83ea9041eda5db1de07a76bb3604ce2b",
+        "bytes": 2759402,
+        "psdCanvasPx": [
+          1750,
+          2625
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 10",
+          "Layer 11"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          889,
+          2307
+        ],
+        "scale": 0.872562,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBCyl100SpryMtGl__GB-CYL-CLR-100ML-SPR-MGLD.png",
+      "websiteSku": "GBCyl100SpryMtGl",
+      "graceSku": "GB-CYL-CLR-100ML-SPR-MGLD",
+      "groupSlug": "cylinder-100ml-clear-18-415-perfumespray",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl100SpryMtGl__GB-CYL-CLR-100ML-SPR-MGLD.png",
+        "sha256": "84eda27836b2652131de6eb33e3ea02f281690b419502e3bd20b0c4522108b1e",
+        "bytes": 392021,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          660,
+          92,
+          1422,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /3. Cylindrical 100ml/1. Cylindrical 100ml PSD/13. GBCyl100SpryMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /3. Cylindrical 100ml/1. Cylindrical 100ml PSD/13. GBCyl100SpryMtGl.psd",
+        "psdSha256": "60a4500e5e018569710fe664121518cffeb2ffd196e574959d8c30b983a198fd",
+        "bytes": 4657513,
+        "psdCanvasPx": [
+          1750,
+          2713
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Group 1",
+          "Layer 25",
+          "Layer 26",
+          "Layer 27"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          985,
+          2595
+        ],
+        "scale": 0.775723,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBCyl25DrpGl__GBCyl25DrpGl.png",
+      "websiteSku": "GBCyl25DrpGl",
+      "graceSku": "GBCyl25DrpGl",
+      "groupSlug": "cylinder-25ml-clear-18-415-dropper",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl25DrpGl__GBCyl25DrpGl.png",
+        "sha256": "f0f01fc04ddb26b05db8120ff3d64f7a9f3705140bdae671c9f32cfc84d6b62a",
+        "bytes": 353634,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          614,
+          778,
+          1467,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /1. Cylindrical 30ml /1. Cylindrical 30ml PSD /55. GBCyl30DrpGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /1. Cylindrical 30ml /1. Cylindrical 30ml PSD /55. GBCyl30DrpGl.psd",
+        "psdSha256": "be31962b63f1e0cf9af01c321c4cd3400a25894dbf2be9adcf3ffc8de355a2b4",
+        "bytes": 7544829,
+        "psdCanvasPx": [
+          1470,
+          1470
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 4",
+          "Layer 12",
+          "Layer 13",
+          "Layer 3",
+          "Layer 6"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          854,
+          1328
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBCyl25RdcrShnGl__GBCyl25RdcrShnGl.png",
+      "websiteSku": "GBCyl25RdcrShnGl",
+      "graceSku": "GBCyl25RdcrShnGl",
+      "groupSlug": "cylinder-25ml-clear-18-415-reducer",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl25RdcrShnGl__GBCyl25RdcrShnGl.png",
+        "sha256": "678288301b4c9bcf5337ad96c6948cc39b851f02dc7ca25eff8cd4be39729285",
+        "bytes": 261579,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          655,
+          931,
+          1425,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /1. Cylindrical 30ml /1. Cylindrical 30ml PSD /1. GBCyl30RdcrShnGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /1. Cylindrical 30ml /1. Cylindrical 30ml PSD /1. GBCyl30RdcrShnGl.psd",
+        "psdSha256": "d30d4ac9239ce1ce46f1e7acbff509e0775c5b96feb4ab9e29c47fdbe6d693e4",
+        "bytes": 2138299,
+        "psdCanvasPx": [
+          1750,
+          1400
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 7",
+          "Layer 2"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          771,
+          1175
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBCyl50RdcrMtSl__GB-CYL-CLR-50ML-RDC-MSLV.png",
+      "websiteSku": "GBCyl50RdcrMtSl",
+      "graceSku": "GB-CYL-CLR-50ML-RDC-MSLV",
+      "groupSlug": "cylinder-50ml-clear-18-415-reducer",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl50RdcrMtSl__GB-CYL-CLR-50ML-RDC-MSLV.png",
+        "sha256": "cd88b558e70c4fcf4eddfd30a5720712b8d51d57c3221f7fde64ef0b03ec2c33",
+        "bytes": 223050,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          640,
+          482,
+          1441,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /2. Cylindrical 50ml /1. Cylindrical 50ml PSD/9. GBCyl50RdcrMtSl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /2. Cylindrical 50ml /1. Cylindrical 50ml PSD/9. GBCyl50RdcrMtSl.psd",
+        "psdSha256": "bb2be2a86961be881574b08de12ba14ef5ac4ddec1d43dce0a0e7e8d2132f659",
+        "bytes": 2109145,
+        "psdCanvasPx": [
+          1400,
+          1925
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 15",
+          "Layer 11"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          802,
+          1624
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBCyl50SpryMtGl__GB-CYL-CLR-50ML-SPR-MGLD.png",
+      "websiteSku": "GBCyl50SpryMtGl",
+      "graceSku": "GB-CYL-CLR-50ML-SPR-MGLD",
+      "groupSlug": "cylinder-50ml-clear-18-415-perfumespray",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl50SpryMtGl__GB-CYL-CLR-50ML-SPR-MGLD.png",
+        "sha256": "364fe7b8e2099f088390811f59a19d544be467d87379482384c40029cb9541ae",
+        "bytes": 509306,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          611,
+          169,
+          1469,
+          2103
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /2. Cylindrical 50ml /1. Cylindrical 50ml PSD/13. GBCyl50SpryMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /2. Cylindrical 50ml /1. Cylindrical 50ml PSD/13. GBCyl50SpryMtGl.psd",
+        "psdSha256": "cda3f10df4a0d093dd9f731a4fb32d8fb68ff04f1c9efbc3d57ae9eee7cc52d5",
+        "bytes": 3789061,
+        "psdCanvasPx": [
+          1400,
+          2100
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 5",
+          "Layer 8",
+          "Layer 6",
+          "Layer 7"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          859,
+          1936
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBCyl5SpryBlkMatt__GB-CYL-CLR-5ML-SPR-MBLK.png",
+      "websiteSku": "GBCyl5SpryBlkMatt",
+      "graceSku": "GB-CYL-CLR-5ML-SPR-MBLK",
+      "groupSlug": "cylinder-5.5ml-clear-13-415-finemist",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBCyl5SpryBlkMatt__GB-CYL-CLR-5ML-SPR-MBLK.png",
+        "sha256": "1a6cab63b49fcaa60e8ebce79c6a0096dc0e93f1ecb91700eb301ceaf7967593",
+        "bytes": 163488,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          808,
+          1277,
+          1272,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /5.  13-415 Bottles/2. Clear 5ml Cylinder/1. Clear 5ml Cly (Uncapped) PSD /3. GBCyl5SpryBlkMatt.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /5.  13-415 Bottles/2. Clear 5ml Cylinder/1. Clear 5ml Cly (Uncapped) PSD /3. GBCyl5SpryBlkMatt.psd",
+        "psdSha256": "42790c99b1fdd37b53144773e98b11b94744b9ecceb5b92f8c4d768234a6fe15",
+        "bytes": 1374558,
+        "psdCanvasPx": [
+          600,
+          975
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 24",
+          "Layer 31",
+          "Layer 29",
+          "Layer 30"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          464,
+          828
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBSpry4mlClBlk__GB-SPR-CLR-4ML-BLK.png",
+      "websiteSku": "GBSpry4mlClBlk",
+      "graceSku": "GB-SPR-CLR-4ML-BLK",
+      "groupSlug": "cylinder-4ml-clear-12mm-finemist",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBSpry4mlClBlk__GB-SPR-CLR-4ML-BLK.png",
+        "sha256": "612329bd6cf21e9423ad41c29729ee9dfde3ee940af7628be88b4482ee5f3fe1",
+        "bytes": 701484,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          586,
+          92,
+          1493,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "original",
+        "relativePath": "Small spray bottles 3ml and 4ml/GBSpry4mlClBlk..psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/Best-Bottles-Original-Photoshop-Sources/Small spray bottles 3ml and 4ml/GBSpry4mlClBlk..psd",
+        "psdSha256": "87e55004a60f0aa97b7b240ea410a803422206986b978e11d7e09bb13f0d7626",
+        "bytes": 10479463,
+        "psdCanvasPx": [
+          6000,
+          4000
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 10",
+          "Layer 2",
+          "Layer 7",
+          "Layer 6 copy"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          1036,
+          2298
+        ],
+        "scale": 0.875979,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [
+        "role assigned from visual read of the PSD pair (overcap on vs beside), confirmed by Jordan 2026-09-19; source sits outside the capped/uncapped trees"
+      ],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBTallCyl9MtlRollBlkDot__GB-CYL-CLR-9ML-MRL-BKDT-02.png",
+      "websiteSku": "GBTallCyl9MtlRollBlkDot",
+      "graceSku": "GB-CYL-CLR-9ML-MRL-BKDT-02",
+      "groupSlug": "cylinder-9ml-clear-13-415-rollon",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBTallCyl9MtlRollBlkDot__GB-CYL-CLR-9ML-MRL-BKDT-02.png",
+        "sha256": "d3f924a885d1758d811b54f7e4f64a5bd3c2ce86ae1cc068919744ef6743bb61",
+        "bytes": 191904,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          740,
+          754,
+          1339,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /5.  13-415 Bottles/13. Tall Cylinder 9ml/1. Tall Cyl 9ml  (uncapped) PSD/26. GBTallCyl9MtlRollBlkDot.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /5.  13-415 Bottles/13. Tall Cylinder 9ml/1. Tall Cyl 9ml  (uncapped) PSD/26. GBTallCyl9MtlRollBlkDot.psd",
+        "psdSha256": "c3907748833354c4f820ecb0c47aabb6e03521d89c151a81191998507c67ff28",
+        "bytes": 1680953,
+        "psdCanvasPx": [
+          750,
+          1594
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 7",
+          "Bottle",
+          "Layer 10"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {
+          "Layer 7": 33150
+        },
+        "nativeProductPx": [
+          600,
+          1351
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [
+        "Mtl roll-on: human must confirm metal-roller identity before signing",
+        "flat white cover-up polygon in fitment layer knocked out"
+      ],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBTallCylFrst9MtlRollBlkDot__GB-CYL-FRS-9ML-T-02.png",
+      "websiteSku": "GBTallCylFrst9MtlRollBlkDot",
+      "graceSku": "GB-CYL-FRS-9ML-T-02",
+      "groupSlug": "cylinder-9ml-frosted-13-415-rollon",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBTallCylFrst9MtlRollBlkDot__GB-CYL-FRS-9ML-T-02.png",
+        "sha256": "0a908ad87a9ed8f46bd73b639b8513b7281e40201689ca791e271cc9c57dc36f",
+        "bytes": 213136,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          740,
+          749,
+          1339,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /5.  13-415 Bottles/23. Frosted Tall Cylinder 9ml /1. Frosted Tall Cyl 9ml  (uncapped) PSD/26. GBTallCylFrst9MtlRollBlkDot.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /5.  13-415 Bottles/23. Frosted Tall Cylinder 9ml /1. Frosted Tall Cyl 9ml  (uncapped) PSD/26. GBTallCylFrst9MtlRollBlkDot.psd",
+        "psdSha256": "97770771eb7a2e57aedef67f0ef298b94c31d41c5fa7bc28be97bdeedf17668d",
+        "bytes": 1834138,
+        "psdCanvasPx": [
+          750,
+          1594
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 7",
+          "Layer 16",
+          "Layer 10"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {
+          "Layer 7": 33150
+        },
+        "nativeProductPx": [
+          600,
+          1356
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [
+        "Mtl roll-on: human must confirm metal-roller identity before signing",
+        "flat white cover-up polygon in fitment layer knocked out"
+      ],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "GBcyl25SpryMtGl__GBcyl25SpryMtGl.png",
+      "websiteSku": "GBcyl25SpryMtGl",
+      "graceSku": "GBcyl25SpryMtGl",
+      "groupSlug": "cylinder-25ml-clear-18-415-finemist",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/GBcyl25SpryMtGl__GBcyl25SpryMtGl.png",
+        "sha256": "0c4c42eb9ab374f19bdc530790571a9b7d06ba56a481c187886b9c3f0e751baf",
+        "bytes": 486198,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          610,
+          627,
+          1471,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /1. Cylindrical 30ml /1. Cylindrical 30ml PSD /13. GBCyl30SpryMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /1. Cylindrical 30ml /1. Cylindrical 30ml PSD /13. GBCyl30SpryMtGl.psd",
+        "psdSha256": "a8c64929c3651d54563f20b880e678d8773541b8c3f6b5415411727cbcd36540",
+        "bytes": 3411930,
+        "psdCanvasPx": [
+          1750,
+          1750
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 27",
+          "Layer 28",
+          "Layer 22",
+          "Layer 21"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          862,
+          1478
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "LBCyl100LtnMtGl__LB-CYL-CLR-100ML-LPM-MGLD.png",
+      "websiteSku": "LBCyl100LtnMtGl",
+      "graceSku": "LB-CYL-CLR-100ML-LPM-MGLD",
+      "groupSlug": "cylinder-100ml-clear-18-415-lotionpump",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/LBCyl100LtnMtGl__LB-CYL-CLR-100ML-LPM-MGLD.png",
+        "sha256": "aa5d2bab5a65a85da39049d63c99749e2b910da41a336d0fc56b6076a64a918f",
+        "bytes": 407031,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          667,
+          92,
+          1415,
+          2104
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /3. Cylindrical 100ml/1. Cylindrical 100ml PSD/14. LBCyl100LtnMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /3. Cylindrical 100ml/1. Cylindrical 100ml PSD/14. LBCyl100LtnMtGl.psd",
+        "psdSha256": "b4dcbcdae45f1f708f8b05fec3edf2fee3ebaa460c7b17a6a20f6812ea48e6f0",
+        "bytes": 4617839,
+        "psdCanvasPx": [
+          1750,
+          2713
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Group 1",
+          "Layer 24",
+          "Layer 26",
+          "Layer 27"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          965,
+          2591
+        ],
+        "scale": 0.77692,
+        "resample": "lanczos-downscale",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "LBCyl25LtnMtGl__LB-CYL-CLR-25ML-LPM-MGLD.png",
+      "websiteSku": "LBCyl25LtnMtGl",
+      "graceSku": "LB-CYL-CLR-25ML-LPM-MGLD",
+      "groupSlug": "cylinder-25ml-clear-18-415-lotionpump",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/LBCyl25LtnMtGl__LB-CYL-CLR-25ML-LPM-MGLD.png",
+        "sha256": "fcb88e000c32c0c5867e0efb8d63ab35234b9a778d8e33f83917af619e87f6de",
+        "bytes": 467795,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          593,
+          626,
+          1487,
+          2105
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /1. Cylindrical 30ml /1. Cylindrical 30ml PSD /14. LBCyl30LtnMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /1. Cylindrical 30ml /1. Cylindrical 30ml PSD /14. LBCyl30LtnMtGl.psd",
+        "psdSha256": "0bacc024e36fc8554fd56fff6fbbdf496629e5a8c97af450f632e8128de488d5",
+        "bytes": 3413017,
+        "psdCanvasPx": [
+          1750,
+          1750
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 19",
+          "Layer 25",
+          "Layer 21",
+          "Layer 22"
+        ],
+        "droppedBackgroundLayers": [
+          "Layer 0"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          895,
+          1479
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    },
+    {
+      "roleId": "pdp-cap-off-sidecar",
+      "file": "LBCyl50LtnMtGl__LB-CYL-CLR-50ML-LPM-MGLD.png",
+      "websiteSku": "LBCyl50LtnMtGl",
+      "graceSku": "LB-CYL-CLR-50ML-LPM-MGLD",
+      "groupSlug": "cylinder-50ml-clear-18-415-lotionpump",
+      "topology": "fitment-attached-cap-right-sidecar",
+      "approvedException": null,
+      "output": {
+        "path": "/Users/jordanrichter/Projects/Madison Studio/madison-app/.claude/worktrees/bb-scale-card-rig-2026-09-16/public/data/reference-exports/cylinder/2026-09-19/pdp-cap-off-sidecar/LBCyl50LtnMtGl__LB-CYL-CLR-50ML-LPM-MGLD.png",
+        "sha256": "25115abe4c5c2d60be617f449946d902dca9989aaf1b1681cd1ec24007f7b6b2",
+        "bytes": 516436,
+        "width": 2080,
+        "height": 2288,
+        "opaque": true,
+        "format": "PNG",
+        "mode": "RGB",
+        "productBoundsPx": [
+          610,
+          171,
+          1471,
+          2103
+        ]
+      },
+      "source": {
+        "estate": "bbuat",
+        "relativePath": "1. PSD Uncapped /2.  18-415 Bottles /2. Cylindrical 50ml /1. Cylindrical 50ml PSD/14. LBCyl50LtnMtGl.psd",
+        "path": "/Users/jordanrichter/Projects/Clients/Nemat-International/BBUAT-Upload-Files/1. PSD Uncapped /2.  18-415 Bottles /2. Cylindrical 50ml /1. Cylindrical 50ml PSD/14. LBCyl50LtnMtGl.psd",
+        "psdSha256": "6917d0d7d73839f2a9cfa48a3f55da705e9bd0c2d0c980d8a76c97f35d475d83",
+        "bytes": 3738686,
+        "psdCanvasPx": [
+          1400,
+          2100
+        ]
+      },
+      "export": {
+        "method": "psd-native layer composite (psd-tools 1.19.0); full-canvas opaque background layer dropped; composited over Bone #F5F3EF; centred, foot baseline y=2105 (0.92H)",
+        "keptLayers": [
+          "Layer 4",
+          "Layer 10",
+          "Layer 7",
+          "Layer 8"
+        ],
+        "droppedBackgroundLayers": [
+          "Background"
+        ],
+        "hiddenLayersIgnored": [],
+        "whiteCoverUpKnockoutPx": {},
+        "nativeProductPx": [
+          862,
+          1934
+        ],
+        "scale": 1.0,
+        "resample": "none-native",
+        "upscaled": false
+      },
+      "notes": [],
+      "checks": "pass"
+    }
+  ]
+}

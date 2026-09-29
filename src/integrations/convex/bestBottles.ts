@@ -12,6 +12,12 @@ import {
   getStaticBestBottlesCatalogProducts,
   getStaticBestBottlesProductsByFamily,
 } from "@/lib/bestBottlesCatalogFallback";
+import {
+  canonicalStudioProductGroupSlug,
+  studioProductGroupSlugCandidates,
+} from "@/lib/bestBottlesStudioSlug";
+
+export { canonicalStudioProductGroupSlug, studioProductGroupSlugCandidates };
 
 /** Shape of `productGroups` rows in best-bottles-website/convex/schema.ts. */
 export interface ProductGroup {
@@ -112,8 +118,71 @@ export interface ProductGroupResult {
   variants: Product[];
 }
 
+export interface StudioFamilyCapacityBucket {
+  capacityKey: string;
+  capacityLabel: string;
+  capacityMl: number | null;
+  groups: ProductGroup[];
+}
+
+export function studioFamilyCapacityKey(group: Pick<ProductGroup, "capacity" | "capacityMl">): string {
+  if (group.capacityMl != null && Number.isFinite(group.capacityMl)) {
+    return String(group.capacityMl);
+  }
+  return (group.capacity ?? "unknown").trim().toLowerCase() || "unknown";
+}
+
+export function studioFamilyCapacityLabel(group: Pick<ProductGroup, "capacity" | "capacityMl">): string {
+  const labeled = group.capacity?.trim();
+  if (labeled) return labeled;
+  if (group.capacityMl != null && Number.isFinite(group.capacityMl)) {
+    return `${group.capacityMl} ml`;
+  }
+  return "Unknown";
+}
+
+export function groupStudioFamilyGroupsByCapacity(
+  groups: readonly ProductGroup[],
+): StudioFamilyCapacityBucket[] {
+  const buckets = new Map<string, StudioFamilyCapacityBucket>();
+  for (const group of groups) {
+    const capacityKey = studioFamilyCapacityKey(group);
+    const existing = buckets.get(capacityKey);
+    if (existing) {
+      existing.groups.push(group);
+      continue;
+    }
+    buckets.set(capacityKey, {
+      capacityKey,
+      capacityLabel: studioFamilyCapacityLabel(group),
+      capacityMl: group.capacityMl,
+      groups: [group],
+    });
+  }
+
+  return Array.from(buckets.values())
+    .map((bucket) => ({
+      ...bucket,
+      groups: [...bucket.groups].sort((left, right) =>
+        left.displayName.localeCompare(right.displayName),
+      ),
+    }))
+    .sort((left, right) => {
+      const leftMl = left.capacityMl;
+      const rightMl = right.capacityMl;
+      if (leftMl != null && rightMl != null && leftMl !== rightMl) return leftMl - rightMl;
+      if (leftMl != null && rightMl == null) return -1;
+      if (leftMl == null && rightMl != null) return 1;
+      return left.capacityLabel.localeCompare(right.capacityLabel);
+    });
+}
+
 export async function getProductGroup(slug: string): Promise<ProductGroupResult | null> {
-  return invoke<ProductGroupResult | null>("products:getProductGroup", { slug });
+  for (const candidate of studioProductGroupSlugCandidates(slug)) {
+    const result = await invoke<ProductGroupResult | null>("products:getProductGroup", { slug: candidate });
+    if (result) return result;
+  }
+  return null;
 }
 
 export async function getProductBySku(graceSku: string): Promise<Product | null> {
@@ -198,6 +267,8 @@ export interface ExpandedProductGroupResult {
    * as orphans purely because the current group view is filtered.
    */
   allFamilyProducts: Product[];
+  /** Every Convex product group in this family, used to switch sizes in Studio. */
+  familyGroups: ProductGroup[];
 }
 
 async function mapWithConcurrency<T, R>(
@@ -313,8 +384,20 @@ export async function getProductGroupWithApplicatorSiblings(
       ...convexFamilyProducts,
       ...staticFamilyProducts,
     ]);
+    const catalogGroups = await getBestBottlesCatalogGroups();
+    const familyKey = group.family.trim().toLowerCase();
+    familyGroups = catalogGroups.filter(
+      (familyGroup) => familyGroup.family.trim().toLowerCase() === familyKey,
+    );
     const allVariants = filterApplicatorSiblingVariants(group, familyProducts);
-    return buildExpandedProductGroupResult(group, allVariants, familyProducts);
+    return buildExpandedProductGroupResult(group, allVariants, familyProducts, familyGroups);
+  }
+  if (familyGroups.length === 0) {
+    const catalogGroups = await getBestBottlesCatalogGroups();
+    const familyKey = group.family.trim().toLowerCase();
+    familyGroups = catalogGroups.filter(
+      (familyGroup) => familyGroup.family.trim().toLowerCase() === familyKey,
+    );
   }
   const groupsToLoad = familyGroups.length > 0 ? familyGroups : [group];
   const groupResults = await mapWithConcurrency(groupsToLoad, 8, async (familyGroup) => {
@@ -331,13 +414,14 @@ export async function getProductGroupWithApplicatorSiblings(
 
   const allVariants = filterApplicatorSiblingVariants(group, familyProducts);
 
-  return buildExpandedProductGroupResult(group, allVariants, familyProducts);
+  return buildExpandedProductGroupResult(group, allVariants, familyProducts, familyGroups);
 }
 
 function buildExpandedProductGroupResult(
   group: ProductGroup,
   allVariants: Product[],
   familyProducts: Product[],
+  familyGroups: ProductGroup[] = [group],
 ): ExpandedProductGroupResult {
   // Bucket by applicator, preserving deterministic ordering by descending count.
   const byApp = new Map<string, Product[]>();
@@ -355,10 +439,19 @@ function buildExpandedProductGroupResult(
     }))
     .sort((a, b) => b.count - a.count);
 
+  const uniqueFamilyGroups = new Map<string, ProductGroup>();
+  for (const familyGroup of familyGroups.length > 0 ? familyGroups : [group]) {
+    uniqueFamilyGroups.set(familyGroup.slug, familyGroup);
+  }
+  if (!uniqueFamilyGroups.has(group.slug)) {
+    uniqueFamilyGroups.set(group.slug, group);
+  }
+
   return {
     group,
     variants: allVariants,
     applicatorBuckets,
     allFamilyProducts: familyProducts,
+    familyGroups: Array.from(uniqueFamilyGroups.values()),
   };
 }

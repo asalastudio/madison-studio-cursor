@@ -544,7 +544,7 @@ export function ConsistencyModePanel({
       sessionId,
       aspectRatio: proSettings.aspectRatio ?? "1:1",
       resolution: (proSettings.resolution as "standard" | "high" | "4k") ?? "high",
-      aiProvider: pipelinePrefill ? "openai-image-2" : proSettings.aiProvider,
+      aiProvider: pipelinePrefill ? "openai-image-2.5-sunburst" : proSettings.aiProvider,
       proModeControls: {
         camera: proSettings.camera,
         lighting: proSettings.lighting,
