@@ -67,7 +67,7 @@ interface LibraryImage {
 interface ImageLibraryModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSelectImage: (image: { url: string; file?: File; name?: string; id?: string }) => void;
+    onSelectImage: (image: { url: string; file?: File; name?: string }) => void;
     libraryImages?: LibraryImage[];
     title?: string;
     /** When set, only loads generated_images rows whose library_tags include this token. */
@@ -330,7 +330,6 @@ export function ImageLibraryModal({
         onSelectImage({
             url: image.url,
             name: image.name,
-            id: image.id,
         });
         onOpenChange(false);
         setSelectedId(null);

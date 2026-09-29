@@ -24,7 +24,6 @@ export interface OrgStudioVideo {
   model: string | null;
   status: VideoJobState;
   createdAt: string;
-  taskId?: string;
 }
 
 interface GeneratedMediaRow {
@@ -39,7 +38,7 @@ interface GeneratedMediaRow {
   goal_type: string | null;
   session_name: string | null;
   created_at: string;
-  metadata: unknown;
+  description: string | null;
 }
 
 function rowName(row: GeneratedMediaRow): string {
@@ -48,19 +47,10 @@ function rowName(row: GeneratedMediaRow): string {
 
 function rowStatus(row: GeneratedMediaRow): VideoJobState {
   if (row.video_url) return "complete";
-  const metadata = row.metadata && typeof row.metadata === "object"
-    ? (row.metadata as { status?: string })
-    : {};
-  const status = (metadata.status ?? "").toLowerCase();
-  if (status === "failed" || status === "error") return "failed";
-  if (status === "pending" || status === "processing") return "processing";
-  return row.video_url ? "complete" : "queued";
-}
-
-function rowTaskId(row: GeneratedMediaRow): string | undefined {
-  if (!row.metadata || typeof row.metadata !== "object") return undefined;
-  const taskId = (row.metadata as { task_id?: unknown }).task_id;
-  return typeof taskId === "string" ? taskId : undefined;
+  const description = (row.description ?? "").toLowerCase();
+  if (description.includes("fail") || description.includes("error")) return "failed";
+  if (description.includes("pending") || description.includes("render")) return "processing";
+  return "queued";
 }
 
 export function useOrgStudioImages(organizationId: string | null) {
@@ -77,7 +67,7 @@ export function useOrgStudioImages(organizationId: string | null) {
 
       const { data, error } = await supabase
         .from("generated_images")
-        .select("id, image_url, video_url, video_duration, final_prompt, aspect_ratio, generation_provider, media_type, goal_type, session_name, created_at, metadata")
+        .select("id, image_url, video_url, video_duration, final_prompt, aspect_ratio, generation_provider, media_type, goal_type, session_name, created_at, description")
         .eq("organization_id", query.organizationId)
         .eq("is_archived", false)
         .not("image_url", "is", null)
@@ -119,7 +109,7 @@ export function useOrgStudioVideos(organizationId: string | null) {
 
       const { data, error } = await supabase
         .from("generated_images")
-        .select("id, image_url, video_url, video_duration, final_prompt, aspect_ratio, generation_provider, media_type, goal_type, session_name, created_at, metadata")
+        .select("id, image_url, video_url, video_duration, final_prompt, aspect_ratio, generation_provider, media_type, goal_type, session_name, created_at, description")
         .eq("organization_id", query.organizationId)
         .eq("media_type", query.mediaType)
         .eq("is_archived", false)
@@ -141,7 +131,6 @@ export function useOrgStudioVideos(organizationId: string | null) {
         model: row.generation_provider,
         status: rowStatus(row),
         createdAt: row.created_at,
-        taskId: rowTaskId(row),
       }));
     },
   });

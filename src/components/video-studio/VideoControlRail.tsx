@@ -29,7 +29,7 @@ interface VideoControlRailProps {
   onClearStart: () => void;
   onClearEnd: () => void;
   model: string;
-  onModelChange: (value: string) => void;
+  onModelChange: (value: typeof VIDEO_STUDIO_MODELS[number]["id"]) => void;
   duration: string;
   onDurationChange: (value: string) => void;
   resolution: string;

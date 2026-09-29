@@ -129,7 +129,6 @@ export default function VideoStudio() {
         .from("generated_images")
         .update({
           video_url: videoUrl,
-          metadata: { status: "completed" },
           description: "Video complete",
         })
         .eq("id", savedVideoId)
@@ -147,7 +146,6 @@ export default function VideoStudio() {
       await supabase
         .from("generated_images")
         .update({
-          metadata: { status: "failed", error: message },
           description: `Video failed: ${message}`.slice(0, 180),
         })
         .eq("id", savedVideoId)
@@ -299,9 +297,9 @@ export default function VideoStudio() {
   ]);
 
   const handlePickFrame = useCallback(
-    async (image: { url: string; file?: File; name?: string; id?: string }) => {
+    async (image: { url: string; file?: File; name?: string }) => {
       let url = image.url;
-      let id = image.id;
+      let id = libraryImages.find((item) => item.url === image.url)?.id;
 
       if (image.file && orgId) {
         const path = `${orgId}/video-frames/${crypto.randomUUID()}-${image.file.name.replace(/[^\w.-]+/g, "-")}`;
@@ -323,7 +321,7 @@ export default function VideoStudio() {
       }
       setPickerSlot(null);
     },
-    [orgId, pickerSlot],
+    [libraryImages, orgId, pickerSlot],
   );
 
   const handleDownload = useCallback(() => {
