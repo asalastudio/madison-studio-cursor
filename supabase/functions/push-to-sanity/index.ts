@@ -32,6 +32,7 @@ import {
 } from "../_shared/journalPost.ts";
 
 import { guardOrganization } from "../_shared/edgeAuth.ts";
+import { fetchOrgEntitlementFeaturesRest, orgMayUseTarife } from "../_shared/orgFeatures.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -415,7 +416,8 @@ async function transformContentToSanity(
   sanityDocumentType: string,
   sanityClient: any,
   extraMetadata?: any,
-  linkedProduct?: { id: string; name: string; sanityId: string }
+  linkedProduct?: { id: string; name: string; sanityId: string },
+  isTarifeOrg = false,
 ): Promise<any> {
   // -------------------------------------------------------------------------
   // SCHEMA ALIGNMENT FIX:
@@ -428,7 +430,10 @@ async function transformContentToSanity(
   // in the Tarife Attar "Journal" inbox.
   // -------------------------------------------------------------------------
   let finalDocumentType = sanityDocumentType;
-  if (['fieldJournal', 'journal', 'post', 'blog_article', 'article'].includes(sanityDocumentType)) {
+  if (
+    isTarifeOrg &&
+    ['fieldJournal', 'journal', 'post', 'blog_article', 'article'].includes(sanityDocumentType)
+  ) {
     finalDocumentType = 'journalEntry';
     console.log(`[push-to-sanity] Aliasing '${sanityDocumentType}' to 'journalEntry' to match schema.`);
   }
@@ -504,7 +509,7 @@ async function transformContentToSanity(
     mappings.publishedAt = content.published_at || content.created_at || new Date().toISOString();
     mappings.date = mappings.publishedAt;
 
-    // Automated Location Detection (Tarife Attar Specific)
+    // Automated Location Detection (Tarife Attar only)
     const locationCoords: Record<string, { lat: number; lng: number; name: string }> = {
       "havana": { lat: 23.1136, lng: -82.3666, name: "Havana, Cuba" },
       "riyadh": { lat: 24.7136, lng: 46.6753, name: "Riyadh, Saudi Arabia" },
@@ -517,7 +522,9 @@ async function transformContentToSanity(
     };
 
     const searchKey = (content.title || "").toLowerCase();
-    const detectedLocation = Object.keys(locationCoords).find(loc => searchKey.includes(loc));
+    const detectedLocation = isTarifeOrg
+      ? Object.keys(locationCoords).find(loc => searchKey.includes(loc))
+      : undefined;
 
     if (detectedLocation) {
       const coords = locationCoords[detectedLocation];
@@ -729,6 +736,10 @@ serve(async (req) => {
     if ("response" in guard) return guard.response;
 
     const resolvedOrganizationId: string | undefined = contentOrganizationId || organizationId || undefined;
+    const entitlements = resolvedOrganizationId
+      ? await fetchOrgEntitlementFeaturesRest(supabaseUrl, supabaseKey, resolvedOrganizationId)
+      : new Set<string>();
+    const isTarifeOrg = orgMayUseTarife(entitlements);
     if (resolvedOrganizationId) {
       const connection = await loadOrgSanityConnection(supabaseUrl, supabaseKey, resolvedOrganizationId);
       if (connection?.schema_profile === "best-bottles") {
@@ -788,8 +799,9 @@ serve(async (req) => {
       console.log(`[push-to-sanity] Looking up linked product: ${linkedProductName} (ID: ${linkedProductId})`);
       try {
         // More robust lookup: check title (case-insensitive), madisonProductId, and SKU
+        const productTypes = isTarifeOrg ? `["product", "tarifeProduct"]` : `["product"]`;
         const existingProducts = await sanityClient.fetch(
-          `*[_type in ["product", "tarifeProduct"] && (
+          `*[_type in ${productTypes} && (
             lower(title) == lower($title) ||
             sku == $sku ||
             madisonProductId == $id ||
@@ -831,7 +843,8 @@ serve(async (req) => {
       sanityDocumentType,
       sanityClient,
       inboxMetadata,
-      linkedProductData
+      linkedProductData,
+      isTarifeOrg,
     );
 
     // Create or update document in Sanity

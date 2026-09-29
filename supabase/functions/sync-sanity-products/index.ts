@@ -43,7 +43,14 @@ serve(async (req) => {
     const guard = await guardOrganization(req, organization_id, corsHeaders);
     if ("response" in guard) return guard.response;
 
-    const projectId = sanity_project_id || "8h5l91ut";
+    if (!sanity_project_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: "sanity_project_id is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const projectId = sanity_project_id;
     const dataset = sanity_dataset || "production";
 
     console.log(`[sync-sanity-products] Input project: ${sanity_project_id}, Input dataset: ${sanity_dataset}`);

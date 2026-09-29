@@ -110,7 +110,7 @@ export function SanityConnection({ organizationId }: SanityConnectionProps) {
             id="sanity-project-id"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            placeholder="e.g., 8h5l91ut"
+            placeholder="e.g., your-project-id"
           />
         </div>
         <div className="space-y-2">

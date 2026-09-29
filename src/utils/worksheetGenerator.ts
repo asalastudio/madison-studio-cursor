@@ -158,7 +158,7 @@ export async function generateWorksheet(options: WorksheetOptions = {}): Promise
   yPos += 6;
 
   const styles = [
-    { name: 'Tarife Native', desc: 'Poetic, sensory-driven, artisanal' },
+    { name: 'Brand Voice', desc: 'House voice from brand knowledge' },
     { name: 'Madison Editorial', desc: 'Professional, authoritative, editorial' },
     { name: 'Balanced', desc: 'Mix of both styles' }
   ];

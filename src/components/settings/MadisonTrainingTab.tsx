@@ -441,7 +441,7 @@ export function MadisonTrainingTab() {
             id="voice_spectrum"
             value={config.voice_spectrum || ""}
             onChange={(e) => setConfig({ ...config, voice_spectrum: e.target.value })}
-            placeholder="Example: TARIFE_NATIVE (rich storytelling, sensory), JAY_PETERMAN (narrative adventure), OGILVY (sophisticated persuasion), HYBRID (balanced elegance). Choose based on brand personality and content goal..."
+            placeholder="Example: BRAND_VOICE (house voice), JAY_PETERMAN (narrative adventure), OGILVY (sophisticated persuasion), HYBRID (balanced elegance). Choose based on brand personality and content goal..."
             className="min-h-32 font-mono text-sm"
           />
         </div>
