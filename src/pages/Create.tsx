@@ -479,6 +479,13 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
 
       const generatedContent = stripMarkdown(data?.generatedContent || "");
 
+      if (data?.truncated) {
+        madison.warning(
+          "Draft may be truncated",
+          "The model hit its length limit. Review the end of the piece before publishing.",
+        );
+      }
+
       // Save to database (authUser already verified above)
       if (!authUser) throw new Error("Not authenticated");
 
