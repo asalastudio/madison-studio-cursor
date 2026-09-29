@@ -11,6 +11,16 @@ const bestBottlesStudioSource = readFileSync(
   "utf8",
 );
 
+test("internal demo and test routes require a super-admin in both app route tables", () => {
+  const demoMatches = appSource.match(/path="\/component-demo"/g) ?? [];
+  const testMatches = appSource.match(/path="\/madison-test"/g) ?? [];
+  const superAdminWrappers = appSource.match(/<SuperAdminRoute>/g) ?? [];
+
+  assert.equal(demoMatches.length, 2);
+  assert.equal(testMatches.length, 2);
+  assert.ok(superAdminWrappers.length >= 4);
+});
+
 test("Best Bottles Studio deep-link route is registered in both app route tables", () => {
   const studioRouteMatches = appSource.match(
     /path="\/best-bottles\/studio\/:groupSlug"/g,

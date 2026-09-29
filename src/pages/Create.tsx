@@ -507,28 +507,35 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
       // Show transition loader
       setShowTransitionLoader(true);
 
-      // Save to database (wait for it to complete)
-      const { data: savedContent, error: saveError } = await supabase
-        .from('master_content')
-        .insert({
-          title: contentName,
-          full_content: generatedContent,
-          content_type: format,
-          created_by: authUser.id,
-          organization_id: currentOrganizationId,
-          status: 'draft'
-        })
-        .select()
-        .single();
+      const draftRow = {
+        title: contentName,
+        full_content: generatedContent,
+        content_type: format,
+        created_by: authUser.id,
+        organization_id: currentOrganizationId,
+        status: 'draft' as const,
+      };
+
+      let savedContent: { id: string } | null = null;
+      let saveError: { message?: string } | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const result = await supabase
+          .from('master_content')
+          .insert(draftRow)
+          .select()
+          .single();
+        savedContent = result.data;
+        saveError = result.error;
+        if (!saveError) break;
+      }
 
       if (saveError) {
         logger.error('Save failed:', saveError);
-        madison.success(
-          "Content saved locally",
-          "We'll retry saving to your library shortly."
+        madison.error(
+          "Generated, but not saved to your library",
+          "A local draft is kept in this browser. Copy it from the editor and save again."
         );
       } else {
-        // Success - clear local backup
         localStorage.removeItem('draft-content-backup');
       }
 

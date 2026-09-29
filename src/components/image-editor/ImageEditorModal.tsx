@@ -8,7 +8,6 @@
  * - Large image preview
  * - Refine with AI (generate variations)
  * - Add text overlays
- * - Create video (link to Video Project)
  * - Generate variations
  * - Save to library / Export
  *
@@ -16,7 +15,6 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
@@ -32,7 +30,6 @@ import {
   ArrowLeft,
   Wand2,
   Type,
-  Film,
   Download,
   Save,
   Loader2,
@@ -127,7 +124,6 @@ export function ImageEditorModal({
   onImageGenerated,
   source = "darkroom",
 }: ImageEditorModalProps) {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { orgId } = useCurrentOrganizationId();
 
@@ -426,20 +422,6 @@ export function ImageEditorModal({
     }
   }, [image, user, orgId]);
 
-  // Create video from this image
-  const handleCreateVideo = useCallback(() => {
-    if (!image) return;
-
-    navigate("/studio", {
-      state: {
-        mode: "video",
-        subjectImage: image.imageUrl,
-      },
-    });
-    onClose();
-    toast.success("Opening Studio...");
-  }, [image, navigate, onClose]);
-
   // Save to library
   const handleSave = useCallback(async () => {
     if (!image) return;
@@ -535,7 +517,7 @@ export function ImageEditorModal({
           </DialogTitle>
 
             <DialogDescription className="sr-only">
-              Edit and refine your generated image. Generate variations, add text overlays, or create videos.
+              Edit and refine your generated image. Generate variations or add text overlays.
             </DialogDescription>
 
           <Button
@@ -621,16 +603,6 @@ export function ImageEditorModal({
               >
                   <Download className="w-4 h-4 md:mr-2" />
                   <span className="hidden md:inline">Download</span>
-              </Button>
-              <Button
-                variant="brass"
-                size="sm"
-                disabled
-                title="Coming Soon"
-                className="h-10 md:h-9 text-xs md:text-sm opacity-50 cursor-not-allowed"
-              >
-                  <Film className="w-4 h-4 md:mr-2" />
-                  <span className="hidden md:inline">Coming Soon</span>
               </Button>
             </div>
           </div>

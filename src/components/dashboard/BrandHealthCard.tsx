@@ -26,7 +26,7 @@ export function BrandHealthCard({ compact = false }: BrandHealthCardProps) {
     localStorage.setItem('dashboard-visited', 'true');
   }, []);
 
-  const brandScore = brandHealth?.completeness_score || 94;
+  const brandScore = brandHealth?.completeness_score;
 
   const getBrandHealthColor = (score: number) => {
     if (score >= 90) return "text-[#A3C98D]";
@@ -40,13 +40,8 @@ export function BrandHealthCard({ compact = false }: BrandHealthCardProps) {
     return "Needs Attention";
   };
 
-  // Mock categories - in production these would come from useBrandHealth
-  const categories = [
-    { name: "Brand Voice", score: Math.min(100, brandScore + 5), action: "Refine voice" },
-    { name: "Visual Identity", score: Math.max(0, brandScore - 8), action: "Add visuals" },
-    { name: "Content Guidelines", score: brandScore, action: "Review guidelines" },
-    { name: "Audience Clarity", score: Math.min(100, brandScore + 2), action: "Define audience" },
-  ];
+  const scored = typeof brandScore === "number";
+  const displayScore = scored ? brandScore : null;
 
   if (healthLoading) {
     return (
@@ -83,12 +78,12 @@ export function BrandHealthCard({ compact = false }: BrandHealthCardProps) {
                 stroke="var(--aged-brass-hex)"
                 strokeWidth="5"
                 fill="none"
-                strokeDasharray={`${(brandScore / 100) * 226.2} 226.2`}
+                strokeDasharray={`${((displayScore ?? 0) / 100) * 226.2} 226.2`}
                 className="transition-all duration-500"
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-lg font-semibold text-[#1C150D]">{brandScore}</span>
+              <span className="text-lg font-semibold text-[#1C150D]">{displayScore ?? "—"}</span>
             </div>
           </div>
 
@@ -96,8 +91,8 @@ export function BrandHealthCard({ compact = false }: BrandHealthCardProps) {
           <div className="text-center flex items-center gap-2">
             <h3 className="text-xs font-medium text-[#1C150D]/60">Brand Health</h3>
             <span className="text-xs text-[#1C150D]/30">•</span>
-            <p className={`text-xs font-semibold ${getBrandHealthColor(brandScore)}`}>
-              {getRating(brandScore)}
+            <p className={`text-xs font-semibold ${scored ? getBrandHealthColor(brandScore) : "text-[#1C150D]/50"}`}>
+              {scored ? getRating(brandScore) : "Not scored"}
             </p>
             <ChevronDown 
               className={`w-3 h-3 text-[#1C150D]/40 transition-transform duration-200 ${
@@ -110,22 +105,11 @@ export function BrandHealthCard({ compact = false }: BrandHealthCardProps) {
         {/* Expanded Section - Category Breakdown */}
         {isExpanded && (
           <div className="px-3 pb-3 space-y-2 border-t border-[#E0E0E0] pt-2 animate-in slide-in-from-top-2 duration-200">
-            {categories.map((category) => (
-              <div key={category.name}>
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-xs text-[#1C150D]">{category.name}</p>
-                  <p className="text-xs text-[#1C150D]/60">{category.score}%</p>
-                </div>
-                <div className="w-full h-1.5 bg-[#F0F0F0] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-[#B8956A] transition-all duration-500 rounded-full"
-                    style={{ width: `${category.score}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-
-            {/* Quick View & View Report Buttons */}
+            <p className="text-xs text-[#1C150D]/60">
+              {scored
+                ? "Overall completeness from your last brand-health analysis."
+                : "Run a brand-health analysis to see a real score."}
+            </p>
             <div className="flex gap-2 mt-2">
               <BrandQuickViewTrigger variant="minimal" className="flex-1 text-xs" />
               <Button
@@ -186,23 +170,20 @@ export function BrandHealthCard({ compact = false }: BrandHealthCardProps) {
                 stroke="var(--aged-brass-hex)"
                 strokeWidth="5"
                 fill="none"
-                strokeDasharray={`${(brandScore / 100) * 226.2} 226.2`}
+                strokeDasharray={`${((displayScore ?? 0) / 100) * 226.2} 226.2`}
                 className="transition-all duration-500"
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-lg md:text-xl font-semibold text-[#1C150D]">{brandScore}</span>
+              <span className="text-lg md:text-xl font-semibold text-[#1C150D]">{displayScore ?? "—"}</span>
             </div>
           </div>
 
           {/* Title & Rating */}
           <div>
             <h3 className="text-sm font-medium text-[#1C150D]/60 mb-1">Brand Health</h3>
-            <p className={`text-base md:text-lg font-semibold ${getBrandHealthColor(brandScore)}`}>
-              {getRating(brandScore)}
-            </p>
-            <p className="text-xs text-[#1C150D]/50 hidden md:block">
-              Voice +4% · Cadence Stable
+            <p className={`text-base md:text-lg font-semibold ${scored ? getBrandHealthColor(brandScore) : "text-[#1C150D]/50"}`}>
+              {scored ? getRating(brandScore) : "Not scored"}
             </p>
           </div>
         </div>
@@ -218,33 +199,11 @@ export function BrandHealthCard({ compact = false }: BrandHealthCardProps) {
       {/* Expanded Section - Category Breakdown */}
       {isExpanded && (
         <div className="px-4 md:px-6 pb-4 md:pb-6 space-y-4 border-t border-[#E0E0E0] pt-4 animate-in slide-in-from-top-2 duration-200">
-          {categories.map((category) => (
-            <div key={category.name}>
-              <div className="flex justify-between items-center mb-2">
-                <p className="text-sm text-[#1C150D]">{category.name}</p>
-                <p className="text-sm text-[#1C150D]/60">{category.score}%</p>
-              </div>
-              <div className="w-full h-2 bg-[#F0F0F0] rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-[#B8956A] transition-all duration-500 rounded-full"
-                  style={{ width: `${category.score}%` }}
-                />
-              </div>
-              {category.score < 85 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate("/brand-health");
-                  }}
-                  className="text-xs text-[#B8956A] hover:text-[#A3865A] mt-1 transition-colors"
-                >
-                  {category.action} →
-                </button>
-              )}
-            </div>
-          ))}
-
-          {/* View Full Report Button */}
+          <p className="text-sm text-[#1C150D]/60">
+            {scored
+              ? "This is the overall completeness score from your last analysis. Sub-scores will appear here when they are measured for real."
+              : "No analysis yet. Open the full report to run brand health."}
+          </p>
           <div className="pt-4 border-t border-[#E0E0E0]">
             <Button
               variant="outline"
