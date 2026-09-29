@@ -1,0 +1,215 @@
+/* Video studio layout only. Colour, type, panels and buttons come from darkroom.css. */
+
+.video-studio-shell {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr) 156px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.video-studio-body {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.video-studio-monitor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.video-studio-player {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: var(--space-lg);
+}
+
+.video-studio-frame {
+  position: relative;
+  width: min(100%, 920px);
+  max-height: 100%;
+  background: var(--camera-body-deep);
+  border: 1px solid var(--darkroom-border);
+  box-shadow: var(--shadow-panel-inset);
+  overflow: hidden;
+}
+
+.video-studio-frame[data-ratio="16:9"] { aspect-ratio: 16 / 9; }
+.video-studio-frame[data-ratio="9:16"] { aspect-ratio: 9 / 16; max-width: 360px; }
+.video-studio-frame[data-ratio="1:1"] { aspect-ratio: 1 / 1; max-width: 560px; }
+.video-studio-frame[data-ratio="4:5"] { aspect-ratio: 4 / 5; max-width: 420px; }
+.video-studio-frame[data-ratio="21:9"] { aspect-ratio: 21 / 9; }
+
+.video-studio-frame video,
+.video-studio-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.video-studio-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 100%;
+  color: var(--darkroom-text-muted);
+  text-align: center;
+  padding: var(--space-xl);
+}
+
+.video-studio-empty h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--darkroom-text);
+}
+
+.video-studio-empty p {
+  font-size: 13px;
+  max-width: 28rem;
+  color: var(--darkroom-text-dim);
+}
+
+.video-studio-job {
+  position: absolute;
+  inset: auto 12px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(8, 8, 8, 0.88);
+  border: 1px solid var(--darkroom-border);
+}
+
+.video-studio-job__bar {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.video-studio-job__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--led-active);
+  transition: width 0.3s ease;
+}
+
+.video-studio-job[data-state="failed"] .video-studio-job__bar > span {
+  background: var(--led-error);
+}
+
+.video-studio-job[data-state="complete"] .video-studio-job__bar > span {
+  background: var(--led-ready);
+}
+
+.video-studio-history {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 8, 8, 0.95);
+  padding: 10px 12px;
+  min-height: 0;
+}
+
+.video-studio-history__list {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.video-studio-take {
+  flex: 0 0 148px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--darkroom-border);
+  padding: 6px;
+  color: var(--darkroom-text-muted);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.video-studio-take:hover,
+.video-studio-take[data-active="true"] {
+  border-color: color-mix(in srgb, var(--darkroom-accent) 52%, transparent);
+  color: var(--darkroom-text);
+}
+
+.video-studio-take__thumb {
+  aspect-ratio: 16 / 9;
+  background: var(--camera-body-deep);
+  overflow: hidden;
+}
+
+.video-studio-take__thumb img,
+.video-studio-take__thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-studio-take__meta {
+  font-family: var(--lcd-font);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.video-studio-frame-slot {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: 1px dashed var(--darkroom-border);
+  background: var(--camera-body-deep);
+  overflow: hidden;
+}
+
+.video-studio-frame-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.video-studio-cost {
+  font-family: var(--lcd-font);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--lcd-text);
+  background: var(--lcd-bg);
+  border: 1px solid rgba(0, 255, 102, 0.15);
+  padding: 8px 10px;
+}
+
+.video-studio-cost[data-estimate="true"]::after {
+  content: "Estimate — Freepik does not return a billed amount";
+  display: block;
+  margin-top: 4px;
+  color: var(--darkroom-text-dim);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-size: 9px;
+}
+
+@media (max-width: 1024px) {
+  .video-studio-shell {
+    grid-template-rows: 44px minmax(0, 1fr) auto auto;
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .video-studio-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(280px, 46vh) auto;
+  }
+
+  .video-studio-history {
+    height: auto;
+  }
+}

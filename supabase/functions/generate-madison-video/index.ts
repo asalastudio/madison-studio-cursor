@@ -23,6 +23,12 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  accessDeniedResponse,
+  authorizeOrganization,
+  edgeAuthEnv,
+  resolveCaller,
+} from "../_shared/edgeAuth.ts";
 import { createVideoTask, getVideoStatus, generateImage, type FreepikVideoModel, VIDEO_MODELS } from "../_shared/freepikProvider.ts";
 
 const corsHeaders = {
@@ -50,9 +56,9 @@ serve(async (req) => {
       resolution = "720p",
       aspectRatio = "16:9",
       cameraFixed = false,
-      includeAudio = false, // Audio generation (Veo 3+, Kling O1)
+      includeAudio = false, // Audio generation (Kling O1 only among real endpoints)
       multiShot = false,    // Multi-shot mode (auto model)
-      userId,
+      userId: requestedUserId,
       organizationId,
       // Handle legacy 'aiProvider' field from frontend
       aiProvider,
@@ -60,6 +66,21 @@ serve(async (req) => {
       action = "create",
       taskId,
     } = body;
+
+    const authEnv = edgeAuthEnv((name) => Deno.env.get(name));
+    const caller = await resolveCaller(req, authEnv);
+    if (caller.kind === "anonymous") {
+      return accessDeniedResponse(
+        { status: 401, error: "Authentication required." },
+        corsHeaders,
+        { reason: caller.reason },
+      );
+    }
+    const userId: string | undefined = caller.kind === "user"
+      ? caller.userId
+      : typeof requestedUserId === "string" && requestedUserId
+        ? requestedUserId
+        : undefined;
 
     // Initialize Supabase client
     const supabase = createClient(
@@ -71,6 +92,18 @@ serve(async (req) => {
     let selectedModel = model;
     if ((selectedModel === "auto" || !selectedModel) && aiProvider && aiProvider !== "auto") {
       selectedModel = aiProvider;
+    }
+
+    if (!organizationId) {
+      return new Response(
+        JSON.stringify({ error: "organizationId is required" }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const access = await authorizeOrganization(caller, authEnv, organizationId);
+    if (!access.ok) {
+      return accessDeniedResponse(access, corsHeaders, { organizationId });
     }
 
     // --- HANDLE STATUS CHECK ---
@@ -107,28 +140,7 @@ serve(async (req) => {
       promptLength: prompt.length,
     });
 
-    // Resolve organization if not provided
-    let resolvedOrgId = organizationId;
-
-    if (!resolvedOrgId && userId) {
-      const { data } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", userId)
-        .limit(1)
-        .single();
-
-      if (data?.organization_id) {
-        resolvedOrgId = data.organization_id;
-      }
-    }
-
-    if (!resolvedOrgId) {
-      return new Response(
-        JSON.stringify({ error: "Could not resolve organization" }),
-        { status: 400, headers: corsHeaders }
-      );
-    }
+    const resolvedOrgId = organizationId;
 
     /**
      * Check subscription tier - Video requires Signature tier
@@ -359,9 +371,8 @@ function buildVideoPrompt(userPrompt: string, cameraFixed: boolean): string {
     prompt += " Professional studio lighting with soft shadows.";
   }
 
-  // Ensure product focus
-  if (!prompt.toLowerCase().includes("product") && !prompt.toLowerCase().includes("bottle")) {
-    prompt += " Keep the product as the main focus throughout.";
+  if (!prompt.toLowerCase().includes("subject") && !prompt.toLowerCase().includes("product")) {
+    prompt += " Keep the subject as the main focus throughout.";
   }
 
   return prompt;

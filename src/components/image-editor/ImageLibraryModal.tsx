@@ -67,7 +67,7 @@ interface LibraryImage {
 interface ImageLibraryModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSelectImage: (image: { url: string; file?: File; name?: string }) => void;
+    onSelectImage: (image: { url: string; file?: File; name?: string; id?: string }) => void;
     libraryImages?: LibraryImage[];
     title?: string;
     /** When set, only loads generated_images rows whose library_tags include this token. */
@@ -76,6 +76,11 @@ interface ImageLibraryModalProps {
     libraryTagContainsAny?: string[];
     /** Hide desktop upload when a calling surface owns its own fallback. */
     allowDesktopUpload?: boolean;
+    /**
+     * Skip the shared library hook (it can fall back to user_id and leak
+     * across orgs). Video passes org-scoped rows via `libraryImages`.
+     */
+    disableRemoteFetch?: boolean;
 }
 
 const STORAGE_KEY = "madison-image-library";
@@ -171,6 +176,7 @@ export function ImageLibraryModal({
     libraryTagFilter,
     libraryTagContainsAny,
     allowDesktopUpload = true,
+    disableRemoteFetch = false,
 }: ImageLibraryModalProps) {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [localImages, setLocalImages] = useState<LibraryImage[]>(() => getStoredImages());
@@ -183,24 +189,26 @@ export function ImageLibraryModal({
     const gridRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
 
-    // Fetch from Supabase
-    const { data: supabaseImages = [], isLoading } = useImageLibrary(
-        libraryTagContainsAny?.length
+    const { data: supabaseImages = [], isLoading } = useImageLibrary({
+        ...(libraryTagContainsAny?.length
             ? { libraryTagContainsAny }
             : libraryTagFilter
               ? { libraryTagContains: libraryTagFilter }
-              : {},
-    );
+              : {}),
+        enabled: !disableRemoteFetch,
+    });
+    const remoteImages = disableRemoteFetch ? [] : supabaseImages;
+    const remoteLoading = disableRemoteFetch ? false : isLoading;
 
     // Merge: external prop → supabase → localStorage (dedup by id)
     const allImages = useMemo(() => {
         const seen = new Set<string>();
-        return [...(externalImages || []), ...supabaseImages, ...localImages].filter((img) => {
+        return [...(externalImages || []), ...remoteImages, ...localImages].filter((img) => {
             if (seen.has(img.id)) return false;
             seen.add(img.id);
             return true;
         });
-    }, [externalImages, supabaseImages, localImages]);
+    }, [externalImages, remoteImages, localImages]);
 
     // A fresh open is a fresh sheet: no stale filter hiding half the library.
     useEffect(() => {
@@ -321,7 +329,8 @@ export function ImageLibraryModal({
         if (!image) return;
         onSelectImage({
             url: image.url,
-            name: image.name
+            name: image.name,
+            id: image.id,
         });
         onOpenChange(false);
         setSelectedId(null);
@@ -497,7 +506,7 @@ export function ImageLibraryModal({
                         className="min-h-0 flex-1 overflow-y-auto p-4"
                         onKeyDown={handleGridKeyDown}
                     >
-                        {isLoading ? (
+                        {remoteLoading ? (
                             <div className="flex h-full flex-col items-center justify-center py-12 text-center">
                                 <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#888899]" />
                                 <p className="text-sm text-[#888899]">Loading your library…</p>
@@ -632,7 +641,7 @@ export function ImageLibraryModal({
                 {/* Footer */}
                 <div className="flex items-center justify-between gap-3 border-t border-[#1a1a1f] px-5 py-3">
                     <p className="min-w-0 truncate text-[11px] text-[#555566]">
-                        {isLoading
+                        {remoteLoading
                             ? "Loading…"
                             : visibleImages.length === allImages.length
                                 ? `${allImages.length} images`
