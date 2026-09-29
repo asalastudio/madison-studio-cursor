@@ -299,6 +299,51 @@ export async function guardOrganizationAdmin(
   return guard;
 }
 
+function normalizeEmail(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+/**
+ * Close open email relays: the caller must be the service role, or a
+ * signed-in user whose confirmed email matches the recipient.
+ */
+export async function guardSelfOrServiceEmail(
+  req: Request,
+  recipientEmail: string | null | undefined,
+  corsHeaders: Record<string, string>,
+  options: GuardOrganizationOptions = {},
+): Promise<{ caller: EdgeCaller } | { response: Response }> {
+  const get = options.get ?? ((name: string) =>
+    (globalThis as { Deno?: { env: { get(n: string): string | undefined } } }).Deno?.env.get(name));
+  let env: EdgeAuthEnv;
+  try {
+    env = { ...edgeAuthEnv(get), ...(options.fetch ? { fetch: options.fetch } : {}) };
+  } catch (error) {
+    console.error("[auth] edge auth is not configured:", error instanceof Error ? error.message : error);
+    return { response: accessDeniedResponse({ status: 401, error: "Authentication is not configured." }, corsHeaders) };
+  }
+
+  const caller = await resolveCaller(req, env);
+  if (caller.kind === "anonymous") {
+    console.warn("[auth] unauthenticated email send rejected:", caller.reason);
+    return { response: accessDeniedResponse({ status: 401, error: "Authentication required." }, corsHeaders) };
+  }
+  if (caller.kind === "service") return { caller };
+
+  const recipient = normalizeEmail(recipientEmail);
+  const callerEmail = normalizeEmail(caller.email);
+  if (!recipient || !callerEmail || recipient !== callerEmail) {
+    console.warn("[auth] email recipient does not match the signed-in user");
+    return {
+      response: accessDeniedResponse(
+        { status: 403, error: "You can only send this email to yourself." },
+        corsHeaders,
+      ),
+    };
+  }
+  return { caller };
+}
+
 export function accessDeniedResponse(
   access: Extract<OrganizationAccess, { ok: false }> | { status: 401 | 403; error: string },
   headers: Record<string, string>,

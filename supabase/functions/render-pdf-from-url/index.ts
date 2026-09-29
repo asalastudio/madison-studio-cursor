@@ -111,9 +111,8 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error rendering PDF:", error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
-        details: error instanceof Error ? error.stack : String(error)
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

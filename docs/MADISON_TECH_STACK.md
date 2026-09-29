@@ -537,7 +537,6 @@ supabase/
 61. `suggest-brand-knowledge` - Knowledge suggestions
 62. `suggest-scent-notes` - Scent suggestions
 63. `refine-prompt-template` - Prompt refinement
-64. `test-freepik` - Freepik testing
 
 ---
 

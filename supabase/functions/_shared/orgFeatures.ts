@@ -4,6 +4,13 @@
  * lane is allowed.
  */
 
+/** Canonical Best Bottles organization. Used as an allowlist, not a client claim. */
+export const BEST_BOTTLES_ORG_ID = "4ab1ac72-cd7e-4faf-9152-5aa5f2862411";
+
+export function isBestBottlesOrgId(organizationId: string | null | undefined): boolean {
+  return organizationId === BEST_BOTTLES_ORG_ID;
+}
+
 export type OrgBrandConfig = {
   features?: Record<string, unknown> | null;
 } | null | undefined;

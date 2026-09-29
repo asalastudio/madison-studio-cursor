@@ -15,7 +15,8 @@
  * Requires a signed-in Supabase user (Authorization bearer token).
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { guardOrganization } from "../_shared/edgeAuth.ts";
+import { BEST_BOTTLES_ORG_ID } from "../_shared/orgFeatures.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -141,34 +142,8 @@ Deno.serve(async (req) => {
     return json({ error: convexConfig.error }, 500);
   }
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return json({ error: "Missing Authorization header" }, 401);
-  }
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) {
-    return json({ error: "Empty bearer token" }, 401);
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-  );
-  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !user) {
-    console.log("auth validation failed", {
-      userError: userError?.message,
-      tokenPrefix: token.slice(0, 12) + "…",
-      tokenLength: token.length,
-    });
-    return json(
-      {
-        error: "Not signed in",
-        detail: userError?.message || "auth.getUser returned no user",
-      },
-      401,
-    );
-  }
+  const guard = await guardOrganization(req, BEST_BOTTLES_ORG_ID, corsHeaders);
+  if ("response" in guard) return guard.response;
 
   let parsed: { path?: unknown; args?: unknown };
   try {

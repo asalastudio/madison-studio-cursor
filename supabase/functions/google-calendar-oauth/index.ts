@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import {
+  defaultTrustedAppOrigin,
+  generateOAuthNonce,
+  parseSignedOAuthState,
+  signOAuthNonce,
+  trustedAppOrigin,
+} from "../_shared/oauthState.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -129,16 +136,29 @@ serve(async (req) => {
         throw new Error('Unauthorized');
       }
 
-      // Get app origin from request body
-      const body = await req.json();
-      const appOrigin = body.app_origin || 'https://madison-studio-cursor.vercel.app';
+      const body = await req.json().catch(() => ({}));
+      const frontendUrl = Deno.env.get('FRONTEND_URL');
+      const appOrigin = trustedAppOrigin(body?.app_origin, frontendUrl)
+        ?? defaultTrustedAppOrigin(frontendUrl);
 
-      // Store user ID and app origin in state parameter for callback
-      const stateData = {
+      const hmacSecret = Deno.env.get('GOOGLE_TOKEN_ENCRYPTION_KEY');
+      if (!hmacSecret) {
+        throw new Error('Token encryption key not configured');
+      }
+
+      const nonce = generateOAuthNonce();
+      const state = await signOAuthNonce(nonce, hmacSecret);
+      const { error: stateErr } = await supabase.from('google_calendar_oauth_states').insert({
         user_id: user.id,
+        nonce,
         app_origin: appOrigin,
-      };
-      const state = btoa(JSON.stringify(stateData));
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      });
+      if (stateErr) {
+        console.error('Failed to store Google Calendar OAuth state:', stateErr);
+        throw new Error('Failed to initiate OAuth flow');
+      }
+
       const redirectUri = `${SUPABASE_URL}/functions/v1/google-calendar-oauth/callback`;
       
       const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -160,11 +180,32 @@ serve(async (req) => {
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state');
       const error = url.searchParams.get('error');
+      const hmacSecret = Deno.env.get('GOOGLE_TOKEN_ENCRYPTION_KEY');
+      const fallbackOrigin = defaultTrustedAppOrigin(Deno.env.get('FRONTEND_URL'));
 
-      // Parse state first to get app_origin (needed for redirects)
-      const stateData = state ? JSON.parse(atob(state)) : null;
-      const userId = stateData?.user_id;
-      const appOrigin = stateData?.app_origin || 'https://the-whispered-codex.lovable.app';
+      const parsedState = hmacSecret ? await parseSignedOAuthState(state, hmacSecret) : null;
+      let userId: string | null = null;
+      let appOrigin = fallbackOrigin;
+
+      if (parsedState) {
+        const { data: consumed, error: consumeErr } = await supabase
+          .from('google_calendar_oauth_states')
+          .update({ used_at: new Date().toISOString() })
+          .eq('nonce', parsedState.nonce)
+          .is('used_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .select('user_id, app_origin')
+          .maybeSingle();
+
+        if (consumeErr) {
+          console.error('Failed to consume Google Calendar OAuth state:', consumeErr);
+        }
+        if (consumed?.user_id) {
+          userId = consumed.user_id;
+          const storedOrigin = trustedAppOrigin(consumed.app_origin, Deno.env.get('FRONTEND_URL'));
+          if (storedOrigin) appOrigin = storedOrigin;
+        }
+      }
 
       if (error) {
         console.error('OAuth error:', error);
@@ -172,7 +213,10 @@ serve(async (req) => {
       }
 
       if (!code || !state || !userId) {
-        throw new Error('Missing code, state, or user ID parameter');
+        return new Response(JSON.stringify({ error: 'Invalid or expired OAuth state' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       const redirectUri = `${SUPABASE_URL}/functions/v1/google-calendar-oauth/callback`;
