@@ -1193,35 +1193,10 @@ function buildDirectorModePrompt(
     const ontologySpecs = enhancePromptWithOntology("", proModeControls);
     prompt += ontologySpecs + "\n\n";
   } else {
-    // Default specifications when Pro Mode is not active
-    // Add variety to prevent repetitive images
-    const lightingVariations = [
-      { setup: "Butterfly (Paramount)", quality: "Soft/Diffused", contrast: "3:1" },
-      { setup: "Rembrandt", quality: "Soft with subtle shadow", contrast: "4:1" },
-      { setup: "Loop", quality: "Soft directional", contrast: "3.5:1" },
-      { setup: "Split", quality: "Dramatic but controlled", contrast: "5:1" },
-      { setup: "Broad", quality: "Even and flattering", contrast: "2.5:1" },
-    ];
-    
-    // Randomly select a lighting variation (using timestamp for pseudo-randomness)
-    const lightingIndex = Date.now() % lightingVariations.length;
-    const selectedLighting = lightingVariations[lightingIndex];
-
     /**
      * When the scene already owns the light, a second lighting directive is the
-     * thing that makes a product look pasted on.
-     *
-     * These five are PORTRAIT patterns — named for how they light a face — and
-     * one was appended at random on every non-Pro-Mode generation. Drop a
-     * product into a set whose prompt says "soft directional daylight from
-     * upper camera-left" and then also tell the model "LIGHTING SETUP: Split,
-     * CONTRAST RATIO 5:1", and it lights the product by one instruction and the
-     * scene by the other. The result is a correctly-rendered product that does
-     * not belong to its background, which is exactly the superimposed look.
-     *
-     * The rotation was there to stop repetitive output on bare prompts. That is
-     * still worth having when there is no scene to respect — so it stays for
-     * that case only.
+     * thing that makes a product look pasted on. One fixed default is used when
+     * there is no scene to respect — no Date.now() rotation.
      */
     const sceneDescribesItsOwnLight =
       categorizedRefs.background.length > 0 ||
@@ -1242,27 +1217,13 @@ function buildDirectorModePrompt(
         "Objects standing in the scene take colour bounce from the surfaces beneath and beside them, cast shadows that agree in direction and length with the set's existing shadows, and show the set reflected in any glossy or polished surface. " +
         "Nothing may read as a cut-out composited onto a backdrop.\n";
     } else {
-      prompt += `LIGHTING SETUP: ${selectedLighting.setup} - Commercial standard\n`;
-      prompt += `LIGHT QUALITY: ${selectedLighting.quality} (flattering, commercial look)\n`;
-      prompt += `CONTRAST RATIO: ${selectedLighting.contrast} (balanced, professional)\n`;
+      prompt += "LIGHTING: Soft, diffused studio lighting. Even illumination. No harsh shadows.\n";
     }
-    
-    // Add composition variety
+
+    // Arrangement is stated once in DARK ROOM ART DIRECTION CONTROLS.
+    // Do not repeat COMPOSITION: here or rotate a random framing.
     if (lane === "place" && !artDirectionControls?.compositionPrompt) {
       prompt += "COMPOSITION: The set's framing is fixed by Image 1. Place the product as directed above; do not recompose the set.\n";
-    } else if (artDirectionControls?.compositionPrompt) {
-      prompt += `COMPOSITION: ${artDirectionControls.compositionPrompt}\n`;
-      prompt += "Honor this chosen arrangement over the default composition rotation.\n";
-    } else {
-      const compositionStyles = [
-        "Rule of Thirds (classic, balanced)",
-        "Centered composition (symmetrical, bold)",
-        "Leading lines (dynamic, engaging)",
-        "Negative space (minimalist, elegant)",
-        "Diagonal composition (energetic, modern)",
-      ];
-      const compositionIndex = (Date.now() + 1) % compositionStyles.length;
-      prompt += `COMPOSITION: ${compositionStyles[compositionIndex]}\n`;
     }
     
     prompt += "LENS CHARACTER: Spherical (clean, modern commercial look)\n";
@@ -1270,7 +1231,7 @@ function buildDirectorModePrompt(
 
   // Technical defaults for high-end output
   prompt += "\nTECHNICAL REQUIREMENTS:\n";
-  prompt += "- 8K resolution, sharp focus\n";
+  prompt += "- Sharp focus\n";
   prompt += "- Professional color grading\n";
   prompt += "- Realistic shadows and reflections\n";
   prompt += "- Accurate material physics (glass refraction IOR 1.5, metal specular highlights, fabric diffuse reflection)\n";
@@ -1348,8 +1309,7 @@ function buildDirectorModePrompt(
   prompt += "- Watermarks or signatures\n";
   prompt += "- Low quality or pixelation\n";
   prompt += "- Frames, borders, or decorative edges around the image\n";
-  prompt += "- White borders, beige frames, or any background frame elements\n";
-  prompt += "- The image should fill the entire canvas edge-to-edge with no visible frame\n";
+  prompt += "- No border, frame, mat, or letterbox; the background fills the canvas edge to edge.\n";
   
   // Add bottle-type-specific negative prompts (reinforce Section 0)
   if (productData) {
