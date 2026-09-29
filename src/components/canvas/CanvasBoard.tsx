@@ -19,7 +19,7 @@ import "@xyflow/react/dist/style.css";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LCDDisplay, LEDIndicator } from "@/components/darkroom";
+import { LCDDisplay, LEDIndicator } from "@/components/darkroom/LEDIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCanvasDocument, useCanvasProject, useCanvasRecords } from "@/hooks/useCanvasProjects";

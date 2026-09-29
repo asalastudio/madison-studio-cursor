@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CameraPanelHeader, LEDIndicator, SettingsRow } from "@/components/darkroom";
+import { CameraPanelHeader, LEDIndicator, SettingsRow } from "@/components/darkroom/LEDIndicator";
 import { Chip } from "@/components/darkroom/Chip";
 import { getNodeTypeSpec } from "@/lib/canvas/graphValidation";
 import { DEFAULT_PACK_SETS, DEFAULT_SHOT_TYPES, type Week1NodeType } from "@/lib/canvas/types";
@@ -62,7 +62,7 @@ export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
           {node.type === "pack" && (
             <SettingsRow label="Pack name" ledState="ready">
               <Input
-                className="nodrag"
+                className="nodrag bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
                 value={typeof data.name === "string" ? data.name : ""}
                 onChange={(event) => patch({ name: event.target.value })}
               />
@@ -73,14 +73,14 @@ export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
             <>
               <SettingsRow label="Product name" ledState="ready">
                 <Input
-                  className="nodrag"
+                  className="nodrag bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
                   value={typeof data.name === "string" ? data.name : ""}
                   onChange={(event) => patch({ name: event.target.value })}
                 />
               </SettingsRow>
               <SettingsRow label="SKU" ledState="ready">
                 <Input
-                  className="nodrag"
+                  className="nodrag bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
                   value={typeof data.sku === "string" ? data.sku : ""}
                   onChange={(event) => patch({ sku: event.target.value })}
                 />
@@ -144,7 +144,7 @@ export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
               </SettingsRow>
               <SettingsRow label="Note" ledState="off">
                 <Textarea
-                  className="nodrag"
+                  className="nodrag bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
                   maxLength={300}
                   value={typeof data.note === "string" ? data.note : ""}
                   onChange={(event) => patch({ note: event.target.value.slice(0, 300) })}
@@ -156,7 +156,7 @@ export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
           {node.type === "batch" && (
             <SettingsRow label="Takes per combo" ledState="ready">
               <Input
-                className="nodrag"
+                className="nodrag bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
                 type="number"
                 min={1}
                 max={10}

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Play } from "lucide-react";
-import { LEDIndicator } from "@/components/darkroom";
+import { LEDIndicator } from "@/components/darkroom/LEDIndicator";
 import { cn } from "@/lib/utils";
 import { getNodeTypeSpec, type PortSpec } from "@/lib/canvas/graphValidation";
 import { portKindCssVar } from "@/lib/canvas/portStyle";

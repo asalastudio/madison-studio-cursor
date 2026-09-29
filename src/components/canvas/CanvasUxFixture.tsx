@@ -13,7 +13,7 @@ import {
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { LEDIndicator, LCDDisplay } from "@/components/darkroom";
+import { LEDIndicator, LCDDisplay } from "@/components/darkroom/LEDIndicator";
 import {
   buildDefaultGraph,
   buildDefaultPackNodeData,

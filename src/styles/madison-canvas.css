@@ -137,8 +137,17 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--darkroom-surface) 94%, transparent);
+  background: var(--darkroom-surface);
   backdrop-filter: blur(12px);
+}
+
+.madison-canvas__inspector .camera-panel__header {
+  background: var(--darkroom-surface-elevated);
+}
+
+.madison-canvas__inspector .camera-panel__title,
+.madison-canvas__inspector .camera-panel__title span {
+  color: var(--darkroom-text-muted);
 }
 
 .madison-canvas__inspector-body {
