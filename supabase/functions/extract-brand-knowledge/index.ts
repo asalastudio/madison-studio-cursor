@@ -4,6 +4,7 @@ import {
   generateGeminiContent,
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,8 @@ serve(async (req) => {
 
   try {
     const { extractedText, organizationId, documentName, detectVisualStandards, industry } = await req.json();
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     // DEBUG: Check API Key existence
     const apiKey = Deno.env.get('GEMINI_API_KEY');

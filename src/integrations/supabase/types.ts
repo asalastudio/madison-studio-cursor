@@ -8738,7 +8738,7 @@ export type Database = {
     }
     Functions: {
       accept_pending_invitations_for_user: {
-        Args: { _user_email: string; _user_id: string }
+        Args: never
         Returns: {
           invitation_id: string
           organization_id: string

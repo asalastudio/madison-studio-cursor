@@ -16,6 +16,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient as createSanityClient } from "https://esm.sh/@sanity/client@6.8.6";
 import { createClient as createSupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const VERSION = "3.1.0";
 
@@ -500,6 +501,9 @@ serve(async (req) => {
         }
       );
     }
+
+    const guard = await guardAuthenticatedOrg(req, product.organization_id, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     console.log(`[push-product-to-sanity] Found product: ${product.name}`);
 

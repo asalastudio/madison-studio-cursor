@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -55,6 +56,8 @@ serve(async (req) => {
 
   try {
     const input = await req.json() as BarcodeInput;
+    const guard = await guardAuthenticatedOrg(req, input.organization_id, corsHeaders);
+    if ("response" in guard) return guard.response;
     
     console.log("[generate-barcode] Generating", input.type, "for:", input.code);
 

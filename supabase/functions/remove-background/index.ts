@@ -14,6 +14,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -263,7 +264,10 @@ serve(async (req) => {
 
   try {
     const body: RemoveBackgroundRequest = await req.json();
-    const { imageUrl, imageBase64, userId, organizationId, saveToLibrary } = body;
+    const { imageUrl, imageBase64, organizationId, saveToLibrary } = body;
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+    const userId = guard.caller.kind === "user" ? guard.caller.userId : body.userId;
 
     // Validate input
     if (!imageUrl && !imageBase64) {

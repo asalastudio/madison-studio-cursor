@@ -85,6 +85,7 @@ export function InviteMemberDialog({
         const { error: emailError } = await supabase.functions.invoke("send-team-invitation", {
           body: {
             email: email.toLowerCase().trim(),
+            organizationId,
             organizationName: orgData?.name || "your team",
             role: role,
             invitedByName: user?.user_metadata?.full_name || user?.email || "A team member",

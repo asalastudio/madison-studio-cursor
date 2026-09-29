@@ -11,6 +11,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@sanity/client@6.8.6";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -228,6 +229,9 @@ serve(async (req) => {
       contentType,
       canvasDocumentType = "canvas.document",
     }: CanvasSyncRequest = await req.json();
+
+    const guard = await guardAuthenticatedOrg(req, undefined, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     if (!action) {
       return new Response(

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { guardSelfOrServiceEmail } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +25,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const guard = await guardSelfOrServiceEmail(req, userEmail, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     console.log(`[send-welcome-email] Sending welcome email to ${userEmail}`);
 
@@ -229,7 +232,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
-        details: error instanceof Error ? error.stack : String(error),
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

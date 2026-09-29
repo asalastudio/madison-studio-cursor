@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,10 +30,13 @@ serve(async (req) => {
   }
 
   try {
-    const { ingredients, options } = await req.json() as {
+    const { ingredients, options, organizationId } = await req.json() as {
       ingredients: Ingredient[];
       options?: Partial<INCIListOptions>;
+      organizationId?: string;
     };
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     const defaultOptions: INCIListOptions = {
       format: "eu",
