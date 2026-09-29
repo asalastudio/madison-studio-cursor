@@ -6,7 +6,12 @@ import {
   bearerToken,
   edgeAuthEnv,
   firstMemberOrganization,
+  getOrgMemberRole,
+  guardAuthenticatedOrg,
   guardOrganization,
+  guardOrganizationAdmin,
+  guardSelfOrServiceEmail,
+  isOrgAdminRole,
   isOrgMember,
   isSuperAdmin,
   resolveCaller,
@@ -161,5 +166,66 @@ describe("edgeAuth", () => {
 
     const svc = await guardOrganization(request("Bearer service-key"), OTHER_ORG, cors, opts);
     assert.ok("caller" in svc && svc.via === "service");
+  });
+
+  it("guardAuthenticatedOrg falls back to the caller's first membership", async () => {
+    const routes = {
+      "https://proj.supabase.co/auth/v1/user": () => json({ id: USER }),
+      "https://proj.supabase.co/rest/v1/organization_members": () => json([{ organization_id: ORG }]),
+      "https://proj.supabase.co/rest/v1/super_admins": () => json([]),
+    };
+    const get = (name: string) =>
+      ({ SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "anon-key", SUPABASE_SERVICE_ROLE_KEY: "service-key" } as Record<string, string>)[name];
+    const opts = { get, fetch: fakeFetch(routes) };
+    const cors = { "Access-Control-Allow-Origin": "*" };
+
+    const ok = await guardAuthenticatedOrg(request("Bearer member-jwt"), undefined, cors, opts);
+    assert.ok("caller" in ok && ok.organizationId === ORG);
+
+    const anon = await guardAuthenticatedOrg(request(), undefined, cors, opts);
+    assert.ok("response" in anon && anon.response.status === 401);
+  });
+
+  it("guardOrganizationAdmin requires owner or admin for members", async () => {
+    const routes = {
+      "https://proj.supabase.co/auth/v1/user": () => json({ id: USER }),
+      "https://proj.supabase.co/rest/v1/organization_members": (url: string) => {
+        if (url.includes("select=role")) return json([{ role: "member" }]);
+        return json(url.includes(`organization_id=eq.${ORG}`) ? [{ organization_id: ORG }] : []);
+      },
+      "https://proj.supabase.co/rest/v1/super_admins": () => json([]),
+    };
+    const get = (name: string) =>
+      ({ SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "anon-key", SUPABASE_SERVICE_ROLE_KEY: "service-key" } as Record<string, string>)[name];
+    const opts = { get, fetch: fakeFetch(routes) };
+    const cors = { "Access-Control-Allow-Origin": "*" };
+
+    const denied = await guardOrganizationAdmin(request("Bearer member-jwt"), ORG, cors, opts);
+    assert.ok("response" in denied && denied.response.status === 403);
+    assert.equal(isOrgAdminRole("admin"), true);
+    assert.equal(isOrgAdminRole("member"), false);
+    assert.equal(await getOrgMemberRole(env(fakeFetch(routes)), USER, ORG), "member");
+  });
+
+  it("guardSelfOrServiceEmail allows the service role or the matching user email", async () => {
+    const routes = {
+      "https://proj.supabase.co/auth/v1/user": () => json({ id: USER, email: "Ada@Example.com" }),
+    };
+    const get = (name: string) =>
+      ({ SUPABASE_URL: "https://proj.supabase.co", SUPABASE_ANON_KEY: "anon-key", SUPABASE_SERVICE_ROLE_KEY: "service-key" } as Record<string, string>)[name];
+    const opts = { get, fetch: fakeFetch(routes) };
+    const cors = { "Access-Control-Allow-Origin": "*" };
+
+    const svc = await guardSelfOrServiceEmail(request("Bearer service-key"), "anyone@example.com", cors, opts);
+    assert.ok("caller" in svc && svc.caller.kind === "service");
+
+    const self = await guardSelfOrServiceEmail(request("Bearer user-jwt"), "ada@example.com", cors, opts);
+    assert.ok("caller" in self && self.caller.kind === "user");
+
+    const other = await guardSelfOrServiceEmail(request("Bearer user-jwt"), "victim@example.com", cors, opts);
+    assert.ok("response" in other && other.response.status === 403);
+
+    const anon = await guardSelfOrServiceEmail(request(), "ada@example.com", cors, opts);
+    assert.ok("response" in anon && anon.response.status === 401);
   });
 });

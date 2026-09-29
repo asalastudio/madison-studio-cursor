@@ -5,6 +5,7 @@ import {
   getGeminiApiKey,
   convertContentToGeminiParts,
 } from "../_shared/geminiClient.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,25 +18,23 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Unauthorized");
-    }
+    const { imageUrl, textInstruction, organizationId } = await req.json();
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+    const userId = guard.caller.kind === "user" ? guard.caller.userId : undefined;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       {
         global: {
-          headers: { Authorization: authHeader },
+          headers: { Authorization: req.headers.get("Authorization") ?? "" },
         },
       }
     );
 
-    const { imageUrl, textInstruction, userId } = await req.json();
-
-    if (!imageUrl || !textInstruction || !userId) {
-      throw new Error("Missing required fields: imageUrl, textInstruction, userId");
+    if (!imageUrl || !textInstruction) {
+      throw new Error("Missing required fields: imageUrl, textInstruction");
     }
 
     console.log("Adding text to image:", {

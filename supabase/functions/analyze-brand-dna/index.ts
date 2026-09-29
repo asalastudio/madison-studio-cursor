@@ -6,6 +6,8 @@ import {
 } from "../_shared/geminiClient.ts";
 import { extractBrandAssets } from "../_shared/brandAssetsExtractor.ts";
 import { extractColorPalette } from "../_shared/colorPaletteExtractor.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
+import { isPubliclyFetchableUrl } from "../_shared/urlSafety.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,6 +47,17 @@ serve(async (req) => {
     if (!websiteUrl || !organizationId) {
       return new Response(
         JSON.stringify({ error: "websiteUrl and organizationId are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+
+    const normalizedScanUrl = websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`;
+    if (!isPubliclyFetchableUrl(normalizedScanUrl, { protocol: "http" })) {
+      return new Response(
+        JSON.stringify({ error: "websiteUrl is not allowed" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -147,7 +160,7 @@ serve(async (req) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const websiteResponse = await fetch(websiteUrl, {
+      const websiteResponse = await fetch(normalizedScanUrl, {
         signal: controller.signal,
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",

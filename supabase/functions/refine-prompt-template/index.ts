@@ -3,6 +3,7 @@ import {
   generateGeminiContent,
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,7 +16,9 @@ serve(async (req) => {
   }
 
   try {
-    const { purpose, contentType, collection, tone, keyElements, constraints } = await req.json();
+    const { purpose, contentType, collection, tone, keyElements, constraints, organizationId } = await req.json();
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     // Category-specific prompt templates
     const categoryTemplates = {

@@ -38,6 +38,8 @@ import {
   type BestBottlesRenderingContract,
 } from "../_shared/bestBottlesRenderingContract.ts";
 import { withHeartbeatJsonResponse } from "../_shared/streamingJsonResponse.ts";
+import { applyLiteralRewriteRules, stripLiteralTerms } from "../_shared/literalReplace.ts";
+import { orgHasGridPipeline } from "../_shared/orgFeatures.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1590,11 +1592,12 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           (tag): tag is string => typeof tag === "string" && tag.trim().length > 0,
         )
       : [];
-    const isBestBottlesStudioMasterRequest =
+    const claimedBestBottlesStudioMaster =
       callerExtraTagsEarly.includes("brand:best-bottles") &&
       callerExtraTagsEarly.includes("studio-master") &&
       Array.isArray(referenceImages) &&
       referenceImages.length > 0;
+    let isBestBottlesStudioMasterRequest = claimedBestBottlesStudioMaster;
     const precompiledPromptResolution = resolveBestBottlesPrecompiledPrompt(
       precompiledPromptRecord,
       { isBestBottlesStudioMasterRequest },
@@ -1620,7 +1623,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         .replace(/^-+|-+$/g, "")
         .slice(0, 60);
     };
-    const pipelineMeta: {
+    let pipelineMeta: {
       libraryTags: string[];
       storagePathPrefix: string;
       variationSlug: string;
@@ -1920,6 +1923,26 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     }
     console.log("✅ Final resolved organization:", resolvedOrgId, { via: access.via });
 
+    const { data: orgFeatureRow } = await supabase
+      .from("organizations")
+      .select("brand_config")
+      .eq("id", resolvedOrgId)
+      .maybeSingle();
+    const bestBottlesLaneAllowed = orgHasGridPipeline(
+      orgFeatureRow?.brand_config as { features?: Record<string, unknown> } | null,
+    );
+    if (!bestBottlesLaneAllowed) {
+      if (isBestBottlesStudioMasterRequest) {
+        console.warn("[auth] ignoring client Best Bottles tags; org lacks grid_pipeline", {
+          organizationId: resolvedOrgId,
+        });
+        isBestBottlesStudioMasterRequest = false;
+      }
+      if (pipelineMeta) {
+        pipelineMeta = null;
+      }
+    }
+
     /**
      * 4. Load Brand Knowledge
      */
@@ -1990,6 +2013,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     const categorizedRefs = categorizeReferences(actualReferenceImages);
     const bestBottlesTagSet = new Set([...callerExtraTagsEarly, ...parentImageTags]);
     const isBestBottlesReferenceLocked =
+      bestBottlesLaneAllowed &&
       bestBottlesTagSet.has("brand:best-bottles") &&
       bestBottlesTagSet.has("studio-master") &&
       categorizedRefs.product.length > 0;
@@ -2312,20 +2336,16 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       enhancedPrompt += `\n\nVARIATION DETAILS: ${effectiveVariationPrompt}`;
     }
 
-    // Apply image constraints (rewrite rules, prohibited terms)
+    // Apply image constraints as literals. Never compile caller strings as regexes.
     if (imageConstraints?.rewriteRules) {
-      for (const [from, to] of Object.entries(imageConstraints.rewriteRules)) {
-        enhancedPrompt = enhancedPrompt.replace(new RegExp(from, "gi"), String(to || ""));
-      }
+      enhancedPrompt = applyLiteralRewriteRules(
+        enhancedPrompt,
+        imageConstraints.rewriteRules as Record<string, unknown>,
+      );
     }
 
     if (imageConstraints?.prohibitedTerms) {
-      for (const term of imageConstraints.prohibitedTerms) {
-        enhancedPrompt = enhancedPrompt.replace(
-          new RegExp(`\\b${term}\\b`, "gi"),
-          ""
-        );
-      }
+      enhancedPrompt = stripLiteralTerms(enhancedPrompt, imageConstraints.prohibitedTerms);
     }
 
     /**

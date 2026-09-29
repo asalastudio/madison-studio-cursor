@@ -15,6 +15,7 @@ import {
   inferToneFromAttributes
 } from "../_shared/squadAssignment.ts";
 import { storeDesignTokens } from "../_shared/designTokenGenerator.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -78,6 +79,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     if (file.type !== 'application/pdf') {
       return new Response(

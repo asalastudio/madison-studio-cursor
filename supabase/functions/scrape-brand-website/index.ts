@@ -4,6 +4,8 @@ import {
   generateGeminiContent,
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
+import { isPubliclyFetchableUrl } from "../_shared/urlSafety.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,6 +77,17 @@ serve(async (req) => {
       );
     }
 
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+
+    const fetchUrl = url.startsWith("http") ? url : `https://${url}`;
+    if (!isPubliclyFetchableUrl(fetchUrl, { protocol: "http" })) {
+      return new Response(
+        JSON.stringify({ error: "URL is not allowed" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log("Scraping website:", url, "for organization:", organizationId);
 
     // Check for API Key
@@ -90,7 +103,7 @@ serve(async (req) => {
     const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     
     // 1. Fetch Homepage
-    const homeResponse = await fetch(url, {
+    const homeResponse = await fetch(fetchUrl, {
       headers: {
         "User-Agent": userAgent,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",

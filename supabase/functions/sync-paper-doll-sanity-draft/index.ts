@@ -11,12 +11,13 @@ import {
   buildSanityMutation,
   validateNamedAction,
 } from "../_shared/paperDollLifecycle.ts";
-import { writeSanityDocument } from "../_shared/paperDollSanity.ts";
+import { assertBestBottlesSanityOrg, writeSanityDocument } from "../_shared/paperDollSanity.ts";
 
 Deno.serve((request) =>
   runPaperDollAction(request, async () => {
     const body = requireRecord(await request.json());
     const organizationId = requireString(body.organizationId, "organizationId");
+    assertBestBottlesSanityOrg(organizationId);
     const releaseCutId = requireString(body.releaseCutId, "releaseCutId");
     const documentId = requireString(body.documentId, "documentId");
     const approvedByName = requireString(body.approvedByName, "approvedByName");

@@ -4,6 +4,7 @@ import {
   generateGeminiContent,
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,9 @@ serve(async (req) => {
   }
 
   try {
-    const { masterContent } = await req.json();
+    const { masterContent, organizationId } = await req.json();
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
     
     if (!masterContent) {
       throw new Error("Master content is required");
