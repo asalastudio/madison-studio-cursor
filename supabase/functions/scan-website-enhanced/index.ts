@@ -25,6 +25,8 @@ import {
   type SquadAssignment
 } from "../_shared/squadAssignment.ts";
 import { storeDesignTokens } from "../_shared/designTokenGenerator.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
+import { isPubliclyFetchableUrl } from "../_shared/urlSafety.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -87,6 +89,9 @@ serve(async (req) => {
     const body: RequestBody = await req.json();
     const { url, organizationId, screenshot, screenshotMimeType, forceRescan } = body;
 
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+
     // Validate required fields
     if (!organizationId) {
       return new Response(
@@ -112,6 +117,12 @@ serve(async (req) => {
 
     // Normalize URL if provided
     const normalizedUrl = url ? (url.startsWith('http') ? url : `https://${url}`) : undefined;
+    if (normalizedUrl && !isPubliclyFetchableUrl(normalizedUrl, { protocol: "http" })) {
+      return new Response(
+        JSON.stringify({ error: "url is not allowed" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     const domain = normalizedUrl ? new URL(normalizedUrl).hostname.replace('www.', '') : undefined;
 
     // ═══════════════════════════════════════════════════════════════════════════

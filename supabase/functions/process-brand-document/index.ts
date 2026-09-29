@@ -4,6 +4,7 @@ import {
   generateGeminiContent,
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -106,6 +107,9 @@ serve(async (req) => {
     if (docError || !document) {
       throw new Error(`Failed to fetch document: ${docError?.message}`);
     }
+
+    const guard = await guardAuthenticatedOrg(req, document.organization_id, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     console.log(`Document found: ${document.file_name}, type: ${document.file_type}`);
 
