@@ -15,6 +15,7 @@ import { Loader2 } from "lucide-react";
 import Navigation from "./components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
+import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
 
 // Critical path - keep as static imports for fast initial load
 import Index from "./pages/Index";
@@ -406,8 +407,8 @@ const AppContent = () => {
                     <Route path="/brand-health" element={<ProtectedRoute><RouteErrorBoundary routeName="Brand Health"><BrandHealth /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/brand-builder" element={<ProtectedRoute><RouteErrorBoundary routeName="Brand Builder"><BrandBuilder /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/reports/:domainId" element={<ProtectedRoute><RouteErrorBoundary routeName="Brand Report"><BrandReport /></RouteErrorBoundary></ProtectedRoute>} />
-                    <Route path="/component-demo" element={<ProtectedRoute><RouteErrorBoundary routeName="Component Demo"><ComponentDemo /></RouteErrorBoundary></ProtectedRoute>} />
-                    <Route path="/madison-test" element={<ProtectedRoute><RouteErrorBoundary routeName="Madison Test"><MadisonTest /></RouteErrorBoundary></ProtectedRoute>} />
+                    <Route path="/component-demo" element={<ProtectedRoute><SuperAdminRoute><RouteErrorBoundary routeName="Component Demo"><ComponentDemo /></RouteErrorBoundary></SuperAdminRoute></ProtectedRoute>} />
+                    <Route path="/madison-test" element={<ProtectedRoute><SuperAdminRoute><RouteErrorBoundary routeName="Madison Test"><MadisonTest /></RouteErrorBoundary></SuperAdminRoute></ProtectedRoute>} />
                     {/* Email Builder routes - Temporarily hidden for launch */}
                     {/* <Route path="/email-builder" element={<ProtectedRoute><RouteErrorBoundary routeName="Email Builder"><EmailBuilderV2 /></RouteErrorBoundary></ProtectedRoute>} /> */}
                     {/* Legacy redirects */}
@@ -469,8 +470,8 @@ const AppContent = () => {
                 <Route path="/brand-health" element={<ProtectedRoute><RouteErrorBoundary routeName="Brand Health"><BrandHealth /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/brand-builder" element={<ProtectedRoute><RouteErrorBoundary routeName="Brand Builder"><BrandBuilder /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/reports/:domainId" element={<ProtectedRoute><RouteErrorBoundary routeName="Brand Report"><BrandReport /></RouteErrorBoundary></ProtectedRoute>} />
-                <Route path="/component-demo" element={<ProtectedRoute><RouteErrorBoundary routeName="Component Demo"><ComponentDemo /></RouteErrorBoundary></ProtectedRoute>} />
-                <Route path="/madison-test" element={<ProtectedRoute><RouteErrorBoundary routeName="Madison Test"><MadisonTest /></RouteErrorBoundary></ProtectedRoute>} />
+                <Route path="/component-demo" element={<ProtectedRoute><SuperAdminRoute><RouteErrorBoundary routeName="Component Demo"><ComponentDemo /></RouteErrorBoundary></SuperAdminRoute></ProtectedRoute>} />
+                <Route path="/madison-test" element={<ProtectedRoute><SuperAdminRoute><RouteErrorBoundary routeName="Madison Test"><MadisonTest /></RouteErrorBoundary></SuperAdminRoute></ProtectedRoute>} />
                 {/* Email Builder routes - Temporarily hidden for launch */}
                 {/* <Route path="/email-builder" element={<ProtectedRoute><RouteErrorBoundary routeName="Email Builder"><EmailBuilderV2 /></RouteErrorBoundary></ProtectedRoute>} /> */}
                 {/* Legacy redirects */}

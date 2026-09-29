@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { buildRepurposeBlogRequest, extractRepurposeBlogResult } from "@/lib/repurposeBlogRequest";
 
 interface RepurposeBlogDialogProps {
   onRepurpose: (title: string, description: string, tags: string[]) => void;
@@ -61,21 +62,16 @@ export function RepurposeBlogDialog({ onRepurpose }: RepurposeBlogDialogProps) {
     setRepurposing(true);
     try {
       const { data, error } = await supabase.functions.invoke("repurpose-content", {
-        body: {
-          contentId: blogPost.id,
-          sourceType: "blog",
-          targetType: "product_description"
-        }
+        body: buildRepurposeBlogRequest(blogPost),
       });
 
       if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || "Failed to generate a product listing from this post");
+      }
 
-      // Extract title, description, and tags from repurposed content
-      const repurposedTitle = data.title || blogPost.title.substring(0, 100);
-      const repurposedDescription = data.content || blogPost.full_content.substring(0, 500);
-      const extractedTags = data.tags || [];
-
-      onRepurpose(repurposedTitle, repurposedDescription, extractedTags);
+      const { title, description, tags } = extractRepurposeBlogResult(data, blogPost);
+      onRepurpose(title, description, tags);
       setOpen(false);
       toast.success("Blog post repurposed successfully!");
     } catch (error: any) {

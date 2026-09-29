@@ -6,11 +6,10 @@
  */
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, RefreshCw, Film, Clock, Video, Play } from "lucide-react";
+import { Copy, Check, RefreshCw, Film, Clock, Video } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { VideoScriptOutput, ContentAnalysis } from "@/lib/agents/contentToVisualPrompts";
 
@@ -28,7 +27,6 @@ export function VideoScriptResults({
   isRegenerating
 }: VideoScriptResultsProps) {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = async (prompt: string, id: string) => {
@@ -158,25 +156,6 @@ export function VideoScriptResults({
                       Copy Prompt
                     </>
                   )}
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="brass"
-                  className="flex-1"
-                  onClick={() => {
-                    navigate("/studio", {
-                      state: {
-                        mode: "video",
-                        script: data.prompt,
-                        duration: data.duration,
-                        cameraMovement: data.cameraMovement || "static"
-                      }
-                    });
-                  }}
-                >
-                  <Play className="w-3 h-3 mr-1" />
-                  Cut Video
                 </Button>
               </div>
 

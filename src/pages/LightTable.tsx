@@ -677,19 +677,6 @@ export default function LightTable() {
     }
   }, [selectedImage, user, orgId, outputRatioOverride]);
 
-  // Create video from this image
-  const handleCreateVideo = useCallback(() => {
-    if (!selectedImage) return;
-
-    navigate("/studio", {
-      state: {
-        mode: "video",
-        subjectImage: selectedImage.imageUrl,
-      },
-    });
-    toast.success("Opening Studio...");
-  }, [selectedImage, navigate]);
-
   // Save to library
   const handleSave = useCallback(async () => {
     if (!selectedImage) return;

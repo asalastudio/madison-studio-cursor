@@ -59,22 +59,6 @@ export function BrandDNAScan({ onContinue, onBack, onSkip, brandData }: BrandDNA
 
       const organizationId = await getOrCreateOrganizationId(user.id);
 
-      // Simulate progress updates
-      const progressStages = [
-        { stage: "analyzing" as ScanProgress, percent: 25, delay: 1000 },
-        { stage: "colors" as ScanProgress, percent: 50, delay: 2000 },
-        { stage: "fonts" as ScanProgress, percent: 75, delay: 2000 },
-        { stage: "images" as ScanProgress, percent: 90, delay: 2000 },
-      ];
-
-      // Start progress simulation
-      for (const { stage, percent, delay } of progressStages) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-        setScanProgress(stage);
-        setProgressPercent(percent);
-      }
-
-      // Call the analyze-brand-dna function
       const normalizedUrl = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
 
       const { data: dnaData, error: dnaError } = await supabase.functions.invoke(
@@ -92,9 +76,6 @@ export function BrandDNAScan({ onContinue, onBack, onSkip, brandData }: BrandDNA
       setScanProgress("complete");
       setProgressPercent(100);
       setBrandDNA(dnaData);
-
-      // Wait a moment before showing preview
-      await new Promise(resolve => setTimeout(resolve, 1000));
       setStage("preview");
 
     } catch (error) {
@@ -366,7 +347,7 @@ export function BrandDNAScan({ onContinue, onBack, onSkip, brandData }: BrandDNA
 
                 <div className="mt-12 text-center">
                   <p className="text-sm text-muted-foreground mb-4">
-                    Usually takes 2-3 minutes
+                    Reading your site now — this can take a minute
                   </p>
                   <Button
                     onClick={() => {
