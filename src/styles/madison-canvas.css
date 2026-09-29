@@ -80,8 +80,11 @@
 }
 
 .madison-canvas .react-flow__minimap {
-  right: 12px;
-  bottom: 88px;
+  top: auto;
+  right: 8px;
+  bottom: 16px;
+  width: 72px !important;
+  height: 56px !important;
   background: var(--darkroom-surface) !important;
   border: 1px solid var(--darkroom-border) !important;
   border-radius: var(--radius-lg);
@@ -118,7 +121,7 @@
 .madison-canvas__viewport-controls {
   position: absolute;
   left: 12px;
-  bottom: 88px;
+  bottom: 16px;
   z-index: 5;
   display: flex;
   align-items: center;
