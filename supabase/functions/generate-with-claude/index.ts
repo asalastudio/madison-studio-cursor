@@ -1,7 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import { getSemanticFields, formatSemanticContext } from '../_shared/productFieldFilters.ts';
+import { getSemanticFields } from '../_shared/productFieldFilters.ts';
+import {
+  fallbackSemanticProductContext,
+  resolveCopyProduct,
+} from '../_shared/resolveCopyProduct.ts';
 import { buildAuthorProfilesSection } from '../_shared/authorProfiles.ts';
 import { buildBrandAuthoritiesSection } from '../_shared/brandAuthorities.ts';
 import { getMadisonMasterContext, getSchwartzTemplate, SQUAD_DEFINITIONS } from '../_shared/madisonMasters.ts';
@@ -1219,29 +1223,37 @@ serve(async (req) => {
       hasImageStudioContext: !!imageStudioContext,
     });
 
-    // Fetch full product data from database if product_id is provided
+    // Create sends product_id = product_hubs.id from useProducts().
+    // Look up the hub first (org-scoped), then fall back to brand_products.
     let enrichedProductData = productData;
-    if (product_id && organizationId) {
-      console.log('Fetching product data from database for ID:', product_id);
+    if (product_id || productData) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      const { data: dbProductData, error: productError } = await supabase
-        .from('brand_products')
-        .select('*')
-        .eq('id', product_id)
-        .eq('organization_id', organizationId)
-        .maybeSingle();
-      
-      if (productError) {
-        console.error('Error fetching product data:', productError);
-      } else if (dbProductData) {
-        console.log('Product data fetched from database:', dbProductData.name);
-        // Merge database data with any passed productData (database takes priority)
-        enrichedProductData = { ...productData, ...dbProductData };
-        
-        // 🎯 FILTER TO SEMANTIC FIELDS ONLY FOR COPYWRITING
-        // This prevents visual/technical fields from cluttering the copywriting prompt
-        enrichedProductData = getSemanticFields(enrichedProductData);
-        console.log('✅ Filtered to semantic fields for copywriting (25 fields max)');
+      const resolved = await resolveCopyProduct({
+        productId: product_id,
+        organizationId,
+        clientProductData: productData,
+        fetchProduct: async (table, id, orgId) => {
+          const { data, error } = await supabase
+            .from(table)
+            .select('*')
+            .eq('id', id)
+            .eq('organization_id', orgId)
+            .maybeSingle();
+          if (error) {
+            console.error(`Error fetching ${table} for copy:`, error);
+            return null;
+          }
+          return data;
+        },
+      });
+      if (resolved.product) {
+        enrichedProductData = resolved.product;
+        console.log(
+          `✅ Copy product resolved from ${resolved.source}:`,
+          resolved.product.name || product_id,
+        );
+      } else {
+        enrichedProductData = getSemanticFields(productData);
       }
     }
 
@@ -1589,7 +1601,11 @@ ${schwartzTemplate}
       const categoryPromptBuilder = CATEGORY_PROMPTS[enrichedProductData.category as keyof typeof CATEGORY_PROMPTS];
       if (categoryPromptBuilder) {
         productContext = categoryPromptBuilder(enrichedProductData);
+      } else {
+        productContext = fallbackSemanticProductContext(enrichedProductData);
       }
+    } else if (enrichedProductData) {
+      productContext = fallbackSemanticProductContext(enrichedProductData);
     } else if (!enrichedProductData) {
       // No product selected - brand-level request
       productContext = `

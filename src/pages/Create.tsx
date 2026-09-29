@@ -238,7 +238,7 @@ export default function Create() {
     try {
       // Build AI prompt from brief fields
       const promptParts = [
-        product && product !== "none" && `Product: ${product}`,
+        product && product !== "none" && `Product: ${productData?.name || product}`,
         `Format: ${format}`,
         audience && `Target Audience: ${audience}`,
         goal && `Content Goal: ${goal}`,

@@ -16,6 +16,9 @@ describe("generate-with-claude wiring", () => {
     assert.match(source, /shouldFallbackToClaude/);
     assert.match(source, /truncated/);
     assert.match(source, /geminiAuthHeaders/);
+    assert.match(source, /resolveCopyProduct/);
+    assert.match(source, /fallbackSemanticProductContext/);
+    assert.match(source, /product_hubs/);
     assert.doesNotMatch(
       source,
       /generateContent\?key=\$\{GEMINI_API_KEY\}/,
