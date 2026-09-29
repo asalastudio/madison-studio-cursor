@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom"],
   },
   optimizeDeps: {
-    include: ["fabric"],
+    include: ["fabric", "@xyflow/react"],
   },
   build: {
     rollupOptions: {
@@ -57,6 +57,7 @@ export default defineConfig(({ mode }) => ({
           "vendor-motion": ["framer-motion"],
           // Data & state
           "vendor-data": ["@tanstack/react-query", "@supabase/supabase-js"],
+          "vendor-flow": ["@xyflow/react"],
           // Date utilities
           "vendor-date": ["date-fns"],
           // Charts & visualization (if recharts is used)

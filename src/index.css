@@ -1342,4 +1342,30 @@
   width: 0.875rem;
   height: 0.875rem;
 }
+
+.react-flow {
+  --xy-background-color: hsl(var(--background));
+  --xy-node-border-radius: 0.5rem;
+}
+
+.react-flow__minimap {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+.react-flow__controls {
+  box-shadow: none !important;
+  border: 1px solid hsl(var(--border));
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: hsl(var(--card)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+  fill: hsl(var(--foreground)) !important;
+}
+
+.react-flow__edge-path {
+  stroke: hsl(var(--primary)) !important;
+}
 /* TODO: Consolidate global styles */

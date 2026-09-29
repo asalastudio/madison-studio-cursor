@@ -1,4 +1,4 @@
-import { Home, Archive, Pencil, Share2, Calendar, FileText, Video, Settings, ChevronLeft, ChevronRight, LogOut, User, Menu, ShoppingBag, Store, Image, Mail, ChevronDown, Palette, FolderOpen, BookOpen, HelpCircle, Camera, Package, Building2, Workflow } from "lucide-react";
+import { Home, Archive, Pencil, Share2, Calendar, FileText, Video, Settings, ChevronLeft, ChevronRight, LogOut, User, Menu, ShoppingBag, Store, Image, Mail, ChevronDown, Palette, FolderOpen, BookOpen, HelpCircle, Camera, Package, Building2, Workflow, LayoutDashboard } from "lucide-react";
 import { VaultSidebarBtn } from "@/components/sidebar/VaultSidebarBtn";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsEcommerceOrg } from "@/hooks/useIndustryConfig";
 import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
+import { useMadisonCanvasFeatureFlag } from "@/hooks/useMadisonCanvasFeatureFlag";
 import { useState, useEffect } from "react";
 import {
   Sidebar,
@@ -35,6 +36,7 @@ export function AppSidebar() {
   const { toast } = useToast();
   const { isEcommerce, loading: isEcommerceLoading } = useIsEcommerceOrg();
   const { enabled: gridPipelineEnabled } = useGridPipelineFeatureFlag();
+  const { enabled: canvasEnabled } = useMadisonCanvasFeatureFlag();
 
   // Helper to check if a group contains the active route
   const isGroupActive = (items: { url: string }[]) => {
@@ -54,6 +56,7 @@ export function AppSidebar() {
       { url: "/create" },
       { url: "/multiply" },
       { url: "/darkroom" },
+      { url: "/projects" },
       // { url: "/press" }, // Hidden - keep in code, not pushed live
       // { url: "/video-project" }, // Removed from project
       // { url: "/image-editor" }, // Hidden - use Dark Room instead
@@ -113,6 +116,7 @@ export function AppSidebar() {
         { title: "Create", url: "/create", icon: Pencil },
         { title: "Multiply", url: "/multiply", icon: Share2 },
         { title: "Dark Room", url: "/darkroom", icon: Camera },
+        ...(canvasEnabled ? [{ title: "Projects", url: "/projects", icon: LayoutDashboard }] : []),
         // { title: "The Press", url: "/press", icon: Package }, // Hidden - keep in code, not pushed live
         // { title: "Video Project", url: "/video-project", icon: Video }, // Removed from project
         // { title: "Image Studio", url: "/image-editor", icon: Image }, // Hidden - use Dark Room instead

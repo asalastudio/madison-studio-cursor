@@ -1,0 +1,533 @@
+/* =============================================================================
+   MADISON CANVAS — Higgsfield board + Dark Room chrome
+   Colours, type, and panel primitives come from src/styles/darkroom.css.
+   Bone cream is a set/backdrop only — never board or card chrome.
+   ============================================================================= */
+
+.madison-canvas {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--darkroom-bg);
+  background-image: var(--darkroom-bg-gradient);
+  color: var(--darkroom-text);
+  font-family: var(--font-body);
+}
+
+.madison-canvas__workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.madison-canvas__board {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.madison-canvas__board .react-flow {
+  width: 100%;
+  height: 100%;
+}
+
+.madison-canvas .react-flow {
+  --xy-background-color: var(--darkroom-bg);
+  --xy-node-border-radius: 16px;
+  --xy-node-boxshadow-hover: none;
+  --xy-node-boxshadow-selected: none;
+  background: transparent !important;
+}
+
+.madison-canvas .react-flow__background {
+  background: transparent !important;
+}
+
+.madison-canvas .react-flow__node {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.madison-canvas .react-flow__edge-path,
+.madison-canvas .react-flow__connection-path {
+  stroke: var(--darkroom-accent) !important;
+  stroke-width: 1.75;
+  filter: drop-shadow(0 0 4px var(--darkroom-accent-glow));
+}
+
+.madison-canvas .react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--darkroom-accent-hover) !important;
+  stroke-width: 2.25;
+}
+
+.madison-canvas .react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--darkroom-bg);
+  box-shadow: 0 0 0 1px var(--darkroom-border-strong), 0 0 8px currentColor;
+  z-index: 4;
+}
+
+.madison-canvas .react-flow__handle-connecting {
+  box-shadow: 0 0 0 2px var(--darkroom-accent);
+}
+
+.madison-canvas .react-flow__minimap {
+  top: auto;
+  right: 8px;
+  bottom: 16px;
+  width: 72px !important;
+  height: 56px !important;
+  background: var(--darkroom-surface) !important;
+  border: 1px solid var(--darkroom-border) !important;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+.madison-canvas .react-flow__minimap-mask {
+  fill: color-mix(in srgb, var(--darkroom-bg) 55%, transparent) !important;
+}
+
+.madison-canvas .react-flow__controls {
+  display: none;
+}
+
+.madison-canvas .react-flow__selection {
+  background: color-mix(in srgb, var(--darkroom-accent) 14%, transparent);
+  border: 1px solid var(--darkroom-accent);
+}
+
+.madison-canvas .react-flow__nodesselection-rect {
+  border: 1px dashed color-mix(in srgb, var(--darkroom-accent) 70%, transparent);
+}
+
+.madison-canvas__board.is-space-panning .react-flow__pane {
+  cursor: grab;
+}
+
+.madison-canvas__board.is-space-panning .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.madison-canvas__viewport-controls {
+  position: absolute;
+  left: 12px;
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--darkroom-surface) 94%, transparent);
+  border: 1px solid var(--darkroom-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+}
+
+.madison-canvas__viewport-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--darkroom-border);
+  border-radius: var(--radius-md);
+  background: var(--darkroom-surface-elevated);
+  color: var(--darkroom-text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.madison-canvas__viewport-button:hover {
+  color: var(--darkroom-accent);
+  border-color: color-mix(in srgb, var(--darkroom-accent) 45%, transparent);
+}
+
+.madison-canvas__viewport-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.madison-canvas__viewport-zoom {
+  min-width: 44px;
+  padding: 0 4px;
+  font-family: var(--lcd-font);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: var(--darkroom-accent);
+}
+
+.madison-canvas .react-flow__attribution {
+  display: none;
+}
+
+.madison-canvas__header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.madison-canvas__header .dark-room-header {
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--darkroom-bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.madison-canvas__title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--darkroom-accent);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.madison-canvas__meta {
+  font-family: var(--lcd-font);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--darkroom-text-dim);
+}
+
+.madison-canvas__inspector {
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 1;
+  flex: 0 0 320px;
+  width: 320px;
+  height: 100%;
+  overflow: hidden;
+  border-left: 1px solid var(--darkroom-border);
+  background: var(--darkroom-surface);
+}
+
+.madison-canvas__inspector .camera-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--darkroom-surface);
+  backdrop-filter: blur(12px);
+}
+
+.madison-canvas__inspector .camera-panel__header {
+  background: var(--darkroom-surface-elevated);
+}
+
+.madison-canvas__inspector .camera-panel__title,
+.madison-canvas__inspector .camera-panel__title span {
+  color: var(--darkroom-text-muted);
+}
+
+.madison-canvas__inspector.is-collapsed {
+  flex: 0 0 44px;
+  width: 44px;
+}
+
+.madison-canvas__inspector.is-collapsed .madison-canvas__inspector-body,
+.madison-canvas__inspector.is-collapsed .camera-panel__title {
+  display: none;
+}
+
+.madison-canvas__inspector.is-collapsed .camera-panel__header {
+  justify-content: center;
+  border-bottom: none;
+}
+
+.madison-canvas__inspector-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: 1px solid var(--darkroom-border);
+  border-radius: var(--radius-md);
+  background: var(--darkroom-surface-elevated);
+  color: var(--darkroom-text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.madison-canvas__inspector-toggle:hover {
+  color: var(--darkroom-accent);
+  border-color: color-mix(in srgb, var(--darkroom-accent) 45%, transparent);
+}
+
+.madison-canvas__inspector-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.madison-canvas__inspector-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.madison-canvas__toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  max-width: calc(100vw - 24px);
+  background: color-mix(in srgb, var(--darkroom-surface) 92%, transparent);
+  border: 1px solid var(--darkroom-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(14px);
+}
+
+.madison-canvas__toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--darkroom-border-strong);
+}
+
+.madison-canvas-node {
+  position: relative;
+  width: 280px;
+  border-radius: 16px;
+  background: var(--darkroom-surface);
+  border: 1px solid var(--darkroom-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: visible;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.madison-canvas-node::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.madison-canvas-node.is-selected {
+  border-color: color-mix(in srgb, var(--darkroom-accent) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px color-mix(in srgb, var(--darkroom-accent) 35%, transparent),
+    0 12px 28px rgba(0, 0, 0, 0.55);
+}
+
+.madison-canvas-node__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--darkroom-border-subtle);
+}
+
+.madison-canvas-node__kind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--darkroom-text-muted);
+}
+
+.madison-canvas-node__kind svg {
+  width: 12px;
+  height: 12px;
+  color: var(--darkroom-accent);
+}
+
+.madison-canvas-node__run {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--darkroom-border);
+  background: var(--darkroom-surface-elevated);
+  color: var(--darkroom-text);
+  font-family: var(--lcd-font);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.madison-canvas-node__run:hover {
+  border-color: color-mix(in srgb, var(--darkroom-accent) 50%, transparent);
+  color: var(--darkroom-accent);
+}
+
+.madison-canvas-node__run svg {
+  width: 12px;
+  height: 12px;
+}
+
+.madison-canvas-node__media {
+  position: relative;
+  height: 168px;
+  margin: 8px 8px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--camera-body-deep);
+  border: 1px solid var(--darkroom-border-subtle);
+}
+
+.madison-canvas-node__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.madison-canvas-node__media-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--darkroom-text-dim);
+  font-family: var(--lcd-font);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.madison-canvas-node__media-fallback svg {
+  width: 22px;
+  height: 22px;
+  color: var(--darkroom-accent);
+}
+
+.madison-canvas-node__body {
+  padding: 10px 12px 12px;
+}
+
+.madison-canvas-node__title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--darkroom-text);
+  line-height: 1.15;
+}
+
+.madison-canvas-node__subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--darkroom-text-muted);
+}
+
+.madison-canvas-node__settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.madison-canvas-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--darkroom-border);
+  background: color-mix(in srgb, var(--darkroom-surface-elevated) 80%, transparent);
+  color: var(--darkroom-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.madison-canvas-chip strong {
+  color: var(--darkroom-text);
+  font-weight: 600;
+}
+
+.madison-canvas-port-label {
+  position: absolute;
+  font-family: var(--lcd-font);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--darkroom-text-dim);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.madison-canvas-port-label.is-in {
+  right: calc(100% + 10px);
+}
+
+.madison-canvas-port-label.is-out {
+  left: calc(100% + 10px);
+}
+
+.madison-canvas input,
+.madison-canvas textarea,
+.madison-canvas [data-slot="input"],
+.madison-canvas [data-slot="textarea"] {
+  background: var(--darkroom-bg) !important;
+  border-color: var(--darkroom-border) !important;
+  color: var(--darkroom-text) !important;
+}
+
+.madison-canvas label {
+  color: var(--darkroom-text-muted);
+}
+
+.madison-canvas .settings-row {
+  border-bottom-color: var(--darkroom-border-subtle);
+}
+
+@media (max-width: 900px) {
+  .madison-canvas__workspace {
+    flex-direction: column;
+  }
+
+  .madison-canvas__inspector {
+    flex: 0 0 36vh;
+    width: 100%;
+    height: 36vh;
+    border-left: none;
+    border-top: 1px solid var(--darkroom-border);
+  }
+
+  .madison-canvas__toolbar {
+    border-radius: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    bottom: 12px;
+  }
+}
