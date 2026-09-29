@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -10,8 +12,10 @@ import {
 import { CameraPanelHeader, LEDIndicator, SettingsRow } from "@/components/darkroom/LEDIndicator";
 import { Chip } from "@/components/darkroom/Chip";
 import { getNodeTypeSpec } from "@/lib/canvas/graphValidation";
+import { CANVAS_IMAGE_MODELS, resolveCanvasImageModel } from "@/lib/canvas/models";
 import { DEFAULT_PACK_SETS, DEFAULT_SHOT_TYPES, type Week1NodeType } from "@/lib/canvas/types";
 import { week2RunToast } from "@/lib/canvas/runPlaceholder";
+import { cn } from "@/lib/utils";
 import type { Node } from "@xyflow/react";
 import { useCanvasRun } from "./CanvasRunContext";
 
@@ -22,12 +26,29 @@ interface CanvasInspectorProps {
 
 export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
   const onRun = useCanvasRun();
+  const [collapsed, setCollapsed] = useState(false);
+  const toggle = (
+    <button
+      type="button"
+      className="madison-canvas__inspector-toggle"
+      aria-expanded={!collapsed}
+      aria-label={collapsed ? "Expand inspector" : "Collapse inspector"}
+      onClick={(event) => {
+        event.stopPropagation();
+        setCollapsed((current) => !current);
+      }}
+    >
+      {collapsed ? <PanelRightOpen /> : <PanelRightClose />}
+    </button>
+  );
 
   if (!node) {
     return (
-      <aside className="madison-canvas__inspector nodrag nopan nowheel">
+      <aside className={cn("madison-canvas__inspector nodrag nopan nowheel", collapsed && "is-collapsed")}>
         <div className="camera-panel h-full">
-          <CameraPanelHeader title="Inspector" ledState="off" />
+          <CameraPanelHeader title="Inspector" ledState="off">
+            {toggle}
+          </CameraPanelHeader>
           <div className="madison-canvas__inspector-body text-sm text-[var(--darkroom-text-muted)]">
             Select a node to edit typed inputs. Ports stay kind-checked. Run stays a Week 2 placeholder.
           </div>
@@ -42,9 +63,11 @@ export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
   const runCopy = week2RunToast("node");
 
   return (
-    <aside className="madison-canvas__inspector nodrag nopan nowheel">
+    <aside className={cn("madison-canvas__inspector nodrag nopan nowheel", collapsed && "is-collapsed")}>
       <div className="camera-panel camera-panel--active h-full">
-        <CameraPanelHeader title={spec?.label ?? node.type ?? "Node"} ledState="ready" />
+        <CameraPanelHeader title={spec?.label ?? node.type ?? "Node"} ledState="ready">
+          {toggle}
+        </CameraPanelHeader>
         <div className="madison-canvas__inspector-body space-y-4">
           <p className="text-xs text-[var(--darkroom-text-muted)]">{spec?.description}</p>
 
@@ -154,16 +177,35 @@ export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
           )}
 
           {node.type === "batch" && (
-            <SettingsRow label="Takes per combo" ledState="ready">
-              <Input
-                className="nodrag bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
-                type="number"
-                min={1}
-                max={10}
-                value={typeof data.takes === "number" ? data.takes : 3}
-                onChange={(event) => patch({ takes: Number(event.target.value) || 1 })}
-              />
-            </SettingsRow>
+            <>
+              <SettingsRow label="Takes per combo" ledState="ready">
+                <Input
+                  className="nodrag bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={typeof data.takes === "number" ? data.takes : 3}
+                  onChange={(event) => patch({ takes: Number(event.target.value) || 1 })}
+                />
+              </SettingsRow>
+              <SettingsRow label="Model" ledState="ready">
+                <Select
+                  value={resolveCanvasImageModel(data.model)}
+                  onValueChange={(value) => patch({ model: value })}
+                >
+                  <SelectTrigger className="nodrag bg-[var(--darkroom-bg)] border-[var(--darkroom-border)] text-[var(--darkroom-text)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CANVAS_IMAGE_MODELS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+            </>
           )}
 
           {node.type === "image" && (

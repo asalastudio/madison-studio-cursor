@@ -1,3 +1,4 @@
+import { defaultPositionForType } from "./layout";
 import {
   BONE_STUDIO_HEX,
   BONE_STUDIO_SET_ID,
@@ -79,14 +80,14 @@ export function buildDefaultGraph(options: {
     {
       id: packId,
       type: "pack",
-      position: { x: 80, y: 120 },
+      position: defaultPositionForType("pack"),
       data: buildDefaultPackNodeData(),
       status: "idle",
     },
     {
       id: setId,
       type: "set",
-      position: { x: 420, y: 80 },
+      position: defaultPositionForType("set"),
       data: buildDefaultSetNodeData(),
       status: "idle",
     },
@@ -105,7 +106,7 @@ export function buildDefaultGraph(options: {
     nodes.push({
       id: id("product"),
       type: "product",
-      position: { x: 80, y: 360 },
+      position: defaultPositionForType("product"),
       data: buildProductNodeData(options.skuHit),
       status: "idle",
     });

@@ -25,15 +25,22 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { useCanvasDocument, useCanvasProject, useCanvasRecords } from "@/hooks/useCanvasProjects";
 import { persistCanvasGraph, recordsToFlow } from "@/lib/canvas/graphPersist";
 import { isValidConnection, validateConnection } from "@/lib/canvas/graphValidation";
+import { CANVAS_FIT_VIEW_OPTIONS, nextOpenCanvasSlot } from "@/lib/canvas/layout";
+import {
+  buildDefaultBatchNodeData,
+  buildDefaultImageNodeData,
+} from "@/lib/canvas/models";
 import { week2RunToast } from "@/lib/canvas/runPlaceholder";
 import {
   DEFAULT_SHOT_TYPES,
   type Week1NodeType,
 } from "@/lib/canvas/types";
 import { buildDefaultPackNodeData, buildDefaultSetNodeData } from "@/lib/canvas/defaultGraph";
+import { CanvasFitView } from "./CanvasFitView";
 import { CanvasInspector } from "./CanvasInspector";
 import { CanvasRunProvider, type CanvasRunRequest } from "./CanvasRunContext";
 import { CanvasToolbar } from "./CanvasToolbar";
+import { CanvasWorkspace } from "./CanvasWorkspace";
 import { canvasNodeTypes } from "./nodes/canvasNodeTypes";
 
 const AUTOSAVE_MS = 800;
@@ -65,8 +72,8 @@ function defaultData(type: Week1NodeType): Record<string, unknown> {
       note: "",
     };
   }
-  if (type === "batch") return { takes: 3 };
-  return { name: "Image", status: "idle" };
+  if (type === "batch") return buildDefaultBatchNodeData();
+  return buildDefaultImageNodeData();
 }
 
 function saveLed(state: "idle" | "saving" | "saved" | "error") {
@@ -176,7 +183,7 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
     const node: Node = {
       id: newId(),
       type,
-      position: { x: 180 + nodes.length * 24, y: 180 + nodes.length * 16 },
+      position: nextOpenCanvasSlot(nodes, type),
       data: defaultData(type),
     };
     setNodes((current) => [...current, node]);
@@ -220,54 +227,57 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
 
   return (
     <CanvasRunProvider onRun={handleRun}>
-      <div className="madison-canvas dark-room-container">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={(changes) => {
-            onNodesChange(changes);
-            markDirty();
-          }}
-          onEdgesChange={(changes) => {
-            onEdgesChange(changes);
-            markDirty();
-          }}
-          onConnect={onConnect}
-          onSelectionChange={({ nodes: selected }) => setSelectedId(selected[0]?.id ?? null)}
-          onMoveEnd={(_, viewport) => {
-            viewportRef.current = viewport;
-            markDirty();
-          }}
-          isValidConnection={(connection) => {
-            const source = nodes.find((node) => node.id === connection.source);
-            const target = nodes.find((node) => node.id === connection.target);
-            return isValidConnection({
-              sourceType: source?.type ?? "",
-              targetType: target?.type ?? "",
-              sourceHandle: connection.sourceHandle,
-              targetHandle: connection.targetHandle,
-            });
-          }}
-          nodeTypes={canvasNodeTypes}
-          defaultViewport={canvasQuery.data.viewport}
-          defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
-          connectionLineType={ConnectionLineType.Bezier}
-          fitView
-          elevateNodesOnSelect
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background
-            id="madison-dots"
-            variant={BackgroundVariant.Dots}
-            gap={22}
-            size={1.4}
-            color="rgba(255, 255, 255, 0.08)"
-          />
-          <Controls showInteractive={false} />
-          <MiniMap pannable zoomable />
-        </ReactFlow>
-
-        <div className="madison-canvas__header">
+      <CanvasWorkspace
+        board={
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={(changes) => {
+              onNodesChange(changes);
+              markDirty();
+            }}
+            onEdgesChange={(changes) => {
+              onEdgesChange(changes);
+              markDirty();
+            }}
+            onConnect={onConnect}
+            onSelectionChange={({ nodes: selected }) => setSelectedId(selected[0]?.id ?? null)}
+            onMoveEnd={(_, viewport) => {
+              viewportRef.current = viewport;
+              markDirty();
+            }}
+            isValidConnection={(connection) => {
+              const source = nodes.find((node) => node.id === connection.source);
+              const target = nodes.find((node) => node.id === connection.target);
+              return isValidConnection({
+                sourceType: source?.type ?? "",
+                targetType: target?.type ?? "",
+                sourceHandle: connection.sourceHandle,
+                targetHandle: connection.targetHandle,
+              });
+            }}
+            nodeTypes={canvasNodeTypes}
+            defaultViewport={canvasQuery.data.viewport}
+            defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+            connectionLineType={ConnectionLineType.Bezier}
+            fitView
+            fitViewOptions={CANVAS_FIT_VIEW_OPTIONS}
+            elevateNodesOnSelect
+            proOptions={{ hideAttribution: true }}
+          >
+            <CanvasFitView trigger={nodes.length} />
+            <Background
+              id="madison-dots"
+              variant={BackgroundVariant.Dots}
+              gap={22}
+              size={1.4}
+              color="rgba(255, 255, 255, 0.08)"
+            />
+            <Controls showInteractive={false} />
+            <MiniMap pannable zoomable />
+          </ReactFlow>
+        }
+        header={
           <header className="dark-room-header">
             <div className="flex items-center gap-2 min-w-0">
               <Button
@@ -295,11 +305,10 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
               </LCDDisplay>
             </div>
           </header>
-        </div>
-
-        <CanvasInspector node={selectedNode} onChange={updateNodeData} />
-        <CanvasToolbar onAddNode={addNode} />
-      </div>
+        }
+        inspector={<CanvasInspector node={selectedNode} onChange={updateNodeData} />}
+        toolbar={<CanvasToolbar onAddNode={addNode} />}
+      />
     </CanvasRunProvider>
   );
 }

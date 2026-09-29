@@ -1,9 +1,8 @@
 import type { NodeProps, NodeTypes } from "@xyflow/react";
 import { Aperture, Box, ImageIcon, Layers, Package, Sparkles } from "lucide-react";
+import { canvasImageModelLabel } from "@/lib/canvas/models";
 import { BONE_STUDIO_HEX } from "@/lib/canvas/types";
 import { asNodeData, CanvasNodeFrame, textValue } from "./CanvasNodeFrame";
-
-const DEFAULT_MODEL = "GPT Image 2.5";
 
 function PackNode(props: NodeProps) {
   const data = asNodeData(props);
@@ -121,7 +120,7 @@ function BatchNode(props: NodeProps) {
       subtitle={`${takes} takes per combo`}
       settings={[
         { label: "Takes", value: String(takes) },
-        { label: "Model", value: DEFAULT_MODEL },
+        { label: "Model", value: canvasImageModelLabel(data.model) },
       ]}
       media={
         <div className="madison-canvas-node__media-fallback">
@@ -145,7 +144,7 @@ function ImageNode(props: NodeProps) {
       title={textValue(data, "name", "Image")}
       subtitle={textValue(data, "status", "idle")}
       settings={[
-        { label: "Model", value: DEFAULT_MODEL },
+        { label: "Model", value: canvasImageModelLabel(data.model) },
         { label: "Status", value: textValue(data, "status", "idle") },
       ]}
       media={

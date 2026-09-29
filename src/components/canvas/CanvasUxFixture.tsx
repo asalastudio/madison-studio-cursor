@@ -20,10 +20,14 @@ import {
   buildDefaultSetNodeData,
   buildProductNodeData,
 } from "@/lib/canvas/defaultGraph";
+import { CANVAS_FIT_VIEW_OPTIONS, defaultPositionForType, nextOpenCanvasSlot } from "@/lib/canvas/layout";
+import { buildDefaultBatchNodeData, buildDefaultImageNodeData } from "@/lib/canvas/models";
 import { DEFAULT_SHOT_TYPES, type Week1NodeType } from "@/lib/canvas/types";
+import { CanvasFitView } from "./CanvasFitView";
 import { CanvasInspector } from "./CanvasInspector";
 import { CanvasRunProvider } from "./CanvasRunContext";
 import { CanvasToolbar } from "./CanvasToolbar";
+import { CanvasWorkspace } from "./CanvasWorkspace";
 import { canvasNodeTypes } from "./nodes/canvasNodeTypes";
 
 const EDGE_STYLE = {
@@ -66,7 +70,7 @@ function seedGraph(): { nodes: Node[]; edges: Edge[] } {
     {
       id: shotId,
       type: "shot",
-      position: { x: 420, y: 360 },
+      position: defaultPositionForType("shot"),
       data: {
         shotTypeId: "pdp_main",
         name: DEFAULT_SHOT_TYPES[0].name,
@@ -77,14 +81,14 @@ function seedGraph(): { nodes: Node[]; edges: Edge[] } {
     {
       id: batchId,
       type: "batch",
-      position: { x: 760, y: 200 },
-      data: { takes: 3 },
+      position: defaultPositionForType("batch"),
+      data: buildDefaultBatchNodeData(),
     },
     {
       id: imageId,
       type: "image",
-      position: { x: 1100, y: 200 },
-      data: { name: "PDP main · take 1", status: "idle" },
+      position: defaultPositionForType("image"),
+      data: buildDefaultImageNodeData("PDP main · take 1"),
     },
   ];
 
@@ -138,17 +142,17 @@ export function CanvasUxFixture() {
             : type === "shot"
               ? { shotTypeId: "pdp_main", name: "PDP main", size: "2080 × 2288", note: "" }
               : type === "batch"
-                ? { takes: 3 }
-                : { name: "Image", status: "idle" };
+                ? buildDefaultBatchNodeData()
+                : buildDefaultImageNodeData();
     const node: Node = {
       id: crypto.randomUUID(),
       type,
-      position: { x: 160 + nodes.length * 28, y: 520 },
+      position: nextOpenCanvasSlot(nodes, type),
       data,
     };
     setNodes((current) => [...current, node]);
     setSelectedId(node.id);
-  }, [nodes.length, setNodes]);
+  }, [nodes, setNodes]);
 
   return (
     <CanvasRunProvider
@@ -156,32 +160,35 @@ export function CanvasUxFixture() {
         setRunNote(request.scope === "all" ? "Run all is Week 2" : `Run node ${request.nodeId ?? ""} is Week 2`);
       }}
     >
-      <div className="madison-canvas dark-room-container">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onSelectionChange={({ nodes: selected }) => setSelectedId(selected[0]?.id ?? selectedId)}
-          nodeTypes={canvasNodeTypes}
-          defaultEdgeOptions={EDGE_STYLE}
-          connectionLineType={ConnectionLineType.Bezier}
-          fitView
-          elevateNodesOnSelect
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background
-            id="madison-dots"
-            variant={BackgroundVariant.Dots}
-            gap={22}
-            size={1.4}
-            color="rgba(255, 255, 255, 0.08)"
-          />
-          <Controls showInteractive={false} />
-          <MiniMap pannable zoomable />
-        </ReactFlow>
-
-        <div className="madison-canvas__header">
+      <CanvasWorkspace
+        board={
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onSelectionChange={({ nodes: selected }) => setSelectedId(selected[0]?.id ?? selectedId)}
+            nodeTypes={canvasNodeTypes}
+            defaultEdgeOptions={EDGE_STYLE}
+            connectionLineType={ConnectionLineType.Bezier}
+            fitView
+            fitViewOptions={CANVAS_FIT_VIEW_OPTIONS}
+            elevateNodesOnSelect
+            proOptions={{ hideAttribution: true }}
+          >
+            <CanvasFitView trigger={nodes.length} />
+            <Background
+              id="madison-dots"
+              variant={BackgroundVariant.Dots}
+              gap={22}
+              size={1.4}
+              color="rgba(255, 255, 255, 0.08)"
+            />
+            <Controls showInteractive={false} />
+            <MiniMap pannable zoomable />
+          </ReactFlow>
+        }
+        header={
           <header className="dark-room-header">
             <div>
               <p className="madison-canvas__meta">pdp · GB-CYL-50-CLR</p>
@@ -192,16 +199,17 @@ export function CanvasUxFixture() {
               <LCDDisplay>{runNote}</LCDDisplay>
             </div>
           </header>
-        </div>
-
-        <CanvasInspector
-          node={selectedNode}
-          onChange={(nodeId, data) => {
-            setNodes((current) => current.map((node) => (node.id === nodeId ? { ...node, data } : node)));
-          }}
-        />
-        <CanvasToolbar onAddNode={addNode} />
-      </div>
+        }
+        inspector={
+          <CanvasInspector
+            node={selectedNode}
+            onChange={(nodeId, data) => {
+              setNodes((current) => current.map((node) => (node.id === nodeId ? { ...node, data } : node)));
+            }}
+          />
+        }
+        toolbar={<CanvasToolbar onAddNode={addNode} />}
+      />
     </CanvasRunProvider>
   );
 }

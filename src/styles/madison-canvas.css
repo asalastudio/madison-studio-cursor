@@ -6,6 +6,8 @@
 
 .madison-canvas {
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100%;
   overflow: hidden;
@@ -13,6 +15,25 @@
   background-image: var(--darkroom-bg-gradient);
   color: var(--darkroom-text);
   font-family: var(--font-body);
+}
+
+.madison-canvas__workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.madison-canvas__board {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.madison-canvas__board .react-flow {
+  width: 100%;
+  height: 100%;
 }
 
 .madison-canvas .react-flow {
@@ -124,13 +145,17 @@
 }
 
 .madison-canvas__inspector {
-  position: absolute;
-  top: 56px;
-  right: 12px;
-  bottom: 88px;
-  width: min(320px, calc(100vw - 24px));
-  z-index: 20;
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 1;
+  flex: 0 0 320px;
+  width: 320px;
+  height: 100%;
   overflow: hidden;
+  border-left: 1px solid var(--darkroom-border);
+  background: var(--darkroom-surface);
 }
 
 .madison-canvas__inspector .camera-panel {
@@ -148,6 +173,47 @@
 .madison-canvas__inspector .camera-panel__title,
 .madison-canvas__inspector .camera-panel__title span {
   color: var(--darkroom-text-muted);
+}
+
+.madison-canvas__inspector.is-collapsed {
+  flex: 0 0 44px;
+  width: 44px;
+}
+
+.madison-canvas__inspector.is-collapsed .madison-canvas__inspector-body,
+.madison-canvas__inspector.is-collapsed .camera-panel__title {
+  display: none;
+}
+
+.madison-canvas__inspector.is-collapsed .camera-panel__header {
+  justify-content: center;
+  border-bottom: none;
+}
+
+.madison-canvas__inspector-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: 1px solid var(--darkroom-border);
+  border-radius: var(--radius-md);
+  background: var(--darkroom-surface-elevated);
+  color: var(--darkroom-text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.madison-canvas__inspector-toggle:hover {
+  color: var(--darkroom-accent);
+  border-color: color-mix(in srgb, var(--darkroom-accent) 45%, transparent);
+}
+
+.madison-canvas__inspector-toggle svg {
+  width: 14px;
+  height: 14px;
 }
 
 .madison-canvas__inspector-body {
@@ -385,14 +451,16 @@
 }
 
 @media (max-width: 900px) {
+  .madison-canvas__workspace {
+    flex-direction: column;
+  }
+
   .madison-canvas__inspector {
-    position: absolute;
-    top: auto;
-    right: 12px;
-    left: 12px;
-    bottom: 84px;
-    width: auto;
+    flex: 0 0 36vh;
+    width: 100%;
     height: 36vh;
+    border-left: none;
+    border-top: 1px solid var(--darkroom-border);
   }
 
   .madison-canvas__toolbar {
