@@ -92,6 +92,7 @@
 }
 
 .madison-canvas .react-flow__controls {
+  bottom: 88px;
   box-shadow: var(--shadow-md) !important;
   border: 1px solid var(--darkroom-border);
   border-radius: var(--radius-lg);

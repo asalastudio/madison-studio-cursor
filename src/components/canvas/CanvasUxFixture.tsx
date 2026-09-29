@@ -5,7 +5,6 @@ import {
   ConnectionLineType,
   Controls,
   MarkerType,
-  MiniMap,
   ReactFlow,
   useEdgesState,
   useNodesState,
@@ -187,7 +186,6 @@ export function CanvasUxFixture() {
               color="rgba(255, 255, 255, 0.08)"
             />
             <Controls showInteractive={false} />
-            <MiniMap pannable zoomable />
           </ReactFlow>
         }
         header={

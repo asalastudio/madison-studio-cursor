@@ -5,7 +5,6 @@ import {
   ConnectionLineType,
   Controls,
   MarkerType,
-  MiniMap,
   ReactFlow,
   addEdge,
   useEdgesState,
@@ -276,7 +275,6 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
               color="rgba(255, 255, 255, 0.08)"
             />
             <Controls showInteractive={false} />
-            <MiniMap pannable zoomable />
           </ReactFlow>
         }
         header={
