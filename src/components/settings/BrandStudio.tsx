@@ -402,7 +402,7 @@ export function BrandStudio() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl min-w-0 overflow-x-hidden">
       {/* Header */}
       <div className="mb-10">
         <h1 className="font-serif text-2xl md:text-3xl text-ink mb-1">Brand Studio</h1>
@@ -422,18 +422,18 @@ export function BrandStudio() {
             <p className="text-xs text-charcoal/60 mb-3">
               Paste your website URL and we'll extract your brand voice automatically
             </p>
-            <div className="flex gap-2">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
               <Input
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
                 placeholder="https://yourbrand.com"
-                className="flex-1 bg-white/80 border-stone/30 text-sm h-9"
+                className="min-w-0 flex-1 bg-white/80 border-stone/30 text-sm h-11 sm:h-9"
               />
               <Button 
                 onClick={handleWebsiteScan} 
                 disabled={isScanning || !websiteUrl.trim()}
                 size="sm"
-                className="bg-brass hover:bg-brass/90 text-white h-9 px-4"
+                className="w-full shrink-0 bg-brass px-4 text-white hover:bg-brass/90 sm:h-9 sm:w-auto"
               >
                 {isScanning ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -521,7 +521,7 @@ export function BrandStudio() {
                         ...prev,
                         sub_industry: prev.sub_industry === sub.id ? "" : sub.id,
                       }))}
-                      className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                      className={`mobile-chip px-2.5 py-1 rounded-full text-xs transition-colors ${
                         brandData.sub_industry === sub.id
                           ? "bg-brass text-white"
                           : "bg-stone/10 text-charcoal/70 hover:bg-stone/20"

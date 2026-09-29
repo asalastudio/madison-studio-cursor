@@ -760,6 +760,7 @@
 
 /* Mobile Dark Room Container */
 .mobile-darkroom {
+  --darkroom-text-dim: rgba(232, 230, 227, 0.62);
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -847,8 +848,20 @@
 }
 
 .mobile-darkroom__prompt-input::placeholder {
-  color: var(--darkroom-text-dim);
-  font-size: 0.9rem;
+  color: var(--darkroom-text-muted);
+  font-size: 0.95rem;
+}
+
+.mobile-darkroom__plate-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: var(--space-sm);
+  padding: 12px;
+  border: 1px solid var(--darkroom-border);
+  border-radius: var(--radius-lg);
+  background: var(--darkroom-surface);
 }
 
 .mobile-darkroom__prompt-footer {
@@ -899,8 +912,8 @@
 /* Settings Grid - Unified modular system */
 .mobile-settings-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin-bottom: var(--space-sm);
   padding: 1px;
   background: var(--darkroom-border-subtle);
@@ -919,7 +932,7 @@
   cursor: pointer;
   transition: background var(--duration-fast) ease;
   text-align: left;
-  min-height: 76px;
+  min-height: 88px;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   user-select: none;
@@ -961,15 +974,15 @@
 }
 
 .mobile-settings-tile__label {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-family: var(--lcd-font);
-  color: var(--darkroom-text-dim);
+  color: var(--darkroom-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .mobile-settings-tile__value {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--darkroom-text);
   white-space: nowrap;
@@ -979,6 +992,9 @@
 
 /* Generate Button - Premium brass CTA */
 .mobile-darkroom__generate-btn {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
   width: 100%;
   min-height: 48px;
   padding: var(--space-sm) var(--space-lg);

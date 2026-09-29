@@ -81,28 +81,28 @@ export default function Settings() {
                     type="button"
                     onClick={() => handleTabChange(section.value)}
                     className={cn(
-                      "flex min-h-11 items-center gap-2 rounded-lg border px-3 py-3 text-left font-sans text-sm transition-colors duration-150",
+                      "flex min-h-11 min-w-0 items-center gap-2 rounded-lg border px-3 py-3 text-left font-sans text-sm transition-colors duration-150",
                       active
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-card text-foreground",
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    <span>{section.label}</span>
+                    <span className="truncate">{section.label}</span>
                   </button>
                 );
               })}
             </div>
 
-            <div className="hidden overflow-x-auto md:block">
-              <TabsList className="flex w-full flex-wrap gap-1 rounded-lg border border-border bg-card p-1">
+            <div className="hidden md:block">
+              <TabsList className="flex h-auto w-full flex-wrap gap-1 rounded-lg border border-[#E0E0E0] bg-white p-1">
                 {SETTINGS_SECTIONS.map((section) => {
                   const Icon = section.icon;
                   return (
                     <TabsTrigger
                       key={section.value}
                       value={section.value}
-                      className="gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                      className="gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors data-[state=active]:bg-brand-brass data-[state=active]:text-white"
                     >
                       <Icon className="h-4 w-4" />
                       <span>{section.label}</span>

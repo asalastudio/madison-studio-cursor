@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import type { ProModeSettings } from "./ProSettings";
+import type { LightingLane } from "@/lib/darkroomLightingLane";
 import { Product } from "@/hooks/useProducts";
 import { ProductSelector } from "@/components/forge/ProductSelector";
 import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
@@ -91,6 +92,9 @@ interface MobileDarkRoomProps {
 
   styleReferenceLibraryOutput: boolean;
   onStyleReferenceLibraryOutputChange: (value: boolean) => void;
+
+  lightingLane: LightingLane;
+  onLightingLaneChange: (lane: LightingLane) => void;
 }
 
 export function MobileDarkRoom({
@@ -124,6 +128,8 @@ export function MobileDarkRoom({
   onBackgroundPlateModeChange,
   styleReferenceLibraryOutput,
   onStyleReferenceLibraryOutputChange,
+  lightingLane,
+  onLightingLaneChange,
 }: MobileDarkRoomProps) {
   const navigate = useNavigate();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -338,6 +344,10 @@ export function MobileDarkRoom({
         hasBackgroundImage={!!backgroundImage}
         hasStyleReference={!!styleReference}
         disabled={isGenerating}
+        lightingLane={lightingLane}
+        onLightingLaneChange={onLightingLaneChange}
+        backgroundPlateMode={backgroundPlateMode}
+        onBackgroundPlateModeChange={onBackgroundPlateModeChange}
       />
 
       {/* Film Strip (if images exist) */}

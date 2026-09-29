@@ -2947,7 +2947,7 @@ export default function ImageLibrary() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <h1 className="font-serif text-2xl md:text-3xl text-[var(--darkroom-text)]">Image Library</h1>
-              <p className="text-xs md:text-sm text-[var(--darkroom-text)]/60 mt-1">
+              <p className="text-xs md:text-sm text-[var(--darkroom-text-muted)] mt-1">
                 {filteredImages.length} {filteredImages.length === 1 ? "image" : "images"}
               </p>
             </div>

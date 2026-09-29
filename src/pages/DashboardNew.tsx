@@ -270,7 +270,7 @@ export default function DashboardNew() {
       <div className="flex-1 overflow-auto main-content relative bg-[#F5F1E8]">
         <div className="relative min-h-full">
           <TextureOverlay texture="grid" opacity={0.35} gridSize={8} />
-          <div className="relative z-10 max-w-[1400px] mx-auto space-y-3 sm:space-y-4 md:space-y-6">
+          <div className="relative z-10 mx-auto max-w-[1400px] space-y-3 overflow-x-hidden px-4 sm:space-y-4 md:space-y-6 md:px-6">
 
           {/* WIDGET SYSTEM - All components including hero are widgets */}
           <DashboardWidgetSystem

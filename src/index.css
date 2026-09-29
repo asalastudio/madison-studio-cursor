@@ -614,13 +614,15 @@
   }
 
   .app-shell-mobile {
+    max-width: 100%;
+    overflow-x: clip;
     padding-top: calc(4rem + env(safe-area-inset-top, 0px));
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 
-  .mobile-bottom-nav a {
+  .mobile-bottom-nav a,
+  .mobile-tap-target {
     min-height: 44px;
-    min-width: 44px;
   }
 
   .mobile-library-actions button {
@@ -661,10 +663,13 @@
     border-radius: 0.5rem;
   }
   
-  /* Better touch targets for primary controls, not every icon chip */
-  button:not(.mobile-icon-btn),
-  a:not(.mobile-icon-btn),
-  [role="button"]:not(.mobile-icon-btn) {
+  /* Primary controls only — chips, icon buttons, and inline links stay compact */
+  button:not(.mobile-icon-btn):not(.mobile-chip):not(.rounded-full),
+  [role="button"]:not(.mobile-icon-btn):not(.mobile-chip):not(.rounded-full) {
+    min-height: 44px;
+  }
+
+  a.mobile-tap-target {
     min-height: 44px;
   }
   

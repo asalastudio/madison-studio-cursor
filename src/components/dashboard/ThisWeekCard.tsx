@@ -62,7 +62,7 @@ export function ThisWeekCard() {
 
   return (
     <div className="col-span-1 md:col-span-12">
-      <Card className="p-4 md:p-6 bg-white border border-[#E0E0E0] overflow-hidden h-full flex flex-col hover-lift transition-all duration-200">
+      <Card className="flex h-full max-w-full flex-col overflow-x-hidden border border-[#E0E0E0] bg-white p-4 transition-all duration-200 hover-lift md:p-6">
         <div className="flex items-center justify-between mb-4 md:mb-5">
           <h3 className="text-sm font-medium text-[#1C150D]/60">This Week</h3>
           {totalScheduled > 0 && (
@@ -73,8 +73,8 @@ export function ThisWeekCard() {
         </div>
         
         {/* Mobile: Horizontal Scroll */}
-        <div className="md:hidden overflow-x-auto -mx-4 px-4 scrollbar-hide">
-          <div className="flex gap-3 min-w-max pb-2">
+        <div className="scrollbar-hide max-w-full overflow-x-auto md:hidden">
+          <div className="flex min-w-max gap-3 pb-2">
             {weekDays.map((day, index) => (
               <div
                 key={index}
@@ -162,7 +162,7 @@ export function ThisWeekCard() {
               variant="outline"
               size="sm"
               onClick={() => navigate("/calendar")}
-              className="text-[#B8956A] border-[#B8956A]/30 hover:bg-[#B8956A]/10"
+              className="w-full max-w-full whitespace-normal text-[#B8956A] border-[#B8956A]/30 hover:bg-[#B8956A]/10"
             >
               Schedule Content →
             </Button>

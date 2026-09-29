@@ -709,7 +709,7 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
 
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background pb-8 md:pb-20">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-background pb-8 md:pb-20">
       <div className={`max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-10 transition-opacity duration-300 ${isGenerating ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         {/* Main Form */}
         <div>
@@ -735,13 +735,11 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {/* Librarian Trigger */}
-                {/* Madison Consult Trigger */}
+              <div className="flex min-w-0 w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="mr-1 h-11 w-11 rounded-md border border-brand-brass/20 text-brand-brass hover:bg-brand-brass/10 md:h-9 md:w-9"
+                  className="mobile-icon-btn h-11 w-11 shrink-0 rounded-md border border-brand-brass/20 text-brand-brass hover:bg-brand-brass/10 md:h-9 md:w-9"
                   onClick={() => triggerSuggestion({
                     type: 'idle_prompt', // Using idle_prompt type for manual consultation
                     message: "How might I assist you?",
@@ -766,13 +764,15 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
                   }}
                 />
 
-                <div className="flex items-center gap-2 bg-white/50 px-3 py-2 rounded-lg border border-warm-gray/10">
-                  <Label htmlFor="think-mode-toggle" className="text-xs md:text-sm text-warm-gray font-medium cursor-pointer select-none whitespace-nowrap">Brainstorming Helper</Label>
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-warm-gray/10 bg-white/50 px-3 py-2 md:flex-initial">
+                  <Label htmlFor="think-mode-toggle" className="min-w-0 truncate text-xs font-medium text-warm-gray cursor-pointer select-none md:text-sm">
+                    Brainstorming Helper
+                  </Label>
                   <Switch
                     id="think-mode-toggle"
                     checked={showThinkMode}
                     onCheckedChange={toggleThinkMode}
-                    className="data-[state=checked]:bg-brass flex-shrink-0"
+                    className="shrink-0 data-[state=checked]:bg-brass"
                   />
                 </div>
               </div>
