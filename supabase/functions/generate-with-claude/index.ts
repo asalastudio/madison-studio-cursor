@@ -1,10 +1,26 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import { getSemanticFields, formatSemanticContext } from '../_shared/productFieldFilters.ts';
+import { getSemanticFields } from '../_shared/productFieldFilters.ts';
+import {
+  fallbackSemanticProductContext,
+  resolveCopyProduct,
+} from '../_shared/resolveCopyProduct.ts';
 import { buildAuthorProfilesSection } from '../_shared/authorProfiles.ts';
 import { buildBrandAuthoritiesSection } from '../_shared/brandAuthorities.ts';
 import { getMadisonMasterContext, getSchwartzTemplate, SQUAD_DEFINITIONS } from '../_shared/madisonMasters.ts';
+import {
+  formatInstructionsForGenerateMode,
+  resolveCopywritingStyleSection,
+} from '../_shared/generateModePromptParts.ts';
+import {
+  CLAUDE_FALLBACK_MAX_TOKENS,
+  buildContinuationUserPrompt,
+  geminiAuthHeaders,
+  geminiGenerateContentUrl,
+  isTruncatedFinishReason,
+  shouldFallbackToClaude,
+} from '../_shared/aiRequestUtils.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -1207,29 +1223,37 @@ serve(async (req) => {
       hasImageStudioContext: !!imageStudioContext,
     });
 
-    // Fetch full product data from database if product_id is provided
+    // Create sends product_id = product_hubs.id from useProducts().
+    // Look up the hub first (org-scoped), then fall back to brand_products.
     let enrichedProductData = productData;
-    if (product_id && organizationId) {
-      console.log('Fetching product data from database for ID:', product_id);
+    if (product_id || productData) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      const { data: dbProductData, error: productError } = await supabase
-        .from('brand_products')
-        .select('*')
-        .eq('id', product_id)
-        .eq('organization_id', organizationId)
-        .maybeSingle();
-      
-      if (productError) {
-        console.error('Error fetching product data:', productError);
-      } else if (dbProductData) {
-        console.log('Product data fetched from database:', dbProductData.name);
-        // Merge database data with any passed productData (database takes priority)
-        enrichedProductData = { ...productData, ...dbProductData };
-        
-        // 🎯 FILTER TO SEMANTIC FIELDS ONLY FOR COPYWRITING
-        // This prevents visual/technical fields from cluttering the copywriting prompt
-        enrichedProductData = getSemanticFields(enrichedProductData);
-        console.log('✅ Filtered to semantic fields for copywriting (25 fields max)');
+      const resolved = await resolveCopyProduct({
+        productId: product_id,
+        organizationId,
+        clientProductData: productData,
+        fetchProduct: async (table, id, orgId) => {
+          const { data, error } = await supabase
+            .from(table)
+            .select('*')
+            .eq('id', id)
+            .eq('organization_id', orgId)
+            .maybeSingle();
+          if (error) {
+            console.error(`Error fetching ${table} for copy:`, error);
+            return null;
+          }
+          return data;
+        },
+      });
+      if (resolved.product) {
+        enrichedProductData = resolved.product;
+        console.log(
+          `✅ Copy product resolved from ${resolved.source}:`,
+          resolved.product.name || product_id,
+        );
+      } else {
+        enrichedProductData = getSemanticFields(productData);
       }
     }
 
@@ -1577,7 +1601,11 @@ ${schwartzTemplate}
       const categoryPromptBuilder = CATEGORY_PROMPTS[enrichedProductData.category as keyof typeof CATEGORY_PROMPTS];
       if (categoryPromptBuilder) {
         productContext = categoryPromptBuilder(enrichedProductData);
+      } else {
+        productContext = fallbackSemanticProductContext(enrichedProductData);
       }
+    } else if (enrichedProductData) {
+      productContext = fallbackSemanticProductContext(enrichedProductData);
     } else if (!enrichedProductData) {
       // No product selected - brand-level request
       productContext = `
@@ -1800,10 +1828,15 @@ MANDATORY RESPONSE MODE:
         if (mode === "generate") {
           // GENERATE MODE: Ghostwriter role with Codex v2
           
-          // Use Phase 3 dynamic style selection if available, otherwise use legacy style overlays
-          const styleSection = usePhase3 
-            ? copywritingStyleContext 
-            : selectedStyleOverlay;
+          // Phase 3.5 sequencing and Phase 3 style selection both write
+          // copywritingStyleContext. Use either; otherwise keep the overlay.
+          const styleSection = resolveCopywritingStyleSection({
+            usePhase3,
+            usePhase35,
+            copywritingStyleContext,
+            selectedStyleOverlay,
+          });
+          const formatInstructions = formatInstructionsForGenerateMode(contentType);
           
           systemPrompt = `${madisonSystemConfig}
 
@@ -1922,6 +1955,8 @@ OUTPUT RULES:
 ╔══════════════════════════════════════════════════════════════════╗
 ║                  FORMAT-SPECIFIC GUIDELINES                       ║
 ╚══════════════════════════════════════════════════════════════════╝
+
+${formatInstructions}
 
 ${contentType === 'video_script' || contentType === 'short_form_video_script' ? `
 ━━━ VIDEO SCRIPT FORMAT ━━━
@@ -2204,6 +2239,7 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
     const API_TIMEOUT = 60000; // ✨ PERFORMANCE FIX: 60 second timeout for API calls
     let lastError: Error | null = null;
     let generatedContent = '';
+    let truncated = false;
     
     // Exponential backoff retry logic
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -2336,14 +2372,18 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
             const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
             
             try {
-              response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
+              response = await fetch(
+                geminiGenerateContentUrl(
+                  'https://generativelanguage.googleapis.com/v1beta',
+                  GEMINI_MODEL,
+                ),
+                {
+                  method: 'POST',
+                  headers: geminiAuthHeaders(GEMINI_API_KEY!),
+                  body: JSON.stringify(geminiRequestBody),
+                  signal: controller.signal,
                 },
-                body: JSON.stringify(geminiRequestBody),
-                signal: controller.signal,
-              });
+              );
               clearTimeout(timeoutId);
             } catch (fetchError: any) {
               clearTimeout(timeoutId);
@@ -2367,18 +2407,15 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
               promptLength: prompt?.length || 0
             });
             
-            // If Gemini is unavailable due to quota/rate limits, fall back to Claude
-            const lower = errorText.toLowerCase();
-            const isQuotaOrRateLimit = response.status === 429 
-              || response.status === 403
-              || (response.status === 400 && (lower.includes('quota') || lower.includes('rate') || lower.includes('limit')));
-            
-            if (isQuotaOrRateLimit) {
+            // Quota/rate limits and Gemini gateway errors fall back to Claude.
+            if (shouldFallbackToClaude(response.status, errorText)) {
               if (hasAnthropicAPI) {
-                console.log('Falling back to Anthropic Claude due to Gemini quota/rate limit');
+                console.log('Falling back to Anthropic Claude due to Gemini error', {
+                  status: response.status,
+                });
                 // Will fall through to Claude logic below
               } else {
-                throw new Error(`Gemini API quota/rate limit exceeded: ${response.status} - ${errorText}`);
+                throw new Error(`Gemini API unavailable: ${response.status} - ${errorText}`);
               }
             } else if (response.status === 500) {
               // Retry on server errors
@@ -2415,17 +2452,62 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
             }
             
             generatedContent = textParts.join('\n');
+            truncated = isTruncatedFinishReason(candidate.finishReason);
 
             // A truncated deliverable still arrives as HTTP 200 with usable-looking
-            // prose, so it reaches the user as a finished article. Log it loudly.
-            if (candidate.finishReason === 'MAX_TOKENS') {
-              console.error('Gemini response hit MAX_TOKENS — deliverable is truncated', {
+            // prose, so it reaches the user as a finished article. Continue once.
+            if (truncated) {
+              console.error('Gemini response hit MAX_TOKENS — attempting auto-continue', {
                 model: data?.modelVersion,
                 thoughtsTokenCount: data?.usageMetadata?.thoughtsTokenCount,
                 candidatesTokenCount: data?.usageMetadata?.candidatesTokenCount,
                 totalTokenCount: data?.usageMetadata?.totalTokenCount,
                 contentLength: generatedContent.length,
               });
+
+              const continueController = new AbortController();
+              const continueTimeout = setTimeout(() => continueController.abort(), API_TIMEOUT);
+              try {
+                const continueResponse = await fetch(
+                  geminiGenerateContentUrl(
+                    'https://generativelanguage.googleapis.com/v1beta',
+                    GEMINI_MODEL,
+                  ),
+                  {
+                    method: 'POST',
+                    headers: geminiAuthHeaders(GEMINI_API_KEY!),
+                    body: JSON.stringify({
+                      ...geminiRequestBody,
+                      contents: [
+                        { role: 'user', parts: geminiParts },
+                        { role: 'model', parts: [{ text: generatedContent }] },
+                        {
+                          role: 'user',
+                          parts: [{
+                            text: buildContinuationUserPrompt(prompt, generatedContent),
+                          }],
+                        },
+                      ],
+                    }),
+                    signal: continueController.signal,
+                  },
+                );
+                if (continueResponse.ok) {
+                  const continueData = await continueResponse.json();
+                  const continueCandidate = continueData?.candidates?.[0];
+                  const continueParts = (continueCandidate?.content?.parts ?? [])
+                    .filter((part: { text?: string }) => part.text)
+                    .map((part: { text: string }) => part.text);
+                  if (continueParts.length > 0) {
+                    generatedContent = `${generatedContent}${continueParts.join('\n')}`;
+                    truncated = isTruncatedFinishReason(continueCandidate?.finishReason);
+                  }
+                }
+              } catch (continueError) {
+                console.error('Gemini auto-continue failed; returning truncated draft', continueError);
+              } finally {
+                clearTimeout(continueTimeout);
+              }
             }
             break; // Success!
           }
@@ -2437,7 +2519,7 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
           try {
             const requestBody = {
               model: 'claude-sonnet-5',
-              max_tokens: 4096,
+              max_tokens: CLAUDE_FALLBACK_MAX_TOKENS,
               system: systemPrompt,
               messages: [
                 {
@@ -2530,6 +2612,54 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
           }
           
           generatedContent = textContent.text;
+          truncated = isTruncatedFinishReason(data.stop_reason);
+
+          if (truncated) {
+            console.error('Claude response hit max_tokens — attempting auto-continue', {
+              contentLength: generatedContent.length,
+            });
+            const continueController = new AbortController();
+            const continueTimeout = setTimeout(() => continueController.abort(), API_TIMEOUT);
+            try {
+              const continueResponse = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                  'x-api-key': ANTHROPIC_API_KEY!,
+                  'anthropic-version': '2023-06-01',
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  ...requestBody,
+                  messages: [
+                    { role: 'user', content: messageContent },
+                    { role: 'assistant', content: generatedContent },
+                    {
+                      role: 'user',
+                      content: buildContinuationUserPrompt(
+                        typeof messageContent === 'string' ? messageContent : prompt,
+                        generatedContent,
+                      ),
+                    },
+                  ],
+                }),
+                signal: continueController.signal,
+              });
+              if (continueResponse.ok) {
+                const continueData = await continueResponse.json();
+                const continueText = continueData?.content?.find?.(
+                  (item: { type?: string; text?: string }) => item.type === 'text',
+                );
+                if (continueText?.text) {
+                  generatedContent = `${generatedContent}${continueText.text}`;
+                  truncated = isTruncatedFinishReason(continueData.stop_reason);
+                }
+              }
+            } catch (continueError) {
+              console.error('Claude auto-continue failed; returning truncated draft', continueError);
+            } finally {
+              clearTimeout(continueTimeout);
+            }
+          }
         }
         
         // Success - break out of retry loop
@@ -2547,7 +2677,7 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
     console.log('Successfully generated content with Claude');
 
     return new Response(
-      JSON.stringify({ generatedContent }),
+      JSON.stringify({ generatedContent, truncated }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
