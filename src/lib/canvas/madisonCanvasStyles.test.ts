@@ -17,6 +17,8 @@ describe("madison canvas styles", () => {
     assert.match(rules, /\.madison-canvas__toolbar/);
     assert.match(rules, /\.madison-canvas__workspace/);
     assert.match(rules, /\.madison-canvas__board/);
+    assert.match(rules, /\.madison-canvas__viewport-controls/);
+    assert.match(rules, /\.madison-canvas__viewport-zoom/);
     assert.match(rules, /flex:\s*0 0 320px/);
     assert.doesNotMatch(rules, /#F5F3EF/i);
     assert.doesNotMatch(rules, /#F5F1E8/i);

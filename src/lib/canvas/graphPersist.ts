@@ -4,29 +4,9 @@ import {
   canvasNodesTable,
   canvasesTable,
 } from "./database";
-import type { CanvasEdgeRecord, CanvasNodeRecord } from "./types";
+import { flowNodesToRecords } from "./graphSerialize";
 
-export function recordsToFlow(
-  nodes: CanvasNodeRecord[],
-  edges: CanvasEdgeRecord[],
-): { nodes: Node[]; edges: Edge[] } {
-  return {
-    nodes: nodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      position: node.position,
-      data: node.data,
-    })),
-    edges: edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source_node_id,
-      target: edge.target_node_id,
-      sourceHandle: edge.source_handle ?? undefined,
-      targetHandle: edge.target_handle ?? undefined,
-      type: "default",
-    })),
-  };
-}
+export { flowNodesToRecords, recordsToFlow } from "./graphSerialize";
 
 export async function persistCanvasGraph(options: {
   organizationId: string;
@@ -65,16 +45,7 @@ export async function persistCanvasGraph(options: {
 
   if (nodes.length > 0) {
     const { error } = await canvasNodesTable().upsert(
-      nodes.map((node) => ({
-        id: node.id,
-        organization_id: organizationId,
-        project_id: projectId,
-        canvas_id: canvasId,
-        type: node.type,
-        position: node.position,
-        data: (node.data ?? {}) as Record<string, unknown>,
-        status: "idle",
-      })),
+      flowNodesToRecords(nodes, { organizationId, projectId, canvasId }),
       { onConflict: "id" },
     );
     if (error) throw error;

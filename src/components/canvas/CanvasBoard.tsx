@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Background,
-  BackgroundVariant,
   ConnectionLineType,
-  Controls,
   MarkerType,
   ReactFlow,
   addEdge,
@@ -22,9 +19,12 @@ import { LCDDisplay, LEDIndicator } from "@/components/darkroom/LEDIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCanvasDocument, useCanvasProject, useCanvasRecords } from "@/hooks/useCanvasProjects";
-import { persistCanvasGraph, recordsToFlow } from "@/lib/canvas/graphPersist";
+import { createCanvasHistory, shouldPersistNodeChanges } from "@/lib/canvas/boardInteraction";
+import { CANVAS_FLOW_PROPS } from "@/lib/canvas/canvasFlowProps";
+import { persistCanvasGraph } from "@/lib/canvas/graphPersist";
+import { recordsToFlow } from "@/lib/canvas/graphSerialize";
 import { isValidConnection, validateConnection } from "@/lib/canvas/graphValidation";
-import { CANVAS_FIT_VIEW_OPTIONS, CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM, nextOpenCanvasSlot } from "@/lib/canvas/layout";
+import { nextOpenCanvasSlot } from "@/lib/canvas/layout";
 import {
   buildDefaultBatchNodeData,
   buildDefaultImageNodeData,
@@ -35,7 +35,8 @@ import {
   type Week1NodeType,
 } from "@/lib/canvas/types";
 import { buildDefaultPackNodeData, buildDefaultSetNodeData } from "@/lib/canvas/defaultGraph";
-import { CanvasFitView, canvasFitViewOnInit } from "./CanvasFitView";
+import { CanvasBoardSurface } from "./CanvasBoardSurface";
+import { canvasFitViewOnInit } from "./CanvasFitView";
 import { CanvasInspector } from "./CanvasInspector";
 import { CanvasRunProvider, type CanvasRunRequest } from "./CanvasRunContext";
 import { CanvasToolbar } from "./CanvasToolbar";
@@ -95,11 +96,14 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
   const recordsQuery = useCanvasRecords(canvasQuery.data?.id);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, zoom: 1 });
   const hydratedRef = useRef(false);
   const dirtyRef = useRef(false);
+  const historyRef = useRef(createCanvasHistory());
+  const graphRef = useRef({ nodes, edges });
+  graphRef.current = { nodes, edges };
 
   useEffect(() => {
     if (!recordsQuery.data || hydratedRef.current) return;
@@ -113,13 +117,21 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
   }, [canvasQuery.data?.viewport, recordsQuery.data, setEdges, setNodes]);
 
   const selectedNode = useMemo(
-    () => nodes.find((node) => node.id === selectedId) ?? null,
-    [nodes, selectedId],
+    () => nodes.find((node) => node.id === selectedIds[0]) ?? null,
+    [nodes, selectedIds],
   );
 
   const markDirty = useCallback(() => {
     dirtyRef.current = true;
   }, []);
+
+  const undo = useCallback(() => {
+    const snapshot = historyRef.current.pop();
+    if (!snapshot) return;
+    setNodes(snapshot.nodes);
+    setEdges(snapshot.edges);
+    markDirty();
+  }, [markDirty, setEdges, setNodes]);
 
   const save = useCallback(async () => {
     if (!organizationId || !canvasQuery.data || !dirtyRef.current) return;
@@ -172,10 +184,11 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
         });
         return;
       }
+      historyRef.current.push(nodes, edges);
       setEdges((current) => addEdge({ ...DEFAULT_EDGE_OPTIONS, ...connection, id: newId() }, current));
       markDirty();
     },
-    [markDirty, nodes, setEdges, toast],
+    [edges, markDirty, nodes, setEdges, toast],
   );
 
   const addNode = useCallback((type: Week1NodeType) => {
@@ -184,11 +197,13 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
       type,
       position: nextOpenCanvasSlot(nodes, type),
       data: defaultData(type),
+      draggable: true,
     };
+    historyRef.current.push(nodes, edges);
     setNodes((current) => [...current, node]);
-    setSelectedId(node.id);
+    setSelectedIds([node.id]);
     markDirty();
-  }, [markDirty, nodes.length, setNodes]);
+  }, [edges, markDirty, nodes, setNodes]);
 
   const updateNodeData = useCallback((nodeId: string, data: Record<string, unknown>) => {
     setNodes((current) => current.map((node) => (node.id === nodeId ? { ...node, data } : node)));
@@ -232,15 +247,23 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
             nodes={nodes}
             edges={edges}
             onNodesChange={(changes) => {
+              if (changes.some((change) => change.type === "remove")) {
+                historyRef.current.push(graphRef.current.nodes, graphRef.current.edges);
+              }
               onNodesChange(changes);
-              markDirty();
+              if (shouldPersistNodeChanges(changes)) markDirty();
             }}
             onEdgesChange={(changes) => {
+              if (changes.some((change) => change.type === "remove")) {
+                historyRef.current.push(graphRef.current.nodes, graphRef.current.edges);
+              }
               onEdgesChange(changes);
-              markDirty();
+              if (changes.some((change) => change.type !== "select")) markDirty();
             }}
             onConnect={onConnect}
-            onSelectionChange={({ nodes: selected }) => setSelectedId(selected[0]?.id ?? null)}
+            onSelectionChange={({ nodes: selected }) => {
+              setSelectedIds(selected.map((node) => node.id));
+            }}
             onMoveEnd={(_, viewport) => {
               viewportRef.current = viewport;
               markDirty();
@@ -259,22 +282,11 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
             defaultViewport={canvasQuery.data.viewport}
             defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
             connectionLineType={ConnectionLineType.Bezier}
-            minZoom={CANVAS_MIN_ZOOM}
-            maxZoom={CANVAS_MAX_ZOOM}
-            fitViewOptions={CANVAS_FIT_VIEW_OPTIONS}
             onInit={canvasFitViewOnInit}
-            elevateNodesOnSelect
             proOptions={{ hideAttribution: true }}
+            {...CANVAS_FLOW_PROPS}
           >
-            <CanvasFitView trigger={nodes.length} />
-            <Background
-              id="madison-dots"
-              variant={BackgroundVariant.Dots}
-              gap={22}
-              size={1.4}
-              color="rgba(255, 255, 255, 0.08)"
-            />
-            <Controls showInteractive={false} />
+            <CanvasBoardSurface onUndo={undo} />
           </ReactFlow>
         }
         header={
@@ -306,7 +318,13 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
             </div>
           </header>
         }
-        inspector={<CanvasInspector node={selectedNode} onChange={updateNodeData} />}
+        inspector={
+          <CanvasInspector
+            node={selectedNode}
+            selectedCount={selectedIds.length}
+            onChange={updateNodeData}
+          />
+        }
         toolbar={<CanvasToolbar onAddNode={addNode} />}
       />
     </CanvasRunProvider>

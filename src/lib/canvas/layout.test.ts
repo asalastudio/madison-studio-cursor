@@ -5,6 +5,7 @@ import {
   CANVAS_COLUMN_STRIDE,
   CANVAS_FIT_VIEW_OPTIONS,
   CANVAS_LTR_SLOTS,
+  CANVAS_MIN_ZOOM,
   CANVAS_NODE_HEIGHT,
   CANVAS_NODE_WIDTH,
   CANVAS_ORIGIN,
@@ -68,6 +69,8 @@ describe("canvas layout", () => {
   it("keeps a two-row graph readable at minZoom 0.6 on a 1120px board", () => {
     assert.equal(CANVAS_FIT_VIEW_OPTIONS.padding, 0.15);
     assert.equal(CANVAS_FIT_VIEW_OPTIONS.minZoom, 0.6);
+    assert.equal(CANVAS_MIN_ZOOM, 0.1);
+    assert.ok(CANVAS_FIT_VIEW_OPTIONS.minZoom > CANVAS_MIN_ZOOM);
 
     const left = CANVAS_ORIGIN.x;
     const top = CANVAS_ORIGIN.y;

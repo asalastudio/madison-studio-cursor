@@ -21,10 +21,11 @@ import { useCanvasRun } from "./CanvasRunContext";
 
 interface CanvasInspectorProps {
   node: Node | null;
+  selectedCount?: number;
   onChange: (nodeId: string, data: Record<string, unknown>) => void;
 }
 
-export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
+export function CanvasInspector({ node, selectedCount = node ? 1 : 0, onChange }: CanvasInspectorProps) {
   const onRun = useCanvasRun();
   const [collapsed, setCollapsed] = useState(false);
   const toggle = (
@@ -41,6 +42,21 @@ export function CanvasInspector({ node, onChange }: CanvasInspectorProps) {
       {collapsed ? <PanelRightOpen /> : <PanelRightClose />}
     </button>
   );
+
+  if (selectedCount > 1) {
+    return (
+      <aside className={cn("madison-canvas__inspector nodrag nopan nowheel", collapsed && "is-collapsed")}>
+        <div className="camera-panel camera-panel--active h-full">
+          <CameraPanelHeader title="Selection" ledState="ready">
+            {toggle}
+          </CameraPanelHeader>
+          <div className="madison-canvas__inspector-body text-sm text-[var(--darkroom-text-muted)]">
+            {selectedCount} cards selected. Drag any one to move them together. Delete or Backspace removes the set.
+          </div>
+        </div>
+      </aside>
+    );
+  }
 
   if (!node) {
     return (

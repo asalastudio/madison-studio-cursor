@@ -80,11 +80,14 @@
 }
 
 .madison-canvas .react-flow__minimap {
+  right: 12px;
+  bottom: 88px;
   background: var(--darkroom-surface) !important;
   border: 1px solid var(--darkroom-border) !important;
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
+  cursor: pointer;
 }
 
 .madison-canvas .react-flow__minimap-mask {
@@ -92,21 +95,75 @@
 }
 
 .madison-canvas .react-flow__controls {
+  display: none;
+}
+
+.madison-canvas .react-flow__selection {
+  background: color-mix(in srgb, var(--darkroom-accent) 14%, transparent);
+  border: 1px solid var(--darkroom-accent);
+}
+
+.madison-canvas .react-flow__nodesselection-rect {
+  border: 1px dashed color-mix(in srgb, var(--darkroom-accent) 70%, transparent);
+}
+
+.madison-canvas__board.is-space-panning .react-flow__pane {
+  cursor: grab;
+}
+
+.madison-canvas__board.is-space-panning .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.madison-canvas__viewport-controls {
+  position: absolute;
+  left: 12px;
   bottom: 88px;
-  box-shadow: var(--shadow-md) !important;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--darkroom-surface) 94%, transparent);
   border: 1px solid var(--darkroom-border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
 }
 
-.madison-canvas .react-flow__controls-button {
-  background: var(--darkroom-surface) !important;
-  border-bottom-color: var(--darkroom-border) !important;
-  fill: var(--darkroom-text) !important;
+.madison-canvas__viewport-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--darkroom-border);
+  border-radius: var(--radius-md);
+  background: var(--darkroom-surface-elevated);
+  color: var(--darkroom-text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
-.madison-canvas .react-flow__controls-button:hover {
-  background: var(--darkroom-surface-elevated) !important;
+.madison-canvas__viewport-button:hover {
+  color: var(--darkroom-accent);
+  border-color: color-mix(in srgb, var(--darkroom-accent) 45%, transparent);
+}
+
+.madison-canvas__viewport-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.madison-canvas__viewport-zoom {
+  min-width: 44px;
+  padding: 0 4px;
+  font-family: var(--lcd-font);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: var(--darkroom-accent);
 }
 
 .madison-canvas .react-flow__attribution {

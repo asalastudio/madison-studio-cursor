@@ -1,4 +1,7 @@
+import { CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM, CANVAS_SNAP_GRID } from "./boardInteraction";
 import type { Week1NodeType } from "./types";
+
+export { CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM, CANVAS_SNAP_GRID };
 
 /** Higgsfield media card: 280px wide, ~320px tall with bar + media + settings. */
 export const CANVAS_NODE_WIDTH = 280;
@@ -11,6 +14,7 @@ export const CANVAS_WRAP_COLUMNS = 3;
 export const CANVAS_COLUMN_STRIDE = CANVAS_NODE_WIDTH + CANVAS_COLUMN_GAP;
 export const CANVAS_ROW_STRIDE = CANVAS_NODE_HEIGHT + CANVAS_ROW_GAP;
 
+/** Readable first paint only — board zoom limits stay 0.1–2. */
 export const CANVAS_FIT_VIEW_OPTIONS = {
   padding: 0.15,
   duration: 0,
@@ -18,8 +22,10 @@ export const CANVAS_FIT_VIEW_OPTIONS = {
   maxZoom: 1,
 } as const;
 
-export const CANVAS_MIN_ZOOM = CANVAS_FIT_VIEW_OPTIONS.minZoom;
-export const CANVAS_MAX_ZOOM = 1.25;
+export const CANVAS_ZOOM_TO_FIT_OPTIONS = {
+  padding: 0.15,
+  duration: 200,
+} as const;
 
 /**
  * Two-row pipeline so six cards stay readable at minZoom 0.6

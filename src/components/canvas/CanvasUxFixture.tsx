@@ -1,9 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
-  Background,
-  BackgroundVariant,
   ConnectionLineType,
-  Controls,
   MarkerType,
   ReactFlow,
   useEdgesState,
@@ -19,10 +16,13 @@ import {
   buildDefaultSetNodeData,
   buildProductNodeData,
 } from "@/lib/canvas/defaultGraph";
-import { CANVAS_FIT_VIEW_OPTIONS, CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM, defaultPositionForType, nextOpenCanvasSlot } from "@/lib/canvas/layout";
+import { createCanvasHistory } from "@/lib/canvas/boardInteraction";
+import { CANVAS_FLOW_PROPS } from "@/lib/canvas/canvasFlowProps";
+import { defaultPositionForType, nextOpenCanvasSlot } from "@/lib/canvas/layout";
 import { buildDefaultBatchNodeData, buildDefaultImageNodeData } from "@/lib/canvas/models";
 import { DEFAULT_SHOT_TYPES, type Week1NodeType } from "@/lib/canvas/types";
-import { CanvasFitView, canvasFitViewOnInit } from "./CanvasFitView";
+import { CanvasBoardSurface } from "./CanvasBoardSurface";
+import { canvasFitViewOnInit } from "./CanvasFitView";
 import { CanvasInspector } from "./CanvasInspector";
 import { CanvasRunProvider } from "./CanvasRunContext";
 import { CanvasToolbar } from "./CanvasToolbar";
@@ -40,7 +40,21 @@ const EDGE_STYLE = {
   },
 };
 
-function seedGraph(): { nodes: Node[]; edges: Edge[] } {
+const REARRANGED_POSITIONS: Record<string, { x: number; y: number }> = {
+  pack: { x: 40, y: 40 },
+  product: { x: 560, y: 220 },
+  set: { x: 1080, y: 80 },
+  shot: { x: 200, y: 620 },
+  batch: { x: 760, y: 780 },
+  image: { x: 1280, y: 520 },
+};
+
+function previewShot(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("shot");
+}
+
+function seedGraph(rearranged: boolean): { nodes: Node[]; edges: Edge[] } {
   const seeded = buildDefaultGraph({
     type: "pdp",
     skuHit: {
@@ -59,35 +73,50 @@ function seedGraph(): { nodes: Node[]; edges: Edge[] } {
   const set = seeded.nodes.find((node) => node.type === "set");
   const product = seeded.nodes.find((node) => node.type === "product");
 
+  const placed = [...seeded.nodes].map((node) => ({
+    id: node.id,
+    type: node.type,
+    position:
+      rearranged && node.type && REARRANGED_POSITIONS[node.type]
+        ? REARRANGED_POSITIONS[node.type]
+        : node.position,
+    data: node.data,
+    draggable: true,
+  }));
+
   const nodes: Node[] = [
-    ...seeded.nodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      position: node.position,
-      data: node.data,
-    })),
+    ...placed,
     {
       id: shotId,
       type: "shot",
-      position: defaultPositionForType("shot"),
+      position: rearranged && REARRANGED_POSITIONS.shot
+        ? REARRANGED_POSITIONS.shot
+        : defaultPositionForType("shot"),
       data: {
         shotTypeId: "pdp_main",
         name: DEFAULT_SHOT_TYPES[0].name,
         size: DEFAULT_SHOT_TYPES[0].size,
         note: "Hero still",
       },
+      draggable: true,
     },
     {
       id: batchId,
       type: "batch",
-      position: defaultPositionForType("batch"),
+      position: rearranged && REARRANGED_POSITIONS.batch
+        ? REARRANGED_POSITIONS.batch
+        : defaultPositionForType("batch"),
       data: buildDefaultBatchNodeData(),
+      draggable: true,
     },
     {
       id: imageId,
       type: "image",
-      position: defaultPositionForType("image"),
+      position: rearranged && REARRANGED_POSITIONS.image
+        ? REARRANGED_POSITIONS.image
+        : defaultPositionForType("image"),
       data: buildDefaultImageNodeData("PDP main · take 1"),
+      draggable: true,
     },
   ];
 
@@ -118,13 +147,24 @@ function seedGraph(): { nodes: Node[]; edges: Edge[] } {
 }
 
 export function CanvasUxFixture() {
-  const seed = useMemo(() => seedGraph(), []);
+  const rearranged = previewShot() === "rearranged";
+  const seed = useMemo(() => seedGraph(rearranged), [rearranged]);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(seed.nodes);
-  const [edges, , onEdgesChange] = useEdgesState<Edge>(seed.edges);
-  const [selectedId, setSelectedId] = useState<string | null>(seed.nodes[0]?.id ?? null);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(seed.edges);
+  const [selectedIds, setSelectedIds] = useState<string[]>(seed.nodes[0] ? [seed.nodes[0].id] : []);
   const [runNote, setRunNote] = useState("Autosave on · generation is Week 2");
+  const historyRef = useRef(createCanvasHistory());
+  const graphRef = useRef({ nodes, edges });
+  graphRef.current = { nodes, edges };
 
-  const selectedNode = nodes.find((node) => node.id === selectedId) ?? null;
+  const selectedNode = nodes.find((node) => node.id === selectedIds[0]) ?? null;
+
+  const undo = useCallback(() => {
+    const snapshot = historyRef.current.pop();
+    if (!snapshot) return;
+    setNodes(snapshot.nodes);
+    setEdges(snapshot.edges);
+  }, [setEdges, setNodes]);
 
   const addNode = useCallback((type: Week1NodeType) => {
     const data =
@@ -148,10 +188,12 @@ export function CanvasUxFixture() {
       type,
       position: nextOpenCanvasSlot(nodes, type),
       data,
+      draggable: true,
     };
+    historyRef.current.push(nodes, edges);
     setNodes((current) => [...current, node]);
-    setSelectedId(node.id);
-  }, [nodes, setNodes]);
+    setSelectedIds([node.id]);
+  }, [edges, nodes, setNodes]);
 
   return (
     <CanvasRunProvider
@@ -164,28 +206,30 @@ export function CanvasUxFixture() {
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onSelectionChange={({ nodes: selected }) => setSelectedId(selected[0]?.id ?? selectedId)}
+            onNodesChange={(changes) => {
+              if (changes.some((change) => change.type === "remove")) {
+                historyRef.current.push(graphRef.current.nodes, graphRef.current.edges);
+              }
+              onNodesChange(changes);
+            }}
+            onEdgesChange={(changes) => {
+              if (changes.some((change) => change.type === "remove")) {
+                historyRef.current.push(graphRef.current.nodes, graphRef.current.edges);
+              }
+              onEdgesChange(changes);
+            }}
+            onSelectionChange={({ nodes: selected }) => {
+              setSelectedIds(selected.map((node) => node.id));
+            }}
             nodeTypes={canvasNodeTypes}
             defaultEdgeOptions={EDGE_STYLE}
             connectionLineType={ConnectionLineType.Bezier}
-            minZoom={CANVAS_MIN_ZOOM}
-            maxZoom={CANVAS_MAX_ZOOM}
-            fitViewOptions={CANVAS_FIT_VIEW_OPTIONS}
-            onInit={canvasFitViewOnInit}
-            elevateNodesOnSelect
+            defaultViewport={rearranged ? { x: 80, y: 40, zoom: 0.38 } : undefined}
+            onInit={rearranged ? undefined : canvasFitViewOnInit}
             proOptions={{ hideAttribution: true }}
+            {...CANVAS_FLOW_PROPS}
           >
-            <CanvasFitView trigger={nodes.length} />
-            <Background
-              id="madison-dots"
-              variant={BackgroundVariant.Dots}
-              gap={22}
-              size={1.4}
-              color="rgba(255, 255, 255, 0.08)"
-            />
-            <Controls showInteractive={false} />
+            <CanvasBoardSurface skipInitialFit={rearranged} onUndo={undo} />
           </ReactFlow>
         }
         header={
@@ -203,6 +247,7 @@ export function CanvasUxFixture() {
         inspector={
           <CanvasInspector
             node={selectedNode}
+            selectedCount={selectedIds.length}
             onChange={(nodeId, data) => {
               setNodes((current) => current.map((node) => (node.id === nodeId ? { ...node, data } : node)));
             }}
