@@ -44,7 +44,6 @@ import { logger } from "@/lib/logger";
 import { RoleDashboardWidgets } from "@/components/dashboard/RoleDashboardWidgets";
 import { useUserRole } from "@/hooks/useUserRole";
 
-import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { TextureOverlay } from "@/components/ui/texture-overlay";
 
 export default function DashboardNew() {
@@ -124,7 +123,7 @@ export default function DashboardNew() {
   }
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col">
+    <div className="flex min-h-screen flex-col overflow-y-auto md:h-screen md:overflow-hidden">
       {/* Top Bar with Madison Button - Desktop Only */}
       <div className="hidden md:flex h-16 border-b border-[#E0E0E0] px-8 items-center justify-between bg-white shrink-0">
         <h1 className="text-xl font-semibold text-[#1C150D]">Dashboard</h1>
@@ -220,8 +219,7 @@ export default function DashboardNew() {
       </div>
 
       {/* Mobile Header - Simplified */}
-      <div className="md:hidden h-14 border-b border-[#E0E0E0] px-4 flex items-center justify-between bg-white sticky top-0 z-10 shrink-0">
-        <h1 className="text-base sm:text-lg font-semibold text-[#1C150D]">Dashboard</h1>
+      <div className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-end border-b border-border bg-card px-4 md:hidden">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -313,9 +311,6 @@ export default function DashboardNew() {
         </div>
       </div>
 
-
-      {/* Mobile Navigation */}
-      <BottomNavigation />
 
       {/* Post-Onboarding Guide */}
       {showGuide && <PostOnboardingGuide onDismiss={dismissGuide} userName={user?.email?.split("@")[0]} />}

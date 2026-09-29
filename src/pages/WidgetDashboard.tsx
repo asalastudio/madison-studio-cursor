@@ -18,7 +18,6 @@ import { WidgetProvider, useWidgets, WidgetGrid, WidgetSelector } from "@/compon
 
 // Supporting Components
 import MadisonPanel from "@/components/image-editor/MadisonPanel";
-import { BottomNavigation } from "@/components/layout/BottomNavigation";
 import { BrandQuickViewTrigger } from "@/components/brand";
 import { GettingStartedChecklist } from "@/components/onboarding/GettingStartedChecklist";
 import { PostOnboardingGuide } from "@/components/onboarding/PostOnboardingGuide";
@@ -235,9 +234,6 @@ function WidgetDashboardContent() {
         sessionCount={0}
         maxImages={10}
       />
-
-      {/* Mobile Navigation */}
-      <BottomNavigation />
 
       {/* Post-Onboarding Guide */}
       {showGuide && <PostOnboardingGuide onDismiss={dismissGuide} userName={user?.email?.split("@")[0]} />}

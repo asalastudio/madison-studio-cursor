@@ -10,12 +10,14 @@ import { useEffect, useState, Suspense, lazy, useRef } from "react";
 import React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
+import { isMobileLayoutPreviewEnabled } from "@/lib/mobileLayoutPreview";
 import { Loader2 } from "lucide-react";
 
 import Navigation from "./components/Navigation";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
 import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
+import { BottomNavigation } from "@/components/layout/BottomNavigation";
 
 // Critical path - keep as static imports for fast initial load
 import Index from "./pages/Index";
@@ -125,6 +127,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     logger.debug("[RouteGuard] ProtectedRoute check", { path: location.pathname, loading, hasUser: !!user });
+
+    if (isMobileLayoutPreviewEnabled()) {
+      setAllowed(true);
+      setError(null);
+      hasChecked.current = true;
+      return;
+    }
 
     if (loading) return; // wait for initial auth hook
 
@@ -352,7 +361,7 @@ const AppContent = () => {
   useOnboarding();
 
   // Show sidebar for authenticated users on all pages except /auth, /editor, /onboarding, and /darkroom
-  const showSidebar = user && location.pathname !== "/auth" && location.pathname !== "/editor" && location.pathname !== "/onboarding" && location.pathname !== "/darkroom" && location.pathname !== "/light-table";
+  const showSidebar = (user || isMobileLayoutPreviewEnabled()) && location.pathname !== "/auth" && location.pathname !== "/editor" && location.pathname !== "/onboarding" && location.pathname !== "/darkroom" && location.pathname !== "/light-table";
 
   return (
     <>
@@ -361,7 +370,7 @@ const AppContent = () => {
           <div className="flex min-h-screen w-full">
             <AppSidebar />
             <main className="flex-1 overflow-auto pt-0">
-              <div className="pt-16 md:pt-0">
+              <div className="app-shell-mobile md:pt-0">
                 <Suspense fallback={<PageLoader />}>
                     <Routes>
                     <Route path="/" element={<ProtectedRoute><RouteErrorBoundary routeName="Dashboard"><RootRoute /></RouteErrorBoundary></ProtectedRoute>} />
@@ -418,6 +427,7 @@ const AppContent = () => {
                   </Routes>
               </Suspense>
               </div>
+              <BottomNavigation />
             </main>
           </div>
         </SidebarProvider>

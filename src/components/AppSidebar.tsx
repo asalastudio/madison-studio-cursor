@@ -2,6 +2,8 @@ import { Home, Archive, Pencil, Share2, Calendar, FileText, Video, Settings, Che
 import { VaultSidebarBtn } from "@/components/sidebar/VaultSidebarBtn";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/hooks/useOrganization";
+import { getMobilePageTitle } from "@/lib/mobileNav";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsEcommerceOrg } from "@/hooks/useIndustryConfig";
@@ -32,7 +34,11 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { organization } = useOrganization();
   const { toast } = useToast();
+  const pageTitle = getMobilePageTitle(location.pathname);
+  const brandConfig = organization?.brand_config as { brandName?: string } | undefined;
+  const brandLabel = brandConfig?.brandName || organization?.name || "";
   const { isEcommerce, loading: isEcommerceLoading } = useIsEcommerceOrg();
   const { enabled: gridPipelineEnabled } = useGridPipelineFeatureFlag();
 
@@ -190,14 +196,29 @@ export function AppSidebar() {
     <>
       {/* Mobile Header - Only visible on mobile */}
       {isMobile && (
-        <header className="fixed top-0 left-0 right-0 z-40 h-16 bg-gradient-to-r from-ink-black to-charcoal border-b border-aged-brass/20 flex items-center px-4">
+        <header className="mobile-app-header fixed top-0 left-0 right-0 z-40 flex min-h-16 items-center gap-3 border-b border-aged-brass/20 bg-gradient-to-r from-ink-black to-charcoal px-3">
           <button
             onClick={toggleSidebar}
-            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/5"
             aria-label="Open menu"
           >
-            <Menu strokeWidth={1} className="w-6 h-6 text-parchment-white" />
+            <Menu strokeWidth={1} className="h-6 w-6 text-parchment-white" />
           </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate font-serif text-lg font-medium text-parchment-white">
+              {pageTitle}
+            </h1>
+            {brandLabel && (
+              <p className="truncate font-sans text-xs text-primary">{brandLabel}</p>
+            )}
+          </div>
+          <NavLink
+            to="/settings?tab=brand"
+            className="flex min-h-11 max-w-[40%] items-center rounded-md border border-aged-brass/30 bg-white/5 px-3 font-sans text-xs text-parchment-white/80 transition-colors hover:border-aged-brass hover:text-parchment-white"
+            aria-label={brandLabel ? `Brand settings for ${brandLabel}` : "Brand settings"}
+          >
+            <span className="truncate">{brandLabel || "Brand"}</span>
+          </NavLink>
         </header>
       )}
 

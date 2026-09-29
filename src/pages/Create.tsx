@@ -709,7 +709,7 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
 
 
   return (
-    <div className="min-h-screen pb-20 md:pb-20 bg-vellum-cream overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-background pb-8 md:pb-20">
       <div className={`max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-10 transition-opacity duration-300 ${isGenerating ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         {/* Main Form */}
         <div>
@@ -741,7 +741,7 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-9 h-9 text-brand-brass hover:bg-brand-brass/10 border border-brand-brass/20 rounded-md mr-1"
+                  className="mr-1 h-11 w-11 rounded-md border border-brand-brass/20 text-brand-brass hover:bg-brand-brass/10 md:h-9 md:w-9"
                   onClick={() => triggerSuggestion({
                     type: 'idle_prompt', // Using idle_prompt type for manual consultation
                     message: "How might I assist you?",
@@ -873,7 +873,7 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
               >
                 <SelectTrigger
                   id="product"
-                  className="mt-2 bg-parchment-white border-warm-gray/20"
+                  className="mt-2 h-11 border-border bg-card text-base md:h-10 md:text-sm"
                 >
                   <SelectValue placeholder={
                     productsLoading ? "Loading products..." :
@@ -924,7 +924,7 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
               <Select value={audience} onValueChange={setAudience}>
                 <SelectTrigger
                   id="audience"
-                  className="mt-2 bg-parchment-white border-warm-gray/20"
+                  className="mt-2 h-11 border-border bg-card text-base md:h-10 md:text-sm"
                 >
                   <SelectValue placeholder="Select target audience (or leave blank)" />
                 </SelectTrigger>
@@ -956,7 +956,7 @@ CRITICAL: This must be a full-length blog article of 1200-1500 words. Do not sum
               <Select value={goal} onValueChange={setGoal}>
                 <SelectTrigger
                   id="goal"
-                  className="mt-2 bg-parchment-white border-warm-gray/20"
+                  className="mt-2 h-11 border-border bg-card text-base md:h-10 md:text-sm"
                 >
                   <SelectValue placeholder="Select content goal (or leave blank)" />
                 </SelectTrigger>

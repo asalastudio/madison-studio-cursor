@@ -219,9 +219,9 @@ export function SetReviewModal({
           </div>
 
           {/* ─── Body: master rail + grid ────────────────────────────── */}
-          <div className="flex-1 flex min-h-0 overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
             {/* Master rail (left) */}
-            <aside className="w-56 md:w-64 lg:w-72 flex-shrink-0 border-r border-[var(--darkroom-border)] bg-[var(--camera-body)] p-3 overflow-y-auto">
+            <aside className="w-full flex-shrink-0 overflow-y-auto border-b border-[var(--darkroom-border)] bg-[var(--camera-body)] p-3 md:w-56 md:border-b-0 md:border-r lg:w-64 xl:w-72">
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                   <LEDIndicator

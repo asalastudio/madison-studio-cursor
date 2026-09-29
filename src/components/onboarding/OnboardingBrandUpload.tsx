@@ -311,7 +311,7 @@ export function OnboardingBrandUpload({ onContinue, onBack, onSkip, brandData }:
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-[#FDFBF7]">
+    <div className="flex min-h-[100dvh] flex-col overflow-x-hidden overflow-y-auto bg-background">
       {/* Header */}
       <header className="flex items-center justify-between px-8 py-4 shrink-0 border-b border-border/10">
         <img src={madisonLogo} alt="MADISON" className="h-6 opacity-90" />

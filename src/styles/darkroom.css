@@ -764,6 +764,7 @@
   flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
+  overflow-x: hidden;
   background: var(--darkroom-bg);
   background-image: var(--darkroom-bg-gradient);
   color: var(--darkroom-text);
@@ -789,7 +790,12 @@
 }
 
 .mobile-darkroom__header {
-  padding: var(--space-xs) 0 var(--space-sm);
+  padding: calc(var(--space-xs) + env(safe-area-inset-top, 0px)) 0 var(--space-sm);
+}
+
+.mobile-darkroom__header button {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .mobile-darkroom__title {
@@ -834,7 +840,7 @@
   border: none;
   color: var(--darkroom-text);
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 16px;
   line-height: 1.5;
   resize: none;
   outline: none;
@@ -870,8 +876,8 @@
 }
 
 .mobile-darkroom__random-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -974,6 +980,7 @@
 /* Generate Button - Premium brass CTA */
 .mobile-darkroom__generate-btn {
   width: 100%;
+  min-height: 48px;
   padding: var(--space-sm) var(--space-lg);
   background: linear-gradient(
     180deg, 

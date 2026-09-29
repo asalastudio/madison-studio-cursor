@@ -597,10 +597,34 @@
   }
 }
 
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-area-top,
+  .mobile-app-header {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
 /* Ensure main content doesn't hide behind bottom nav on mobile */
 @media (max-width: 767px) {
-  .main-content {
+  html,
+  body,
+  #root {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+  .app-shell-mobile {
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px));
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-bottom-nav a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .mobile-library-actions button {
+    min-height: 44px;
   }
 }
 
@@ -637,10 +661,11 @@
     border-radius: 0.5rem;
   }
   
-  /* Better touch targets */
-  button, a, [role="button"] {
+  /* Better touch targets for primary controls, not every icon chip */
+  button:not(.mobile-icon-btn),
+  a:not(.mobile-icon-btn),
+  [role="button"]:not(.mobile-icon-btn) {
     min-height: 44px;
-    min-width: 44px;
   }
   
   /* Prevent text overflow on mobile */
@@ -653,14 +678,11 @@
   input, textarea, select {
     font-size: 16px; /* Prevents zoom on iOS */
   }
-  
-  /* Stack flex items on mobile */
-  .flex-row.md\\:flex-row {
-    flex-direction: column;
-  }
-  
-  /* Full width buttons on mobile when in column layout */
-  .flex-col button {
+
+  /* Full width primary actions in form stacks only */
+  form.flex-col > button,
+  form .space-y-4 > button,
+  form .space-y-3 > button {
     width: 100%;
   }
 }

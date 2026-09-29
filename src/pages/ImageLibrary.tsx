@@ -2939,7 +2939,7 @@ export default function ImageLibrary() {
   );
 
   return (
-    <div className="min-h-screen bg-[var(--darkroom-bg)]">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--darkroom-bg)]">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[var(--darkroom-bg)]/95 backdrop-blur-sm border-b border-[var(--darkroom-border)]">
         <div className="container mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-5">
@@ -2953,7 +2953,7 @@ export default function ImageLibrary() {
             </div>
             <Button
               onClick={() => navigate("/darkroom")}
-              className="bg-[var(--darkroom-accent)] hover:bg-[var(--darkroom-accent-hover)] text-[var(--darkroom-bg)] flex-shrink-0"
+              className="h-11 flex-shrink-0 bg-[var(--darkroom-accent)] text-[var(--darkroom-bg)] hover:bg-[var(--darkroom-accent-hover)] md:h-9"
               size="sm"
             >
               <Camera className="w-4 h-4 md:mr-2" />
@@ -2974,7 +2974,7 @@ export default function ImageLibrary() {
               placeholder="Search images..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 md:pl-10 py-2 md:py-2.5 text-sm md:text-base bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] placeholder:text-[var(--darkroom-text)]/40 focus:border-[var(--darkroom-accent)] focus:ring-2 focus:ring-[var(--darkroom-accent)]/20"
+              className="w-full border-[var(--darkroom-border)] bg-[var(--darkroom-surface)] py-3 pl-9 text-base text-[var(--darkroom-text)] placeholder:text-[var(--darkroom-text)]/40 focus:border-[var(--darkroom-accent)] focus:ring-2 focus:ring-[var(--darkroom-accent)]/20 md:py-2.5 md:pl-10"
               />
             </div>
 
@@ -2997,11 +2997,11 @@ export default function ImageLibrary() {
           </div>
 
           {/* Filters Row - Mobile: Stack, Desktop: Row */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
             {/* Left: Asset type + Sort */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:flex-wrap md:items-center">
             <Select value={assetTypeFilter} onValueChange={(v) => setAssetTypeFilter(v as AssetTypeFilter)}>
-                <SelectTrigger className="w-full md:w-[180px] bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] text-sm">
+                <SelectTrigger className="h-11 w-full border-[var(--darkroom-border)] bg-[var(--darkroom-surface)] text-base text-[var(--darkroom-text)] md:h-10 md:w-[180px] md:text-sm">
                 <SelectValue placeholder="Asset type" />
               </SelectTrigger>
               <SelectContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)]">
@@ -3025,7 +3025,7 @@ export default function ImageLibrary() {
 
             {isBestBottlesOrg && (
               <Select value={skuSizeFilter} onValueChange={(v) => setSkuSizeFilter(v as SkuSizeFilter)}>
-                <SelectTrigger className="w-full md:w-[140px] bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] text-sm">
+                <SelectTrigger className="h-11 w-full border-[var(--darkroom-border)] bg-[var(--darkroom-surface)] text-base text-[var(--darkroom-text)] md:h-10 md:w-[140px] md:text-sm">
                   <SelectValue placeholder="SKU size" />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)]">
@@ -3048,7 +3048,7 @@ export default function ImageLibrary() {
                 value={referenceLineageFilter}
                 onValueChange={(v) => setReferenceLineageFilter(v as ReferenceLineageFilter)}
               >
-                <SelectTrigger className="w-full md:w-[170px] bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] text-sm">
+                <SelectTrigger className="h-11 w-full border-[var(--darkroom-border)] bg-[var(--darkroom-surface)] text-base text-[var(--darkroom-text)] md:h-10 md:w-[170px] md:text-sm">
                   <SelectValue placeholder="Lineage" />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)]">
@@ -3060,7 +3060,7 @@ export default function ImageLibrary() {
             )}
 
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-                <SelectTrigger className="w-full md:w-[130px] bg-[var(--darkroom-surface)] border-[var(--darkroom-border)] text-[var(--darkroom-text)] text-sm">
+                <SelectTrigger className="h-11 w-full border-[var(--darkroom-border)] bg-[var(--darkroom-surface)] text-base text-[var(--darkroom-text)] md:h-10 md:w-[130px] md:text-sm">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent className="bg-[var(--darkroom-surface)] border-[var(--darkroom-border)]">
@@ -3074,7 +3074,7 @@ export default function ImageLibrary() {
             {/* Right: View Mode + Bulk Actions */}
             <div className="flex items-center gap-2 md:gap-3">
               {filteredImages.length > 0 && (
-                <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="mobile-library-actions flex flex-wrap items-center justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
