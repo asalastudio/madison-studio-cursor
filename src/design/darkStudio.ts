@@ -41,4 +41,8 @@ export const DARK_STUDIO_CLASSES = {
   cameraPanel: "camera-panel",
   generateButton: "generate-button",
   generateButtonContainer: "generate-button-container",
+  videoStudio: "video-studio",
+  videoInspector: "video-studio__inspector",
+  videoCard: "video-studio__card",
+  videoToolbar: "video-studio__toolbar",
 } as const;

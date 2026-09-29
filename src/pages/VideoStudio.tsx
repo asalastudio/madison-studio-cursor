@@ -336,18 +336,22 @@ export default function VideoStudio() {
 
   if (!orgId) {
     return (
-      <div className="dark-room-container">
+      <div className="video-studio">
         <VideoStudioHeader ledState="error" jobLabel="No org" canDownload={false} />
-        <div className="video-studio-empty">
-          <h2>Organization required</h2>
-          <p>Video is org-scoped. Finish onboarding or switch workspace before generating.</p>
-        </div>
+        <section className="video-studio__stage">
+          <div className="video-studio__card" data-ratio="16:9">
+            <div className="video-studio-empty">
+              <h2>Organization required</h2>
+              <p>Video is org-scoped. Finish onboarding or switch workspace before generating.</p>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="dark-room-container video-studio-shell">
+    <div className="video-studio">
       <VideoStudioHeader
         ledState={ledFromJob(job)}
         jobLabel={job.state === "idle" ? "Standby" : job.state}
@@ -355,50 +359,52 @@ export default function VideoStudio() {
         onDownload={handleDownload}
       />
 
-      <div className="video-studio-body">
-        <VideoControlRail
-          prompt={prompt}
-          onPromptChange={setPrompt}
-          startFrame={startFrame}
-          endFrame={endFrame}
-          onPickStart={() => setPickerSlot("start")}
-          onPickEnd={() => setPickerSlot("end")}
-          onClearStart={() => {
-            setStartFrame(null);
-            if (!activeVideoUrl) setActivePosterUrl(null);
-          }}
-          onClearEnd={() => setEndFrame(null)}
-          model={model}
-          onModelChange={setModel}
-          duration={duration}
-          onDurationChange={setDuration}
-          resolution={resolution}
-          onResolutionChange={setResolution}
-          aspectRatio={aspectRatio}
-          onAspectRatioChange={setAspectRatio}
-          motion={motion}
-          onMotionChange={setMotion}
-          includeAudio={includeAudio}
-          onIncludeAudioChange={setIncludeAudio}
-          multiShot={multiShot}
-          onMultiShotChange={setMultiShot}
-          isGenerating={isGenerating}
-          canGenerate={canGenerate}
-          onGenerate={handleGenerate}
-        />
+      <VideoControlRail
+        prompt={prompt}
+        onPromptChange={setPrompt}
+        startFrame={startFrame}
+        endFrame={endFrame}
+        onPickStart={() => setPickerSlot("start")}
+        onPickEnd={() => setPickerSlot("end")}
+        onClearStart={() => {
+          setStartFrame(null);
+          if (!activeVideoUrl) setActivePosterUrl(null);
+        }}
+        onClearEnd={() => setEndFrame(null)}
+        model={model}
+        onModelChange={setModel}
+        duration={duration}
+        onDurationChange={setDuration}
+        resolution={resolution}
+        onResolutionChange={setResolution}
+        aspectRatio={aspectRatio}
+        onAspectRatioChange={setAspectRatio}
+        motion={motion}
+        onMotionChange={setMotion}
+        includeAudio={includeAudio}
+        onIncludeAudioChange={setIncludeAudio}
+        multiShot={multiShot}
+        onMultiShotChange={setMultiShot}
+        isGenerating={isGenerating}
+        canGenerate={canGenerate}
+        onGenerate={handleGenerate}
+      />
 
-        <VideoMonitor
-          videoUrl={activeVideoUrl}
-          posterUrl={activePosterUrl}
-          aspectRatio={aspectRatio}
-          job={job}
-        />
-      </div>
+      <VideoMonitor
+        videoUrl={activeVideoUrl}
+        posterUrl={activePosterUrl}
+        aspectRatio={aspectRatio}
+        job={job}
+      />
 
       <VideoHistoryStrip
         videos={videosQuery.data ?? []}
         selectedId={selectedTakeId}
         onSelect={applyTake}
+        estimateLabel={estimate.label}
+        canGenerate={canGenerate}
+        isGenerating={isGenerating}
+        onGenerate={handleGenerate}
       />
 
       <ImageLibraryModal

@@ -1,32 +1,41 @@
+import { Clapperboard } from "lucide-react";
+import { Chip } from "@/components/darkroom/Chip";
 import type { OrgStudioVideo } from "@/hooks/useOrgStudioMedia";
 
 interface VideoHistoryStripProps {
   videos: OrgStudioVideo[];
   selectedId: string | null;
   onSelect: (video: OrgStudioVideo) => void;
+  estimateLabel?: string;
+  canGenerate?: boolean;
+  isGenerating?: boolean;
+  onGenerate?: () => void;
+}
+
+function takeLabel(video: OrgStudioVideo): string {
+  if (video.status === "complete") return "Ready";
+  if (video.status === "failed") return "Failed";
+  if (video.status === "processing") return "Rendering";
+  return "Queued";
 }
 
 export function VideoHistoryStrip({
   videos,
   selectedId,
   onSelect,
+  estimateLabel,
+  canGenerate,
+  isGenerating,
+  onGenerate,
 }: VideoHistoryStripProps) {
   return (
-    <aside className="video-studio-history">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--darkroom-text-muted)]">
-          Takes
-        </span>
-        <span className="font-mono text-[10px] text-[var(--darkroom-text-dim)]">
-          {videos.length} in this org
-        </span>
-      </div>
+    <div className="video-studio__toolbar" role="toolbar" aria-label="Takes">
       {videos.length === 0 ? (
-        <p className="text-[12px] text-[var(--darkroom-text-dim)]">
-          Completed and in-progress takes for this organization appear here.
-        </p>
+        <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--darkroom-text-dim)]">
+          No takes in this org yet
+        </span>
       ) : (
-        <div className="video-studio-history__list">
+        <div className="video-studio__takes">
           {videos.map((video) => (
             <button
               key={video.id}
@@ -35,21 +44,38 @@ export function VideoHistoryStrip({
               data-active={video.id === selectedId}
               onClick={() => onSelect(video)}
             >
-              <div className="video-studio-take__thumb">
+              <span className="video-studio-take__thumb">
                 {video.videoUrl ? (
                   <video src={video.videoUrl} muted playsInline />
                 ) : video.posterUrl ? (
                   <img src={video.posterUrl} alt="" />
                 ) : null}
-              </div>
-              <div className="video-studio-take__meta">
-                {video.status === "complete" ? "Ready" : video.status === "failed" ? "Failed" : "Pending"}
+              </span>
+              <span>
+                {takeLabel(video)}
                 {video.duration ? ` · ${video.duration}s` : ""}
-              </div>
+              </span>
             </button>
           ))}
         </div>
       )}
-    </aside>
+
+      {onGenerate ? (
+        <>
+          <span className="video-studio__toolbar-divider" aria-hidden="true" />
+          {estimateLabel ? (
+            <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--darkroom-text-dim)]">
+              {estimateLabel}
+            </span>
+          ) : null}
+          <Chip
+            label={isGenerating ? "Rendering…" : "Action"}
+            icon={<Clapperboard />}
+            disabled={!canGenerate || isGenerating}
+            onClick={onGenerate}
+          />
+        </>
+      ) : null}
+    </div>
   );
 }
