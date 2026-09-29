@@ -11,6 +11,13 @@ import {
 import { formatVisualContext } from "../_shared/productFieldFilters.ts";
 import { callGeminiImage } from "../_shared/aiProviders.ts";
 import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
+import {
+  brandPaletteSetOnlyLine,
+  catalogClosureLabel,
+  catalogCrossCheckLine,
+  lightingMandateBlock,
+  proLightingDeltaBlock,
+} from "../_shared/darkroomLegacyPrompt.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, type OpenAIImageModel, type OpenAIImageSize, type OpenAIOutputFormat } from "../_shared/openaiProvider.ts";
 import {
@@ -951,11 +958,11 @@ function buildMatchLightPrompt(userPrompt: string, productData: any): string {
   prompt += "Output the same image with ONLY the product's lighting and shadows changed to belong to the set.\n\n";
   prompt += `${userPrompt.trim()}\n\n`;
   if (productData) {
-    const bottleType = detectBottleType(productData);
-    if (bottleType.isOil) {
-      prompt += "The closure is a dropper, roller or screw cap (oil bottle). Keep it exactly as it is; do not turn it into a sprayer.\n";
-    } else if (bottleType.isSpray) {
-      prompt += "The closure is a spray atomizer. Keep it exactly as it is; do not turn it into a dropper or roller.\n";
+    const crossCheck = catalogCrossCheckLine(
+      catalogClosureLabel(detectBottleType(productData)),
+    );
+    if (crossCheck) {
+      prompt += `${crossCheck}\n`;
     }
   }
   prompt += "\nTECHNICAL REQUIREMENTS:\n";
@@ -983,60 +990,13 @@ function buildDirectorModePrompt(
 ): string {
   let prompt = "";
 
-  // === SECTION 0: CRITICAL BOTTLE TYPE SPECIFICATION (HIGHEST PRIORITY - MUST BE FIRST) ===
-  // This MUST come before ANY other instructions, including reference images
-  // Reference images might show wrong bottle type - this overrides them
+  // Catalog may describe the closure; the reference photo always wins.
   if (productData) {
-    const bottleType = detectBottleType(productData);
-    
-    if (bottleType.isOil) {
-      prompt += "╔══════════════════════════════════════════════════════════════════╗\n";
-      prompt += "║  ⚠️ CRITICAL BOTTLE SPECIFICATION (MANDATORY - NO EXCEPTIONS)   ║\n";
-      prompt += "║  THIS OVERRIDES ALL REFERENCE IMAGES AND OTHER INSTRUCTIONS      ║\n";
-      prompt += "╚══════════════════════════════════════════════════════════════════╝\n\n";
-      prompt += "PRODUCT TYPE: OIL-BASED FRAGRANCE (NON-SPRAY)\n";
-      prompt += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
-      prompt += "✅ REQUIRED CLOSURE TYPES (ONLY THESE):\n";
-      prompt += "  • Glass dropper with pipette\n";
-      prompt += "  • Roller ball applicator\n";
-      prompt += "  • Screw cap (if dropper/roller is separate)\n";
-      prompt += "  • Glass wand (dipstick applicator)\n\n";
-      prompt += "❌ ABSOLUTELY FORBIDDEN (NEVER INCLUDE - EVEN IF IN REFERENCE IMAGES):\n";
-      prompt += "  • Perfume sprayer / atomizer / pump mechanism\n";
-      prompt += "  • Crimped metal spray neck\n";
-      prompt += "  • Spray nozzle / misting device\n";
-      prompt += "  • Dip tube / hose / straw (the tube inside spray bottles)\n";
-      prompt += "  • Any form of spray dispenser\n";
-      prompt += "  • Aerosol mechanism\n";
-      prompt += "  • ANY visible tube, hose, or pipe extending into the liquid\n\n";
-      prompt += "VISUAL CHARACTERISTICS:\n";
-      prompt += "  • The liquid is viscous oil (thicker, more dense)\n";
-      prompt += "  • Bottle designed for direct application (not spraying)\n";
-      prompt += "  • Closure is for controlled dispensing, not atomization\n";
-      prompt += "  • NO internal tubes, hoses, or dip sticks visible inside the bottle\n\n";
-      prompt += "⚠️ CRITICAL: If you render a spray mechanism, dip tube, hose, or ANY tube extending into the liquid, the image is INCORRECT and unusable.\n";
-      prompt += "⚠️ CRITICAL: Even if reference images show a spray mechanism, you MUST render an oil bottle with dropper/roller instead.\n";
-      prompt += "This is a fundamental product accuracy requirement. There are NO exceptions.\n\n";
-    } else if (bottleType.isSpray) {
-      prompt += "╔══════════════════════════════════════════════════════════════════╗\n";
-      prompt += "║  ⚠️ CRITICAL BOTTLE SPECIFICATION (MANDATORY - NO EXCEPTIONS)   ║\n";
-      prompt += "║  THIS OVERRIDES ALL REFERENCE IMAGES AND OTHER INSTRUCTIONS      ║\n";
-      prompt += "╚══════════════════════════════════════════════════════════════════╝\n\n";
-      prompt += "PRODUCT TYPE: SPRAY PERFUME (ALCOHOL-BASED)\n";
-      prompt += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
-      prompt += "✅ REQUIRED CLOSURE TYPE:\n";
-      prompt += "  • Spray pump mechanism with atomizer\n";
-      prompt += "  • Visible crimped metal neck\n";
-      prompt += "  • Spray nozzle for misting\n";
-      prompt += "  • Dip tube / hose extending into the liquid (for spray mechanism)\n\n";
-      prompt += "❌ ABSOLUTELY FORBIDDEN:\n";
-      prompt += "  • Dropper / pipette\n";
-      prompt += "  • Roller ball applicator\n";
-      prompt += "  • Glass wand / dipstick\n\n";
-      prompt += "VISUAL CHARACTERISTICS:\n";
-      prompt += "  • The liquid is alcohol-based (thinner, more fluid)\n";
-      prompt += "  • Bottle designed for atomization and misting\n";
-      prompt += "  • Closure includes spray mechanism with dip tube\n\n";
+    const crossCheck = catalogCrossCheckLine(
+      catalogClosureLabel(detectBottleType(productData)),
+    );
+    if (crossCheck) {
+      prompt += `${crossCheck}\n\n`;
     }
   }
 
@@ -1090,18 +1050,6 @@ function buildDirectorModePrompt(
       prompt += "- EXACT product texture and material finish\n";
       prompt += "- EXACT branding, labels, and decorative elements\n";
       prompt += "- The product in output MUST be the same product from reference\n";
-      if (productData) {
-        const bottleType = detectBottleType(productData);
-        if (bottleType.isOil) {
-          prompt += "\n⚠️ IMPORTANT: If the reference image shows a spray mechanism, IGNORE IT.\n";
-          prompt += "You MUST render an oil bottle with dropper/roller instead (as specified in Section 0).\n";
-          prompt += "The bottle type specification in Section 0 takes absolute priority over reference images.\n";
-        } else if (bottleType.isSpray) {
-          prompt += "\n⚠️ IMPORTANT: If the reference image shows a dropper/roller, IGNORE IT.\n";
-          prompt += "You MUST render a spray bottle with atomizer instead (as specified in Section 0).\n";
-          prompt += "The bottle type specification in Section 0 takes absolute priority over reference images.\n";
-        }
-      }
       prompt += "\n";
       
       categorizedRefs.product.forEach((ref, idx) => {
@@ -1185,11 +1133,18 @@ function buildDirectorModePrompt(
   prompt += "You are a Virtual Art Director with expertise in high-end commercial photography.\n";
   prompt += "Apply professional photography ontology concepts:\n\n";
 
-  // Apply Photography Ontology if Pro Mode is active
+  const brandLightingMandate =
+    lane !== "place" && typeof brandKnowledge?.visualStandards?.lighting_mandates === "string"
+      ? brandKnowledge.visualStandards.lighting_mandates.trim()
+      : "";
+
+  // Apply Photography Ontology if Pro Mode is active. When a brand lighting
+  // mandate exists it is the only authority; Pro lighting is a labelled delta.
   if (proModeControls && Object.keys(proModeControls).length > 0) {
-    // Use the ontology mapper to translate Pro Mode controls into professional terminology
     const ontologySpecs = enhancePromptWithOntology("", proModeControls);
-    prompt += ontologySpecs + "\n\n";
+    if (!brandLightingMandate) {
+      prompt += proLightingDeltaBlock(ontologySpecs) + "\n\n";
+    }
   } else {
     /**
      * When the scene already owns the light, a second lighting directive is the
@@ -1249,12 +1204,13 @@ function buildDirectorModePrompt(
     }
     
     if (vs.color_palette?.length > 0) {
-      prompt += `COLOR PALETTE (MANDATORY): ${vs.color_palette.slice(0, 5).map((c: any) => `${c.name} (${c.hex})`).join(", ")}\n`;
-      prompt += `Use these exact colors. Do not deviate from this palette.\n`;
+      prompt += `${brandPaletteSetOnlyLine(vs.color_palette)}\n`;
     }
     if (vs.lighting_mandates) {
-      prompt += `LIGHTING MANDATE (MANDATORY): ${vs.lighting_mandates}\n`;
-      prompt += `Override default lighting specifications with this mandate.\n`;
+      prompt += `${lightingMandateBlock(vs.lighting_mandates)}\n`;
+      if (proModeControls && Object.keys(proModeControls).length > 0) {
+        prompt += `${proLightingDeltaBlock(enhancePromptWithOntology("", proModeControls))}\n`;
+      }
     }
     if (vs.approved_props?.length > 0) {
       prompt += `APPROVED PROPS: ${vs.approved_props.slice(0, 10).join(", ")}\n`;
@@ -1263,18 +1219,6 @@ function buildDirectorModePrompt(
     if (vs.forbidden_elements?.length > 0) {
       prompt += `FORBIDDEN ELEMENTS (NEVER INCLUDE): ${vs.forbidden_elements.join(", ")}\n`;
       prompt += `These elements are explicitly prohibited. Do not include them under any circumstances.\n`;
-    }
-    
-    // Add bottle type to forbidden elements if it's an oil product
-    if (productData) {
-      const bottleType = detectBottleType(productData);
-      if (bottleType.isOil && vs.forbidden_elements) {
-        // Ensure spray mechanisms are in forbidden list
-        const forbiddenList = Array.isArray(vs.forbidden_elements) ? vs.forbidden_elements : [];
-        if (!forbiddenList.some((el: string) => el.toLowerCase().includes('spray') || el.toLowerCase().includes('atomizer'))) {
-          prompt += `FORBIDDEN ELEMENTS (ADDITIONAL): Perfume sprayer, atomizer, pump, spray nozzle, misting device\n`;
-        }
-      }
     }
     
     // Include raw document context if available (for AI to understand full context)
@@ -1308,19 +1252,6 @@ function buildDirectorModePrompt(
   prompt += "- Low quality or pixelation\n";
   prompt += "- Frames, borders, or decorative edges around the image\n";
   prompt += "- No border, frame, mat, or letterbox; the background fills the canvas edge to edge.\n";
-  
-  // Add bottle-type-specific negative prompts (reinforce Section 0)
-  if (productData) {
-    const bottleType = detectBottleType(productData);
-    if (bottleType.isOil) {
-      prompt += "- ⚠️ CRITICAL: Perfume sprayers, atomizers, pumps, spray nozzles, misting devices, or ANY spray mechanism\n";
-      prompt += "- ⚠️ CRITICAL: Crimped metal spray necks or aerosol mechanisms\n";
-      prompt += "- ⚠️ CRITICAL: Dip tubes, hoses, straws, or ANY tube extending into the liquid (these are ONLY for spray bottles)\n";
-      prompt += "- ⚠️ CRITICAL: Any visible internal tube, pipe, or hose inside the bottle\n";
-    } else if (bottleType.isSpray) {
-      prompt += "- ⚠️ CRITICAL: Droppers, pipettes, roller balls, glass wands, or ANY non-spray applicator\n";
-    }
-  }
 
   return prompt;
 }
@@ -1333,24 +1264,12 @@ function buildEssentialModePrompt(
 ): string {
   let prompt = "";
 
-  // === CRITICAL BOTTLE TYPE SPECIFICATION (MUST BE FIRST) ===
   if (productData) {
-    const bottleType = detectBottleType(productData);
-    
-    if (bottleType.isOil) {
-      prompt += "╔══════════════════════════════════════════════════════════════════╗\n";
-      prompt += "║     ⚠️ CRITICAL: OIL BOTTLE - NO SPRAY MECHANISM ALLOWED         ║\n";
-      prompt += "╚══════════════════════════════════════════════════════════════════╝\n\n";
-      prompt += "This is an OIL-BASED FRAGRANCE. REQUIRED: Dropper or roller ball ONLY.\n";
-      prompt += "FORBIDDEN: Perfume sprayer, atomizer, pump, spray nozzle, dip tube, hose, or ANY spray mechanism.\n";
-      prompt += "FORBIDDEN: ANY visible tube, hose, or pipe extending into the liquid (these are ONLY for spray bottles).\n";
-      prompt += "If you render a spray mechanism, dip tube, or any internal tube, the image is INCORRECT.\n\n";
-    } else if (bottleType.isSpray) {
-      prompt += "╔══════════════════════════════════════════════════════════════════╗\n";
-      prompt += "║     ⚠️ CRITICAL: SPRAY PERFUME - ATOMIZER REQUIRED               ║\n";
-      prompt += "╚══════════════════════════════════════════════════════════════════╝\n\n";
-      prompt += "This is a SPRAY PERFUME. REQUIRED: Spray pump with atomizer.\n";
-      prompt += "FORBIDDEN: Dropper, roller ball, or any non-spray applicator.\n\n";
+    const crossCheck = catalogCrossCheckLine(
+      catalogClosureLabel(detectBottleType(productData)),
+    );
+    if (crossCheck) {
+      prompt += `${crossCheck}\n\n`;
     }
   }
 
