@@ -984,7 +984,7 @@ export function BrandKnowledgeCenter({ organizationId }: BrandKnowledgeCenterPro
                 <Input
                   id="websiteUrl"
                   type="url"
-                  placeholder="https://tarifeattar.com"
+                  placeholder="https://your-brand.com"
                   value={websiteUrl}
                   onChange={(e) => setWebsiteUrl(e.target.value)}
                   disabled={isProcessing}

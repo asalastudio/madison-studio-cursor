@@ -380,7 +380,7 @@ export function LeftRail({
             onLibraryOpen={() => setShowProductLibrary(true)}
             disabled={isGenerating || backgroundPlateMode}
           />
-          <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
+          {showHeroSetPresets && <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
             <div className="mb-2 flex items-center gap-2">
               <Route className="h-3 w-3 text-[var(--darkroom-accent)]" />
               <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--darkroom-text-dim)]">
@@ -416,8 +416,8 @@ export function LeftRail({
                 Exploded
               </Button>
             </div>
-          </div>
-          <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
+          </div>}
+          {showHeroSetPresets && <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">
             <div className="mb-1.5 flex items-center gap-2">
               <Landmark className="h-3 w-3 text-[var(--darkroom-accent)]" />
               <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--darkroom-text-dim)]">
@@ -468,7 +468,7 @@ export function LeftRail({
                 Cluster
               </Button>
             </div>
-          </div>
+          </div>}
 
           {showHeroSetPresets && (
             <div className="mt-3 rounded-lg border border-[var(--darkroom-border)] bg-[color-mix(in_srgb,var(--camera-body-deep)_50%,transparent)] p-2.5">

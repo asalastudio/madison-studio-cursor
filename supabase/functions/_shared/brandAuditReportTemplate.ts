@@ -558,7 +558,7 @@ export const renderBrandAuditReport = (report: BrandAuditReport): string => {
     <div class="col-6 editorial-box">
       <span class="overline">Positioning</span>
       <div class="display-header" style="font-size: 28px; margin-bottom: 0; line-height: 1.4;">
-        ${escapeHtml(brandIdentityDetails.positioningStatement || "Tarife Attar reclaims the intimacy of fragrance by offering concentrated, precious oils designed to interact with the skin.")}
+        ${escapeHtml(brandIdentityDetails.positioningStatement || "A clear positioning statement will appear here after the brand scan completes.")}
       </div>
     </div>
 

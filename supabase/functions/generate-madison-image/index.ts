@@ -38,6 +38,10 @@ import {
   type BestBottlesRenderingContract,
 } from "../_shared/bestBottlesRenderingContract.ts";
 import { withHeartbeatJsonResponse } from "../_shared/streamingJsonResponse.ts";
+import {
+  fetchOrgEntitlementFeatures,
+  orgMayUseGridPipeline,
+} from "../_shared/orgFeatures.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1590,11 +1594,12 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           (tag): tag is string => typeof tag === "string" && tag.trim().length > 0,
         )
       : [];
-    const isBestBottlesStudioMasterRequest =
+    const claimedBestBottlesStudioMaster =
       callerExtraTagsEarly.includes("brand:best-bottles") &&
       callerExtraTagsEarly.includes("studio-master") &&
       Array.isArray(referenceImages) &&
       referenceImages.length > 0;
+    let isBestBottlesStudioMasterRequest = claimedBestBottlesStudioMaster;
     const precompiledPromptResolution = resolveBestBottlesPrecompiledPrompt(
       precompiledPromptRecord,
       { isBestBottlesStudioMasterRequest },
@@ -1620,7 +1625,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         .replace(/^-+|-+$/g, "")
         .slice(0, 60);
     };
-    const pipelineMeta: {
+    let pipelineMeta: {
       libraryTags: string[];
       storagePathPrefix: string;
       variationSlug: string;
@@ -1920,6 +1925,20 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     }
     console.log("✅ Final resolved organization:", resolvedOrgId, { via: access.via });
 
+    const entitlements = await fetchOrgEntitlementFeatures(supabase, resolvedOrgId);
+    const bestBottlesLaneAllowed = orgMayUseGridPipeline(resolvedOrgId, entitlements);
+    if (!bestBottlesLaneAllowed) {
+      if (isBestBottlesStudioMasterRequest) {
+        console.warn("[auth] ignoring client Best Bottles tags; org lacks grid_pipeline entitlement", {
+          organizationId: resolvedOrgId,
+        });
+        isBestBottlesStudioMasterRequest = false;
+      }
+      if (pipelineMeta) {
+        pipelineMeta = null;
+      }
+    }
+
     /**
      * 4. Load Brand Knowledge
      */
@@ -1990,6 +2009,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     const categorizedRefs = categorizeReferences(actualReferenceImages);
     const bestBottlesTagSet = new Set([...callerExtraTagsEarly, ...parentImageTags]);
     const isBestBottlesReferenceLocked =
+      bestBottlesLaneAllowed &&
       bestBottlesTagSet.has("brand:best-bottles") &&
       bestBottlesTagSet.has("studio-master") &&
       categorizedRefs.product.length > 0;
@@ -2155,6 +2175,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     }
 
     if (
+      bestBottlesLaneAllowed &&
       bestBottlesTagSet.has("brand:best-bottles") &&
       bestBottlesTagSet.has("studio-master") &&
       categorizedRefs.product.length === 0
@@ -2450,6 +2471,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     }
 
     if (
+      bestBottlesLaneAllowed &&
       bestBottlesTagSet.has("brand:best-bottles") &&
       bestBottlesTagSet.has("studio-master") &&
       categorizedRefs.product.length > 0 &&

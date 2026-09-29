@@ -3855,6 +3855,32 @@ export type Database = {
           },
         ]
       }
+      org_entitlements: {
+        Row: {
+          created_at: string
+          feature: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          feature?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_entitlements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           brand_config: Json | null

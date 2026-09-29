@@ -16,6 +16,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient as createSanityClient } from "https://esm.sh/@sanity/client@6.8.6";
 import { createClient as createSupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { guardOrganization } from "../_shared/edgeAuth.ts";
+import { fetchOrgEntitlementFeatures, orgMayUseTarife } from "../_shared/orgFeatures.ts";
 
 const VERSION = "3.1.0";
 
@@ -502,6 +504,24 @@ serve(async (req) => {
     }
 
     console.log(`[push-product-to-sanity] Found product: ${product.name}`);
+
+    const productOrganizationId =
+      typeof product.organization_id === "string" ? product.organization_id : null;
+    const guard = await guardOrganization(req, productOrganizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+
+    const entitlements = await fetchOrgEntitlementFeatures(supabase, productOrganizationId ?? "");
+    if (!orgMayUseTarife(entitlements)) {
+      return new Response(
+        JSON.stringify({
+          error: "This organization is not entitled to publish Tarife product documents.",
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     // Fetch formulation data (scent profile, concentration, performance)
     console.log(`[push-product-to-sanity] Fetching formulation for product...`);

@@ -28,21 +28,29 @@ const TARIFE_DESTINATIONS: ImageLibraryPublishDestinationOption[] = [
 
 export function getImageLibraryPublishDestinations(
   isBestBottlesOrg: boolean,
+  isTarifeOrg = false,
 ): ImageLibraryPublishDestinationOption[] {
-  return isBestBottlesOrg ? BEST_BOTTLES_DESTINATIONS : TARIFE_DESTINATIONS;
+  if (isBestBottlesOrg) return BEST_BOTTLES_DESTINATIONS;
+  if (isTarifeOrg) return TARIFE_DESTINATIONS;
+  return [];
 }
 
 export function getDefaultImageLibraryPublishDestination({
   isBestBottlesOrg,
+  isTarifeOrg = false,
   resolvedGroupSlug,
   resolvedWebsiteSku,
 }: {
   isBestBottlesOrg: boolean;
+  isTarifeOrg?: boolean;
   resolvedGroupSlug?: string | null;
   resolvedWebsiteSku?: string | null;
-}): ImageLibraryPublishDestination {
-  if (!isBestBottlesOrg) return "tarife-sanity";
-  if (resolvedGroupSlug?.trim()) return "best-bottles-grid";
-  if (resolvedWebsiteSku?.trim()) return "best-bottles-pdp";
-  return "best-bottles-grid";
+}): ImageLibraryPublishDestination | null {
+  if (isBestBottlesOrg) {
+    if (resolvedGroupSlug?.trim()) return "best-bottles-grid";
+    if (resolvedWebsiteSku?.trim()) return "best-bottles-pdp";
+    return "best-bottles-grid";
+  }
+  if (isTarifeOrg) return "tarife-sanity";
+  return null;
 }

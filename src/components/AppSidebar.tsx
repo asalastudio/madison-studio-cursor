@@ -93,7 +93,7 @@ export function AppSidebar() {
   }, [location.pathname]);
 
   // Top-level nav items (always visible). Pipeline is org-gated so it only
-  // shows for orgs with `brand_config.features.grid_pipeline` flipped on.
+  // shows for orgs with a server-managed grid_pipeline entitlement.
   const topLevelItems = [
     { title: "Dashboard", url: "/dashboard", icon: Home },
     { title: "Schedule", url: "/schedule", icon: Calendar },

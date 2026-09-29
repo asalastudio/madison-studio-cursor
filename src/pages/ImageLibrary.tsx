@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboarding } from "@/hooks/useOnboarding";
-import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
+import { useOrgFeatureFlags } from "@/hooks/useGridPipelineFeatureFlag";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -918,11 +918,11 @@ export default function ImageLibrary() {
   const initialSearchQuery = bestBottlesGroupParam || bestBottlesSkuParam;
   const { user } = useAuth();
   const { currentOrganizationId } = useOnboarding();
-  const { enabled: isBestBottlesOrg } = useGridPipelineFeatureFlag();
+  const { gridPipeline: isBestBottlesOrg, tarife: isTarifeOrg } = useOrgFeatureFlags();
   const publishLabel = isBestBottlesOrg ? "Publish to Shopify" : "Publish to website";
   const publishDestinations = useMemo(
-    () => getImageLibraryPublishDestinations(isBestBottlesOrg),
-    [isBestBottlesOrg],
+    () => getImageLibraryPublishDestinations(isBestBottlesOrg, isTarifeOrg),
+    [isBestBottlesOrg, isTarifeOrg],
   );
   const { toast } = useToast();
 
@@ -959,7 +959,7 @@ export default function ImageLibrary() {
   const [sanityPublishProduct, setSanityPublishProduct] = useState<Product | null>(null);
   const [sanityPublishLoading, setSanityPublishLoading] = useState(false);
   const [publishDestination, setPublishDestination] =
-    useState<PublishDestination>("tarife-sanity");
+    useState<PublishDestination | null>(null);
   const [bestBottlesSlug, setBestBottlesSlug] = useState("");
   const [bestBottlesWebsiteSku, setBestBottlesWebsiteSku] = useState("");
   const [bestBottlesPdpMode, setBestBottlesPdpMode] =
@@ -2593,7 +2593,20 @@ export default function ImageLibrary() {
     await refetch();
   };
 
+  const resetPublishDestination = () => {
+    setPublishDestination(
+      getDefaultImageLibraryPublishDestination({ isBestBottlesOrg, isTarifeOrg }),
+    );
+  };
+
   const openSanityPublish = (image: GeneratedImage) => {
+    if (publishDestinations.length === 0) {
+      toast({
+        title: "Publishing is not configured",
+        description: "This workspace does not have a Best Bottles or Tarife publish destination.",
+      });
+      return;
+    }
     if (isBestBottlesOrg && getBestBottlesDarkroomWorkflowForImage(image).pushBlocked) {
       toast({
         title: "Attach image to product first",
@@ -2608,6 +2621,7 @@ export default function ImageLibrary() {
       : "";
     const defaultDestination = getDefaultImageLibraryPublishDestination({
       isBestBottlesOrg,
+      isTarifeOrg,
       resolvedGroupSlug,
       resolvedWebsiteSku,
     });
@@ -2759,7 +2773,7 @@ export default function ImageLibrary() {
       setSanityPublishOpen(false);
       setSanityPublishImage(null);
       setSanityPublishProduct(null);
-      setPublishDestination("tarife-sanity");
+      resetPublishDestination();
       setBestBottlesSlug("");
       setBestBottlesWebsiteSku("");
       setBestBottlesPdpMode("cap-on");
@@ -4311,7 +4325,7 @@ export default function ImageLibrary() {
           if (!open) {
             setSanityPublishImage(null);
             setSanityPublishProduct(null);
-            setPublishDestination("tarife-sanity");
+            resetPublishDestination();
             setBestBottlesSlug("");
             setBestBottlesWebsiteSku("");
             setBestBottlesPdpMode("cap-on");
@@ -4348,7 +4362,7 @@ export default function ImageLibrary() {
               Destination
             </Label>
             <Select
-              value={publishDestination}
+              value={publishDestination ?? ""}
               onValueChange={(value) => {
                 const nextDestination = value as PublishDestination;
                 setPublishDestination(nextDestination);
@@ -4652,7 +4666,7 @@ export default function ImageLibrary() {
                 setSanityPublishOpen(false);
                 setSanityPublishImage(null);
                 setSanityPublishProduct(null);
-                setPublishDestination("tarife-sanity");
+                resetPublishDestination();
                 setBestBottlesSlug("");
                 setBestBottlesWebsiteSku("");
                 setBestBottlesPdpMode("cap-on");

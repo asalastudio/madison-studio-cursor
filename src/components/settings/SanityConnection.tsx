@@ -20,7 +20,7 @@ interface SanityConnectionProps {
 export function SanityConnection({ organizationId }: SanityConnectionProps) {
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
-  const [projectId, setProjectId] = useState("8h5l91ut"); // Default to Tarife Attar
+  const [projectId, setProjectId] = useState("");
   const [dataset, setDataset] = useState("production");
   const [lastSync, setLastSync] = useState<string | null>(null);
 
@@ -110,7 +110,7 @@ export function SanityConnection({ organizationId }: SanityConnectionProps) {
             id="sanity-project-id"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            placeholder="e.g., 8h5l91ut"
+            placeholder="e.g., your-project-id"
           />
         </div>
         <div className="space-y-2">

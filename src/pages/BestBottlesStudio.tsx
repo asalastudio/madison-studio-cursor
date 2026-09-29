@@ -37,6 +37,8 @@ import { ProductionCandidateWorkbench } from "@/components/paper-doll/Production
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
+import { FeatureDisabledNotice } from "@/components/bestbottles/FeatureDisabledNotice";
 import {
   getProductGroupWithApplicatorSiblings,
   type ApplicatorBucket,
@@ -93,6 +95,7 @@ export default function BestBottlesStudio() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { currentOrganizationId } = useOnboarding();
+  const { enabled: gridPipelineEnabled, isLoading: flagLoading } = useGridPipelineFeatureFlag();
   const { groupSlug } = useParams<{ groupSlug: string }>();
   const [activeTab, setActiveTab] = useState<StudioTab>(() => resolveInitialStudioTab(location.search));
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
@@ -111,7 +114,7 @@ export default function BestBottlesStudio() {
       }
       return result;
     },
-    enabled: Boolean(groupSlug),
+    enabled: Boolean(groupSlug) && gridPipelineEnabled && !flagLoading,
   });
 
   const applicatorBuckets: ApplicatorBucket[] = data?.applicatorBuckets ?? [];
@@ -145,6 +148,18 @@ export default function BestBottlesStudio() {
       return next;
     });
   };
+
+  if (flagLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Checking permissions…
+      </div>
+    );
+  }
+
+  if (!gridPipelineEnabled) {
+    return <FeatureDisabledNotice />;
+  }
 
   return (
     <div className="dark-room-container best-bottles-studio-container">

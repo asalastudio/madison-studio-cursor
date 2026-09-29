@@ -127,10 +127,10 @@ export function ESPExport({ html, subject }: ESPExportProps) {
       const datetime = now.toISOString();
       
       // Build enhanced test payload
-      const brandName = organization?.name || "Tarife Attar";
+      const brandName = organization?.name || "Your brand";
       const settings = organization?.settings as { email_sender_name?: string; email_sender_email?: string } | null;
       const fromName = settings?.email_sender_name || brandName;
-      const fromEmail = settings?.email_sender_email || "hello@messages.tarifeattar.com";
+      const fromEmail = settings?.email_sender_email || "";
       
       const response = await fetch(webhookUrl, {
         method: "POST",
@@ -182,10 +182,10 @@ export function ESPExport({ html, subject }: ESPExportProps) {
       const datetime = now.toISOString();
       
       // Build enhanced Klaviyo payload with all required fields
-      const brandName = organization?.name || "Tarife Attar";
+      const brandName = organization?.name || "Your brand";
       const settings = organization?.settings as { email_sender_name?: string; email_sender_email?: string } | null;
       const fromName = settings?.email_sender_name || brandName;
-      const fromEmail = settings?.email_sender_email || "hello@messages.tarifeattar.com";
+      const fromEmail = settings?.email_sender_email || "";
       const campaignSubject = subject || "New Campaign";
       const campaignName = `${brandName} - ${campaignSubject}`.substring(0, 255);
       
