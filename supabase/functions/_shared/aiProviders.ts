@@ -1,4 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import {
+  fetchWithRetryOn503,
+  geminiAuthHeaders,
+  geminiGenerateContentUrl,
+  withTimeout,
+} from "./aiRequestUtils.ts";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const CLAUDE_TEXT_MODEL =
@@ -34,22 +40,6 @@ interface ClaudeMessage {
 interface GeminiContent {
   role: string;
   parts: Array<Record<string, unknown>>;
-}
-
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs = AI_REQUEST_TIMEOUT_MS,
-): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const result = await promise;
-    clearTimeout(timeout);
-    return result;
-  } catch (error) {
-    clearTimeout(timeout);
-    throw error;
-  }
 }
 
 function toClaudeMessages(options: GenerateTextOptions): ClaudeMessage[] {
@@ -140,15 +130,18 @@ export async function callClaude(
   };
 
   const response = await withTimeout(
-    fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-    }),
+    (signal) =>
+      fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal,
+      }),
+    AI_REQUEST_TIMEOUT_MS,
   );
 
   if (!response.ok) {
@@ -186,15 +179,21 @@ export async function callGeminiText(
     };
   }
 
-  const response = await withTimeout(
-    fetch(
-      `${GEMINI_API_ENDPOINT}/${GEMINI_TEXT_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      },
-    ),
+  const response = await fetchWithRetryOn503(
+    () =>
+      withTimeout(
+        (signal) =>
+          fetch(
+            geminiGenerateContentUrl(GEMINI_API_ENDPOINT, GEMINI_TEXT_MODEL),
+            {
+              method: "POST",
+              headers: geminiAuthHeaders(GEMINI_API_KEY),
+              body: JSON.stringify(requestBody),
+              signal,
+            },
+          ),
+        AI_REQUEST_TIMEOUT_MS,
+      ),
   );
 
   if (!response.ok) {
@@ -422,15 +421,21 @@ export async function callGeminiImage(
     promptPreview: finalPrompt.slice(0, 180),
   });
 
-  const response = await withTimeout(
-    fetch(
-      `${GEMINI_API_ENDPOINT}/${modelToUse}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      },
-    ),
+  const response = await fetchWithRetryOn503(
+    () =>
+      withTimeout(
+        (signal) =>
+          fetch(
+            geminiGenerateContentUrl(GEMINI_API_ENDPOINT, modelToUse),
+            {
+              method: "POST",
+              headers: geminiAuthHeaders(GEMINI_API_KEY),
+              body: JSON.stringify(body),
+              signal,
+            },
+          ),
+        AI_REQUEST_TIMEOUT_MS,
+      ),
   );
 
   if (!response.ok) {
