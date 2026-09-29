@@ -274,7 +274,7 @@ async function pushJournalPost(params: {
  * TODO: Fetch from organizations.brand_config if available
  */
 async function getSanityConfig(organizationId?: string): Promise<SanityConfig> {
-  const projectId = Deno.env.get("SANITY_PROJECT_ID") || "8h5l91ut";
+  const projectId = Deno.env.get("SANITY_PROJECT_ID");
   const dataset = Deno.env.get("SANITY_DATASET") || "production";
   const token = Deno.env.get("SANITY_WRITE_TOKEN");
   const apiVersion = Deno.env.get("SANITY_API_VERSION") || "2024-01-01";

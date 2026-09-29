@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  BEST_BOTTLES_ORG_ID,
   brandConfigFromOrganization,
+  isBestBottlesOrgId,
   orgHasGridPipeline,
   orgHasTarife,
   resolveCopyStyleOverlay,
@@ -29,5 +31,10 @@ describe("orgFeatures", () => {
     assert.equal(resolveCopyStyleOverlay("TARIFE_NATIVE", { features: { tarife: true } }), "TARIFE_NATIVE");
     assert.equal(resolveCopyStyleOverlay("tarife-native", { features: { grid_pipeline: true } }), "BRAND_VOICE");
     assert.equal(resolveCopyStyleOverlay("poetic", null), "JAY_PETERMAN");
+  });
+
+  it("allowlists only the canonical Best Bottles organization id", () => {
+    assert.equal(isBestBottlesOrgId(BEST_BOTTLES_ORG_ID), true);
+    assert.equal(isBestBottlesOrgId("00000000-0000-4000-8000-000000000000"), false);
   });
 });

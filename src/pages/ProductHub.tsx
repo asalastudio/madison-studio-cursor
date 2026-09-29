@@ -86,6 +86,7 @@ import { useUserRole, type RoleCapabilities } from "@/hooks/useUserRole";
 import { RoleBadge } from "@/components/role";
 import { TaskList } from "@/components/tasks";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
 import { ContentPickerModal, type ContentTarget } from "@/components/products/ContentPickerModal";
 import { PublishProductToSanity } from "@/components/products/PublishProductToSanity";
 import { VariantsSection } from "@/components/products/VariantsSection";
@@ -664,22 +665,15 @@ const TAB_CONFIG_PACKAGING: TabConfig[] = [
   { id: "content", label: "Content", icon: Sparkles, section: "marketing" },
 ];
 
-/**
- * Best Bottles organization UUID. Hardcoded for now — eventually this should
- * read from organizations.industry (or a similar field) so any packaging
- * tenant gets the bottle-specs experience automatically.
- */
-const BEST_BOTTLES_ORG_ID = "4ab1ac72-cd7e-4faf-9152-5aa5f2862411";
-
 /** Resolve which tab list to render for a given organization. */
-function resolveTabConfig(organizationId: string | null | undefined): TabConfig[] {
-  if (organizationId === BEST_BOTTLES_ORG_ID) return TAB_CONFIG_PACKAGING;
+function resolveTabConfig(isPackagingOrg: boolean): TabConfig[] {
+  if (isPackagingOrg) return TAB_CONFIG_PACKAGING;
   return TAB_CONFIG_COSMETIC;
 }
 
 /** Resolve which sidebar industry preset to use for a given organization. */
-function resolveIndustry(organizationId: string | null | undefined): "cosmetic" | "packaging" {
-  if (organizationId === BEST_BOTTLES_ORG_ID) return "packaging";
+function resolveIndustry(isPackagingOrg: boolean): "cosmetic" | "packaging" {
+  if (isPackagingOrg) return "packaging";
   return "cosmetic";
 }
 
@@ -695,6 +689,7 @@ export default function ProductHub() {
   const { data: product, isLoading, error } = useProduct(productId || null);
   const { updateProduct, deleteProduct, duplicateProduct } = useProducts();
   const { organizationId } = useOrganization();
+  const { enabled: isPackagingOrg } = useGridPipelineFeatureFlag();
 
   // Role-based access
   const {
@@ -712,8 +707,8 @@ export default function ProductHub() {
 
   // Industry-aware tab list — Best Bottles gets Bottle Specs in place of
   // Scent Profile / Ingredients / Compliance / Packaging.
-  const tabConfig = resolveTabConfig(organizationId);
-  const industry = resolveIndustry(organizationId);
+  const tabConfig = resolveTabConfig(isPackagingOrg);
+  const industry = resolveIndustry(isPackagingOrg);
 
   // Filter visible tabs based on role
   const visibleTabs = tabConfig.filter(tab => canView(tab.section));

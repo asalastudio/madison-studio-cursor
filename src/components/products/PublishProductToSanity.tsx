@@ -93,13 +93,7 @@ export function PublishProductToSanity({
   };
 
   const getSanityStudioUrl = () => {
-    // Tarife Attar uses a self-hosted Sanity Studio at their website
-    const studioBaseUrl = "https://www.tarifeattar.com/studio";
-    if (syncStatus?.sanityDocumentId) {
-      // Link directly to the product document in the studio
-      return `${studioBaseUrl}/structure/product;${syncStatus.sanityDocumentId}`;
-    }
-    return studioBaseUrl;
+    return "https://www.sanity.io/manage";
   };
 
   // Check if product was previously synced
@@ -123,7 +117,7 @@ export function PublishProductToSanity({
           <DialogHeader>
             <DialogTitle>Push Product to Sanity</DialogTitle>
             <DialogDescription>
-              Sync this product to your Tarife Attar headless site
+              Sync this product to your connected Sanity project
             </DialogDescription>
           </DialogHeader>
 

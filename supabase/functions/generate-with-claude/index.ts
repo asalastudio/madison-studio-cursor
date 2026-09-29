@@ -1249,6 +1249,21 @@ serve(async (req) => {
         .eq('id', organizationId)
         .maybeSingle();
       orgBrandConfig = (orgData?.brand_config ?? null) as OrgBrandConfig;
+      const { data: entitlement } = await supabase
+        .from("org_entitlements")
+        .select("feature")
+        .eq("organization_id", organizationId)
+        .eq("feature", "tarife")
+        .maybeSingle();
+      if (entitlement?.feature === "tarife") {
+        orgBrandConfig = {
+          ...(orgBrandConfig && typeof orgBrandConfig === "object" ? orgBrandConfig : {}),
+          features: {
+            ...((orgBrandConfig && typeof orgBrandConfig === "object" ? orgBrandConfig.features : null) ?? {}),
+            tarife: true,
+          },
+        };
+      }
       
       if (orgData?.industry_type && contentType) {
         // Try Phase 3.5 sequencing first
