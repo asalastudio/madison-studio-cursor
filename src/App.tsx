@@ -60,6 +60,8 @@ const DAMLibrary = lazy(() => import("./pages/DAMLibrary"));
 const Products = lazy(() => import("./pages/Products"));
 const ProductHub = lazy(() => import("./pages/ProductHub"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
+const CanvasProjects = lazy(() => import("./pages/Projects"));
+const ProjectCanvas = lazy(() => import("./pages/ProjectCanvas"));
 // const Press = lazy(() => import("./pages/Press")); // Hidden - keep in code, not pushed live
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -351,7 +353,8 @@ const AppContent = () => {
   useOnboarding();
 
   // Show sidebar for authenticated users on all pages except /auth, /editor, /onboarding, and /darkroom
-  const showSidebar = user && location.pathname !== "/auth" && location.pathname !== "/editor" && location.pathname !== "/onboarding" && location.pathname !== "/darkroom" && location.pathname !== "/light-table";
+  const isCanvasRoute = /^\/projects\/[^/]+\/canvas$/.test(location.pathname);
+  const showSidebar = user && location.pathname !== "/auth" && location.pathname !== "/editor" && location.pathname !== "/onboarding" && location.pathname !== "/darkroom" && location.pathname !== "/light-table" && !isCanvasRoute;
 
   return (
     <>
@@ -390,6 +393,8 @@ const AppContent = () => {
                     <Route path="/products" element={<ProtectedRoute><RouteErrorBoundary routeName="Products"><Products /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/products/:productId" element={<ProtectedRoute><RouteErrorBoundary routeName="Product Hub"><ProductHub /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/products/:productId/edit" element={<ProtectedRoute><RouteErrorBoundary routeName="Edit Product"><ProductHub /></RouteErrorBoundary></ProtectedRoute>} />
+                    <Route path="/projects" element={<ProtectedRoute><RouteErrorBoundary routeName="Canvas Projects"><CanvasProjects /></RouteErrorBoundary></ProtectedRoute>} />
+                    <Route path="/projects/:id/canvas" element={<ProtectedRoute><RouteErrorBoundary routeName="Madison Canvas"><ProjectCanvas /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/suppliers" element={<ProtectedRoute><RouteErrorBoundary routeName="Suppliers"><Suppliers /></RouteErrorBoundary></ProtectedRoute>} />
                     {/* <Route path="/press" element={<ProtectedRoute><RouteErrorBoundary routeName="Press"><Press /></RouteErrorBoundary></ProtectedRoute>} /> */}
                     <Route path="/archives" element={<Navigate to="/library" replace />} />
@@ -453,6 +458,8 @@ const AppContent = () => {
                 <Route path="/products" element={<ProtectedRoute><RouteErrorBoundary routeName="Products"><Products /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/products/:productId" element={<ProtectedRoute><RouteErrorBoundary routeName="Product Hub"><ProductHub /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/products/:productId/edit" element={<ProtectedRoute><RouteErrorBoundary routeName="Edit Product"><ProductHub /></RouteErrorBoundary></ProtectedRoute>} />
+                <Route path="/projects" element={<ProtectedRoute><RouteErrorBoundary routeName="Canvas Projects"><CanvasProjects /></RouteErrorBoundary></ProtectedRoute>} />
+                <Route path="/projects/:id/canvas" element={<ProtectedRoute><RouteErrorBoundary routeName="Madison Canvas"><ProjectCanvas /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/suppliers" element={<ProtectedRoute><RouteErrorBoundary routeName="Suppliers"><Suppliers /></RouteErrorBoundary></ProtectedRoute>} />
                 {/* <Route path="/press" element={<ProtectedRoute><RouteErrorBoundary routeName="Press"><Press /></RouteErrorBoundary></ProtectedRoute>} /> */}
                 <Route path="/archives" element={<Navigate to="/library" replace />} />

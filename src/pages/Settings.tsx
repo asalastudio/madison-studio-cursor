@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Users, Bell, CreditCard, Sparkles, Target, Plug, Briefcase } from "lucide-react";
+import { Building2, Users, Bell, CreditCard, Sparkles, Target, Plug, Briefcase, LayoutDashboard } from "lucide-react";
+import { ProjectsTab } from "@/components/settings/ProjectsTab";
+import { useMadisonCanvasFeatureFlag } from "@/hooks/useMadisonCanvasFeatureFlag";
 import { BrandGuidelinesTab } from "@/components/settings/BrandGuidelinesTab";
 import { TeamTab } from "@/components/settings/TeamTab";
 import { NotificationsTab } from "@/components/settings/NotificationsTab";
@@ -18,6 +20,7 @@ export default function Settings() {
   const currentTab = searchParams.get('tab') || 'brand';
   const { user } = useAuth();
   const [organizationName, setOrganizationName] = useState<string>("");
+  const { enabled: canvasEnabled } = useMadisonCanvasFeatureFlag();
 
   // Handle tab change - update URL
   const handleTabChange = (value: string) => {
@@ -122,6 +125,15 @@ export default function Settings() {
                   <Plug className="w-4 h-4" />
                   <span className="hidden sm:inline">Apps</span>
                 </TabsTrigger>
+                {canvasEnabled && (
+                  <TabsTrigger
+                    value="projects"
+                    className="data-[state=active]:bg-brand-brass data-[state=active]:text-white px-3 py-2 gap-2 whitespace-nowrap rounded-md transition-colors text-sm"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span className="hidden sm:inline">Projects</span>
+                  </TabsTrigger>
+                )}
               </TabsList>
             </div>
 
@@ -156,6 +168,12 @@ export default function Settings() {
             <TabsContent value="integrations">
               <IntegrationsTab />
             </TabsContent>
+
+            {canvasEnabled && (
+              <TabsContent value="projects" className="space-y-6">
+                <ProjectsTab />
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>
