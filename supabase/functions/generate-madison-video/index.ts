@@ -24,6 +24,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createVideoTask, getVideoStatus, generateImage, type FreepikVideoModel, VIDEO_MODELS } from "../_shared/freepikProvider.ts";
+import { edgeAuthEnv, guardAuthenticatedOrg, isSuperAdmin as lookupSuperAdmin } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +53,6 @@ serve(async (req) => {
       cameraFixed = false,
       includeAudio = false, // Audio generation (Veo 3+, Kling O1)
       multiShot = false,    // Multi-shot mode (auto model)
-      userId,
       organizationId,
       // Handle legacy 'aiProvider' field from frontend
       aiProvider,
@@ -60,6 +60,10 @@ serve(async (req) => {
       action = "create",
       taskId,
     } = body;
+
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+    const userId = guard.caller.kind === "user" ? guard.caller.userId : undefined;
 
     // Initialize Supabase client
     const supabase = createClient(
@@ -107,22 +111,7 @@ serve(async (req) => {
       promptLength: prompt.length,
     });
 
-    // Resolve organization if not provided
-    let resolvedOrgId = organizationId;
-
-    if (!resolvedOrgId && userId) {
-      const { data } = await supabase
-        .from("organization_members")
-        .select("organization_id")
-        .eq("user_id", userId)
-        .limit(1)
-        .single();
-
-      if (data?.organization_id) {
-        resolvedOrgId = data.organization_id;
-      }
-    }
-
+    const resolvedOrgId = guard.organizationId;
     if (!resolvedOrgId) {
       return new Response(
         JSON.stringify({ error: "Could not resolve organization" }),
@@ -139,25 +128,20 @@ serve(async (req) => {
      */
     let videoAllowed = false;
     let subscriptionTier = "essentials";
-    let isSuperAdmin = false;
+    let isSuperAdmin = guard.via === "super_admin";
 
-    console.log("🔍 DEBUG: Starting access check with userId:", userId, "orgId:", resolvedOrgId);
+    console.log("Starting video access check for org:", resolvedOrgId);
 
-    // Check if user is a super admin (gets full access for testing)
-    if (userId) {
+    if (isSuperAdmin) {
+      videoAllowed = true;
+      console.log("Super Admin detected - Full video access enabled");
+    } else if (userId) {
       try {
-        const { data: superAdminData, error: saError } = await supabase
-          .from("super_admins")
-          .select("id")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        console.log("🔍 DEBUG: Super admin check result:", { superAdminData, saError });
-
-        if (superAdminData) {
+        const authEnv = edgeAuthEnv((name) => Deno.env.get(name));
+        if (await lookupSuperAdmin(authEnv, userId)) {
           isSuperAdmin = true;
           videoAllowed = true;
-          console.log("👑 Super Admin detected - Full video access enabled");
+          console.log("Super Admin detected - Full video access enabled");
         }
       } catch (saError) {
         console.warn("Could not check super admin status:", saError);
@@ -191,9 +175,6 @@ serve(async (req) => {
     }
 
     console.log(`📊 Video Tier Check:`, { tier: subscriptionTier, videoAllowed, isSuperAdmin });
-
-    // TEMPORARY: Bypass subscription check for testing
-    videoAllowed = true;
 
     if (!videoAllowed) {
       return new Response(

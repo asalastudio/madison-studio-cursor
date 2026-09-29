@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,16 +13,14 @@ serve(async (req) => {
   }
 
   try {
-    const { imageId, userId, createRecipe = true } = await req.json();
+    const { imageId, createRecipe = true } = await req.json();
 
-    if (!imageId || !userId) {
+    if (!imageId) {
       return new Response(
-        JSON.stringify({ error: 'imageId and userId are required' }),
+        JSON.stringify({ error: 'imageId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('💾 Marking image as saved:', { imageId, userId, createRecipe });
 
     // Create Supabase client with service role key (bypasses RLS)
     const supabaseClient = createClient(
@@ -29,8 +28,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // First, verify the user has access to this image
-    // (either owns it or is a member of the organization that owns it)
     const { data: imageCheck, error: checkError } = await supabaseClient
       .from('generated_images')
       .select('*')
@@ -45,24 +42,11 @@ serve(async (req) => {
       );
     }
 
-    // Verify user has access
-    if (imageCheck.user_id !== userId) {
-      // Check if user is a member of the organization
-      const { data: membership, error: membershipError } = await supabaseClient
-        .from('organization_members')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('organization_id', imageCheck.organization_id)
-        .single();
+    const guard = await guardAuthenticatedOrg(req, imageCheck.organization_id, corsHeaders);
+    if ("response" in guard) return guard.response;
+    const userId = guard.caller.kind === "user" ? guard.caller.userId : imageCheck.user_id;
 
-      if (membershipError || !membership) {
-        console.error('❌ User does not have access to this image');
-        return new Response(
-          JSON.stringify({ error: 'Access denied' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
+    console.log('💾 Marking image as saved:', { imageId, userId, createRecipe });
 
     // Update the image to mark as saved (using service role to bypass RLS)
     const { data: updatedImage, error: updateError } = await supabaseClient
