@@ -47,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { pickFixedBackgroundVariation } from "@/lib/darkroomBackgroundVariation";
 import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
 import { toast } from "sonner";
 import type { ProModeSettings } from "./ProSettings";
@@ -196,12 +197,11 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   },
 ];
 
-// Helper to get a random variation from a preset
+// Helper: one deterministic variation per preset. Random draws made
+// identical clicks produce different lighting and hex.
 export function getRandomBackgroundVariation(presetId: string): string {
   const preset = BACKGROUND_PRESETS.find(p => p.id === presetId);
-  if (!preset) return "";
-  const randomIndex = Math.floor(Math.random() * preset.variations.length);
-  return preset.variations[randomIndex];
+  return pickFixedBackgroundVariation(preset?.variations);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
