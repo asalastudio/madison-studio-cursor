@@ -20,10 +20,10 @@ import {
   buildDefaultSetNodeData,
   buildProductNodeData,
 } from "@/lib/canvas/defaultGraph";
-import { CANVAS_FIT_VIEW_OPTIONS, defaultPositionForType, nextOpenCanvasSlot } from "@/lib/canvas/layout";
+import { CANVAS_FIT_VIEW_OPTIONS, CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM, defaultPositionForType, nextOpenCanvasSlot } from "@/lib/canvas/layout";
 import { buildDefaultBatchNodeData, buildDefaultImageNodeData } from "@/lib/canvas/models";
 import { DEFAULT_SHOT_TYPES, type Week1NodeType } from "@/lib/canvas/types";
-import { CanvasFitView } from "./CanvasFitView";
+import { CanvasFitView, canvasFitViewOnInit } from "./CanvasFitView";
 import { CanvasInspector } from "./CanvasInspector";
 import { CanvasRunProvider } from "./CanvasRunContext";
 import { CanvasToolbar } from "./CanvasToolbar";
@@ -171,8 +171,10 @@ export function CanvasUxFixture() {
             nodeTypes={canvasNodeTypes}
             defaultEdgeOptions={EDGE_STYLE}
             connectionLineType={ConnectionLineType.Bezier}
-            fitView
+            minZoom={CANVAS_MIN_ZOOM}
+            maxZoom={CANVAS_MAX_ZOOM}
             fitViewOptions={CANVAS_FIT_VIEW_OPTIONS}
+            onInit={canvasFitViewOnInit}
             elevateNodesOnSelect
             proOptions={{ hideAttribution: true }}
           >

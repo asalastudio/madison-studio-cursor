@@ -25,7 +25,7 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { useCanvasDocument, useCanvasProject, useCanvasRecords } from "@/hooks/useCanvasProjects";
 import { persistCanvasGraph, recordsToFlow } from "@/lib/canvas/graphPersist";
 import { isValidConnection, validateConnection } from "@/lib/canvas/graphValidation";
-import { CANVAS_FIT_VIEW_OPTIONS, nextOpenCanvasSlot } from "@/lib/canvas/layout";
+import { CANVAS_FIT_VIEW_OPTIONS, CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM, nextOpenCanvasSlot } from "@/lib/canvas/layout";
 import {
   buildDefaultBatchNodeData,
   buildDefaultImageNodeData,
@@ -36,7 +36,7 @@ import {
   type Week1NodeType,
 } from "@/lib/canvas/types";
 import { buildDefaultPackNodeData, buildDefaultSetNodeData } from "@/lib/canvas/defaultGraph";
-import { CanvasFitView } from "./CanvasFitView";
+import { CanvasFitView, canvasFitViewOnInit } from "./CanvasFitView";
 import { CanvasInspector } from "./CanvasInspector";
 import { CanvasRunProvider, type CanvasRunRequest } from "./CanvasRunContext";
 import { CanvasToolbar } from "./CanvasToolbar";
@@ -260,8 +260,10 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
             defaultViewport={canvasQuery.data.viewport}
             defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
             connectionLineType={ConnectionLineType.Bezier}
-            fitView
+            minZoom={CANVAS_MIN_ZOOM}
+            maxZoom={CANVAS_MAX_ZOOM}
             fitViewOptions={CANVAS_FIT_VIEW_OPTIONS}
+            onInit={canvasFitViewOnInit}
             elevateNodesOnSelect
             proOptions={{ hideAttribution: true }}
           >
