@@ -102,6 +102,24 @@ export async function isOrgMember(env: EdgeAuthEnv, userId: string, organization
   return rows.length > 0;
 }
 
+export async function getOrgMemberRole(
+  env: EdgeAuthEnv,
+  userId: string,
+  organizationId: string,
+): Promise<string | null> {
+  if (!isUuid(userId) || !isUuid(organizationId)) return null;
+  const rows = await restRows<{ role?: unknown }>(
+    env,
+    `organization_members?select=role&user_id=eq.${userId}&organization_id=eq.${organizationId}&limit=1`,
+  );
+  const role = rows[0]?.role;
+  return typeof role === "string" ? role : null;
+}
+
+export function isOrgAdminRole(role: string | null | undefined): boolean {
+  return role === "owner" || role === "admin";
+}
+
 export async function isSuperAdmin(env: EdgeAuthEnv, userId: string): Promise<boolean> {
   if (!isUuid(userId)) return false;
   const rows = await restRows(env, `super_admins?select=user_id&user_id=eq.${userId}&limit=1`);
@@ -183,6 +201,147 @@ export async function guardOrganization(
     return { response: accessDeniedResponse(access, corsHeaders, { organizationId: organizationId ?? null }) };
   }
   return { caller, via: access.via };
+}
+
+/**
+ * Authenticate the caller and confirm they belong to an organization.
+ *
+ * Use this when the handler is a paid or service-role AI call that may not
+ * always receive an organization id. If one is supplied it is authorized
+ * exactly like `guardOrganization`. If it is missing, a signed-in user must
+ * still belong to at least one org (their first membership is used).
+ */
+export async function guardAuthenticatedOrg(
+  req: Request,
+  organizationId: string | null | undefined,
+  corsHeaders: Record<string, string>,
+  options: GuardOrganizationOptions = {},
+): Promise<
+  | { caller: EdgeCaller; organizationId: string | null; via: "service" | "member" | "super_admin" }
+  | { response: Response }
+> {
+  if (isUuid(organizationId)) {
+    const guard = await guardOrganization(req, organizationId, corsHeaders, options);
+    if ("response" in guard) return guard;
+    return { caller: guard.caller, organizationId, via: guard.via };
+  }
+
+  const get = options.get ?? ((name: string) =>
+    (globalThis as { Deno?: { env: { get(n: string): string | undefined } } }).Deno?.env.get(name));
+  let env: EdgeAuthEnv;
+  try {
+    env = { ...edgeAuthEnv(get), ...(options.fetch ? { fetch: options.fetch } : {}) };
+  } catch (error) {
+    console.error("[auth] edge auth is not configured:", error instanceof Error ? error.message : error);
+    return { response: accessDeniedResponse({ status: 401, error: "Authentication is not configured." }, corsHeaders) };
+  }
+
+  const caller = await resolveCaller(req, env);
+  if (caller.kind === "anonymous") {
+    console.warn("[auth] unauthenticated call rejected:", caller.reason);
+    return { response: accessDeniedResponse({ status: 401, error: "Authentication required." }, corsHeaders, { reason: caller.reason }) };
+  }
+  if (caller.kind === "service") {
+    return { caller, organizationId: isUuid(organizationId) ? organizationId : null, via: "service" };
+  }
+
+  const resolvedOrgId = await firstMemberOrganization(env, caller.userId);
+  if (!resolvedOrgId) {
+    console.warn("[auth] caller has no organization membership:", caller.userId);
+    return {
+      response: accessDeniedResponse(
+        { status: 403, error: "You must belong to an organization." },
+        corsHeaders,
+      ),
+    };
+  }
+  return { caller, organizationId: resolvedOrgId, via: "member" };
+}
+
+/**
+ * Same as `guardOrganization`, plus the caller must be an owner or admin
+ * of that organization (super-admins and service callers still pass).
+ */
+export async function guardOrganizationAdmin(
+  req: Request,
+  organizationId: string | null | undefined,
+  corsHeaders: Record<string, string>,
+  options: GuardOrganizationOptions = {},
+): Promise<{ caller: EdgeCaller; via: "service" | "member" | "super_admin" } | { response: Response }> {
+  const guard = await guardOrganization(req, organizationId, corsHeaders, options);
+  if ("response" in guard) return guard;
+  if (guard.via === "service" || guard.via === "super_admin") return guard;
+  if (guard.caller.kind !== "user" || !isUuid(organizationId)) {
+    return { response: accessDeniedResponse({ status: 403, error: "Admin access required." }, corsHeaders) };
+  }
+
+  const get = options.get ?? ((name: string) =>
+    (globalThis as { Deno?: { env: { get(n: string): string | undefined } } }).Deno?.env.get(name));
+  let env: EdgeAuthEnv;
+  try {
+    env = { ...edgeAuthEnv(get), ...(options.fetch ? { fetch: options.fetch } : {}) };
+  } catch (error) {
+    console.error("[auth] edge auth is not configured:", error instanceof Error ? error.message : error);
+    return { response: accessDeniedResponse({ status: 401, error: "Authentication is not configured." }, corsHeaders) };
+  }
+
+  const role = await getOrgMemberRole(env, guard.caller.userId, organizationId);
+  if (!isOrgAdminRole(role)) {
+    console.warn("[auth] admin role required:", { organizationId, role });
+    return {
+      response: accessDeniedResponse(
+        { status: 403, error: "Admin access required." },
+        corsHeaders,
+        { organizationId },
+      ),
+    };
+  }
+  return guard;
+}
+
+function normalizeEmail(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+/**
+ * Close open email relays: the caller must be the service role, or a
+ * signed-in user whose confirmed email matches the recipient.
+ */
+export async function guardSelfOrServiceEmail(
+  req: Request,
+  recipientEmail: string | null | undefined,
+  corsHeaders: Record<string, string>,
+  options: GuardOrganizationOptions = {},
+): Promise<{ caller: EdgeCaller } | { response: Response }> {
+  const get = options.get ?? ((name: string) =>
+    (globalThis as { Deno?: { env: { get(n: string): string | undefined } } }).Deno?.env.get(name));
+  let env: EdgeAuthEnv;
+  try {
+    env = { ...edgeAuthEnv(get), ...(options.fetch ? { fetch: options.fetch } : {}) };
+  } catch (error) {
+    console.error("[auth] edge auth is not configured:", error instanceof Error ? error.message : error);
+    return { response: accessDeniedResponse({ status: 401, error: "Authentication is not configured." }, corsHeaders) };
+  }
+
+  const caller = await resolveCaller(req, env);
+  if (caller.kind === "anonymous") {
+    console.warn("[auth] unauthenticated email send rejected:", caller.reason);
+    return { response: accessDeniedResponse({ status: 401, error: "Authentication required." }, corsHeaders) };
+  }
+  if (caller.kind === "service") return { caller };
+
+  const recipient = normalizeEmail(recipientEmail);
+  const callerEmail = normalizeEmail(caller.email);
+  if (!recipient || !callerEmail || recipient !== callerEmail) {
+    console.warn("[auth] email recipient does not match the signed-in user");
+    return {
+      response: accessDeniedResponse(
+        { status: 403, error: "You can only send this email to yourself." },
+        corsHeaders,
+      ),
+    };
+  }
+  return { caller };
 }
 
 export function accessDeniedResponse(

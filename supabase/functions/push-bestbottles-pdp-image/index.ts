@@ -29,7 +29,8 @@
  *   500 { error: "..." }
  */
 
-import { createClient as createSupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { guardOrganization } from "../_shared/edgeAuth.ts";
+import { BEST_BOTTLES_ORG_ID } from "../_shared/orgFeatures.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,21 +83,8 @@ Deno.serve(async (req) => {
     return jsonResponse(405, { error: "Method not allowed" });
   }
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return jsonResponse(401, { error: "Missing Authorization header" });
-  }
-  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!jwt) return jsonResponse(401, { error: "Empty bearer token" });
-
-  const supabase = createSupabaseClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-  );
-  const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
-  if (userError || !user) {
-    return jsonResponse(401, { error: "Not signed in", detail: userError?.message });
-  }
+  const guard = await guardOrganization(req, BEST_BOTTLES_ORG_ID, corsHeaders);
+  if ("response" in guard) return guard.response;
 
   let body: PushBody;
   try {
@@ -130,7 +118,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": authHeader,
+        "Authorization": req.headers.get("Authorization") ?? "",
         "apikey": anonKey,
       },
       body: JSON.stringify({

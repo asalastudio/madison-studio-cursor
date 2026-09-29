@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { pickShopifyStore, resolveListingShopifyProductId } from '../_shared/shopifyStore.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,67 +73,57 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use passed shopify_product_id or fall back to listing's external_id
-    const effectiveShopifyId = shopify_product_id || listing.external_id;
-    if (!effectiveShopifyId) {
-      return new Response(JSON.stringify({ error: 'Shopify Product ID required' }), {
+    const listingShopifyId = resolveListingShopifyProductId(listing.external_id, shopify_product_id);
+    if (!listingShopifyId.ok) {
+      return new Response(JSON.stringify({ error: listingShopifyId.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const effectiveShopifyId = listingShopifyId.shopifyProductId;
+
+    const { data: connection, error: connectionError } = await supabaseClient
+      .from('shopify_connections')
+      .select('shop_domain, access_token_encrypted, access_token_iv')
+      .eq('organization_id', listing.organization_id)
+      .maybeSingle();
+
+    if (connectionError) {
+      console.error('Error fetching Shopify connection:', connectionError);
+    }
+
+    const picked = pickShopifyStore({
+      organizationId: listing.organization_id,
+      connection,
+      envToken: Deno.env.get('SHOPIFY_ACCESS_TOKEN'),
+      envDomain: Deno.env.get('SHOPIFY_SHOP_DOMAIN'),
+    });
+
+    if (picked.source === 'none') {
+      return new Response(JSON.stringify({ error: picked.error }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Try environment secrets first (recommended), fall back to DB
-    const envToken = Deno.env.get('SHOPIFY_ACCESS_TOKEN');
-    const envDomain = Deno.env.get('SHOPIFY_SHOP_DOMAIN');
-    
-    let shopDomain = envDomain;
-    let accessToken = envToken;
-    
-    // If no env secrets, try DB connection
-    if (!shopDomain || !accessToken) {
-      console.log('No env secrets found, fetching Shopify connection from DB for org:', listing.organization_id);
-      
-      const { data: connection, error: connectionError } = await supabaseClient
-        .from('shopify_connections')
-        .select('shop_domain, access_token_encrypted, access_token_iv')
-        .eq('organization_id', listing.organization_id)
-        .single();
+    let shopDomain = picked.shopDomain;
+    let accessToken = '';
 
-      if (connectionError || !connection) {
-        console.error('Error fetching Shopify connection:', connectionError);
-        return new Response(JSON.stringify({ 
-          error: 'Shopify not connected. Please add SHOPIFY_ACCESS_TOKEN and SHOPIFY_SHOP_DOMAIN secrets or connect via Settings.' 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      if (!connection.access_token_encrypted || !connection.access_token_iv) {
-        console.error('Shopify connection missing encrypted token data');
-        return new Response(JSON.stringify({ 
-          error: 'Shopify connection is missing encrypted token data. Please reconnect.' 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      shopDomain = connection.shop_domain;
-      
-      // Decrypt the access token
+    if (picked.source === 'env') {
+      accessToken = picked.accessToken;
+      console.log('Using Best Bottles Shopify credentials from environment secrets');
+    } else {
       const ENC_KEY = Deno.env.get('SHOPIFY_TOKEN_ENCRYPTION_KEY');
       if (!ENC_KEY) {
         console.error('Shopify token encryption key not configured');
-        return new Response(JSON.stringify({ 
-          error: 'Shopify token encryption key not configured' 
+        return new Response(JSON.stringify({
+          error: 'Shopify token encryption key not configured'
         }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Decrypt helper functions
       function base64ToBytes(b64: string): Uint8Array {
         const binary = atob(b64);
         const bytes = new Uint8Array(binary.length);
@@ -159,23 +150,21 @@ Deno.serve(async (req) => {
       }
 
       try {
-        accessToken = await decryptText(connection.access_token_encrypted, connection.access_token_iv, ENC_KEY);
+        accessToken = await decryptText(picked.access_token_encrypted, picked.access_token_iv, ENC_KEY);
       } catch (decryptError) {
         console.error('Error decrypting Shopify token:', decryptError);
-        return new Response(JSON.stringify({ 
-          error: 'Failed to decrypt Shopify access token' 
+        return new Response(JSON.stringify({
+          error: 'Failed to decrypt Shopify access token'
         }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      
+
       console.log('Shopify connection found in DB and decrypted:', {
-        shopDomain: shopDomain,
+        shopDomain,
         hasAccessToken: !!accessToken,
       });
-    } else {
-      console.log('Using Shopify credentials from environment secrets');
     }
     
     // Validate credentials

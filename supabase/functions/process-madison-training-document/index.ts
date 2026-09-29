@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { extractText, getDocumentProxy } from "https://esm.sh/unpdf@1.2.2";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +16,11 @@ serve(async (req) => {
   let docIdForFail: string | null = null;
 
   try {
-    const { documentId } = await req.json();
+    const { documentId, organizationId } = await req.json();
     if (!documentId) throw new Error("documentId is required");
     docIdForFail = documentId;
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
