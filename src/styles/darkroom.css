@@ -857,6 +857,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  order: 3;
   margin-bottom: var(--space-sm);
   padding: 12px;
   border: 1px solid var(--darkroom-border);
