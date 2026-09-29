@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -33,10 +34,13 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { ingredients, product_type } = await req.json() as {
+    const { ingredients, product_type, organizationId } = await req.json() as {
       ingredients: Ingredient[];
       product_type?: "leave_on" | "rinse_off";
+      organizationId?: string;
     };
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     console.log("[detect-allergens] Checking", ingredients.length, "ingredients");
 

@@ -21,6 +21,8 @@
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
+import { isPubliclyFetchableUrl } from "../_shared/urlSafety.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +32,7 @@ const corsHeaders = {
 
 interface ScrapeRequest {
   productUrl: string;
+  organizationId?: string;
 }
 
 interface ScrapeSuccess {
@@ -122,6 +125,9 @@ async function scrapeProductImage(
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return { imageUrl: null, error: `Unsupported protocol: ${url.protocol}` };
+  }
+  if (!isPubliclyFetchableUrl(url.toString(), { protocol: "http" })) {
+    return { imageUrl: null, error: "URL is not allowed" };
   }
 
   const response = await fetch(url.toString(), {
@@ -235,6 +241,8 @@ serve(async (req) => {
 
   try {
     const body = (await req.json()) as ScrapeRequest;
+    const guard = await guardAuthenticatedOrg(req, body.organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
     const productUrl = body.productUrl;
     if (!productUrl || typeof productUrl !== "string") {
       return new Response(

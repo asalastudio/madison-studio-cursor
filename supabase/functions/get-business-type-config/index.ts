@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,6 +43,8 @@ serve(async (req) => {
 
   try {
     const { organizationId, businessType } = await req.json();
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     // Create Supabase client
     const supabaseClient = createClient(

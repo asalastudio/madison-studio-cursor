@@ -4,6 +4,7 @@ import {
   GEMINI_API_BASE,
   getGeminiApiKey,
 } from "../_shared/geminiClient.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +22,9 @@ serve(async (req) => {
   try {
     const GEMINI_API_KEY = getGeminiApiKey();
 
-    const { prompt } = await req.json();
+    const { prompt, organizationId } = await req.json();
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
     console.log('[generate-image-with-nano] Generating image for prompt:', prompt.substring(0, 100));
 
     const response = await fetch(`${GEMINI_API_BASE}/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {

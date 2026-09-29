@@ -4,6 +4,8 @@ import { extractBrandAssets } from "../_shared/brandAssetsExtractor.ts";
 import { extractColorPalette } from "../_shared/colorPaletteExtractor.ts";
 import { fetchSiteCopy } from "../_shared/siteCopyExtractor.ts";
 import { inferBrandProfile } from "../_shared/brandProfileInference.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
+import { isPubliclyFetchableUrl } from "../_shared/urlSafety.ts";
 
 // Type definitions (inline for Deno compatibility)
 type BrandReport = {
@@ -134,9 +136,20 @@ serve(async (req) => {
   try {
     const { url, organizationId, forceRescan = false } = await req.json();
 
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
+
     if (!url || !organizationId) {
       return new Response(
         JSON.stringify({ error: "url and organizationId are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const fetchUrl = url.startsWith("http") ? url : `https://${url}`;
+    if (!isPubliclyFetchableUrl(fetchUrl, { protocol: "http" })) {
+      return new Response(
+        JSON.stringify({ error: "url is not allowed" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

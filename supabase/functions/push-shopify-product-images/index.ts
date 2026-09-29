@@ -7,6 +7,7 @@ import {
   validateBestBottlesImageIdentity,
 } from "../_shared/bestBottlesVisualIdentity.ts";
 import { buildShopifyPushDryRunResult } from "../_shared/shopifyPushDryRun.ts";
+import { pickShopifyStore } from "../_shared/shopifyStore.ts";
 import {
   assertCylinderShopifyPublishAuthorized,
   executeCylinderShopifyGuardedMutation,
@@ -740,13 +741,6 @@ async function decryptText(ciphertextB64: string, ivB64: string, keyB64: string)
   return new TextDecoder().decode(plaintext);
 }
 
-function normalizeShopDomain(value: string): string {
-  return value
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/.*$/, "");
-}
-
 function escapeShopifySearchValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
@@ -849,17 +843,7 @@ async function getShopifyConfig(
   supabase: SupabaseClient,
   organizationId: string,
 ): Promise<ShopifyConfig> {
-  const envToken = Deno.env.get("SHOPIFY_ACCESS_TOKEN");
-  const envDomain = Deno.env.get("SHOPIFY_SHOP_DOMAIN");
   const apiVersion = Deno.env.get("SHOPIFY_API_VERSION") ?? "2026-04";
-
-  if (envToken && envDomain) {
-    return {
-      accessToken: envToken,
-      shopDomain: normalizeShopDomain(envDomain),
-      apiVersion,
-    };
-  }
 
   const { data: connection, error } = await supabase
     .from("shopify_connections")
@@ -867,13 +851,26 @@ async function getShopifyConfig(
     .eq("organization_id", organizationId)
     .maybeSingle();
 
-  if (error || !connection) {
-    throw new ConfigurationError(
-      "Shopify is not connected for this organization. Connect Shopify in Settings, or configure SHOPIFY_ACCESS_TOKEN and SHOPIFY_SHOP_DOMAIN for this Supabase project.",
-    );
+  if (error) {
+    throw new ConfigurationError("Failed to load the Shopify connection for this organization.");
   }
-  if (!connection.access_token_encrypted || !connection.access_token_iv) {
-    throw new ConfigurationError("Shopify connection is missing encrypted token data. Please reconnect Shopify.");
+
+  const picked = pickShopifyStore({
+    organizationId,
+    connection,
+    envToken: Deno.env.get("SHOPIFY_ACCESS_TOKEN"),
+    envDomain: Deno.env.get("SHOPIFY_SHOP_DOMAIN"),
+  });
+
+  if (picked.source === "none") {
+    throw new ConfigurationError(picked.error);
+  }
+  if (picked.source === "env") {
+    return {
+      accessToken: picked.accessToken,
+      shopDomain: picked.shopDomain,
+      apiVersion,
+    };
   }
 
   const encryptionKey = Deno.env.get("SHOPIFY_TOKEN_ENCRYPTION_KEY");
@@ -883,11 +880,11 @@ async function getShopifyConfig(
 
   return {
     accessToken: await decryptText(
-      connection.access_token_encrypted,
-      connection.access_token_iv,
+      picked.access_token_encrypted,
+      picked.access_token_iv,
       encryptionKey,
     ),
-    shopDomain: normalizeShopDomain(connection.shop_domain),
+    shopDomain: picked.shopDomain,
     apiVersion,
   };
 }

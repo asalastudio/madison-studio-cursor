@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { guardOrganization } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,6 +33,8 @@ serve(async (req) => {
     }
 
     const { organization_id, session_id, label, prompt } = await req.json();
+    const guard = await guardOrganization(req, organization_id, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     if (!organization_id || !label || !prompt) {
       return new Response(

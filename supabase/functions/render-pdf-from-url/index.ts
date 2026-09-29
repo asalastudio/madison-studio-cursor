@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
+import { isPubliclyFetchableUrl } from "../_shared/urlSafety.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,11 +21,20 @@ serve(async (req) => {
   }
 
   try {
-    const { url, options = {} } = await req.json();
+    const { url, options = {}, organizationId } = await req.json();
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     if (!url) {
       return new Response(
         JSON.stringify({ error: "URL is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!isPubliclyFetchableUrl(url, { protocol: "http" })) {
+      return new Response(
+        JSON.stringify({ error: "URL is not allowed" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -100,9 +111,8 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error rendering PDF:", error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
-        details: error instanceof Error ? error.stack : String(error)
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

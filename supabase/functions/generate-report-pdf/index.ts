@@ -4,6 +4,7 @@ import {
   BrandAuditReport,
   renderBrandAuditReport,
 } from "../_shared/brandAuditReportTemplate.ts";
+import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,7 @@ interface RequestPayload {
   html?: string;
   reportData?: BrandAuditReport;
   storeInSupabase?: boolean;
+  organizationId?: string;
 }
 
 serve(async (req) => {
@@ -31,8 +33,11 @@ serve(async (req) => {
       html,
       reportData,
       storeInSupabase = false,
+      organizationId,
     }: RequestPayload =
       await req.json();
+    const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
+    if ("response" in guard) return guard.response;
 
     if (!domain && !html && !reportData) {
       return new Response(

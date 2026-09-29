@@ -1,3 +1,4 @@
+import { BEST_BOTTLES_ORG_ID } from "./orgFeatures.ts";
 import { PaperDollActionError } from "./paperDollLifecycle.ts";
 
 function configured(...names: string[]): string {
@@ -12,6 +13,22 @@ export interface SanityMutationResult {
   transactionId: string | null;
   documentId: string;
   revision: string | null;
+}
+
+export function assertBestBottlesSanityOrg(organizationId: string): void {
+  if (organizationId !== BEST_BOTTLES_ORG_ID) {
+    throw new PaperDollActionError(
+      403,
+      "organization_forbidden",
+      "Paper-doll Sanity publish is limited to the Best Bottles organization.",
+      [
+        {
+          field: "organizationId",
+          message: "This organization cannot write to the shared Sanity project.",
+        },
+      ],
+    );
+  }
 }
 
 export async function writeSanityDocument(
