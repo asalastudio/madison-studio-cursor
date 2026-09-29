@@ -1,62 +1,129 @@
 import type { ReactNode } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Play } from "lucide-react";
+import { LEDIndicator } from "@/components/darkroom";
 import { cn } from "@/lib/utils";
 import { getNodeTypeSpec, type PortSpec } from "@/lib/canvas/graphValidation";
+import { portKindCssVar } from "@/lib/canvas/portStyle";
+import { useCanvasRun } from "../CanvasRunContext";
+
+export interface CanvasNodeSetting {
+  label: string;
+  value: string;
+}
 
 interface CanvasNodeFrameProps {
+  id: string;
   selected?: boolean;
   type: string;
   title: string;
   subtitle?: string;
+  icon?: ReactNode;
+  media?: ReactNode;
+  settings?: CanvasNodeSetting[];
   children?: ReactNode;
 }
 
-function handlePosition(_port: PortSpec, index: number, total: number) {
-  const offset = total === 1 ? 50 : 24 + (index * 52) / Math.max(total - 1, 1);
+function handleOffset(index: number, total: number) {
+  const offset = total === 1 ? 50 : 28 + (index * 44) / Math.max(total - 1, 1);
   return { top: `${offset}%` };
 }
 
-export function CanvasNodeFrame({ selected, type, title, subtitle, children }: CanvasNodeFrameProps) {
+export function CanvasNodeFrame({
+  id,
+  selected,
+  type,
+  title,
+  subtitle,
+  icon,
+  media,
+  settings = [],
+  children,
+}: CanvasNodeFrameProps) {
+  const onRun = useCanvasRun();
   const spec = getNodeTypeSpec(type);
   const inputs = spec?.ports.filter((port) => port.direction === "in") ?? [];
   const outputs = spec?.ports.filter((port) => port.direction === "out") ?? [];
 
   return (
-    <div
-      className={cn(
-        "w-64 rounded-lg border bg-card shadow-level-1 transition-all duration-300",
-        selected ? "border-primary shadow-level-2" : "border-border",
-      )}
-    >
+    <div className={cn("madison-canvas-node", selected && "is-selected")}>
       {inputs.map((port, index) => (
-        <Handle
-          key={port.id}
-          id={port.id}
-          type="target"
-          position={Position.Left}
-          style={handlePosition(port, index, inputs.length)}
-          className="!w-3 !h-3 !bg-primary !border-background"
-          title={port.label}
-        />
+        <PortHandle key={`in-${port.id}`} port={port} index={index} total={inputs.length} />
       ))}
       {outputs.map((port, index) => (
-        <Handle
-          key={port.id}
-          id={port.id}
-          type="source"
-          position={Position.Right}
-          style={handlePosition(port, index, outputs.length)}
-          className="!w-3 !h-3 !bg-primary !border-background"
-          title={port.label}
-        />
+        <PortHandle key={`out-${port.id}`} port={port} index={index} total={outputs.length} />
       ))}
-      <div className="border-b border-border px-4 py-3">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">{spec?.label ?? type}</p>
-        <h3 className="font-serif text-lg text-foreground leading-tight">{title}</h3>
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+
+      <div className="madison-canvas-node__bar">
+        <div className="madison-canvas-node__kind">
+          <LEDIndicator state={selected ? "ready" : "off"} size="sm" label={`${spec?.label ?? type} status`} />
+          {icon}
+          <span>{spec?.label ?? type}</span>
+        </div>
+        <button
+          type="button"
+          className="madison-canvas-node__run nodrag nopan"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRun({ scope: "node", nodeId: id });
+          }}
+        >
+          <Play />
+          Run
+        </button>
       </div>
-      {children && <div className="px-4 py-3 text-sm text-muted-foreground space-y-1">{children}</div>}
+
+      <div className="madison-canvas-node__media">{media}</div>
+
+      <div className="madison-canvas-node__body">
+        <h3 className="madison-canvas-node__title">{title}</h3>
+        {subtitle ? <p className="madison-canvas-node__subtitle">{subtitle}</p> : null}
+        {settings.length > 0 && (
+          <div className="madison-canvas-node__settings">
+            {settings.map((setting) => (
+              <span key={`${setting.label}-${setting.value}`} className="madison-canvas-chip">
+                {setting.label}
+                <strong>{setting.value}</strong>
+              </span>
+            ))}
+          </div>
+        )}
+        {children}
+      </div>
     </div>
+  );
+}
+
+function PortHandle({
+  port,
+  index,
+  total,
+}: {
+  port: PortSpec;
+  index: number;
+  total: number;
+}) {
+  const isInput = port.direction === "in";
+  return (
+    <>
+      <Handle
+        id={port.id}
+        type={isInput ? "target" : "source"}
+        position={isInput ? Position.Left : Position.Right}
+        style={{
+          ...handleOffset(index, total),
+          background: portKindCssVar(port.kind),
+          color: portKindCssVar(port.kind),
+        }}
+        title={port.label}
+      />
+      <span
+        className={cn("madison-canvas-port-label", isInput ? "is-in" : "is-out")}
+        style={handleOffset(index, total)}
+      >
+        {port.label}
+      </span>
+    </>
   );
 }
 

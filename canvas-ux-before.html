@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Madison Canvas — before (cream paper)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Lato:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root { --bg:#F5F1E8; --card:#FFFCF5; --ink:#1A1816; --muted:#2F2A26; --brass:#B8956A; --stone:#E5DFD1; }
+      html, body { margin:0; height:100%; background:var(--bg); font-family:Lato,sans-serif; color:var(--ink); }
+      header { height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:var(--card); border-bottom:1px solid var(--stone); }
+      h1 { font-family:"Cormorant Garamond",serif; font-size:20px; margin:0; }
+      .meta { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); opacity:.7; }
+      .row { display:flex; gap:8px; }
+      .btn { border:1px solid var(--stone); background:var(--card); border-radius:8px; padding:6px 10px; font-size:12px; }
+      .stage { display:grid; grid-template-columns:1fr 320px; height:calc(100% - 64px); }
+      .board { position:relative; background:
+        radial-gradient(circle, var(--stone) 1px, transparent 1px) 0 0 / 24px 24px var(--bg); }
+      .card { position:absolute; width:256px; background:var(--card); border:1px solid var(--stone); border-radius:8px; box-shadow:0 1px 2px rgba(26,24,22,.06); }
+      .card h3 { font-family:"Cormorant Garamond",serif; font-size:18px; margin:0; }
+      .card .kind { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); opacity:.65; }
+      .card .pad { padding:12px 16px; border-bottom:1px solid var(--stone); }
+      .card p { margin:12px 16px; font-size:13px; color:var(--muted); }
+      .a { top:80px; left:48px; }
+      .b { top:80px; left:360px; }
+      .c { top:280px; left:48px; }
+      aside { border-left:1px solid var(--stone); background:var(--bg); padding:16px; }
+      aside h2 { font-family:"Cormorant Garamond",serif; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <div class="meta">pdp · GB-CYL-50-CLR</div>
+        <h1>Cylinder 50 ml</h1>
+      </div>
+      <div class="row">
+        <button class="btn">+ pack</button>
+        <button class="btn">+ product</button>
+        <button class="btn">+ set</button>
+        <button class="btn">+ shot</button>
+        <button class="btn">+ batch</button>
+        <button class="btn">+ image</button>
+        <span class="meta">Autosave on</span>
+      </div>
+    </header>
+    <div class="stage">
+      <div class="board">
+        <article class="card a">
+          <div class="pad"><div class="kind">Pack</div><h3>Bone v1</h3></div>
+          <p>Sets and shot types are pinned here. Generation still uses the server-side pack resolver later.</p>
+        </article>
+        <article class="card b">
+          <div class="pad"><div class="kind">Set</div><h3>Bone Studio</h3></div>
+          <p>Default backdrop is Bone. Prompt assembly stays server-side and is not run this week.</p>
+        </article>
+        <article class="card c">
+          <div class="pad"><div class="kind">Product</div><h3>Cylinder 50 ml</h3></div>
+          <p>No reference image yet. Week 2 generation will use this node as Image 1.</p>
+        </article>
+      </div>
+      <aside>
+        <h2>Inspector</h2>
+        <p>Select a node to edit its typed inputs. Connections are validated by port kind.</p>
+      </aside>
+    </div>
+  </body>
+</html>

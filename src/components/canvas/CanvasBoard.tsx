@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
+  BackgroundVariant,
+  ConnectionLineType,
   Controls,
+  MarkerType,
   MiniMap,
   ReactFlow,
   addEdge,
@@ -13,24 +16,38 @@ import {
   type Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { LCDDisplay, LEDIndicator } from "@/components/darkroom";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCanvasDocument, useCanvasProject, useCanvasRecords } from "@/hooks/useCanvasProjects";
 import { persistCanvasGraph, recordsToFlow } from "@/lib/canvas/graphPersist";
 import { isValidConnection, validateConnection } from "@/lib/canvas/graphValidation";
+import { week2RunToast } from "@/lib/canvas/runPlaceholder";
 import {
   DEFAULT_SHOT_TYPES,
-  WEEK1_NODE_TYPES,
   type Week1NodeType,
 } from "@/lib/canvas/types";
 import { buildDefaultPackNodeData, buildDefaultSetNodeData } from "@/lib/canvas/defaultGraph";
 import { CanvasInspector } from "./CanvasInspector";
+import { CanvasRunProvider, type CanvasRunRequest } from "./CanvasRunContext";
+import { CanvasToolbar } from "./CanvasToolbar";
 import { canvasNodeTypes } from "./nodes/canvasNodeTypes";
 
 const AUTOSAVE_MS = 800;
+
+const DEFAULT_EDGE_OPTIONS = {
+  type: "default",
+  style: { stroke: "var(--darkroom-accent)", strokeWidth: 1.75 },
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    color: "var(--darkroom-accent)",
+    width: 16,
+    height: 16,
+  },
+};
 
 function newId(): string {
   return crypto.randomUUID();
@@ -50,6 +67,13 @@ function defaultData(type: Week1NodeType): Record<string, unknown> {
   }
   if (type === "batch") return { takes: 3 };
   return { name: "Image", status: "idle" };
+}
+
+function saveLed(state: "idle" | "saving" | "saved" | "error") {
+  if (state === "saving") return "processing" as const;
+  if (state === "saved") return "ready" as const;
+  if (state === "error") return "error" as const;
+  return "off" as const;
 }
 
 interface CanvasBoardProps {
@@ -142,7 +166,7 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
         });
         return;
       }
-      setEdges((current) => addEdge({ ...connection, id: newId() }, current));
+      setEdges((current) => addEdge({ ...DEFAULT_EDGE_OPTIONS, ...connection, id: newId() }, current));
       markDirty();
     },
     [markDirty, nodes, setEdges, toast],
@@ -165,103 +189,117 @@ export function CanvasBoard({ projectId }: CanvasBoardProps) {
     markDirty();
   }, [markDirty, setNodes]);
 
+  const handleRun = useCallback((request: CanvasRunRequest) => {
+    toast(week2RunToast(request.scope));
+  }, [toast]);
+
   if (projectQuery.isLoading || canvasQuery.isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">
-        Loading canvas…
+      <div className="madison-canvas dark-room-container flex items-center justify-center">
+        <LCDDisplay>Loading canvas…</LCDDisplay>
       </div>
     );
   }
 
   if (!projectQuery.data || !canvasQuery.data) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="madison-canvas dark-room-container flex items-center justify-center">
         <div className="text-center space-y-3">
-          <p className="font-serif text-2xl">Project not found</p>
-          <Button variant="outline" onClick={() => navigate("/projects")}>Back to projects</Button>
+          <p className="madison-canvas__title">Project not found</p>
+          <Button
+            variant="ghost"
+            className="text-[var(--darkroom-text-muted)] hover:text-[var(--darkroom-text)] hover:bg-white/5"
+            onClick={() => navigate("/projects")}
+          >
+            Back to projects
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col">
-      <header className="h-16 border-b border-border bg-card px-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/projects")}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {projectQuery.data.type} · {projectQuery.data.sku ?? "no SKU"}
-            </p>
-            <h1 className="font-serif text-xl truncate">{projectQuery.data.title}</h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 overflow-x-auto">
-          {WEEK1_NODE_TYPES.map((type) => (
-            <Button key={type} variant="outline" size="sm" onClick={() => addNode(type)}>
-              <Plus className="w-3 h-3" />
-              {type}
-            </Button>
-          ))}
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {saveState === "saving" && "Saving…"}
-            {saveState === "saved" && "Saved"}
-            {saveState === "error" && "Save failed"}
-            {saveState === "idle" && "Autosave on"}
-          </span>
-        </div>
-      </header>
+    <CanvasRunProvider onRun={handleRun}>
+      <div className="madison-canvas dark-room-container">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={(changes) => {
+            onNodesChange(changes);
+            markDirty();
+          }}
+          onEdgesChange={(changes) => {
+            onEdgesChange(changes);
+            markDirty();
+          }}
+          onConnect={onConnect}
+          onSelectionChange={({ nodes: selected }) => setSelectedId(selected[0]?.id ?? null)}
+          onMoveEnd={(_, viewport) => {
+            viewportRef.current = viewport;
+            markDirty();
+          }}
+          isValidConnection={(connection) => {
+            const source = nodes.find((node) => node.id === connection.source);
+            const target = nodes.find((node) => node.id === connection.target);
+            return isValidConnection({
+              sourceType: source?.type ?? "",
+              targetType: target?.type ?? "",
+              sourceHandle: connection.sourceHandle,
+              targetHandle: connection.targetHandle,
+            });
+          }}
+          nodeTypes={canvasNodeTypes}
+          defaultViewport={canvasQuery.data.viewport}
+          defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+          connectionLineType={ConnectionLineType.Bezier}
+          fitView
+          elevateNodesOnSelect
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background
+            id="madison-dots"
+            variant={BackgroundVariant.Dots}
+            gap={22}
+            size={1.4}
+            color="rgba(255, 255, 255, 0.08)"
+          />
+          <Controls showInteractive={false} />
+          <MiniMap pannable zoomable />
+        </ReactFlow>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-0">
-        <div className="min-h-0">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={(changes) => {
-              onNodesChange(changes);
-              markDirty();
-            }}
-            onEdgesChange={(changes) => {
-              onEdgesChange(changes);
-              markDirty();
-            }}
-            onConnect={onConnect}
-            onSelectionChange={({ nodes: selected }) => setSelectedId(selected[0]?.id ?? null)}
-            onMoveEnd={(_, viewport) => {
-              viewportRef.current = viewport;
-              markDirty();
-            }}
-            isValidConnection={(connection) => {
-              const source = nodes.find((node) => node.id === connection.source);
-              const target = nodes.find((node) => node.id === connection.target);
-              return isValidConnection({
-                sourceType: source?.type ?? "",
-                targetType: target?.type ?? "",
-                sourceHandle: connection.sourceHandle,
-                targetHandle: connection.targetHandle,
-              });
-            }}
-            nodeTypes={canvasNodeTypes}
-            defaultViewport={canvasQuery.data.viewport}
-            fitView
-            proOptions={{ hideAttribution: true }}
-            className="bg-background"
-          >
-            <Background color="var(--border)" gap={24} />
-            <Controls />
-            <MiniMap
-              pannable
-              zoomable
-              className="!bg-card !border !border-border"
-            />
-          </ReactFlow>
+        <div className="madison-canvas__header">
+          <header className="dark-room-header">
+            <div className="flex items-center gap-2 min-w-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/projects")}
+                className="h-8 w-8 p-0 text-[var(--darkroom-text-muted)] hover:text-[var(--darkroom-text)] hover:bg-white/5"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div className="min-w-0">
+                <p className="madison-canvas__meta">
+                  {projectQuery.data.type} · {projectQuery.data.sku ?? "no SKU"}
+                </p>
+                <h1 className="madison-canvas__title truncate">{projectQuery.data.title}</h1>
+              </div>
+            </div>
+            <div className="dark-room-header__session">
+              <LEDIndicator state={saveLed(saveState)} size="sm" label="Autosave status" />
+              <LCDDisplay>
+                {saveState === "saving" && "Saving"}
+                {saveState === "saved" && "Saved"}
+                {saveState === "error" && "Save fail"}
+                {saveState === "idle" && "Autosave"}
+              </LCDDisplay>
+            </div>
+          </header>
         </div>
-        <aside className="border-t lg:border-t-0 lg:border-l border-border p-4 bg-background overflow-y-auto">
-          <CanvasInspector node={selectedNode} onChange={updateNodeData} />
-        </aside>
+
+        <CanvasInspector node={selectedNode} onChange={updateNodeData} />
+        <CanvasToolbar onAddNode={addNode} />
       </div>
-    </div>
+    </CanvasRunProvider>
   );
 }

@@ -23,6 +23,7 @@ export function recordsToFlow(
       target: edge.target_node_id,
       sourceHandle: edge.source_handle ?? undefined,
       targetHandle: edge.target_handle ?? undefined,
+      type: "default",
     })),
   };
 }
