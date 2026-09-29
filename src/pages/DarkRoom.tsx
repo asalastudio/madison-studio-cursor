@@ -566,7 +566,6 @@ export default function DarkRoom() {
       const backgroundVariation = getRandomBackgroundVariation(selectedBackgroundPreset);
       if (backgroundVariation) {
         appliedBackgroundPrompt = backgroundVariation;
-        effectivePrompt = `${effectivePrompt}. Background: ${backgroundVariation}`;
         console.log("🎨 Background preset applied:", selectedBackgroundPreset, "→", backgroundVariation);
       }
     }
@@ -575,7 +574,6 @@ export default function DarkRoom() {
       const compositionPrompt = getCompositionPrompt(selectedCompositionPreset, totalProductCount);
       if (compositionPrompt) {
         appliedCompositionPrompt = compositionPrompt;
-        effectivePrompt = `${effectivePrompt}. Composition: ${compositionPrompt}`;
         console.log("📐 Composition preset applied:", selectedCompositionPreset, `(${totalProductCount} products)`);
       }
     }
