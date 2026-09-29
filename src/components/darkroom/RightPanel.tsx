@@ -114,9 +114,9 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     description: "Flat #F5F3EF PDP canvas",
     useLabel: "PDP base",
     variations: [
-      "flat Best Bottles Bone #F5F3EF seamless studio background, premium product photography, soft upper-front-left key light, controlled contact shadow, no props",
-      "clean bone #F5F3EF editorial studio canvas, uncluttered commercial product setup, subtle warm bounce, realistic soft shadow falling back-right",
-      "minimal Best Bottles bone backdrop, high-end ecommerce product photography, refined glass highlights, no texture, no vignette, no extra objects",
+      "flat Bone #F5F3EF seamless studio background, premium product photography, soft upper-front-left key light, controlled contact shadow, no props",
+      "clean Bone #F5F3EF editorial studio canvas, uncluttered commercial product setup, subtle warm bounce, realistic soft shadow falling back-right",
+      "minimal Bone #F5F3EF studio backdrop, high-end ecommerce product photography, refined glass highlights, no texture, no vignette, no extra objects",
       "warm Bone #F5F3EF seamless studio background, luxury studio lighting, clean centered product presentation, no labels, no props, no decorative scene elements",
     ],
   },
@@ -265,7 +265,7 @@ export const COMPOSITION_PRESETS: CompositionPreset[] = [
     description: "Casual lifestyle placement",
     useLabel: "Scene only",
     singleProduct: "Place the product in a natural, slightly off-center position that feels discovered rather than staged. Let it interact organically with the background elements, as if photographed in its natural habitat.",
-    multiProduct: "Scatter products organically across the scene in a natural, unstaged arrangement. Products should feel casually but intentionally placed, as if discovered in a lifestyle moment. Vary angles and orientations for authenticity. Some products can be lying down, others upright.",
+    multiProduct: "Scatter products organically across the scene in a natural, unstaged arrangement. Products should feel casually but intentionally placed, as if discovered in a lifestyle moment. Keep every product upright. Vary spacing for authenticity.",
   },
   {
     id: "tight-group",

@@ -911,7 +911,10 @@ export default function DarkRoom() {
               passConstraints = setCanvas.imageConstraints ?? generationImageConstraints;
             }
             const data = await invokeGeneration("place", {
-              prompt: buildPlacePrompt(scenePrompt, { heroFraming: hasPlacementAddon }),
+              prompt: buildPlacePrompt(scenePrompt, {
+                heroFraming: hasPlacementAddon,
+                includeBestBottlesClosureRule: isBestBottlesOrg,
+              }),
               goalType: "place-product",
               aspectRatio: passAspectRatio,
               referenceImages: [
