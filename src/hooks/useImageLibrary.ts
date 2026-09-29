@@ -22,6 +22,8 @@ export interface UseImageLibraryOptions {
   imageUrlExcludeContainsAny?: string[];
   /** Exclude retired Best Bottles transparent/background-removed reference rows. */
   excludeRetiredBestBottlesTransparentReferences?: boolean;
+  /** When false, skip the query (used by org-strict pickers that pass their own rows). */
+  enabled?: boolean;
 }
 
 export interface LibraryImage {
@@ -143,6 +145,7 @@ export function useImageLibrary(options: UseImageLibraryOptions = {}) {
         libraryTagExcludeAny,
         imageUrlExcludeContainsAny,
         excludeRetiredBestBottlesTransparentReferences = false,
+        enabled = true,
     } = options;
     const tagFilters =
         libraryTagContainsAny && libraryTagContainsAny.length > 0
@@ -221,7 +224,7 @@ export function useImageLibrary(options: UseImageLibraryOptions = {}) {
                 libraryTags: img.library_tags ?? [],
             }));
         },
-        enabled: !!user,
+        enabled: enabled && !!user,
         staleTime: 60 * 1000, // Cache for 1 minute to prevent flickering
         refetchOnWindowFocus: false, // Prevent random refetches that cause "disappearing"
     });

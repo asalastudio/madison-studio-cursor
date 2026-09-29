@@ -49,7 +49,7 @@ const DarkRoom = lazy(() => import("./pages/DarkRoom"));
 const BestBottlesPipeline = lazy(() => import("./pages/BestBottlesPipeline"));
 const BestBottlesStudio = lazy(() => import("./pages/BestBottlesStudio"));
 const LightTable = lazy(() => import("./pages/LightTable"));
-// const VideoProject = lazy(() => import("./pages/VideoProject")); // Removed from project
+const VideoStudio = lazy(() => import("./pages/VideoStudio"));
 const ImageLibrary = lazy(() => import("./pages/ImageLibrary"));
 const EmailBuilderV2 = lazy(() => import("./pages/EmailBuilderV2"));
 const ComponentDemo = lazy(() => import("./pages/ComponentDemo"));
@@ -351,7 +351,7 @@ const AppContent = () => {
   useOnboarding();
 
   // Show sidebar for authenticated users on all pages except /auth, /editor, /onboarding, and /darkroom
-  const showSidebar = user && location.pathname !== "/auth" && location.pathname !== "/editor" && location.pathname !== "/onboarding" && location.pathname !== "/darkroom" && location.pathname !== "/light-table";
+  const showSidebar = user && location.pathname !== "/auth" && location.pathname !== "/editor" && location.pathname !== "/onboarding" && location.pathname !== "/darkroom" && location.pathname !== "/light-table" && location.pathname !== "/video" && location.pathname !== "/video-project";
 
   return (
     <>
@@ -378,6 +378,8 @@ const AppContent = () => {
                     <Route path="/image-editor" element={<ProtectedRoute><RouteErrorBoundary routeName="Image Editor"><ImageEditor /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/darkroom" element={<ProtectedRoute><RouteErrorBoundary routeName="Dark Room"><DarkRoom /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/dark-room" element={<Navigate to="/darkroom" replace />} />
+                    <Route path="/video" element={<ProtectedRoute><RouteErrorBoundary routeName="Video"><VideoStudio /></RouteErrorBoundary></ProtectedRoute>} />
+                    <Route path="/video-project" element={<Navigate to="/video" replace />} />
                     <Route path="/best-bottles/pipeline" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Pipeline"><BestBottlesPipeline /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/best-bottles/studio/:groupSlug" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Studio"><BestBottlesStudio /></RouteErrorBoundary></ProtectedRoute>} />
                     <Route path="/best-bottles/studio/:groupSlug/public" element={<RouteErrorBoundary routeName="Best Bottles Public Studio"><BestBottlesPublicStudio /></RouteErrorBoundary>} />
@@ -441,6 +443,8 @@ const AppContent = () => {
                 <Route path="/image-editor" element={<ProtectedRoute><RouteErrorBoundary routeName="Image Editor"><ImageEditor /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/darkroom" element={<ProtectedRoute><RouteErrorBoundary routeName="Dark Room"><DarkRoom /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/dark-room" element={<Navigate to="/darkroom" replace />} />
+                <Route path="/video" element={<ProtectedRoute><RouteErrorBoundary routeName="Video"><VideoStudio /></RouteErrorBoundary></ProtectedRoute>} />
+                <Route path="/video-project" element={<Navigate to="/video" replace />} />
                 <Route path="/best-bottles/pipeline" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Pipeline"><BestBottlesPipeline /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/best-bottles/studio/:groupSlug" element={<ProtectedRoute><RouteErrorBoundary routeName="Best Bottles Studio"><BestBottlesStudio /></RouteErrorBoundary></ProtectedRoute>} />
                 <Route path="/best-bottles/studio/:groupSlug/public" element={<RouteErrorBoundary routeName="Best Bottles Public Studio"><BestBottlesPublicStudio /></RouteErrorBoundary>} />

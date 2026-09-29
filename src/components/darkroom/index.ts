@@ -1,5 +1,6 @@
 // Dark Room Components
 export { UploadZone, type UploadType } from './UploadZone';
+export { Chip, ChipRow } from './Chip';
 export { ProSettings, type ProModeSettings } from './ProSettings';
 export { GenerateButton } from './GenerateButton';
 export { LeftRail } from './LeftRail';

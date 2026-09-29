@@ -1,0 +1,364 @@
+/* =============================================================================
+   VIDEO STUDIO — Higgsfield video layout + Dark Room chrome
+   Colours, type, panels, chips, LEDs and generate button come from darkroom.css.
+   Matches Canvas (PR #46 language) without importing that branch:
+   dotted dark surface, floating rounded media card, brass accents,
+   camera-panel inspector, floating bottom Chip toolbar.
+   ============================================================================= */
+
+.video-studio {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--darkroom-bg);
+  background-image:
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--darkroom-text) 16%, transparent) 1px,
+      transparent 1.15px
+    ),
+    var(--darkroom-bg-gradient);
+  background-size: 22px 22px, auto;
+  color: var(--darkroom-text);
+  font-family: var(--font-body);
+}
+
+.video-studio__header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.video-studio__header .dark-room-header {
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--darkroom-bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.video-studio__title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--darkroom-accent);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.video-studio__inspector {
+  position: absolute;
+  top: 56px;
+  left: 12px;
+  bottom: 88px;
+  width: min(320px, calc(100vw - 24px));
+  z-index: 20;
+  overflow: hidden;
+}
+
+.video-studio__inspector .camera-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--darkroom-surface);
+  backdrop-filter: blur(12px);
+}
+
+.video-studio__inspector .camera-panel__header {
+  background: var(--darkroom-surface-elevated);
+}
+
+.video-studio__inspector-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--darkroom-border) transparent;
+}
+
+.video-studio__inspector-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.video-studio__inspector-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.video-studio__inspector-body::-webkit-scrollbar-thumb {
+  background: var(--darkroom-border);
+  border-radius: 3px;
+}
+
+.video-studio__inspector-body::-webkit-scrollbar-thumb:hover {
+  background: var(--darkroom-accent);
+}
+
+.video-studio__stage {
+  position: absolute;
+  inset: 56px 16px 88px 344px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  min-width: 0;
+}
+
+.video-studio__card {
+  position: relative;
+  width: min(100%, 920px);
+  max-height: 100%;
+  border-radius: 16px;
+  background: var(--darkroom-surface);
+  border: 1px solid var(--darkroom-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: border-color var(--duration-fast, 0.2s) var(--ease-out, ease),
+    box-shadow var(--duration-normal, 0.3s) var(--ease-out, ease);
+}
+
+.video-studio__card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  z-index: 2;
+}
+
+.video-studio__card[data-ratio="16:9"] { aspect-ratio: 16 / 9; }
+.video-studio__card[data-ratio="9:16"] { aspect-ratio: 9 / 16; max-width: 360px; }
+.video-studio__card[data-ratio="1:1"] { aspect-ratio: 1 / 1; max-width: 560px; }
+.video-studio__card[data-ratio="4:5"] { aspect-ratio: 4 / 5; max-width: 420px; }
+.video-studio__card[data-ratio="21:9"] { aspect-ratio: 21 / 9; }
+
+.video-studio__card video,
+.video-studio__card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--camera-body-deep);
+}
+
+.video-studio-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 100%;
+  color: var(--darkroom-text-muted);
+  text-align: center;
+  padding: var(--space-xl);
+}
+
+.video-studio-empty h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--darkroom-text);
+}
+
+.video-studio-empty p {
+  font-size: 13px;
+  max-width: 28rem;
+  color: var(--darkroom-text-dim);
+}
+
+.video-studio-job {
+  position: absolute;
+  inset: auto 12px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  z-index: 3;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--darkroom-bg) 88%, transparent);
+  border: 1px solid var(--darkroom-border);
+  backdrop-filter: blur(10px);
+}
+
+.video-studio-job__bar {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.video-studio-job__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--led-active);
+  transition: width 0.3s ease;
+}
+
+.video-studio-job[data-state="failed"] .video-studio-job__bar > span {
+  background: var(--led-error);
+}
+
+.video-studio-job[data-state="complete"] .video-studio-job__bar > span {
+  background: var(--led-ready);
+}
+
+.video-studio-job--failure {
+  inset: 12px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  background: color-mix(in srgb, var(--darkroom-bg) 92%, transparent);
+  border-color: color-mix(in srgb, var(--led-error) 40%, var(--darkroom-border));
+}
+
+.video-studio__toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  max-width: calc(100vw - 24px);
+  background: color-mix(in srgb, var(--darkroom-surface) 92%, transparent);
+  border: 1px solid var(--darkroom-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(14px);
+}
+
+.video-studio__toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--darkroom-border-strong);
+  flex-shrink: 0;
+}
+
+.video-studio__takes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  max-width: min(640px, 52vw);
+  padding-bottom: 0;
+}
+
+.video-studio-take {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--darkroom-border);
+  background: color-mix(in srgb, var(--darkroom-surface-elevated) 80%, transparent);
+  color: var(--darkroom-text-muted);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: var(--lcd-font);
+  transition: border-color var(--duration-fast, 0.2s) ease,
+    color var(--duration-fast, 0.2s) ease;
+}
+
+.video-studio-take:hover,
+.video-studio-take[data-active="true"] {
+  border-color: color-mix(in srgb, var(--darkroom-accent) 52%, transparent);
+  color: var(--darkroom-accent);
+}
+
+.video-studio-take__thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--camera-body-deep);
+  border: 1px solid var(--darkroom-border-subtle);
+}
+
+.video-studio-take__thumb img,
+.video-studio-take__thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-studio-frame-slot {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: 1px dashed var(--darkroom-border);
+  border-radius: 12px;
+  background: var(--camera-body-deep);
+  overflow: hidden;
+}
+
+.video-studio-frame-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.video-studio-cost {
+  font-family: var(--lcd-font);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--lcd-text);
+  background: var(--lcd-bg);
+  border: 1px solid rgba(0, 255, 102, 0.15);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+}
+
+.video-studio-cost[data-estimate="true"]::after {
+  content: "Estimate — Freepik does not return a billed amount";
+  display: block;
+  margin-top: 4px;
+  color: var(--darkroom-text-dim);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-size: 9px;
+}
+
+.video-studio__section-label {
+  font-family: var(--lcd-font);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--darkroom-text-muted);
+}
+
+@media (max-width: 1024px) {
+  .video-studio__inspector {
+    position: absolute;
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 84px;
+    width: auto;
+    height: 36vh;
+  }
+
+  .video-studio__stage {
+    inset: 56px 12px calc(36vh + 96px) 12px;
+  }
+
+  .video-studio__toolbar {
+    border-radius: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    bottom: 12px;
+  }
+
+  .video-studio__takes {
+    max-width: calc(100vw - 48px);
+  }
+}

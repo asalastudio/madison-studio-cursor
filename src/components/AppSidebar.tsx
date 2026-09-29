@@ -54,8 +54,8 @@ export function AppSidebar() {
       { url: "/create" },
       { url: "/multiply" },
       { url: "/darkroom" },
+      { url: "/video" },
       // { url: "/press" }, // Hidden - keep in code, not pushed live
-      // { url: "/video-project" }, // Removed from project
       // { url: "/image-editor" }, // Hidden - use Dark Room instead
       // { url: "/email-builder" }, // Temporarily hidden for launch
     ];
@@ -113,8 +113,8 @@ export function AppSidebar() {
         { title: "Create", url: "/create", icon: Pencil },
         { title: "Multiply", url: "/multiply", icon: Share2 },
         { title: "Dark Room", url: "/darkroom", icon: Camera },
+        { title: "Video", url: "/video", icon: Video },
         // { title: "The Press", url: "/press", icon: Package }, // Hidden - keep in code, not pushed live
-        // { title: "Video Project", url: "/video-project", icon: Video }, // Removed from project
         // { title: "Image Studio", url: "/image-editor", icon: Image }, // Hidden - use Dark Room instead
         // { title: "Email Builder", url: "/email-builder", icon: Mail }, // Temporarily hidden for launch
       ]
