@@ -53,7 +53,12 @@ if (missing.length > 0) {
   );
 }
 
-const result = spawnSync("tsx", ["--test", ...existing], {
+const tsxBin = existsSync("node_modules/.bin/tsx")
+  ? "node_modules/.bin/tsx"
+  : "npx";
+const tsxArgs =
+  tsxBin === "npx" ? ["tsx", "--test", ...existing] : ["--test", ...existing];
+const result = spawnSync(tsxBin, tsxArgs, {
   stdio: "inherit",
   env: process.env,
 });
