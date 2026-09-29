@@ -22,6 +22,7 @@ import {
   VIDEO_STUDIO_MODELS,
   buildVideoGenerationRequest,
   estimateVideoCredits,
+  jobStatusFromTake,
   mapVideoJobStatus,
   parseVideoStudioHandoff,
   videoModelSupportsEndFrame,
@@ -114,12 +115,7 @@ export default function VideoStudio() {
     setActivePosterUrl(video.posterUrl);
     if (video.prompt) setPrompt(video.prompt);
     if (video.aspectRatio) setAspectRatio(video.aspectRatio);
-    setJob(
-      mapVideoJobStatus(
-        video.status === "complete" ? "COMPLETED" : video.status === "failed" ? "FAILED" : "PENDING",
-        video.status === "failed" ? "This take did not finish." : undefined,
-      ),
-    );
+    setJob(jobStatusFromTake(video));
   }, []);
 
   const persistVideoUrl = useCallback(
@@ -395,6 +391,7 @@ export default function VideoStudio() {
         posterUrl={activePosterUrl}
         aspectRatio={aspectRatio}
         job={job}
+        onRetry={job.state === "failed" ? handleGenerate : undefined}
       />
 
       <VideoHistoryStrip

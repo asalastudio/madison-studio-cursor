@@ -14,8 +14,10 @@ import {
   estimateVideoCredits,
   getVideoStudioModel,
   isVideoStudioModelId,
+  jobStatusFromTake,
   mapVideoJobStatus,
   parseVideoStudioHandoff,
+  takeErrorMessageFromDescription,
   videoModelSupportsAudio,
   videoModelSupportsEndFrame,
   videoModelSupportsMultiShot,
@@ -239,6 +241,41 @@ describe("mapVideoJobStatus", () => {
     const unknown = mapVideoJobStatus("SOMETHING_WEIRD");
     assert.notEqual(unknown.state, "complete");
     assert.ok(unknown.message);
+  });
+});
+
+describe("jobStatusFromTake", () => {
+  it("shows a failed overlay with the stored reason", () => {
+    const job = jobStatusFromTake({
+      status: "failed",
+      errorMessage: "Freepik timed out waiting for Kling 2.5.",
+    });
+    assert.equal(job.state, "failed");
+    assert.match(job.message, /timed out/i);
+  });
+
+  it("maps queued and rendering takes to a visible progress overlay", () => {
+    assert.equal(jobStatusFromTake({ status: "queued" }).state, "queued");
+    assert.ok(jobStatusFromTake({ status: "queued" }).progress > 0);
+    assert.equal(jobStatusFromTake({ status: "processing" }).state, "processing");
+    assert.ok(jobStatusFromTake({ status: "processing" }).progress > 0);
+  });
+
+  it("hides the overlay for a complete take", () => {
+    assert.equal(jobStatusFromTake({ status: "complete" }).state, "complete");
+  });
+
+  it("falls back to a generic failure when no reason was stored", () => {
+    assert.match(jobStatusFromTake({ status: "failed" }).message, /did not finish/i);
+  });
+});
+
+describe("takeErrorMessageFromDescription", () => {
+  it("strips the persisted Video failed prefix", () => {
+    assert.equal(
+      takeErrorMessageFromDescription("Video failed: Freepik timed out waiting for Kling 2.5."),
+      "Freepik timed out waiting for Kling 2.5.",
+    );
   });
 });
 

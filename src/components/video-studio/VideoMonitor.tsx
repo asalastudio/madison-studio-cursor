@@ -1,4 +1,5 @@
 import { Film } from "lucide-react";
+import { Chip } from "@/components/darkroom/Chip";
 import type { VideoJobStatus } from "@/lib/videoStudio";
 
 interface VideoMonitorProps {
@@ -6,6 +7,7 @@ interface VideoMonitorProps {
   posterUrl?: string | null;
   aspectRatio: string;
   job: VideoJobStatus;
+  onRetry?: () => void;
 }
 
 export function VideoMonitor({
@@ -13,8 +15,10 @@ export function VideoMonitor({
   posterUrl,
   aspectRatio,
   job,
+  onRetry,
 }: VideoMonitorProps) {
-  const showJob = job.state === "queued" || job.state === "processing" || job.state === "failed";
+  const showProgress = job.state === "queued" || job.state === "processing";
+  const showFailure = job.state === "failed";
 
   return (
     <section className="video-studio__stage" aria-label="Preview">
@@ -42,11 +46,11 @@ export function VideoMonitor({
           </div>
         )}
 
-        {showJob ? (
+        {showProgress ? (
           <div className="video-studio-job" data-state={job.state} role="status">
             <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.08em]">
-              <span className={job.state === "failed" ? "text-[var(--led-error)]" : "text-[var(--led-active)]"}>
-                {job.state === "failed" ? "Failed" : job.state === "queued" ? "Queued" : "Rendering"}
+              <span className="text-[var(--led-active)]">
+                {job.state === "queued" ? "Queued" : "Rendering"}
               </span>
               <span className="text-[var(--darkroom-text-dim)]">{job.progress}%</span>
             </div>
@@ -54,6 +58,18 @@ export function VideoMonitor({
               <span style={{ width: `${job.progress}%` }} />
             </div>
             <p className="text-[11px] text-[var(--darkroom-text)]">{job.message}</p>
+          </div>
+        ) : null}
+
+        {showFailure ? (
+          <div className="video-studio-job video-studio-job--failure" data-state="failed" role="alert">
+            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--led-error)]">
+              Failed
+            </span>
+            <p className="text-[13px] text-[var(--darkroom-text)]">{job.message}</p>
+            {onRetry ? (
+              <Chip label="Retry" onClick={onRetry} />
+            ) : null}
           </div>
         ) : null}
       </div>

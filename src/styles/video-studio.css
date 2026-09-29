@@ -77,6 +77,25 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--darkroom-border) transparent;
+}
+
+.video-studio__inspector-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.video-studio__inspector-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.video-studio__inspector-body::-webkit-scrollbar-thumb {
+  background: var(--darkroom-border);
+  border-radius: 3px;
+}
+
+.video-studio__inspector-body::-webkit-scrollbar-thumb:hover {
+  background: var(--darkroom-accent);
 }
 
 .video-studio__stage {
@@ -185,6 +204,16 @@
 
 .video-studio-job[data-state="complete"] .video-studio-job__bar > span {
   background: var(--led-ready);
+}
+
+.video-studio-job--failure {
+  inset: 12px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  background: color-mix(in srgb, var(--darkroom-bg) 92%, transparent);
+  border-color: color-mix(in srgb, var(--led-error) 40%, var(--darkroom-border));
 }
 
 .video-studio__toolbar {

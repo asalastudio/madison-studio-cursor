@@ -387,6 +387,39 @@ export function mapVideoJobStatus(status: string | null | undefined, detail?: st
   };
 }
 
+export interface VideoTakeJobInput {
+  status: VideoJobState;
+  errorMessage?: string | null;
+}
+
+/**
+ * Map a history take onto the monitor overlay.
+ * Complete hides the overlay. Failed / queued / rendering stay visible.
+ */
+export function jobStatusFromTake(take: VideoTakeJobInput): VideoJobStatus {
+  if (take.status === "complete") {
+    return mapVideoJobStatus("COMPLETED");
+  }
+  if (take.status === "failed") {
+    const reason = take.errorMessage?.trim();
+    return mapVideoJobStatus("FAILED", reason || "This take did not finish.");
+  }
+  if (take.status === "processing") {
+    return mapVideoJobStatus("IN_PROGRESS", take.errorMessage?.trim() || "Rendering");
+  }
+  if (take.status === "queued") {
+    return mapVideoJobStatus("QUEUED", take.errorMessage?.trim() || "Queued at Freepik");
+  }
+  return mapVideoJobStatus("");
+}
+
+export function takeErrorMessageFromDescription(description: string | null | undefined): string | null {
+  const raw = (description ?? "").trim();
+  if (!raw) return null;
+  const stripped = raw.replace(/^Video failed:\s*/i, "").trim();
+  return stripped || null;
+}
+
 export interface OrgScopedMediaQuery {
   organizationId: string;
   mediaType: "image" | "video";

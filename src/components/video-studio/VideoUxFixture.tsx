@@ -4,7 +4,7 @@ import type { OrgStudioVideo } from "@/hooks/useOrgStudioMedia";
 import {
   VIDEO_STUDIO_MODELS,
   estimateVideoCredits,
-  mapVideoJobStatus,
+  jobStatusFromTake,
   type VideoStudioMotion,
 } from "@/lib/videoStudio";
 import { VideoControlRail } from "./VideoControlRail";
@@ -34,6 +34,7 @@ const FIXTURE_TAKES: OrgStudioVideo[] = [
     aspectRatio: "16:9",
     model: "kling-2.5",
     status: "complete",
+    errorMessage: null,
     createdAt: "2026-09-29T00:00:00.000Z",
   },
   {
@@ -45,6 +46,7 @@ const FIXTURE_TAKES: OrgStudioVideo[] = [
     aspectRatio: "16:9",
     model: "kling-2.5",
     status: "failed",
+    errorMessage: "Freepik timed out waiting for Kling 2.5.",
     createdAt: "2026-09-29T00:01:00.000Z",
   },
   {
@@ -56,9 +58,17 @@ const FIXTURE_TAKES: OrgStudioVideo[] = [
     aspectRatio: "16:9",
     model: "auto",
     status: "queued",
+    errorMessage: null,
     createdAt: "2026-09-29T00:02:00.000Z",
   },
 ];
+
+function ledFromJob(state: ReturnType<typeof jobStatusFromTake>["state"]) {
+  if (state === "failed") return "error" as const;
+  if (state === "queued" || state === "processing") return "processing" as const;
+  if (state === "complete") return "ready" as const;
+  return "off" as const;
+}
 
 export function VideoUxFixture() {
   const [prompt, setPrompt] = useState("A ceramic mug turning on a sunlit table");
@@ -70,16 +80,28 @@ export function VideoUxFixture() {
   const [includeAudio, setIncludeAudio] = useState(false);
   const [multiShot, setMultiShot] = useState(false);
   const [selectedTakeId, setSelectedTakeId] = useState("take-ready");
+  const [job, setJob] = useState(() => jobStatusFromTake(FIXTURE_TAKES[0]));
 
   const estimate = useMemo(
     () => estimateVideoCredits({ model, duration, resolution, includeAudio }),
     [duration, includeAudio, model, resolution],
   );
 
+  const applyTake = (video: OrgStudioVideo) => {
+    setSelectedTakeId(video.id);
+    setJob(jobStatusFromTake(video));
+    if (video.prompt) setPrompt(video.prompt);
+    if (video.aspectRatio) setAspectRatio(video.aspectRatio);
+  };
+
   return (
     <MemoryRouter>
       <div className="video-studio">
-        <VideoStudioHeader ledState="ready" jobLabel="Standby" canDownload={false} />
+        <VideoStudioHeader
+          ledState={ledFromJob(job.state)}
+          jobLabel={job.state === "idle" ? "Standby" : job.state}
+          canDownload={false}
+        />
         <VideoControlRail
           prompt={prompt}
           onPromptChange={setPrompt}
@@ -103,22 +125,23 @@ export function VideoUxFixture() {
           onIncludeAudioChange={setIncludeAudio}
           multiShot={multiShot}
           onMultiShotChange={setMultiShot}
-          isGenerating={false}
+          isGenerating={job.state === "queued" || job.state === "processing"}
           canGenerate={Boolean(prompt.trim())}
           onGenerate={() => undefined}
         />
         <VideoMonitor
           posterUrl={FIXTURE_POSTER}
           aspectRatio={aspectRatio}
-          job={mapVideoJobStatus("")}
+          job={job}
+          onRetry={job.state === "failed" ? () => undefined : undefined}
         />
         <VideoHistoryStrip
           videos={FIXTURE_TAKES}
           selectedId={selectedTakeId}
-          onSelect={(video) => setSelectedTakeId(video.id)}
+          onSelect={applyTake}
           estimateLabel={estimate.label}
           canGenerate={Boolean(prompt.trim())}
-          isGenerating={false}
+          isGenerating={job.state === "queued" || job.state === "processing"}
           onGenerate={() => undefined}
         />
       </div>

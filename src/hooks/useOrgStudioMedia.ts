@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   buildOrgScopedMediaQuery,
+  takeErrorMessageFromDescription,
   type VideoJobState,
 } from "@/lib/videoStudio";
 
@@ -23,6 +24,7 @@ export interface OrgStudioVideo {
   aspectRatio: string | null;
   model: string | null;
   status: VideoJobState;
+  errorMessage: string | null;
   createdAt: string;
 }
 
@@ -121,17 +123,21 @@ export function useOrgStudioVideos(organizationId: string | null) {
         throw error;
       }
 
-      return ((data ?? []) as GeneratedMediaRow[]).map((row) => ({
-        id: row.id,
-        posterUrl: row.image_url,
-        videoUrl: row.video_url,
-        prompt: row.final_prompt ?? "",
-        duration: row.video_duration,
-        aspectRatio: row.aspect_ratio,
-        model: row.generation_provider,
-        status: rowStatus(row),
-        createdAt: row.created_at,
-      }));
+      return ((data ?? []) as GeneratedMediaRow[]).map((row) => {
+        const status = rowStatus(row);
+        return {
+          id: row.id,
+          posterUrl: row.image_url,
+          videoUrl: row.video_url,
+          prompt: row.final_prompt ?? "",
+          duration: row.video_duration,
+          aspectRatio: row.aspect_ratio,
+          model: row.generation_provider,
+          status,
+          errorMessage: status === "failed" ? takeErrorMessageFromDescription(row.description) : null,
+          createdAt: row.created_at,
+        };
+      });
     },
   });
 }
