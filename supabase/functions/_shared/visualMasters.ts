@@ -291,14 +291,11 @@ export function getVisualStyleDirective(squad: VisualSquad): string {
 MANDATORY STYLE REQUIREMENTS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-BACKGROUND: Pure white (#FFFFFF) or neutral gray gradient. NO environmental props.
 LIGHTING: Soft, diffused studio lighting. Even illumination. No harsh shadows.
 COMPOSITION: Product centered, breathing room, negative space emphasized.
 MOOD: Clinical, precise, editorial, timeless, sophisticated.
-COLOR GRADING: Cool tones, desaturated, clean whites.
 
 ✅ DO:
-- Place product on pure white or light gray seamless background
 - Use soft directional light from above-left (Avedon style)
 - Keep composition minimal - product only, no props
 - Emphasize product details and craftsmanship
@@ -306,7 +303,6 @@ COLOR GRADING: Cool tones, desaturated, clean whites.
 
 ❌ DO NOT:
 - Add lifestyle props (books, plants, fabric, wood surfaces)
-- Use warm color grading
 - Include environmental context
 - Add texture to background
 - Use dramatic shadows

@@ -127,8 +127,10 @@ const PLACE_DIRECTIVE_CORE =
   "It is the SAME product as the reference: preserve its exact silhouette, proportions, glass colour and material, closure, applicator and trim precisely as the reference shows them. Do not restyle, simplify or substitute it, and do not invent detail the reference does not show. " +
   "Stand it upright on the set's highest clear flat surface, comfortably inside the frame with air above it. It rests on that surface with a soft, tight contact shadow directly beneath the point of contact plus a cast shadow whose direction, length and softness agree with the shadows the set already casts. It does not float, tilt, hover or overhang the edge. " +
   "INTEGRATE THE LIGHT. The set's light is the only authority: light the product from the same direction, at the same colour temperature and the same softness as everything already in frame. The product takes colour bounce from the surface it stands on and from nearby surfaces, and the set is visible reflected in its glass and any polished closure — not a clean studio environment that does not exist in this scene. Match the set's depth of field. " +
-  "CLOSURES ARE MOULDED PHENOLIC PLASTIC, NOT METAL — even in gold, silver and black colourways: a polished lacquered plastic finish with clean but slightly softer, broader highlights that pick up the scene's cast; no mirror-chrome, no machined grain, no single hard vertical specular stripe that ignores the room. A roller ball, if the reference has one, IS polished steel and stays so. " +
   "Nothing may read as a cut-out composited onto a backdrop.";
+
+export const BEST_BOTTLES_PHENOLIC_CLOSURE_RULE =
+  "CLOSURES ARE MOULDED PHENOLIC PLASTIC, NOT METAL — even in gold, silver and black colourways: a polished lacquered plastic finish with clean but slightly softer, broader highlights that pick up the scene's cast; no mirror-chrome, no machined grain, no single hard vertical specular stripe that ignores the room. A roller ball, if the reference has one, IS polished steel and stays so. ";
 
 const PLACE_DIRECTIVE_HERO_FRAMING =
   " The product occupies roughly 45–60% of the frame height. Keep the LEFT 45% of the frame empty for the headline.";
@@ -136,9 +138,15 @@ const PLACE_DIRECTIVE_HERO_FRAMING =
 const PLACE_DIRECTIVE_GENERAL_FRAMING =
   " The product is the focal point, sized naturally for the set — large enough to read every detail, never so large that the set becomes a sliver behind it.";
 
-export function buildPlacePrompt(scenePrompt: string, options: { heroFraming?: boolean } = {}): string {
+export function buildPlacePrompt(
+  scenePrompt: string,
+  options: { heroFraming?: boolean; includeBestBottlesClosureRule?: boolean } = {},
+): string {
   const scene = scenePrompt.trim();
-  const directive = PLACE_DIRECTIVE_CORE + (options.heroFraming ? PLACE_DIRECTIVE_HERO_FRAMING : PLACE_DIRECTIVE_GENERAL_FRAMING);
+  const directive =
+    PLACE_DIRECTIVE_CORE +
+    (options.includeBestBottlesClosureRule ? BEST_BOTTLES_PHENOLIC_CLOSURE_RULE : "") +
+    (options.heroFraming ? PLACE_DIRECTIVE_HERO_FRAMING : PLACE_DIRECTIVE_GENERAL_FRAMING);
   return scene
     ? `SET DESCRIPTION (the first reference image is this set, already photographed — it names the light):\n${scene}\n\n${directive}`
     : directive;
