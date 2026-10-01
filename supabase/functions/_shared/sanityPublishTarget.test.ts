@@ -89,6 +89,58 @@ describe("resolveSanityPublishTarget", () => {
     assert.equal(target.credentials.projectId, TARIFE_SANITY_PROJECT_ID);
     assert.equal(target.credentials.source, "env");
     assert.equal(target.credentials.token, "shared-token");
+    assert.equal(target.credentials.tokenSecretName, "SANITY_WRITE_TOKEN");
+  });
+
+  it("uses the Tarife API token instead of the Best Bottles write token", () => {
+    const target = resolveSanityPublishTarget({
+      organizationId: TARIFE_ORG,
+      connection: null,
+      get: (name) => {
+        if (name === "SANITY_PROJECT_ID") return "gh97irjh";
+        if (name === "SANITY_WRITE_TOKEN") return "best-bottles-token";
+        if (name === "SANITY_API_TOKEN") return "tarife-token";
+        return undefined;
+      },
+    });
+    assert.equal(target.ok, true);
+    if (!target.ok) return;
+    assert.equal(target.credentials.projectId, TARIFE_SANITY_PROJECT_ID);
+    assert.equal(target.credentials.token, "tarife-token");
+    assert.equal(target.credentials.tokenSecretName, "SANITY_API_TOKEN");
+  });
+
+  it("does not send the Best Bottles write token to the Tarife project when a connection still names it", () => {
+    const target = resolveSanityPublishTarget({
+      organizationId: TARIFE_ORG,
+      connection: tarifeConnection({ write_token_secret_name: "SANITY_WRITE_TOKEN" }),
+      get: (name) => {
+        if (name === "SANITY_WRITE_TOKEN") return "best-bottles-token";
+        if (name === "SANITY_API_TOKEN") return "tarife-token";
+        return undefined;
+      },
+    });
+    assert.equal(target.ok, true);
+    if (!target.ok) return;
+    assert.equal(target.credentials.projectId, TARIFE_SANITY_PROJECT_ID);
+    assert.equal(target.credentials.token, "tarife-token");
+    assert.equal(target.credentials.tokenSecretName, "SANITY_API_TOKEN");
+  });
+
+  it("prefers SANITY_API_TOKEN over a Best Bottles SANITY_WRITE_TOKEN on the legacy lane", () => {
+    const target = resolveSanityPublishTarget({
+      organizationId: TARIFE_ORG,
+      connection: null,
+      get: (name) => {
+        if (name === "SANITY_WRITE_TOKEN") return "best-bottles-token";
+        if (name === "SANITY_API_TOKEN") return "tarife-token";
+        return undefined;
+      },
+    });
+    assert.equal(target.ok, true);
+    if (!target.ok) return;
+    assert.equal(target.credentials.token, "tarife-token");
+    assert.equal(target.credentials.tokenSecretName, "SANITY_API_TOKEN");
   });
 
   it("accepts SANITY_API_TOKEN when SANITY_WRITE_TOKEN is missing (Tarife setup docs)", () => {
@@ -107,24 +159,29 @@ describe("resolveSanityPublishTarget", () => {
     const target = resolveSanityPublishTarget({
       organizationId: BEST_BOTTLES_ORG_ID,
       connection: bestBottlesConnection(),
-      get: (name) => (name === "SANITY_WRITE_TOKEN" ? "bb-token" : undefined),
+      get: (name) => {
+        if (name === "SANITY_WRITE_TOKEN") return "bb-token";
+        if (name === "SANITY_API_TOKEN") return "tarife-token";
+        return undefined;
+      },
     });
     assert.equal(target.ok, true);
     if (!target.ok) return;
     assert.equal(target.lane, "journal");
     assert.equal(target.credentials.projectId, "gh97irjh");
     assert.equal(target.credentials.token, "bb-token");
+    assert.equal(target.credentials.tokenSecretName, "SANITY_WRITE_TOKEN");
   });
 
-  it("allows SANITY_WRITE_TOKEN when the connection names SANITY_API_TOKEN", () => {
+  it("does not silently use SANITY_WRITE_TOKEN when the connection names SANITY_API_TOKEN", () => {
     const target = resolveSanityPublishTarget({
       organizationId: TARIFE_ORG,
       connection: tarifeConnection({ write_token_secret_name: "SANITY_API_TOKEN" }),
-      get: (name) => (name === "SANITY_WRITE_TOKEN" ? "shared-tarife-token" : undefined),
+      get: (name) => (name === "SANITY_WRITE_TOKEN" ? "best-bottles-token" : undefined),
     });
-    assert.equal(target.ok, true);
-    if (!target.ok) return;
-    assert.equal(target.credentials.token, "shared-tarife-token");
+    assert.equal(target.ok, false);
+    if (target.ok) return;
+    assert.match(target.error, /SANITY_API_TOKEN/);
   });
 
   it("errors clearly when no token is configured", () => {

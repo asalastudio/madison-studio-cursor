@@ -10,11 +10,13 @@
  * rejected it with "Unauthorized – Session does not match project host".
  *
  * Rules:
- *   - An active org connection always supplies project / dataset / token.
+ *   - An active org connection supplies project / dataset / the named token.
  *   - The Best Bottles *journal* document builder is only used for the
  *     Best Bottles org *and* a `best-bottles` schema profile.
  *   - Everyone else stays on the legacy Tarife-shaped `journalEntry` path,
  *     against that org's own project (or the Tarife default).
+ *   - Project 8h5l91ut is written with SANITY_API_TOKEN. SANITY_WRITE_TOKEN
+ *     is the Best Bottles token; sending it to Tarife is the host mismatch.
  */
 import { cleanSecret } from "./edgeAuth.ts";
 import { isBestBottlesOrgId } from "./orgFeatures.ts";
@@ -56,12 +58,19 @@ export function isBestBottlesJournalLane(
   return isBestBottlesOrgId(organizationId) && schemaProfile === BEST_BOTTLES_SCHEMA_PROFILE;
 }
 
-/** Shared-secret names the Tarife setup docs and the product push already accept. */
+/**
+ * Tokens for the Tarife / legacy lane.
+ *
+ * Prefer `SANITY_API_TOKEN` (the original Tarife setup name). Do not grab
+ * `SANITY_WRITE_TOKEN` first — that secret is now the Best Bottles project
+ * on the shared Madison deployment, and using it against `8h5l91ut` is the
+ * "Session does not match project host" failure.
+ */
 export function resolveEnvSanityToken(get: EnvGetter): { token: string; secretName: string } | null {
-  const write = cleanSecret(get("SANITY_WRITE_TOKEN"));
-  if (write) return { token: write, secretName: "SANITY_WRITE_TOKEN" };
   const api = cleanSecret(get("SANITY_API_TOKEN"));
   if (api) return { token: api, secretName: "SANITY_API_TOKEN" };
+  const write = cleanSecret(get("SANITY_WRITE_TOKEN"));
+  if (write) return { token: write, secretName: "SANITY_WRITE_TOKEN" };
   return null;
 }
 
@@ -71,13 +80,27 @@ function resolveConnectionToken(
 ): { token: string; secretName: string } | null {
   const named = cleanSecret(get(connection.write_token_secret_name));
   if (named) return { token: named, secretName: connection.write_token_secret_name };
-  // Only the two canonical secret names are interchangeable. Do not grab
-  // an unrelated org's token just because a differently named secret exists.
-  const aliases = ["SANITY_WRITE_TOKEN", "SANITY_API_TOKEN"] as const;
-  if ((aliases as readonly string[]).includes(connection.write_token_secret_name)) {
-    return resolveEnvSanityToken(get);
-  }
+  // Do not substitute the other canonical secret. SANITY_WRITE_TOKEN is the
+  // Best Bottles token; SANITY_API_TOKEN is Tarife. Swapping them is what
+  // Sanity rejects as "Session does not match project host".
   return null;
+}
+
+/**
+ * Tarife's project must be written with the Tarife token. A connection row
+ * (or the env fallback) that still names SANITY_WRITE_TOKEN is the Best
+ * Bottles credential and will be rejected by project 8h5l91ut.
+ */
+function preferTarifeApiToken(
+  projectId: string,
+  chosen: { token: string; secretName: string },
+  get: EnvGetter,
+): { token: string; secretName: string } {
+  if (projectId !== TARIFE_SANITY_PROJECT_ID) return chosen;
+  if (chosen.secretName !== "SANITY_WRITE_TOKEN") return chosen;
+  const api = cleanSecret(get("SANITY_API_TOKEN"));
+  if (!api) return chosen;
+  return { token: api, secretName: "SANITY_API_TOKEN" };
 }
 
 /**
@@ -95,15 +118,16 @@ export function resolveLegacyEnvCredentials(get: EnvGetter): SanityPublishCreden
         "Missing Sanity write token. Set SANITY_API_TOKEN (Tarife Attar) or add a sanity_connections row for this organization.",
     };
   }
+  const tarifeToken = preferTarifeApiToken(TARIFE_SANITY_PROJECT_ID, token, get);
   const dataset = cleanSecret(get("SANITY_DATASET")) || "production";
   const apiVersion = cleanSecret(get("SANITY_API_VERSION")) || "2024-01-01";
   return {
     projectId: TARIFE_SANITY_PROJECT_ID,
     dataset,
     apiVersion,
-    token: token.token,
+    token: tarifeToken.token,
     source: "env",
-    tokenSecretName: token.secretName,
+    tokenSecretName: tarifeToken.secretName,
   };
 }
 
@@ -124,16 +148,18 @@ export function resolveSanityPublishTarget(params: {
           `Sanity write token secret "${connection.write_token_secret_name}" is not configured.`,
       };
     }
+    const projectId = connection.project_id;
+    const credentials = preferTarifeApiToken(projectId, token, get);
     return {
       ok: true,
       lane: journalLane ? "journal" : "legacy",
       credentials: {
-        projectId: connection.project_id,
+        projectId,
         dataset: connection.dataset || "production",
         apiVersion: connection.api_version || (journalLane ? "2024-10-01" : "2024-01-01"),
-        token: token.token,
+        token: credentials.token,
         source: "connection",
-        tokenSecretName: token.secretName,
+        tokenSecretName: credentials.secretName,
       },
     };
   }
