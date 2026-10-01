@@ -327,7 +327,7 @@ const Auth = () => {
       <button
         type="button"
         onClick={() => { setAuthMode('signin'); setResetMode(false); }}
-        className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
+        className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 sm:gap-2 sm:px-4 ${
           authMode === 'signin'
             ? 'bg-brand-ink text-brand-parchment shadow-sm'
             : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -339,7 +339,7 @@ const Auth = () => {
       <button
         type="button"
         onClick={() => { setAuthMode('signup'); setSignupSuccess(false); }}
-        className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
+        className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 sm:gap-2 sm:px-4 ${
           authMode === 'signup'
             ? 'bg-brand-ink text-brand-parchment shadow-sm'
             : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -352,7 +352,7 @@ const Auth = () => {
   );
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 sm:px-6 py-8 bg-gradient-to-b from-background to-muted/20">
+    <div className="flex min-h-screen min-h-[100dvh] items-center justify-center overflow-x-hidden bg-gradient-to-b from-background to-muted/20 px-4 py-8 safe-area-top safe-area-bottom sm:px-6">
       <div className="w-full max-w-md">
         {/* Logo & Tagline */}
         <div className="text-center mb-6 sm:mb-8 fade-enter">
@@ -371,7 +371,7 @@ const Auth = () => {
           <Button
             onClick={handleGoogleSignIn}
             variant="outline"
-            className="w-full mb-4 sm:mb-6 h-11 sm:h-12 gap-2 sm:gap-3 text-sm sm:text-base font-medium hover:bg-muted/50 transition-colors"
+            className="mb-4 h-12 w-full gap-2 text-base font-medium transition-colors hover:bg-muted/50 sm:mb-6 sm:gap-3"
             disabled={loading}
           >
             <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24">
@@ -427,7 +427,7 @@ const Auth = () => {
                       />
                     </div>
                   </div>
-                  <Button type="submit" variant="brass" className="w-full h-10 sm:h-11" disabled={loading}>
+                  <Button type="submit" variant="brass" className="h-12 w-full" disabled={loading}>
                     {loading ? "Sending..." : "Send Reset Link"}
                   </Button>
                 </form>
@@ -443,7 +443,7 @@ const Auth = () => {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
-                        className="pl-10 h-10 sm:h-11 text-sm"
+                        className="h-12 pl-10 text-base"
                         placeholder="you@example.com"
                       />
                     </div>
@@ -459,7 +459,7 @@ const Auth = () => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        className="pl-10 pr-10 h-10 sm:h-11 text-sm"
+                        className="h-12 pl-10 pr-10 text-base"
                         placeholder="••••••••"
                       />
                       <button
@@ -472,11 +472,11 @@ const Auth = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" variant="brass" className="w-full h-10 sm:h-11" disabled={loading}>
+                  <Button type="submit" variant="brass" className="h-12 w-full" disabled={loading}>
                     {loading ? "Signing in..." : "Sign In"}
                   </Button>
 
-                  <div className="flex items-center justify-between pt-2 gap-2">
+                  <div className="flex flex-col items-stretch gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
                     <button
                       type="button"
                       className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -562,7 +562,7 @@ const Auth = () => {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
-                        className="pl-10 h-10 sm:h-11 text-sm"
+                        className="h-12 pl-10 text-base"
                         placeholder="you@example.com"
                       />
                     </div>
@@ -578,7 +578,7 @@ const Auth = () => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        className="pl-10 pr-10 h-10 sm:h-11 text-sm"
+                        className="h-12 pl-10 pr-10 text-base"
                         placeholder="8+ characters"
                       />
                       <button
@@ -591,7 +591,7 @@ const Auth = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" variant="brass" className="w-full h-10 sm:h-11" disabled={loading}>
+                  <Button type="submit" variant="brass" className="h-12 w-full" disabled={loading}>
                     {loading ? "Creating account..." : "Create Account"}
                   </Button>
 
@@ -657,7 +657,7 @@ const Auth = () => {
                       />
                     </div>
                   </div>
-                  <Button type="submit" variant="brass" className="w-full h-10 sm:h-11" disabled={loading}>
+                  <Button type="submit" variant="brass" className="h-12 w-full" disabled={loading}>
                     {loading ? "Sending..." : "Send Magic Link"}
                   </Button>
                 </form>

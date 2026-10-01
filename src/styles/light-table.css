@@ -632,7 +632,38 @@
   }
 
   .light-table-film-strip {
-    display: none; /* Hide on mobile, could make horizontal */
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 96px;
+    border-left: none;
+    border-top: 1px solid rgba(184, 149, 106, 0.2);
+  }
+
+  .film-strip-header,
+  .film-strip-footer {
+    display: none;
+  }
+
+  .film-strip-scroll {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .film-strip-images {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .film-strip-frame {
+    width: 72px;
+    min-width: 72px;
+    height: 72px;
+  }
+
+  .light-table-editor {
+    max-height: none;
   }
 
   .light-table-title {

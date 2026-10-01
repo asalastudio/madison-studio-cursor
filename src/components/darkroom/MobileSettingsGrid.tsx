@@ -12,7 +12,6 @@ import {
   Camera,
   Sun,
   Globe,
-  Settings2,
   Image,
   Sparkles,
 } from "lucide-react";
@@ -20,6 +19,9 @@ import { MobileSettingsTile } from "./MobileSettingsTile";
 import { MobileSettingModal } from "./MobileSettingModal";
 import type { ProModeSettings } from "./ProSettings";
 import { AI_MODEL_OPTIONS as SHARED_AI_MODEL_OPTIONS, DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
+import { LIGHTING_LANE_OPTIONS, type LightingLane } from "@/lib/darkroomLightingLane";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 // Option types for each setting
 interface SettingOption {
@@ -83,9 +85,13 @@ interface MobileSettingsGridProps {
   hasBackgroundImage: boolean;
   hasStyleReference: boolean;
   disabled?: boolean;
+  lightingLane: LightingLane;
+  onLightingLaneChange: (lane: LightingLane) => void;
+  backgroundPlateMode: boolean;
+  onBackgroundPlateModeChange: (value: boolean) => void;
 }
 
-type ActiveModal = "model" | "size" | "camera" | "lighting" | "environment" | "inputs" | null;
+type ActiveModal = "model" | "size" | "camera" | "lighting" | "environment" | "lane" | "inputs" | null;
 
 export function MobileSettingsGrid({
   proSettings,
@@ -95,6 +101,10 @@ export function MobileSettingsGrid({
   hasBackgroundImage,
   hasStyleReference,
   disabled = false,
+  lightingLane,
+  onLightingLaneChange,
+  backgroundPlateMode,
+  onBackgroundPlateModeChange,
 }: MobileSettingsGridProps) {
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
@@ -129,6 +139,15 @@ export function MobileSettingsGrid({
   const getInputsDisplay = () => {
     const count = [hasProductImage, hasBackgroundImage, hasStyleReference].filter(Boolean).length;
     return count > 0 ? `${count} image${count > 1 ? 's' : ''}` : "None";
+  };
+
+  const getLaneDisplay = () => {
+    return LIGHTING_LANE_OPTIONS.find((option) => option.value === lightingLane)?.label || "1 pass";
+  };
+
+  const handleLaneChange = (value: string) => {
+    onLightingLaneChange(value as LightingLane);
+    setActiveModal(null);
   };
 
   // Handle setting changes
@@ -202,6 +221,25 @@ export function MobileSettingsGrid({
           onClick={onOpenInputs}
           disabled={disabled}
         />
+        <MobileSettingsTile
+          icon={Sparkles}
+          label="Light lane"
+          value={getLaneDisplay()}
+          onClick={() => setActiveModal("lane")}
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="mobile-darkroom__plate-toggle">
+        <Label htmlFor="mobile-bg-plate-grid" className="text-sm text-[var(--darkroom-text)]">
+          Background plate mode
+        </Label>
+        <Switch
+          id="mobile-bg-plate-grid"
+          checked={backgroundPlateMode}
+          onCheckedChange={onBackgroundPlateModeChange}
+          disabled={disabled}
+        />
       </div>
 
       {/* Model Modal */}
@@ -252,6 +290,19 @@ export function MobileSettingsGrid({
         options={ENVIRONMENT_OPTIONS}
         selectedValue={proSettings.environment || ""}
         onSelect={handleEnvironmentChange}
+      />
+
+      <MobileSettingModal
+        isOpen={activeModal === "lane"}
+        onClose={() => setActiveModal(null)}
+        title="Lighting lane"
+        options={LIGHTING_LANE_OPTIONS.map((option) => ({
+          value: option.value,
+          label: option.label,
+          description: option.description,
+        }))}
+        selectedValue={lightingLane}
+        onSelect={handleLaneChange}
       />
     </>
   );

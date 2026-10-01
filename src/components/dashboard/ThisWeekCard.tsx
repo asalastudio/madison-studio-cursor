@@ -62,7 +62,7 @@ export function ThisWeekCard() {
 
   return (
     <div className="col-span-1 md:col-span-12">
-      <Card className="p-4 md:p-6 bg-white border border-[#E0E0E0] overflow-hidden h-full flex flex-col hover-lift transition-all duration-200">
+      <Card className="flex h-full max-w-full flex-col overflow-x-hidden border border-[#E0E0E0] bg-white p-4 transition-all duration-200 hover-lift md:p-6">
         <div className="flex items-center justify-between mb-4 md:mb-5">
           <h3 className="text-sm font-medium text-[#1C150D]/60">This Week</h3>
           {totalScheduled > 0 && (
@@ -72,25 +72,25 @@ export function ThisWeekCard() {
           )}
         </div>
         
-        {/* Mobile: Horizontal Scroll */}
-        <div className="md:hidden overflow-x-auto -mx-4 px-4 scrollbar-hide">
-          <div className="flex gap-3 min-w-max pb-2">
+        {/* Mobile: seven days in one row, no page or strip overflow */}
+        <div className="max-w-full md:hidden">
+          <div className="grid grid-cols-7 gap-1 pb-2">
             {weekDays.map((day, index) => (
               <div
                 key={index}
                 onClick={() => navigate("/calendar")}
-                className={`flex flex-col items-center p-3 rounded-lg transition-colors cursor-pointer border min-w-[70px] ${
+                className={`flex min-w-0 flex-col items-center rounded-lg border p-1 transition-colors cursor-pointer ${
                   day.isToday 
                     ? 'bg-[#B8956A]/10 border-[#B8956A]/30' 
                     : 'border-transparent hover:bg-[#FAFAFA] hover:border-[#E0E0E0]'
                 }`}
               >
-                <span className={`text-xs font-medium mb-1 ${
+                <span className={`mb-1 text-[10px] font-medium ${
                   day.isToday ? 'text-[#B8956A]' : 'text-[#1C150D]/40'
                 }`}>
-                  {day.day}
+                  {day.day.slice(0, 2)}
                 </span>
-                <span className={`text-2xl font-semibold mb-3 ${
+                <span className={`mb-2 text-lg font-semibold ${
                   day.isToday ? 'text-[#B8956A]' : 'text-[#1C150D]'
                 }`}>
                   {day.date}
@@ -162,7 +162,7 @@ export function ThisWeekCard() {
               variant="outline"
               size="sm"
               onClick={() => navigate("/calendar")}
-              className="text-[#B8956A] border-[#B8956A]/30 hover:bg-[#B8956A]/10"
+              className="w-full max-w-full whitespace-normal text-[#B8956A] border-[#B8956A]/30 hover:bg-[#B8956A]/10"
             >
               Schedule Content →
             </Button>

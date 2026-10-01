@@ -116,6 +116,7 @@ export function DashboardWidgetSystem({
   showAddButton = true,
 }: DashboardWidgetSystemProps) {
   const { width, containerRef, mounted } = useContainerWidth();
+  const stackOnMobile = mounted && width > 0 && width < 768;
 
   // Create the layout for react-grid-layout
   const layout = useMemo(() => {
@@ -160,6 +161,32 @@ export function DashboardWidgetSystem({
       onWidgetsChange(updatedWidgets);
     }
   }, [widgets, isEditMode, onWidgetsChange]);
+
+  const renderWidget = (widget: DashboardWidget) => {
+    const Component = WIDGET_COMPONENTS[widget.type];
+    if (!Component) return null;
+
+    return (
+      <div
+        key={widget.id}
+        className="max-w-full overflow-x-hidden"
+      >
+        {widget.type === "strategy-session" || widget.type === "brand-health" ? (
+          <Component compact />
+        ) : (
+          <Component />
+        )}
+      </div>
+    );
+  };
+
+  if (stackOnMobile && !isEditMode) {
+    return (
+      <div ref={containerRef} className="max-w-full space-y-4 overflow-x-hidden">
+        {widgets.map((widget) => renderWidget(widget))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" ref={containerRef}>

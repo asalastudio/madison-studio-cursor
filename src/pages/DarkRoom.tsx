@@ -1270,6 +1270,8 @@ export default function DarkRoom() {
           onBackgroundPlateModeChange={setBackgroundPlateMode}
           styleReferenceLibraryOutput={styleReferenceLibraryOutput}
           onStyleReferenceLibraryOutputChange={setStyleReferenceLibraryOutput}
+          lightingLane={lightingLane}
+          onLightingLaneChange={setLightingLane}
         />
         <DarkRoomMadisonDrawer
           open={isMadisonOpen}

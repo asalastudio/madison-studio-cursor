@@ -169,9 +169,9 @@ export function OnboardingWelcome({ onContinue, onSkip, initialData }: Onboardin
   const isValid = userName.trim() && brandName.trim();
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-[#FDFBF7]">
+    <div className="flex min-h-[100dvh] flex-col overflow-x-hidden overflow-y-auto bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between px-8 py-4 shrink-0">
+      <header className="flex shrink-0 items-center justify-between px-4 py-4 md:px-8">
         <img src={madisonLogo} alt="Madison" className="h-6 opacity-90" />
         <div className="flex items-center gap-4">
           <VideoHelpTrigger videoId="setting-up-brand-identity" variant="link" />
@@ -192,7 +192,7 @@ export function OnboardingWelcome({ onContinue, onSkip, initialData }: Onboardin
             <OnboardingProgressBar currentStep={1} />
             
             <div className="space-y-2">
-              <h1 className="font-serif text-4xl text-ink-black">Welcome to Madison</h1>
+              <h1 className="font-serif text-3xl text-foreground md:text-4xl">Welcome to Madison</h1>
               <p className="text-lg text-charcoal/70 font-light max-w-md mx-auto">
                 Let's set up your brand profile to create on-brand content at scale.
               </p>

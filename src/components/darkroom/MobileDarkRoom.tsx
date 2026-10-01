@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import type { ProModeSettings } from "./ProSettings";
+import type { LightingLane } from "@/lib/darkroomLightingLane";
 import { Product } from "@/hooks/useProducts";
 import { ProductSelector } from "@/components/forge/ProductSelector";
 import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
@@ -91,6 +92,9 @@ interface MobileDarkRoomProps {
 
   styleReferenceLibraryOutput: boolean;
   onStyleReferenceLibraryOutputChange: (value: boolean) => void;
+
+  lightingLane: LightingLane;
+  onLightingLaneChange: (lane: LightingLane) => void;
 }
 
 export function MobileDarkRoom({
@@ -124,6 +128,8 @@ export function MobileDarkRoom({
   onBackgroundPlateModeChange,
   styleReferenceLibraryOutput,
   onStyleReferenceLibraryOutputChange,
+  lightingLane,
+  onLightingLaneChange,
 }: MobileDarkRoomProps) {
   const navigate = useNavigate();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -208,7 +214,7 @@ export function MobileDarkRoom({
           <button
             onClick={handleBackClick}
             onTouchEnd={handleBackClick}
-            className="w-9 h-9 flex items-center justify-center rounded-[4px] bg-[var(--darkroom-surface)] border border-[var(--darkroom-border-subtle)] text-[var(--darkroom-text-muted)] active:bg-[var(--darkroom-surface-elevated)] active:scale-[0.97] transition-all"
+            className="flex h-11 w-11 items-center justify-center rounded-[4px] border border-[var(--darkroom-border-subtle)] bg-[var(--darkroom-surface)] text-[var(--darkroom-text-muted)] transition-all active:scale-[0.97] active:bg-[var(--darkroom-surface-elevated)]"
             type="button"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -218,7 +224,7 @@ export function MobileDarkRoom({
         <div className="flex items-center gap-2">
           <button
             onClick={onSavePrompt}
-            className="w-9 h-9 flex items-center justify-center rounded-[4px] bg-[var(--darkroom-surface)] border border-[var(--darkroom-border-subtle)] text-[var(--darkroom-text-muted)] disabled:opacity-40 active:bg-[var(--darkroom-surface-elevated)] active:scale-[0.97] transition-all"
+            className="flex h-11 w-11 items-center justify-center rounded-[4px] border border-[var(--darkroom-border-subtle)] bg-[var(--darkroom-surface)] text-[var(--darkroom-text-muted)] transition-all disabled:opacity-40 active:scale-[0.97] active:bg-[var(--darkroom-surface-elevated)]"
             type="button"
             disabled={!canSavePrompt}
             aria-label="Save prompt"
@@ -227,7 +233,7 @@ export function MobileDarkRoom({
           </button>
           <button
             onClick={onOpenMadison}
-            className="h-9 rounded-[4px] bg-[var(--darkroom-surface)] border border-[var(--darkroom-border-subtle)] px-3 text-[12px] font-medium text-[var(--darkroom-text-muted)] active:bg-[var(--darkroom-surface-elevated)] active:scale-[0.97] transition-all inline-flex items-center gap-1.5"
+            className="inline-flex h-11 items-center gap-1.5 rounded-[4px] border border-[var(--darkroom-border-subtle)] bg-[var(--darkroom-surface)] px-3 text-sm font-medium text-[var(--darkroom-text-muted)] transition-all active:scale-[0.97] active:bg-[var(--darkroom-surface-elevated)]"
             type="button"
           >
             <Sparkles className="w-4 h-4" />
@@ -338,6 +344,10 @@ export function MobileDarkRoom({
         hasBackgroundImage={!!backgroundImage}
         hasStyleReference={!!styleReference}
         disabled={isGenerating}
+        lightingLane={lightingLane}
+        onLightingLaneChange={onLightingLaneChange}
+        backgroundPlateMode={backgroundPlateMode}
+        onBackgroundPlateModeChange={onBackgroundPlateModeChange}
       />
 
       {/* Film Strip (if images exist) */}
