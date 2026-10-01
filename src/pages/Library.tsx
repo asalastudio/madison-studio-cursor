@@ -738,6 +738,7 @@ export default function Library() {
             title: selectedContent.title,
             content_type: selectedContent.contentType,
             asset_type: selectedContent.contentType,
+            organization_id: selectedContent.organizationId,
             full_content: selectedContent.content,
             generated_content: selectedContent.content,
             platform_specs: selectedContent.platformSpecs,

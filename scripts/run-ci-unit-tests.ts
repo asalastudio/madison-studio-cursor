@@ -22,6 +22,7 @@ export const CI_UNIT_TEST_FILES = [
   "supabase/functions/_shared/sanityPlacement.test.ts",
   "supabase/functions/_shared/markdownToPortableText.test.ts",
   "supabase/functions/_shared/journalPost.test.ts",
+  "supabase/functions/_shared/sanityPublishTarget.test.ts",
   "supabase/functions/_shared/edgeAuth.test.ts",
   "supabase/functions/_shared/htmlEscape.test.ts",
   "supabase/functions/_shared/urlSafety.test.ts",
