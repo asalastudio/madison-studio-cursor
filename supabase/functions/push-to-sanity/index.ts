@@ -32,19 +32,17 @@ import {
 } from "../_shared/journalPost.ts";
 
 import { guardOrganization } from "../_shared/edgeAuth.ts";
+import {
+  describeSanityWriteError,
+  resolveSanityPublishTarget,
+  type OrgSanityConnection,
+} from "../_shared/sanityPublishTarget.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
-interface SanityConfig {
-  projectId: string;
-  dataset: string;
-  token: string;
-  apiVersion: string;
-}
 
 interface PushRequest {
   contentId: string;
@@ -61,19 +59,6 @@ interface PushRequest {
   /** Journal lane: images to place inside the body as image blocks. */
   inlineImages?: Array<{ url: string; alt?: string; caption?: string }>;
 }
-
-/**
- * Org-scoped Sanity connection, the same row the image placement lane uses.
- * When the org's schema profile is "best-bottles" the request takes the
- * journal lane below instead of the legacy Tarife-shaped push.
- */
-type OrgSanityConnection = {
-  project_id: string;
-  dataset: string;
-  api_version: string | null;
-  write_token_secret_name: string;
-  schema_profile: string | null;
-};
 
 async function loadOrgSanityConnection(
   supabaseUrl: string,
@@ -113,6 +98,7 @@ function jsonResponse(status: number, body: unknown) {
  */
 async function pushJournalPost(params: {
   connection: OrgSanityConnection;
+  token: string;
   content: any;
   contentType: string;
   contentId: string;
@@ -123,14 +109,7 @@ async function pushJournalPost(params: {
   heroImageUrl?: string;
   inlineImages?: Array<{ url: string; alt?: string; caption?: string }>;
 }): Promise<Response> {
-  const { connection, content, contentType, contentId, publish } = params;
-
-  const token = Deno.env.get(connection.write_token_secret_name)?.trim().replace(/^['"]|['"]$/g, "");
-  if (!token) {
-    return jsonResponse(500, {
-      error: `Sanity write token secret "${connection.write_token_secret_name}" is not configured.`,
-    });
-  }
+  const { connection, token, content, contentType, contentId, publish } = params;
   if (!isJournalCategory(params.category)) {
     return jsonResponse(400, {
       error: `category must be one of: ${JOURNAL_CATEGORIES.join(", ")}.`,
@@ -267,25 +246,6 @@ async function pushJournalPost(params: {
     projectId: connection.project_id,
     dataset: connection.dataset,
   });
-}
-
-/**
- * Get Sanity configuration from Supabase secrets or DB
- * TODO: Fetch from organizations.brand_config if available
- */
-async function getSanityConfig(organizationId?: string): Promise<SanityConfig> {
-  const projectId = Deno.env.get("SANITY_PROJECT_ID") || "8h5l91ut";
-  const dataset = Deno.env.get("SANITY_DATASET") || "production";
-  const token = Deno.env.get("SANITY_WRITE_TOKEN");
-  const apiVersion = Deno.env.get("SANITY_API_VERSION") || "2024-01-01";
-
-  if (!projectId || !token) {
-    throw new Error(
-      "Missing Sanity configuration. Set SANITY_PROJECT_ID and SANITY_WRITE_TOKEN in Supabase secrets."
-    );
-  }
-
-  return { projectId, dataset, token, apiVersion };
 }
 
 /**
@@ -729,38 +689,56 @@ serve(async (req) => {
     if ("response" in guard) return guard.response;
 
     const resolvedOrganizationId: string | undefined = contentOrganizationId || organizationId || undefined;
-    if (resolvedOrganizationId) {
-      const connection = await loadOrgSanityConnection(supabaseUrl, supabaseKey, resolvedOrganizationId);
-      if (connection?.schema_profile === "best-bottles") {
-        // Derivatives carry no title of their own; borrow the master's.
-        let title: string | undefined = content?.title;
-        if (!title && contentType === "derivative" && content?.master_content_id) {
-          const master = await fetchContent(supabaseUrl, supabaseKey, content.master_content_id, "master").catch(() => null);
-          title = master?.title;
-        }
-        return await pushJournalPost({
-          connection,
-          content,
-          contentType,
-          contentId,
-          title,
-          category,
-          publish,
-          heroImageUrl,
-          inlineImages,
-        });
-      }
+    const connection = resolvedOrganizationId
+      ? await loadOrgSanityConnection(supabaseUrl, supabaseKey, resolvedOrganizationId)
+      : null;
+    const target = resolveSanityPublishTarget({
+      organizationId: resolvedOrganizationId,
+      connection,
+      get: (name) => Deno.env.get(name),
+    });
+    if (!target.ok) {
+      return jsonResponse(500, { error: target.error });
     }
 
-    // Get Sanity config
-    const sanityConfig = await getSanityConfig(organizationId);
+    if (target.lane === "journal") {
+      if (!connection) {
+        return jsonResponse(500, { error: "Best Bottles journal publishing requires an active sanity_connections row." });
+      }
+      // Derivatives carry no title of their own; borrow the master's.
+      let title: string | undefined = content?.title;
+      if (!title && contentType === "derivative" && content?.master_content_id) {
+        const master = await fetchContent(supabaseUrl, supabaseKey, content.master_content_id, "master").catch(() => null);
+        title = master?.title;
+      }
+      return await pushJournalPost({
+        connection,
+        token: target.credentials.token,
+        content,
+        contentType,
+        contentId,
+        title,
+        category,
+        publish,
+        heroImageUrl,
+        inlineImages,
+      });
+    }
+
+    const sanityConfig = target.credentials;
+    console.log("[push-to-sanity] legacy lane:", {
+      projectId: sanityConfig.projectId,
+      dataset: sanityConfig.dataset,
+      source: sanityConfig.source,
+      tokenSecretName: sanityConfig.tokenSecretName,
+    });
 
     // Initialize Sanity client
     const sanityClient = createClient({
-      projectId: sanityConfig.projectId as string,
-      dataset: sanityConfig.dataset as string,
-      token: sanityConfig.token as string,
-      apiVersion: sanityConfig.apiVersion as string,
+      projectId: sanityConfig.projectId,
+      dataset: sanityConfig.dataset,
+      token: sanityConfig.token,
+      apiVersion: sanityConfig.apiVersion,
       useCdn: false,
     });
 
@@ -871,7 +849,7 @@ serve(async (req) => {
       console.log("[push-to-sanity] Sanity Response:", result);
     } catch (err) {
       console.error("[push-to-sanity] FATAL Sanity Error:", err);
-      throw err;
+      throw new Error(describeSanityWriteError(err, sanityConfig.projectId));
     }
 
     // Verify it exists right after creation
@@ -911,7 +889,7 @@ serve(async (req) => {
     console.error("Error pushing to Sanity:", error);
     return new Response(
       JSON.stringify({
-        error: error.message || "Failed to push content to Sanity",
+        error: describeSanityWriteError(error, "Sanity"),
       }),
       {
         status: 500,

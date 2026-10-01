@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useOrganization } from "@/hooks/useOrganization";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductSelector } from "@/components/forge/ProductSelector";
 import type { Product } from "@/hooks/useProducts";
@@ -114,6 +115,7 @@ export function PublishToSanity({
   bestBottles = false,
 }: PublishToSanityProps) {
   const { toast } = useToast();
+  const { organizationId: currentOrganizationId } = useOrganization();
   const [open, setOpen] = useState(false);
   const [sanityDocumentType, setSanityDocumentType] = useState<string>("");
   const [category, setCategory] = useState<string>(""); // New Category State
@@ -165,7 +167,7 @@ export function PublishToSanity({
           sanityDocumentType: documentType,
           // Pass category if selected
           category: category || undefined,
-          organizationId: content.organization_id,
+          organizationId: content.organization_id || currentOrganizationId,
           linkedProductId: selectedProduct?.id,
           linkedProductName: selectedProduct?.name,
           publish,

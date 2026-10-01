@@ -8,6 +8,7 @@ export interface LibraryContentItem {
   id: string;
   title: string;
   contentType: string;
+  organizationId?: string;
   collection: string | null;
   content: string;
   createdAt: Date;
@@ -52,19 +53,19 @@ export const useLibraryContent = (groupBySessions = false, page = 1, limit = 30)
       ] = await Promise.all([
         supabase
           .from("master_content")
-          .select("id, title, content_type, collection, full_content, created_at, updated_at, quality_rating, is_archived, status, published_to, external_urls, publish_notes, brand_consistency_score, brand_analysis, last_brand_check_at, featured_image_url")
+          .select("id, title, content_type, collection, full_content, created_at, updated_at, quality_rating, is_archived, status, published_to, external_urls, publish_notes, brand_consistency_score, brand_analysis, last_brand_check_at, featured_image_url, organization_id")
           .order("created_at", { ascending: false })
           .range(offset, offset + limit - 1),
         
         supabase
           .from("outputs")
-          .select("id, created_at, generated_content, quality_rating, is_archived, prompts(title, content_type, collection)")
+          .select("id, created_at, generated_content, quality_rating, is_archived, organization_id, prompts(title, content_type, collection)")
           .order("created_at", { ascending: false })
           .range(offset, offset + limit - 1),
         
         supabase
           .from("derivative_assets")
-          .select("id, asset_type, generated_content, created_at, quality_rating, is_archived, approval_status, published_to, external_urls, publish_notes, published_at, platform_specs, master_content(title, collection), brand_consistency_score, brand_analysis, last_brand_check_at")
+          .select("id, asset_type, generated_content, created_at, quality_rating, is_archived, approval_status, published_to, external_urls, publish_notes, published_at, platform_specs, organization_id, master_content(title, collection), brand_consistency_score, brand_analysis, last_brand_check_at")
           .order("created_at", { ascending: false })
           .range(offset, offset + limit - 1)
       ]);
@@ -79,6 +80,7 @@ export const useLibraryContent = (groupBySessions = false, page = 1, limit = 30)
               id: item.id,
               title: item.title,
               contentType: item.content_type,
+              organizationId: item.organization_id,
               collection: item.collection,
               content: item.full_content,
               createdAt: new Date(item.created_at),
@@ -112,6 +114,7 @@ export const useLibraryContent = (groupBySessions = false, page = 1, limit = 30)
               id: item.id,
               title: item.prompts?.title || "Untitled Output",
               contentType: contentType,
+              organizationId: item.organization_id,
               collection: item.prompts?.collection || null,
               content: item.generated_content,
               createdAt: new Date(item.created_at),
@@ -151,6 +154,7 @@ export const useLibraryContent = (groupBySessions = false, page = 1, limit = 30)
               id: item.id,
               title: (typeof item.platform_specs === 'object' && item.platform_specs !== null && 'title' in item.platform_specs ? item.platform_specs.title as string : null) || item.master_content?.title || "Untitled Derivative",
               contentType: item.asset_type,
+              organizationId: item.organization_id,
               collection: item.master_content?.collection || null,
               content: item.generated_content || "",
               createdAt: new Date(item.created_at),
