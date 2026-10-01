@@ -56,12 +56,19 @@ export function isBestBottlesJournalLane(
   return isBestBottlesOrgId(organizationId) && schemaProfile === BEST_BOTTLES_SCHEMA_PROFILE;
 }
 
-/** Shared-secret names the Tarife setup docs and the product push already accept. */
+/**
+ * Tokens for the Tarife / legacy lane.
+ *
+ * Prefer `SANITY_API_TOKEN` (the original Tarife setup name). Do not grab
+ * `SANITY_WRITE_TOKEN` first — that secret is now the Best Bottles project
+ * on the shared Madison deployment, and using it against `8h5l91ut` is the
+ * "Session does not match project host" failure.
+ */
 export function resolveEnvSanityToken(get: EnvGetter): { token: string; secretName: string } | null {
-  const write = cleanSecret(get("SANITY_WRITE_TOKEN"));
-  if (write) return { token: write, secretName: "SANITY_WRITE_TOKEN" };
   const api = cleanSecret(get("SANITY_API_TOKEN"));
   if (api) return { token: api, secretName: "SANITY_API_TOKEN" };
+  const write = cleanSecret(get("SANITY_WRITE_TOKEN"));
+  if (write) return { token: write, secretName: "SANITY_WRITE_TOKEN" };
   return null;
 }
 
@@ -71,12 +78,6 @@ function resolveConnectionToken(
 ): { token: string; secretName: string } | null {
   const named = cleanSecret(get(connection.write_token_secret_name));
   if (named) return { token: named, secretName: connection.write_token_secret_name };
-  // Only the two canonical secret names are interchangeable. Do not grab
-  // an unrelated org's token just because a differently named secret exists.
-  const aliases = ["SANITY_WRITE_TOKEN", "SANITY_API_TOKEN"] as const;
-  if ((aliases as readonly string[]).includes(connection.write_token_secret_name)) {
-    return resolveEnvSanityToken(get);
-  }
   return null;
 }
 

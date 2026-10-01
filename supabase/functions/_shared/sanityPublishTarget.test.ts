@@ -91,6 +91,22 @@ describe("resolveSanityPublishTarget", () => {
     assert.equal(target.credentials.token, "shared-token");
   });
 
+  it("prefers SANITY_API_TOKEN over a Best Bottles SANITY_WRITE_TOKEN on the legacy lane", () => {
+    const target = resolveSanityPublishTarget({
+      organizationId: TARIFE_ORG,
+      connection: null,
+      get: (name) => {
+        if (name === "SANITY_WRITE_TOKEN") return "best-bottles-token";
+        if (name === "SANITY_API_TOKEN") return "tarife-token";
+        return undefined;
+      },
+    });
+    assert.equal(target.ok, true);
+    if (!target.ok) return;
+    assert.equal(target.credentials.token, "tarife-token");
+    assert.equal(target.credentials.tokenSecretName, "SANITY_API_TOKEN");
+  });
+
   it("accepts SANITY_API_TOKEN when SANITY_WRITE_TOKEN is missing (Tarife setup docs)", () => {
     const target = resolveSanityPublishTarget({
       organizationId: TARIFE_ORG,
@@ -116,15 +132,15 @@ describe("resolveSanityPublishTarget", () => {
     assert.equal(target.credentials.token, "bb-token");
   });
 
-  it("allows SANITY_WRITE_TOKEN when the connection names SANITY_API_TOKEN", () => {
+  it("does not silently use SANITY_WRITE_TOKEN when the connection names SANITY_API_TOKEN", () => {
     const target = resolveSanityPublishTarget({
       organizationId: TARIFE_ORG,
       connection: tarifeConnection({ write_token_secret_name: "SANITY_API_TOKEN" }),
-      get: (name) => (name === "SANITY_WRITE_TOKEN" ? "shared-tarife-token" : undefined),
+      get: (name) => (name === "SANITY_WRITE_TOKEN" ? "best-bottles-token" : undefined),
     });
-    assert.equal(target.ok, true);
-    if (!target.ok) return;
-    assert.equal(target.credentials.token, "shared-tarife-token");
+    assert.equal(target.ok, false);
+    if (target.ok) return;
+    assert.match(target.error, /SANITY_API_TOKEN/);
   });
 
   it("errors clearly when no token is configured", () => {
