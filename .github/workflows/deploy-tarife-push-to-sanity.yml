@@ -1,7 +1,7 @@
 # Deploy push-to-sanity after the Tarife host-mismatch fix lands on main.
 # Frontend deploys do not publish Edge Functions, so production keeps serving
 # the old function until this job succeeds.
-# Requires the Production environment secret SUPABASE_ACCESS_TOKEN.
+# Requires the SANITY-TARIFE environment secret SUPABASE_ACCESS_TOKEN.
 name: Deploy Tarife push-to-sanity
 
 on:
@@ -22,7 +22,7 @@ jobs:
   deploy-push-to-sanity:
     name: Deploy push-to-sanity
     runs-on: ubuntu-latest
-    environment: production
+    environment: SANITY-TARIFE
 
     steps:
       - uses: actions/checkout@v4
