@@ -12,7 +12,10 @@ import { formatVisualContext } from "../_shared/productFieldFilters.ts";
 import { callGeminiImage } from "../_shared/aiProviders.ts";
 import { enhancePromptWithOntology } from "../_shared/photographyOntology.ts";
 import {
+  applyPropsAuthorityToText,
+  assembleDarkRoomControlLayers,
   brandPaletteSetOnlyLine,
+  buildEssentialModePrompt,
   catalogClosureLabel,
   catalogCrossCheckLine,
   lightingMandateBlock,
@@ -989,6 +992,14 @@ function buildDirectorModePrompt(
   lane: GenerationLane = null,
 ): string {
   let prompt = "";
+  const controlLayers = assembleDarkRoomControlLayers({
+    userPrompt,
+    artDirection: artDirectionControls,
+    omitBackground: lane === "place",
+    omitProps: lane === "place",
+    brandApprovedProps: brandKnowledge?.visualStandards?.approved_props,
+    brandForbiddenElements: brandKnowledge?.visualStandards?.forbidden_elements,
+  });
 
   // Catalog may describe the closure; the reference photo always wins.
   if (productData) {
@@ -1102,29 +1113,14 @@ function buildDirectorModePrompt(
   prompt += "=== CREATIVE DIRECTION ===\n";
   prompt += `${userPrompt}\n\n`;
 
-  if (
-    (artDirectionControls?.backgroundPrompt && lane !== "place") ||
-    artDirectionControls?.compositionPrompt
-  ) {
-    prompt += "=== DARK ROOM ART DIRECTION CONTROLS ===\n";
-
-    if (artDirectionControls.backgroundPrompt && lane !== "place") {
-      prompt += `BACKGROUND STYLE${artDirectionControls.backgroundPresetId ? ` (${artDirectionControls.backgroundPresetId})` : ""}: ${artDirectionControls.backgroundPrompt}\n`;
-      prompt += "Treat this as a deliberate background/surface directive that should materially shape the scene.\n";
-    }
-
-    if (artDirectionControls.compositionPrompt) {
-      prompt += `ARRANGEMENT${artDirectionControls.compositionPresetId ? ` (${artDirectionControls.compositionPresetId})` : ""}: ${artDirectionControls.compositionPrompt}\n`;
-      prompt += "Treat this as the required product placement, grouping, and framing instruction.\n";
-    }
-
-    prompt += "\n";
+  if (controlLayers.artDirectionBlock) {
+    prompt += `${controlLayers.artDirectionBlock}\n`;
   }
 
   // === SECTION 3: VISUAL MASTER TRAINING ===
   if (visualMasterContext) {
     prompt += "=== VISUAL MASTER TRAINING ===\n";
-    prompt += visualMasterContext;
+    prompt += applyPropsAuthorityToText(visualMasterContext, controlLayers.authority);
     prompt += "\n\n";
   }
 
@@ -1212,9 +1208,8 @@ function buildDirectorModePrompt(
         prompt += `${proLightingDeltaBlock(enhancePromptWithOntology("", proModeControls))}\n`;
       }
     }
-    if (vs.approved_props?.length > 0) {
-      prompt += `APPROVED PROPS: ${vs.approved_props.slice(0, 10).join(", ")}\n`;
-      prompt += `Only use props from this approved list.\n`;
+    if (controlLayers.propsBlock) {
+      prompt += `${controlLayers.propsBlock}\n`;
     }
     if (vs.forbidden_elements?.length > 0) {
       prompt += `FORBIDDEN ELEMENTS (NEVER INCLUDE): ${vs.forbidden_elements.join(", ")}\n`;
@@ -1256,39 +1251,8 @@ function buildDirectorModePrompt(
   return prompt;
 }
 
-function buildEssentialModePrompt(
-  userPrompt: string,
-  productRef: { url: string; description?: string } | null,
-  brandContext: any,
-  productData?: any
-): string {
-  let prompt = "";
-
-  if (productData) {
-    const crossCheck = catalogCrossCheckLine(
-      catalogClosureLabel(detectBottleType(productData)),
-    );
-    if (crossCheck) {
-      prompt += `${crossCheck}\n\n`;
-    }
-  }
-
-  prompt += userPrompt;
-
-  if (productRef) {
-    prompt += "\n\nUse the uploaded product image as the exact subject. Place it in the scene described above.";
-  }
-
-  if (brandContext?.colors?.length > 0) {
-    prompt += ` Incorporate ${brandContext.colors.join(" and ")} color tones.`;
-  }
-
-  if (brandContext?.styleKeywords?.length > 0) {
-    prompt += ` Apply ${brandContext.styleKeywords.join(", ")} aesthetic.`;
-  }
-
-  return prompt;
-}
+// Essential-mode prompt assembly lives in _shared/darkroomLegacyPrompt.ts
+// so simple and Pro share the same preset + props authority helpers.
 
 function buildChainPrompt(originalPrompt: string, refinement: string, depth: number) {
   const base = originalPrompt.replace(
@@ -2223,23 +2187,53 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
 
       // Add product visual DNA if available
       if (productData) {
-        const visualDNA = formatVisualContext(productData);
+        const visualDNA = applyPropsAuthorityToText(
+          formatVisualContext(productData),
+          assembleDarkRoomControlLayers({
+            userPrompt: prompt,
+            artDirection: {
+              backgroundPresetId,
+              backgroundPrompt,
+              compositionPresetId,
+              compositionPrompt,
+            },
+            brandApprovedProps: brandKnowledge.visualStandards?.approved_props,
+            brandForbiddenElements: brandKnowledge.visualStandards?.forbidden_elements,
+          }).authority,
+        );
         enhancedPrompt += `\n\n${visualDNA}`;
       }
     } else {
-      // ESSENTIAL MODE: Simple, fast workflow
+      // ESSENTIAL MODE: same backdrop/composition/props layers as Director.
       const productRef = categorizedRefs.product[0] || null;
-      enhancedPrompt = buildEssentialModePrompt(prompt, productRef, brandContext, productData);
-
-      // Add basic brand context
-      if (brandKnowledge.visualStandards) {
-        const vs = brandKnowledge.visualStandards;
-        if (vs.color_palette?.length > 0) {
-          enhancedPrompt += `\n\nBrand Colors: ${vs.color_palette
-            .slice(0, 3)
-            .map((c: any) => c.name)
-            .join(", ")}`;
-        }
+      const vs = brandKnowledge.visualStandards;
+      enhancedPrompt = buildEssentialModePrompt({
+        userPrompt: prompt,
+        productRef,
+        brandContext,
+        catalogClosureLabel: productData
+          ? catalogClosureLabel(detectBottleType(productData))
+          : null,
+        artDirection: {
+          backgroundPresetId,
+          backgroundPrompt,
+          compositionPresetId,
+          compositionPrompt,
+        },
+        brandApprovedProps: vs?.approved_props,
+        brandForbiddenElements: vs?.forbidden_elements,
+        brandColorNames: (vs?.color_palette ?? [])
+          .slice(0, 3)
+          .map((color: { name?: string }) => color.name?.trim() ?? "")
+          .filter((name: string) => name.length > 0),
+      });
+      if (backgroundPrompt || compositionPrompt) {
+        console.log("🎨 Essential art direction", {
+          backgroundPresetId,
+          compositionPresetId,
+          hasBackgroundPrompt: Boolean(backgroundPrompt),
+          hasCompositionPrompt: Boolean(compositionPrompt),
+        });
       }
 
       // Aspect ratio is now applied by the provider (Gemini imageConfig /
