@@ -85,6 +85,8 @@ export interface AssembledGenerationResult {
 export interface AssembledGenerateOptions {
   /** Image provider/model id sent through to generate-madison-image. */
   aiProvider?: string;
+  /** FLUX 3 Image layout, aspect, and single-box edit. Ignored by other providers. */
+  flux3?: import("../../supabase/functions/_shared/bflFlux3Layout.ts").Flux3ClientRequest;
   /** Optional geometry reference image (e.g. product.imageUrl from Convex). */
   referenceImageUrl?: string | null;
   /** Exact dotted-cap component truth, resolved fail-closed by thread and finish. */
@@ -651,6 +653,7 @@ export function useAssembledPromptGeneration() {
             referenceImages,
             proModeControls,
             aiProvider: options.aiProvider ?? DEFAULT_IMAGE_AI_PROVIDER,
+            flux3: options.flux3,
             // Provider policy (Jordan 2026-07-20): pdp-primary/pdp-secondary
             // presets ALWAYS render on GPT Image 2 — the server force stands
             // and the override hatch is not sent (Gemini comparison runs broke

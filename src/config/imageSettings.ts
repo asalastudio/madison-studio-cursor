@@ -287,7 +287,7 @@ export interface AiModelOption {
   label: string;
   description: string;
   badge: string | null;
-  group: "auto" | "gemini" | "openai" | "freepik";
+  group: "auto" | "gemini" | "openai" | "freepik" | "bfl";
 }
 
 export const DEFAULT_IMAGE_AI_PROVIDER = "openai-image-2.5-sunburst";
@@ -303,6 +303,7 @@ export const AI_MODEL_OPTIONS: AiModelOption[] = [
   { value: "gemini-3.1-flash-image-preview", label: "Nano Banana 2", description: "Fast, improved aspect ratio", badge: "NEW", group: "gemini" },
   { value: "gemini-3-pro-image-preview", label: "Gemini 3.1 Pro", description: "Latest Gemini image model", badge: "BEST", group: "gemini" },
   { value: "gemini-2.5-flash-image", label: "Nano Banana", description: "Stable fallback", badge: "FREE", group: "gemini" },
+  { value: "bfl-flux-3-image", label: "FLUX 3 Image", description: "Layout boxes, up to 10 references, native 2K and 4K", badge: "NEW", group: "bfl" },
 ];
 
 export interface ImageGenResolutionOption {

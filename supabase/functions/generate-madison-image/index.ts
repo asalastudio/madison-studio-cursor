@@ -21,6 +21,17 @@ import {
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, type OpenAIImageModel, type OpenAIImageSize, type OpenAIOutputFormat } from "../_shared/openaiProvider.ts";
 import {
+  composeFlux3Prompt,
+  collectFlux3ReferenceImages,
+  Flux3LayoutError,
+  isBflFlux3AiProvider,
+  mapMadisonResolutionToFlux3,
+  parseFlux3ClientRequest,
+  resolveFlux3AspectRatio,
+  type Flux3ClientRequest,
+} from "../_shared/bflFlux3Layout.ts";
+import { BflProviderError, generateFlux3Image, readBflApiKey } from "../_shared/bflProvider.ts";
+import {
   beginGenerationAttempt,
   completeGenerationAttempt,
   type GenerationAttemptTracker,
@@ -1413,13 +1424,15 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       product_id,
 
       // Provider selection (new)
-      provider = "auto", // "auto" | "gemini" | "freepik" | "openai"
+      provider = "auto", // "auto" | "gemini" | "freepik" | "openai" | "bfl"
       freepikModel, // "mystic" | "flux-dev" | "flux-pro-v1-1"
       freepikResolution, // "1k" | "2k" | "4k"
       
       // Frontend-friendly aliases (Pro Settings)
-      aiProvider, // "openai-image-2" | "auto" | "gemini" | "freepik-*"
+      aiProvider, // "openai-image-2" | "auto" | "gemini" | "bfl-flux-3-image"
       resolution, // "standard" | "high" | "4k"
+      // FLUX 3 Image layout control. Boxes are compiled into the prompt.
+      flux3,
       visualSquad, // "THE_MINIMALISTS" | "THE_STORYTELLERS" | "THE_DISRUPTORS"
       backgroundPresetId,
       backgroundPrompt,
@@ -1731,6 +1744,8 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       } else if (aiProvider === "openai-dalle-3" || aiProvider === "dall-e-3") {
         effectiveProvider = "openai";
         effectiveOpenAIModel = "dall-e-3";
+      } else if (isBflFlux3AiProvider(aiProvider)) {
+        effectiveProvider = "bfl";
       } else if (aiProvider === "auto") {
         effectiveProvider = "auto";
         effectiveGeminiModel = "models/gemini-3-pro-image-preview";
@@ -1744,6 +1759,19 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       console.warn("[image] Freepik is retired; routing to GPT Image 2.5 Sunburst", { aiProvider, provider });
       effectiveProvider = "openai";
       effectiveOpenAIModel = "gpt-image-2.5-sunburst";
+    }
+
+    let flux3Request: Flux3ClientRequest | null = null;
+    if (effectiveProvider === "bfl") {
+      try {
+        flux3Request = parseFlux3ClientRequest(flux3);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Invalid FLUX 3 layout.";
+        return new Response(
+          JSON.stringify({ error: message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     if (resolution) {
@@ -2547,6 +2575,16 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     // shadow, light contract) was validated against gpt-image-2 output; moving
     // it to GPT Image 2.5 is a contract change that needs its own re-validation
     // pass, not a silent model bump. See bestBottlesRenderingContract.ts.
+    if (forceBestBottlesOpenAIProvider && effectiveProvider === "bfl") {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Best Bottles reference-locked masters stay on GPT Image 2. FLUX 3 Image is available in Dark Room, Image Editor, and Best Bottles marketing or scene presets. PDP primary and secondary masters are not switched to FLUX 3.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (forceBestBottlesOpenAIProvider) {
       if (effectiveProvider !== "openai" || effectiveOpenAIModel !== "gpt-image-2") {
         console.log(
@@ -2593,7 +2631,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     // Determine which provider to use based on tier and request.
     // Best Bottles reference-locked masters are OpenAI GPT Image 2 only.
     // Other modes keep the broader Madison fallback behavior.
-    let selectedProvider: "gemini" | "freepik" | "openai" = "gemini";
+    let selectedProvider: "gemini" | "freepik" | "openai" | "bfl" = "gemini";
     let tierRestrictionApplied = false;
 
     if (effectiveProvider === "openai") {
@@ -2627,6 +2665,17 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         console.log("⚠️ Freepik requested but not available on Essentials tier, using Gemini");
         tierRestrictionApplied = true;
       }
+    } else if (effectiveProvider === "bfl") {
+      try {
+        readBflApiKey();
+        selectedProvider = "bfl";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "BFL_API_KEY is not configured.";
+        return new Response(
+          JSON.stringify({ error: message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     } else if (effectiveProvider === "auto") {
       if (Deno.env.get("OPENAI_API_KEY")) {
         selectedProvider = "openai";
@@ -2654,10 +2703,14 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         ? effectiveOpenAIModel
         : selectedProvider === "freepik"
           ? (effectiveFreepikModel || "mystic")
-          : "gemini",
+          : selectedProvider === "bfl"
+            ? "flux-3-image"
+            : "gemini",
       endpoint: selectedProvider === "openai"
         ? (referenceImagesPayload.length > 0 ? "edits" : "generations")
-        : null,
+        : selectedProvider === "bfl"
+          ? "flux-3-image"
+          : null,
       requestSize: isBestBottlesReferenceLocked ? "2080x2288" : null,
       requestResolution: effectiveMadisonResolution ?? null,
       prompt: enhancedPrompt,
@@ -2925,6 +2978,117 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         console.error("❌ OpenAI generation failed, falling back to Gemini:", openaiError);
         selectedProvider = "gemini";
         didFallback = true;
+      }
+    }
+
+    if (selectedProvider === "bfl") {
+      /**
+       * BLACK FOREST LABS FLUX 3 IMAGE
+       *
+       * Layout boxes are compiled into the prompt. Reference images are public
+       * https URLs or raw base64 (1–10). The sample URL is downloaded without
+       * the API key and stored in Supabase. Failures stay on this provider.
+       */
+      try {
+        const composed = composeFlux3Prompt({
+          scenePrompt: typeof prompt === "string" ? prompt : "",
+          enhancedPrompt,
+          request: flux3Request,
+        });
+        const references = collectFlux3ReferenceImages({
+          product: categorizedRefs.product.map((ref) => ref.url),
+          component: categorizedRefs.component.map((ref) => ref.url),
+          background: categorizedRefs.background.map((ref) => ref.url),
+          style: categorizedRefs.style.map((ref) => ref.url),
+          lane: generationLane,
+        });
+        if (references.skipped.length > 0) {
+          console.warn("[image] FLUX 3 skipped references that are not public https URLs or image data URLs", {
+            skipped: references.skipped.length,
+          });
+        }
+        if (composed.singleElementEdit && references.images.length === 0) {
+          throw new BflProviderError(
+            "A single-element FLUX 3 edit needs a reference image so the other boxes can stay locked.",
+            "missing_reference",
+          );
+        }
+        const fluxAspect = resolveFlux3AspectRatio(
+          flux3Request?.aspectRatio ?? generationAspectRatio,
+        );
+        const fluxResolution = mapMadisonResolutionToFlux3(
+          flux3Request?.resolution ?? effectiveMadisonResolution ?? "1k",
+        );
+        console.log("🎨 Using FLUX 3 Image...", {
+          aspectRatio: fluxAspect,
+          resolution: fluxResolution,
+          references: references.images.length,
+          elements: flux3Request?.elements?.length ?? 0,
+          singleElementEdit: composed.singleElementEdit,
+        });
+
+        const fluxResult = await generateFlux3Image({
+          prompt: composed.prompt,
+          images: references.images,
+          aspectRatio: fluxAspect,
+          resolution: fluxResolution,
+          grounding: flux3Request?.grounding,
+          safetyTolerance: flux3Request?.safetyTolerance,
+        });
+
+        const fluxExt = fluxResult.mimeType === "image/jpeg" ? "jpg"
+          : fluxResult.mimeType === "image/webp" ? "webp"
+          : "png";
+        const fluxShortId = crypto.randomUUID().slice(0, 8);
+        const fluxPosition =
+          typeof setPosition === "number" && Number.isFinite(setPosition)
+            ? Math.max(0, Math.floor(setPosition))
+            : 0;
+        const fluxFilename = pipelineMeta
+          ? `${resolvedOrgId}/${pipelineMeta.storagePathPrefix}/${pipelineMeta.variationSlug}-pos${fluxPosition}-${fluxShortId}.${fluxExt}`
+          : `${resolvedOrgId}/${Date.now()}-${crypto.randomUUID()}.${fluxExt}`;
+
+        const { error: fluxUploadErr } = await supabase.storage
+          .from("generated-images")
+          .upload(fluxFilename, fluxResult.imageBytes, { contentType: fluxResult.mimeType });
+        if (fluxUploadErr) {
+          console.error("Storage upload error for FLUX 3 image", fluxUploadErr);
+          throw fluxUploadErr;
+        }
+        const { data: fluxUrlData } = supabase.storage
+          .from("generated-images")
+          .getPublicUrl(fluxFilename);
+
+        imageUrl = fluxUrlData.publicUrl;
+        usedProvider = "bfl-flux-3-image";
+        providerRevisedPrompt = fluxResult.revisedPrompt ?? null;
+        enhancedPrompt = composed.prompt;
+        generationAspectRatio = fluxAspect === "auto" ? generationAspectRatio : fluxAspect;
+
+        console.log("✅ FLUX 3 Image generated and stored", {
+          taskId: fluxResult.taskId,
+          durationSeconds: fluxResult.durationSeconds,
+          storedUrl: imageUrl,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "FLUX 3 Image generation failed.";
+        const layoutRejected = error instanceof Flux3LayoutError
+          || (error instanceof BflProviderError && (error.code === "missing_reference" || error.code === "validation"));
+        if (layoutRejected) {
+          if (attemptLedgerRef.client && attemptLedgerRef.tracker) {
+            await completeGenerationAttempt(attemptLedgerRef.client, attemptLedgerRef.tracker, {
+              status: "failed",
+              errorMessage: message,
+            });
+            attemptLedgerRef.tracker = null;
+          }
+          return new Response(
+            JSON.stringify({ error: message }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        console.error("❌ FLUX 3 Image generation failed:", message);
+        throw new Error(message);
       }
     }
 

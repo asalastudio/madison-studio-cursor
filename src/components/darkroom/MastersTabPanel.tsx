@@ -31,6 +31,11 @@ import { toast } from "@/hooks/use-toast";
 import { UploadZone } from "@/components/darkroom/UploadZone";
 import { ImageLibraryModal } from "@/components/image-editor/ImageLibraryModal";
 import { Button } from "@/components/ui/button";
+import { Flux3LayoutEditor } from "@/components/image/Flux3LayoutEditor";
+import {
+  flux3RequestForProvider,
+  type Flux3ClientRequest,
+} from "../../../supabase/functions/_shared/bflFlux3Layout.ts";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -106,6 +111,11 @@ const MASTER_IMAGE_MODEL_OPTIONS = [
     value: "nano-banana-2",
     label: "Nano Banana 2 (Gemini 3.1 Flash Image)",
     description: "Hero thumbnails + marketing only — PDP masters stay on GPT Image 2",
+  },
+  {
+    value: "bfl-flux-3-image",
+    label: "FLUX 3 Image",
+    description: "Layout boxes and references for marketing and scene shots. PDP primary and secondary masters stay on GPT Image 2.",
   },
 ] as const;
 
@@ -1071,6 +1081,7 @@ export function MastersTabPanel({
   const [liquidEnabled, setLiquidEnabled] = useState(false);
   const [liquidColor, setLiquidColor] = useState("warm amber perfume");
   const [liquidFill, setLiquidFill] = useState(75);
+  const [masterFlux3, setMasterFlux3] = useState<Flux3ClientRequest>({ aspectRatio: "4:5" });
   const [masterAiProvider, setMasterAiProvider] = useState<MasterImageModelValue>(
     DEFAULT_IMAGE_AI_PROVIDER as MasterImageModelValue,
   );
@@ -3005,6 +3016,11 @@ export function MastersTabPanel({
 
     const invokeGeneration = (cylinderPreparation: CylinderStudioPreparedGeneration | null) => generate(assembled, {
       aiProvider: masterAiProvider,
+      flux3: flux3RequestForProvider(
+        masterAiProvider,
+        masterFlux3,
+        sceneAspectRatio,
+      ),
       // Custom upload (PSD-rendered PNG) takes priority over Convex's
       // legacy .gif imageUrl — the latter is silently dropped by the
       // unsupported-format filter in useAssembledPromptGeneration.
@@ -3819,6 +3835,16 @@ export function MastersTabPanel({
         <p className="text-[11px]" style={{ color: "var(--darkroom-text-dim)" }}>
           {selectedImageModel.description}
         </p>
+        {masterAiProvider === "bfl-flux-3-image" && (
+          <Flux3LayoutEditor
+            value={masterFlux3}
+            disabled={isGenerating}
+            onChange={(next) => {
+              setMasterFlux3(next);
+              if (next.resolution === "2k" || next.resolution === "high") setSceneResolution("high");
+            }}
+          />
+        )}
       </div>
 
       <div className="space-y-2 pt-1 border-t" style={{ borderColor: "var(--darkroom-border-subtle)" }}>
