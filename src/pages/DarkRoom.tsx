@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { LibrarianTrigger } from "@/components/librarian";
 import { SavePromptDialog } from "@/components/prompt-library/SavePromptDialog";
 import { DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
+import { flux3RequestForProvider } from "../../supabase/functions/_shared/bflFlux3Layout.ts";
 import { useGridPipelineFeatureFlag } from "@/hooks/useGridPipelineFeatureFlag";
 import {
   BACKGROUND_SCENE_TAG,
@@ -776,6 +777,7 @@ export default function DarkRoom() {
         product_id: backgroundPlateMode ? undefined : selectedProduct?.id,
         aiProvider: requestedAiProvider,
         resolution: edgeSafeSettings.resolution,
+        flux3: flux3RequestForProvider(requestedAiProvider, proSettings.flux3, generationAspectRatio),
         visualSquad: proSettings.visualSquad,
         generationMode: navigationGenerationMode,
         productContext:

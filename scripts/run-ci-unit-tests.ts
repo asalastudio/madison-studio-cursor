@@ -15,6 +15,8 @@ export const CI_UNIT_TEST_FILES = [
   "src/lib/darkroomHeroSetPresets.test.ts",
   "src/lib/darkroomGenerationCanvas.test.ts",
   "supabase/functions/_shared/openaiImageSize.test.ts",
+  "supabase/functions/_shared/bflFlux3Layout.test.ts",
+  "supabase/functions/_shared/bflProvider.test.ts",
   "src/lib/darkroomLightingLane.test.ts",
   "src/lib/lightTableOutputRatio.test.ts",
   "src/lib/sanityPlacementUi.test.ts",

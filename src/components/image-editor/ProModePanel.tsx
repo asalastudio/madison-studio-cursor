@@ -122,6 +122,7 @@ export function ProModePanel({ onControlsChange, initialValues = {} }: ProModePa
                   gemini: "Google Gemini",
                   openai: "OpenAI",
                   freepik: "Freepik",
+                  bfl: "Black Forest Labs",
                 };
                 return (
                   <div key={option.value}>

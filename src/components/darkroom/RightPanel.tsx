@@ -64,6 +64,8 @@ import {
   type VisualSquad,
 } from "@/config/imageSettings";
 import { ConsistencyModePanel } from "./ConsistencyMode";
+import { Flux3LayoutEditor } from "@/components/image/Flux3LayoutEditor";
+import { isFlux3AspectRatio } from "../../../supabase/functions/_shared/bflFlux3Layout.ts";
 import {
   Tooltip,
   TooltipContent,
@@ -695,7 +697,21 @@ export function RightPanel({
           </div>
           <Select
             value={proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER}
-            onValueChange={(v) => handleSettingChange("aiProvider", v)}
+            onValueChange={(v) => {
+              if (!onProSettingsChange || !proSettings) return;
+              const next: ProModeSettings = { ...proSettings, aiProvider: v };
+              if (v === "bfl-flux-3-image") {
+                if (!next.resolution || next.resolution === "standard") next.resolution = "high";
+                const aspect = isFlux3AspectRatio(next.aspectRatio) ? next.aspectRatio : "4:5";
+                next.aspectRatio = aspect;
+                const existingAspect = next.flux3?.aspectRatio;
+                next.flux3 = {
+                  ...(next.flux3 ?? {}),
+                  aspectRatio: existingAspect && isFlux3AspectRatio(existingAspect) ? existingAspect : aspect,
+                };
+              }
+              onProSettingsChange(next);
+            }}
             disabled={isGenerating}
           >
             <SelectTrigger className="w-full h-8 bg-[var(--camera-body-deep)] border-white/[0.06] text-[var(--darkroom-text)] text-[11px] rounded">
@@ -709,6 +725,7 @@ export function RightPanel({
                   gemini: "Google Gemini",
                   openai: "OpenAI",
                   freepik: "Freepik Models",
+                  bfl: "Black Forest Labs",
                 };
 
                 return (
@@ -742,6 +759,24 @@ export function RightPanel({
               })}
             </SelectContent>
           </Select>
+          {(proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER) === "bfl-flux-3-image" && (
+            <Flux3LayoutEditor
+              value={proSettings.flux3 ?? { aspectRatio: proSettings.aspectRatio || "4:5" }}
+              disabled={isGenerating}
+              onChange={(flux3) => {
+                if (!onProSettingsChange) return;
+                onProSettingsChange({
+                  ...proSettings,
+                  aiProvider: "bfl-flux-3-image",
+                  flux3,
+                  aspectRatio: flux3.aspectRatio || proSettings.aspectRatio,
+                  resolution: flux3.resolution === "2k" || flux3.resolution === "4k" || flux3.resolution === "high"
+                    ? (flux3.resolution === "2k" ? "high" : flux3.resolution === "4k" ? "4k" : "high")
+                    : proSettings.resolution,
+                });
+              }}
+            />
+          )}
         </div>
 
         <div className="camera-panel p-2.5 space-y-2">

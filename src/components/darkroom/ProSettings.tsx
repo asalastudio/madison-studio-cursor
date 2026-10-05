@@ -48,7 +48,7 @@ const AI_PROVIDER_OPTIONS = [
   // Google Gemini Direct (Google's API) - MOVED TO TOP
   { value: "gemini-3-pro-image", label: "Gemini 3.1 Pro", description: "Latest Gemini image fallback", badge: "BEST", group: "gemini" },
   { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Fast & reliable", badge: "FREE", group: "gemini" },
-  // Freepik Premium Models
+  { value: "bfl-flux-3-image", label: "FLUX 3 Image", description: "Layout boxes, up to 10 references, native 2K and 4K", badge: "NEW", group: "bfl" },
 ];
 
 // Resolution/Quality options
@@ -94,6 +94,8 @@ export interface ProModeSettings {
   resolution?: string;
   characterId?: string; // AI Character for consistent faces
   visualSquad?: string; // Visual Style/Filter
+  /** FLUX 3 Image layout. Sent as `flux3` on generate-madison-image, not as a camera preset. */
+  flux3?: import("../../../supabase/functions/_shared/bflFlux3Layout.ts").Flux3ClientRequest;
 }
 
 interface ProSettingsProps {
@@ -366,6 +368,7 @@ export function ProSettings({ settings, onChange, disabled = false }: ProSetting
                         "gemini": "Google Gemini",
                         "openai": "OpenAI",
                         "freepik": "Freepik AI Models",
+                        "bfl": "Black Forest Labs",
                       };
 
                       return (

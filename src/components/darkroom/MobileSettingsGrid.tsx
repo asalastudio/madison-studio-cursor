@@ -20,6 +20,8 @@ import { MobileSettingsTile } from "./MobileSettingsTile";
 import { MobileSettingModal } from "./MobileSettingModal";
 import type { ProModeSettings } from "./ProSettings";
 import { AI_MODEL_OPTIONS as SHARED_AI_MODEL_OPTIONS, DEFAULT_IMAGE_AI_PROVIDER } from "@/config/imageSettings";
+import { Flux3LayoutEditor } from "@/components/image/Flux3LayoutEditor";
+import { isFlux3AspectRatio } from "../../../supabase/functions/_shared/bflFlux3Layout.ts";
 
 // Option types for each setting
 interface SettingOption {
@@ -133,7 +135,18 @@ export function MobileSettingsGrid({
 
   // Handle setting changes
   const handleModelChange = (value: string) => {
-    onProSettingsChange({ ...proSettings, aiProvider: value });
+    const next = { ...proSettings, aiProvider: value };
+    if (value === "bfl-flux-3-image") {
+      if (!next.resolution || next.resolution === "standard") next.resolution = "high";
+      const aspect = isFlux3AspectRatio(next.aspectRatio) ? next.aspectRatio : "4:5";
+      next.aspectRatio = aspect;
+      const existingAspect = next.flux3?.aspectRatio;
+      next.flux3 = {
+        ...(next.flux3 ?? {}),
+        aspectRatio: existingAspect && isFlux3AspectRatio(existingAspect) ? existingAspect : aspect,
+      };
+    }
+    onProSettingsChange(next);
     setActiveModal(null);
   };
 
@@ -203,6 +216,26 @@ export function MobileSettingsGrid({
           disabled={disabled}
         />
       </div>
+
+      {(proSettings.aiProvider || DEFAULT_IMAGE_AI_PROVIDER) === "bfl-flux-3-image" && (
+        <div className="mt-3">
+          <Flux3LayoutEditor
+            value={proSettings.flux3 ?? { aspectRatio: "4:5" }}
+            disabled={disabled}
+            onChange={(flux3) => onProSettingsChange({
+              ...proSettings,
+              aiProvider: "bfl-flux-3-image",
+              flux3,
+              aspectRatio: flux3.aspectRatio || proSettings.aspectRatio,
+              resolution: flux3.resolution === "4k"
+                ? "4k"
+                : flux3.resolution === "2k" || flux3.resolution === "high"
+                  ? "high"
+                  : proSettings.resolution,
+            })}
+          />
+        </div>
+      )}
 
       {/* Model Modal */}
       <MobileSettingModal

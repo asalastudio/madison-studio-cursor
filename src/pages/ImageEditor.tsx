@@ -53,6 +53,12 @@ import { ImageChainBreadcrumb } from "@/components/image-editor/ImageChainBreadc
 import { RefinementPanel } from "@/components/image-editor/RefinementPanel";
 import { ProModePanel, ProModeControls } from "@/components/image-editor/ProModePanel";
 import { AI_MODEL_OPTIONS, DEFAULT_IMAGE_AI_PROVIDER, IMAGE_GEN_RESOLUTION_OPTIONS } from "@/config/imageSettings";
+import { Flux3LayoutEditor } from "@/components/image/Flux3LayoutEditor";
+import {
+  flux3RequestForProvider,
+  isFlux3AspectRatio,
+  type Flux3ClientRequest,
+} from "../../supabase/functions/_shared/bflFlux3Layout.ts";
 import { GeneratingLoader } from "@/components/forge/GeneratingLoader";
 import ThumbnailRibbon from "@/components/image-editor/ThumbnailRibbon";
 import MadisonPanel from "@/components/image-editor/MadisonPanel";
@@ -173,12 +179,19 @@ export default function ImageEditor() {
 
   // Pro Mode Controls State
   const [proModeControls, setProModeControls] = useState<ProModeControls>({});
+  const [flux3Request, setFlux3Request] = useState<Flux3ClientRequest>({});
 
   const updateProAiProvider = useCallback((value: string) => {
     setProModeControls((prev) => ({
       ...prev,
       aiProvider: value === DEFAULT_IMAGE_AI_PROVIDER ? undefined : value,
+      resolution: value === "bfl-flux-3-image" && (!prev.resolution || prev.resolution === "standard")
+        ? "high"
+        : prev.resolution,
     }));
+    if (value === "bfl-flux-3-image") {
+      setAspectRatio((current) => (isFlux3AspectRatio(current) ? current : "4:5"));
+    }
   }, []);
 
   const updateProResolution = useCallback((value: string) => {
@@ -592,6 +605,11 @@ export default function ImageEditor() {
             } : undefined,
             aiProvider: proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
             resolution: proModeControls.resolution || "standard",
+            flux3: flux3RequestForProvider(
+              proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
+              flux3Request,
+              aspectRatio,
+            ),
           }
         }
       );
@@ -902,6 +920,11 @@ export default function ImageEditor() {
             parentImageId: selectedForRefinement.id,
             aiProvider: proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
             resolution: proModeControls.resolution || "standard",
+            flux3: flux3RequestForProvider(
+              proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
+              flux3Request,
+              aspectRatio,
+            ),
           }
         }
       );
@@ -1138,6 +1161,11 @@ export default function ImageEditor() {
               parentImageId: latestImage.id,
               aiProvider: proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
               resolution: proModeControls.resolution || "standard",
+              flux3: flux3RequestForProvider(
+                proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER,
+                flux3Request,
+                aspectRatio,
+              ),
             }
           }
         );
@@ -1868,6 +1896,24 @@ export default function ImageEditor() {
                 })}
               </div>
             </div>
+            {(proModeControls.aiProvider || DEFAULT_IMAGE_AI_PROVIDER) === "bfl-flux-3-image" && (
+              <div className="px-6 py-3 border-b border-border bg-background">
+                <Flux3LayoutEditor
+                  value={{
+                    ...flux3Request,
+                    aspectRatio: flux3Request.aspectRatio
+                      || (isFlux3AspectRatio(aspectRatio) ? aspectRatio : "4:5"),
+                  }}
+                  disabled={isGenerating}
+                  onChange={(next) => {
+                    setFlux3Request(next);
+                    if (next.aspectRatio) setAspectRatio(next.aspectRatio);
+                    if (next.resolution === "4k") updateProResolution("4k");
+                    else if (next.resolution === "2k" || next.resolution === "high") updateProResolution("high");
+                  }}
+                />
+              </div>
+            )}
             {/* Pro Mode Status Indicator */}
             {Object.keys(proModeControls).length > 0 && (
               <div className="px-6 pr-6 py-2 border-b border-charcoal/50 bg-aged-brass/5">
