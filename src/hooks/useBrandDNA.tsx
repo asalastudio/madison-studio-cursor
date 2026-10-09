@@ -8,6 +8,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "./useOrganization";
+import { brandQuickViewFromOrganization } from "@/lib/brandSettingsQuickView";
 import type { BrandDNA, BrandQuickView, DesignTokens } from "@/types/madison";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -66,28 +67,48 @@ export function useBrandDNA() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Transform to Quick View format
-  const quickView: BrandQuickView | null = brandDNA
+  const { data: organizationBrand, isLoading: organizationBrandLoading } = useQuery({
+    queryKey: ["org-brand-settings", organizationId],
+    queryFn: async () => {
+      if (!organizationId) return null;
+      const { data, error: orgError } = await supabase
+        .from("organizations")
+        .select("name, settings, brand_config, industry_type")
+        .eq("id", organizationId)
+        .maybeSingle();
+      if (orgError) throw orgError;
+      return data;
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const settingsView = brandQuickViewFromOrganization(organizationBrand);
+
+  // Transform to Quick View format. A brand_dna scan wins, and Brand Studio
+  // settings fill whatever the scan never wrote.
+  const quickView: BrandQuickView | null = brandDNA || settingsView
     ? {
-        logoUrl: brandDNA.visual?.logo?.url,
-        brandName: undefined, // Would come from organization
+        logoUrl: brandDNA?.visual?.logo?.url,
+        brandName: settingsView?.brandName,
         colors: {
-          primary: brandDNA.visual?.colors?.primary,
-          secondary: brandDNA.visual?.colors?.secondary,
-          accent: brandDNA.visual?.colors?.accent,
-          palette: brandDNA.visual?.colors?.palette,
+          primary: brandDNA?.visual?.colors?.primary || settingsView?.colors.primary,
+          secondary: brandDNA?.visual?.colors?.secondary || settingsView?.colors.secondary,
+          accent: brandDNA?.visual?.colors?.accent || settingsView?.colors.accent,
+          palette: brandDNA?.visual?.colors?.palette || settingsView?.colors.palette,
         },
         typography: {
-          headline: brandDNA.visual?.typography?.headline?.family,
-          body: brandDNA.visual?.typography?.body?.family,
+          headline: brandDNA?.visual?.typography?.headline?.family || settingsView?.typography.headline,
+          body: brandDNA?.visual?.typography?.body?.family || settingsView?.typography.body,
         },
-        tone: brandDNA.essence?.tone,
-        copySquad: brandDNA.essence?.copySquad,
-        visualSquad: brandDNA.essence?.visualSquad,
-        mission: brandDNA.essence?.mission,
-        keywords: brandDNA.essence?.keywords,
-        scanConfidence: brandDNA.scan_metadata?.confidence,
-        lastScanned: brandDNA.scan_metadata?.scanned_at,
+        tone: brandDNA?.essence?.tone,
+        industryLabel: settingsView?.industryLabel,
+        copySquad: brandDNA?.essence?.copySquad,
+        visualSquad: brandDNA?.essence?.visualSquad,
+        mission: brandDNA?.essence?.mission,
+        keywords: brandDNA?.essence?.keywords,
+        scanConfidence: brandDNA?.scan_metadata?.confidence,
+        lastScanned: brandDNA?.scan_metadata?.scanned_at,
       }
     : null;
 
@@ -117,12 +138,12 @@ export function useBrandDNA() {
     brandDNA,
     quickView,
     designTokens,
-    isLoading,
+    isLoading: isLoading || organizationBrandLoading,
     error,
     refetch,
     rescan: rescanMutation.mutate,
     isRescanning: rescanMutation.isPending,
-    hasBrandDNA: !!brandDNA,
+    hasBrandDNA: !!brandDNA || !!settingsView,
   };
 }
 

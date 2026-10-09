@@ -5,6 +5,7 @@ import {
   getGeminiApiKey,
 } from "../_shared/geminiClient.ts";
 import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
+import { buildBestBottlesOnBrandPrompt } from "../_shared/orderedImagePrompt.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,7 +26,13 @@ serve(async (req) => {
     const { prompt, organizationId } = await req.json();
     const guard = await guardAuthenticatedOrg(req, organizationId, corsHeaders);
     if ("response" in guard) return guard.response;
-    console.log('[generate-image-with-nano] Generating image for prompt:', prompt.substring(0, 100));
+    const imagePrompt = /best bottles/i.test(String(prompt ?? ""))
+      ? buildBestBottlesOnBrandPrompt({ shotType: String(prompt) }).prompt
+      : String(prompt ?? "");
+    if (imagePrompt !== prompt) {
+      console.log("[generate-image-with-nano] ordered Best Bottles prompt", { length: imagePrompt.length });
+    }
+    console.log('[generate-image-with-nano] Generating image for prompt:', imagePrompt.substring(0, 100));
 
     const response = await fetch(`${GEMINI_API_BASE}/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -36,7 +43,7 @@ serve(async (req) => {
         contents: [
           {
             role: 'user',
-            parts: [{ text: prompt }],
+            parts: [{ text: imagePrompt }],
           },
         ],
         generationConfig: {

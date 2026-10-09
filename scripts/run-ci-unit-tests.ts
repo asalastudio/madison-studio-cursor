@@ -40,6 +40,9 @@ export const CI_UNIT_TEST_FILES = [
   "src/lib/darkroomPromptDedup.test.ts",
   "src/lib/darkroomDebrand.test.ts",
   "supabase/functions/_shared/darkroomLegacyPrompt.test.ts",
+  "supabase/functions/_shared/orderedImagePrompt.test.ts",
+  "src/lib/brandSettingsQuickView.test.ts",
+  "src/lib/acceptPendingInvitations.test.ts",
 ] as const;
 
 const existing = CI_UNIT_TEST_FILES.filter((path) => existsSync(path));

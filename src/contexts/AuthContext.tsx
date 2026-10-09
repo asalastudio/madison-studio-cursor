@@ -12,6 +12,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 import { logger } from "@/lib/logger";
+import { acceptPendingInvitations, type InvitationRpc } from "@/lib/acceptPendingInvitations";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -22,18 +23,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logger.debug("[AuthProvider] Initializing auth context");
 
     // Function to check and accept pending invitations
-    const checkPendingInvitations = async () => {
+    const checkPendingInvitations = async (userId: string, email: string) => {
       try {
         logger.debug("[AuthProvider] Checking pending invitations for the signed-in user");
 
-        const { data, error } = await supabase.rpc("accept_pending_invitations_for_user");
+        const { data, error, via } = await acceptPendingInvitations(
+          supabase.rpc as unknown as InvitationRpc,
+          { id: userId, email },
+        );
 
         if (error) {
-          logger.error("[AuthProvider] Invitation accept RPC failed:", error);
+          logger.error("[AuthProvider] Invitation accept RPC failed:", error, { via });
           return;
         }
 
-        if (data && data.length > 0) {
+        if (Array.isArray(data) && data.length > 0) {
           logger.debug("[AuthProvider] Successfully accepted invitations via RPC:", data.length);
         } else {
           logger.debug("[AuthProvider] No pending invitations found.");
@@ -54,10 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Check for pending invitations on SIGNED_IN event
         if (event === "SIGNED_IN" && session?.user) {
           const userEmail = session.user.email;
+          const userId = session.user.id;
           if (userEmail) {
             // Use setTimeout to avoid blocking the auth flow
             setTimeout(() => {
-              checkPendingInvitations();
+              void checkPendingInvitations(userId, userEmail);
             }, 500);
           }
         }
@@ -83,8 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // Also check invitations on initial session load
           if (session?.user?.email) {
+            const userId = session.user.id;
+            const userEmail = session.user.email;
             setTimeout(() => {
-              checkPendingInvitations();
+              void checkPendingInvitations(userId, userEmail);
             }, 500);
           }
         }

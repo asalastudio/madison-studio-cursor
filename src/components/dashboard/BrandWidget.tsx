@@ -96,6 +96,15 @@ export function BrandWidget() {
               </div>
             )}
 
+            {quickView?.brandName && (
+              <p className="text-sm font-medium text-foreground">{quickView.brandName}</p>
+            )}
+            {(quickView?.industryLabel || quickView?.tone) && (
+              <p className="text-xs text-muted-foreground">
+                {quickView.industryLabel || quickView.tone}
+              </p>
+            )}
+
             {/* Color Palette */}
             {hasColors && (
               <div className="space-y-2">

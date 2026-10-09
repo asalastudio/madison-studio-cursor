@@ -46,6 +46,7 @@ Category-Specific Formats:
 - Product: Include {{PRODUCT_NAME}}, {{TOP_NOTES}}, {{HEART_NOTES}}, {{BASE_NOTES}}, {{USP}}
 - Social: Include {{PRODUCT_NAME}}, {{PLATFORM}}, {{NUMBER}} (for hashtags), CTA
 - Visual: Include {{STYLE_REFERENCE}}, {{PRODUCT_NAME}}, {{VISUAL_ELEMENTS}}, {{MOOD}}, {{COLOR_PALETTE}}
+- Visual prompts for Best Bottles are photoreal catalog photographs on pure white. Do not ask for illustration, moody darkness, or any label, logo, or wordmark unless the user supplied that exact text.
 
 Example Input:
 Purpose: "Create engaging Instagram posts for perfume launches"

@@ -29,23 +29,21 @@ const OPENAI_API_BASE = "https://api.openai.com/v1";
  *                        Slower than Flare.
  *   - gpt-image-2.5-flare    → OpenAI's default for most applications.
  *                        Higher quality than gpt-image-2 at ~50% lower latency.
- *   - gpt-image-2      → previous flagship. Still the pinned model for the
- *                        Best Bottles reference-locked contract (see
- *                        bestBottlesRenderingContract.ts) — that lane's canvas,
- *                        light and shadow policy were validated against it.
+ *   - gpt-image-2      → previous flagship. Paper-doll and material-pilot
+ *                        contracts still name it. Dark Room and the Best
+ *                        Bottles rendering contract use Flare.
  *   - gpt-image-1.5    → older high-fidelity GPT Image model.
  *   - gpt-image-1      → legacy.
  *   - gpt-image-1-mini → cheaper / faster tier of the 1-series.
  *   - dall-e-3         → legacy, text-only.
  *
- * Default stays gpt-image-2 so the Best Bottles lane and every existing
- * caller keep byte-comparable output until a 2.5 migration is validated.
- * The OPENAI_IMAGE_MODEL secret flips the default without a redeploy, and
- * callers can select a 2.5 model explicitly via `aiProvider`.
+ * Default is gpt-image-2.5-flare. Dark Room verified it, and the picker
+ * selection must not be rewritten to an older id. OPENAI_IMAGE_MODEL still
+ * overrides the default without a redeploy.
  */
 function resolveDefaultOpenAIImageModel(): OpenAIImageModel {
   const raw = Deno.env.get("OPENAI_IMAGE_MODEL")?.trim();
-  return (raw || "gpt-image-2") as OpenAIImageModel;
+  return (raw || "gpt-image-2.5-flare") as OpenAIImageModel;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -53,7 +51,7 @@ function resolveDefaultOpenAIImageModel(): OpenAIImageModel {
 export type OpenAIImageModel =
   | "gpt-image-2.5-sunburst" // most capable; editing precision
   | "gpt-image-2.5-flare"    // fast, high-quality everyday generation
-  | "gpt-image-2"        // previous flagship (Best Bottles contract pin)
+  | "gpt-image-2"        // previous flagship (paper-doll / material pilot)
   | "gpt-image-1.5"      // previous high-fidelity GPT Image model
   | "gpt-image-1"        // legacy
   | "gpt-image-1-mini"   // smaller / faster tier of the 1-series

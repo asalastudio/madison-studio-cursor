@@ -117,7 +117,7 @@ export interface BestBottlesRenderingContract {
   rig: FamilyRigConfig | null;
   providerPolicy: {
     provider: "openai" | "requested";
-    model: "gpt-image-2" | null;
+    model: "gpt-image-2.5-flare" | "gpt-image-2.5-sunburst" | "gpt-image-2" | null;
     comparisonOnly: boolean;
   };
   qaPolicy: {
@@ -216,7 +216,7 @@ const BLOCKED_CONTRACT = {
   rig: null,
   providerPolicy: {
     provider: "openai" as const,
-    model: "gpt-image-2" as const,
+    model: "gpt-image-2.5-flare" as const,
     comparisonOnly: false,
   },
   qaPolicy: {
@@ -670,7 +670,7 @@ function resolveProviderPolicy(
   if (forceOpenAI) {
     return {
       provider: "openai",
-      model: "gpt-image-2",
+      model: "gpt-image-2.5-flare",
       comparisonOnly: false,
     };
   }
