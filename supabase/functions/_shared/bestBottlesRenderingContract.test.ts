@@ -411,7 +411,7 @@ describe("BestBottlesRenderingContract", () => {
     assert.equal(contract.rig?.relativeScaleZoneId, "sample-vial");
     assert.deepEqual(contract.rig?.fillHeightRangePct, { min: 55, max: 60 });
     assert.equal(contract.providerPolicy.provider, "openai");
-    assert.equal(contract.providerPolicy.model, "gpt-image-2");
+    assert.equal(contract.providerPolicy.model, "gpt-image-2.5-flare");
     assert.equal(contract.providerPolicy.comparisonOnly, false);
     assert.equal(contract.qaPolicy.enforceFillHeight, true);
     assert.deepEqual(contract.qaPolicy.allowedDecisions, ["pass", "normalize", "reject"]);

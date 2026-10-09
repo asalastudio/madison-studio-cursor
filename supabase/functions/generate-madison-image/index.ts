@@ -19,7 +19,8 @@ import {
   proLightingDeltaBlock,
 } from "../_shared/darkroomLegacyPrompt.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
-import { generateImage as generateOpenAIImage, type OpenAIImageModel, type OpenAIImageSize, type OpenAIOutputFormat } from "../_shared/openaiProvider.ts";
+import { generateImage as generateOpenAIImage, isGptImage25Model, type OpenAIImageModel, type OpenAIImageSize, type OpenAIOutputFormat } from "../_shared/openaiProvider.ts";
+import { buildOrderedImagePrompt, OPENAI_IMAGE_MODEL_ID } from "../_shared/orderedImagePrompt.ts";
 import {
   composeFlux3Prompt,
   collectFlux3ReferenceImages,
@@ -1645,7 +1646,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     // the default without a redeploy.
     const openaiModelSecret = Deno.env.get("OPENAI_IMAGE_MODEL")?.trim();
     let effectiveOpenAIModel: OpenAIImageModel =
-      (openaiModelSecret || "gpt-image-2") as OpenAIImageModel;
+      (openaiModelSecret || OPENAI_IMAGE_MODEL_ID) as OpenAIImageModel;
     // Default Gemini fallback is the highest-quality image model we currently
     // expose in Madison: Gemini 3.1 Pro Image Preview. If that is unavailable,
     // the Gemini execution path steps down to 3.1 Flash, then 2.5 Flash.
@@ -2230,6 +2231,53 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         generationAspectRatio,
         contractProductContext,
       );
+    } else if (
+      bestBottlesTagSet.has("brand:best-bottles") &&
+      !isBestBottlesReferenceLocked &&
+      !precompiledPromptResolution.prompt
+    ) {
+      const visualStandards = brandKnowledge.visualStandards as {
+        golden_rule?: string;
+        lighting_mandates?: string;
+        forbidden_elements?: string[];
+      } | null;
+      const suppliedLabelText = ["label_text", "printed_text", "on_product_text", "labelText"]
+        .map((key) => productData?.[key])
+        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+      const ordered = buildOrderedImagePrompt({
+        brandNotes: [
+          visualStandards?.golden_rule,
+          visualStandards?.lighting_mandates,
+          Array.isArray(visualStandards?.forbidden_elements)
+            ? `Avoid: ${visualStandards.forbidden_elements.join(", ")}`
+            : "",
+        ].filter((part) => typeof part === "string" && part.trim().length > 0).join("\n"),
+        product: productData ? formatVisualContext(productData) : "",
+        suppliedLabelText,
+        shotType: typeof prompt === "string" ? prompt : "",
+        style: [backgroundPrompt, compositionPrompt, visualMasterContext]
+          .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+          .join("\n"),
+        system: proModeControls ? enhancePromptWithOntology("", proModeControls) : "",
+        negative: [
+          "Avoid blur, distorted lettering, watermarks, frames, and borders.",
+          Array.isArray(imageConstraints?.prohibitedTerms)
+            ? `Avoid: ${imageConstraints.prohibitedTerms.filter((term: unknown) => typeof term === "string").join(", ")}`
+            : "",
+        ].filter(Boolean).join("\n"),
+        refine: typeof userRefinements === "string" ? userRefinements : "",
+        suffix: [
+          Array.isArray(brandContext?.colors) && brandContext.colors.length > 0
+            ? `Incorporate ${brandContext.colors.join(" and ")} color tones.`
+            : "",
+          Array.isArray(brandContext?.styleKeywords) && brandContext.styleKeywords.length > 0
+            ? `Apply ${brandContext.styleKeywords.join(", ")} aesthetic.`
+            : "",
+          effectiveVariationPrompt ? `VARIATION DETAILS: ${effectiveVariationPrompt}` : "",
+        ].filter(Boolean).join("\n"),
+      });
+      enhancedPrompt = ordered.prompt;
+      console.log(ordered.log);
     } else if (isDirectorMode) {
       // DIRECTOR MODE: Full "Virtual Art Director" treatment
       enhancedPrompt = buildDirectorModePrompt(
@@ -2570,11 +2618,9 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           allowBestBottlesProviderOverride,
         });
 
-    // NOTE: this lane stays pinned to gpt-image-2 on purpose. The Best Bottles
-    // reference-locked contract (canvas, Bone background, ambient-contact
-    // shadow, light contract) was validated against gpt-image-2 output; moving
-    // it to GPT Image 2.5 is a contract change that needs its own re-validation
-    // pass, not a silent model bump. See bestBottlesRenderingContract.ts.
+    // Dark Room verified GPT Image 2.5 Flare. Do not rewrite that selection
+    // (or an unset model) down to gpt-image-2. Sunburst stays if the picker
+    // asked for it. Older ids are raised to Flare.
     if (forceBestBottlesOpenAIProvider && effectiveProvider === "bfl") {
       return new Response(
         JSON.stringify({
@@ -2586,17 +2632,22 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     }
 
     if (forceBestBottlesOpenAIProvider) {
-      if (effectiveProvider !== "openai" || effectiveOpenAIModel !== "gpt-image-2") {
+      if (
+        effectiveProvider !== "openai" ||
+        (effectiveOpenAIModel !== "gpt-image-2.5-flare" &&
+          effectiveOpenAIModel !== "gpt-image-2.5-sunburst")
+      ) {
         console.log(
-          "Best Bottles reference-locked master -> forcing OpenAI GPT Image 2; no Gemini/Freepik fallback on this path.",
+          "Best Bottles reference-locked master -> OpenAI GPT Image 2.5 Flare; no Gemini/Freepik fallback and no downgrade to an older image id.",
           {
             requestedProvider: effectiveProvider,
             requestedModel: aiProvider ?? provider ?? "(none)",
+            resolvedModel: effectiveOpenAIModel,
           },
         );
+        effectiveOpenAIModel = "gpt-image-2.5-flare";
       }
       effectiveProvider = "openai";
-      effectiveOpenAIModel = "gpt-image-2";
     } else if (isBestBottlesReferenceLocked) {
       console.log("Best Bottles reference-locked provider override enabled for comparison run.", {
         requestedProvider: effectiveProvider,
@@ -2851,7 +2902,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
        * otherwise we hit /images/generations. Output is always returned as
        * base64 so the upload path mirrors the Gemini branch exactly.
        *
-       * Default model is gpt-image-2 (Image API). For reference-locked Best
+       * Default model is gpt-image-2.5-flare. For reference-locked Best
        * Bottles retouches, OpenAI errors bubble instead of silently falling
        * back to a different model.
        */
@@ -2874,6 +2925,9 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           model: effectiveOpenAIModel,
           aspectRatio: generationAspectRatio,
           resolution: effectiveMadisonResolution,
+          quality: isGptImage25Model(effectiveOpenAIModel) && effectiveMadisonResolution !== "4k"
+            ? "high"
+            : undefined,
           size: requestedOpenAIExactSize ??
             (isBestBottlesReferenceLocked ? "2080x2288" : undefined),
           outputFormat: openAIOutputFormat,

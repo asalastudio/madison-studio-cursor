@@ -543,6 +543,8 @@ export interface BrandQuickView {
     body?: string;
   };
   tone?: BrandTone;
+  /** Industry label from Brand Studio when no brand_dna scan exists. */
+  industryLabel?: string;
   copySquad?: CopySquad | null;
   visualSquad?: VisualSquad | null;
   mission?: string;

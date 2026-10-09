@@ -25,7 +25,7 @@
  *   other materials: [PRESERVE, KEEP_MATERIAL, STUDIO_DIRECTION, FINAL_V2_STUDIO_CHECK].join("\n\n")
  *
  * API call:
- *   gpt-image-2, POST /v1/images/edits (image-to-image), reference as image[],
+ *   gpt-image-2.5-flare, POST /v1/images/edits (image-to-image), reference as image[],
  *   size "auto" (native 10:11; fallback 2048x2048), quality "high", background "opaque".
  *   NOTE: the /edits endpoint exposes NO strength/denoise knob. The only unused lever is
  *   `input_fidelity` (high|low); the provider does not currently send it.
@@ -138,7 +138,7 @@ export function buildPrompt(glassIsClear: boolean): string {
 }
 
 export const API_CONFIG = {
-  model: "gpt-image-2",
+  model: "gpt-image-2.5-flare",
   size: "auto", // native aspect (refs are 2080x2288 ≈ 10:11). Corrected from directive's landscape.
   retryFallbackSize: "2048x2048",
   quality: "high",
