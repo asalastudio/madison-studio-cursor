@@ -353,6 +353,8 @@ export function composeFlux3Prompt(input: {
   request: Flux3ClientRequest | null;
   /** A product reference is attached; append scene-integration directives. */
   hasProductReference?: boolean;
+  /** Product facts block (closure, capacity, relative size). */
+  productFacts?: string;
 }): { prompt: string; singleElementEdit: boolean } {
   const request = input.request;
   const caption = request?.caption?.trim() || input.scenePrompt.trim();
@@ -360,7 +362,8 @@ export function composeFlux3Prompt(input: {
   if (elements.length === 0) {
     const base = caption || input.enhancedPrompt.trim();
     if (!base) throw new Flux3LayoutError("FLUX 3 Image requires a prompt.");
-    const prompt = input.hasProductReference ? `${base}\n\n${sceneIntegrationSentence()}` : base;
+    const facts = input.productFacts?.trim() ? `\n\n${input.productFacts.trim()}` : "";
+    const prompt = input.hasProductReference ? `${base}${facts}\n\n${sceneIntegrationSentence()}` : base;
     return { prompt, singleElementEdit: false };
   }
   const rows = request?.lockExceptId

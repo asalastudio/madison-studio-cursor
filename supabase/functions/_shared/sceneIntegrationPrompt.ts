@@ -5,7 +5,7 @@
  */
 
 export const PRODUCT_FIDELITY_RELIGHT_LINE =
-  "Keep the product's shape, proportions, label and materials exactly as the reference shows them, but re-light it to match the scene. Do not copy the reference photo's own lighting, background, highlights or shadows.";
+  "Keep the exact silhouette, glass thickness, threads, closure and proportions; change only the scene light falling on it.";
 
 export const SCENE_INTEGRATION_LINES: readonly string[] = [
   "The scene's light is authoritative: light the product from the same direction, at the same colour temperature and softness as the rest of the frame.",

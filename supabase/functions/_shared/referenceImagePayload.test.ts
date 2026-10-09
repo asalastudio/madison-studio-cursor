@@ -14,13 +14,13 @@ import {
 
 const SB = "https://abc.supabase.co";
 
-test("public storage object URLs go through the image transformer at 1536px", () => {
+test("public storage object URLs go through the image transformer at 2048px", () => {
   const out = storageTransformUrl(`${SB}/storage/v1/object/public/generated-images/org/a%20b/x__rigged.png`, SB);
   assert.ok(out);
   const u = new URL(out!);
   assert.equal(u.pathname, "/storage/v1/render/image/public/generated-images/org/a%20b/x__rigged.png");
-  assert.equal(u.searchParams.get("width"), "1536");
-  assert.equal(u.searchParams.get("height"), "1536");
+  assert.equal(u.searchParams.get("width"), "2048");
+  assert.equal(u.searchParams.get("height"), "2048");
   assert.equal(u.searchParams.get("resize"), "contain");
 });
 

@@ -17,7 +17,7 @@
  * Dependency-free so it runs under both Deno and node:test.
  */
 
-export const REFERENCE_MAX_EDGE_PX = 1536;
+export const REFERENCE_MAX_EDGE_PX = 2048;
 export const REFERENCE_TRANSFORM_QUALITY = 85;
 export const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
 /** Single-reference requests may use up to this many bytes. */

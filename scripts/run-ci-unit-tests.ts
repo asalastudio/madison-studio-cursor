@@ -18,6 +18,7 @@ export const CI_UNIT_TEST_FILES = [
   "supabase/functions/_shared/bflFlux3Layout.test.ts",
   "supabase/functions/_shared/bflProvider.test.ts",
   "supabase/functions/_shared/referenceImagePayload.test.ts",
+  "supabase/functions/_shared/bestBottlesReferenceFacts.test.ts",
   "supabase/functions/_shared/sceneIntegrationPrompt.test.ts",
   "supabase/functions/_shared/orgSubscriptionTier.test.ts",
   "supabase/functions/_shared/generationAttemptLedger.test.ts",

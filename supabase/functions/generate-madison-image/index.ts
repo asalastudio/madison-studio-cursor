@@ -44,6 +44,15 @@ import {
   storageTransformUrl,
   type ReferenceImagePayload,
 } from "../_shared/referenceImagePayload.ts";
+import {
+  buildReferenceProductFactsBlock,
+  factsFromLibraryTags,
+  graceSkuFromText,
+  hasUsefulFacts,
+  mergeFacts,
+  referenceShowsLooseCap,
+  type ReferenceProductFacts,
+} from "../_shared/bestBottlesReferenceFacts.ts";
 import { resolveOrgSubscriptionTier } from "../_shared/orgSubscriptionTier.ts";
 import {
   buildSceneIntegrationBlock,
@@ -806,6 +815,68 @@ interface CategorizedReferences {
   style: Array<{ url: string; description?: string; label?: string }>;
 }
 
+async function resolveProductReferenceFacts(
+  client: { from: (table: string) => any },
+  refs: Array<{ url: string; description?: string; label?: string }>,
+  organizationId: string | null,
+): Promise<Array<ReferenceProductFacts & { swappedFrom?: string }>> {
+  const out: Array<ReferenceProductFacts & { swappedFrom?: string }> = [];
+  for (const ref of refs.slice(0, 10)) {
+    const baseUrl = typeof ref.url === "string" ? ref.url.split("?")[0] : "";
+    let tagFacts: Partial<ReferenceProductFacts> = {};
+    let jobFacts: Partial<ReferenceProductFacts> = {};
+    let swappedFrom: string | undefined;
+    try {
+      if (baseUrl.startsWith("http")) {
+        const { data: img } = await client
+          .from("generated_images")
+          .select("library_tags")
+          .eq("image_url", baseUrl)
+          .limit(1)
+          .maybeSingle();
+        tagFacts = factsFromLibraryTags(img?.library_tags);
+      }
+      const sku = tagFacts.sku || graceSkuFromText(baseUrl) || graceSkuFromText(ref.description);
+      if (sku) {
+        let jobQuery = client
+          .from("best_bottles_pipeline_sku_jobs")
+          .select("family, capacity_ml, applicator, canonical_color, product_group_display_name")
+          .eq("grace_sku", sku);
+        if (organizationId) jobQuery = jobQuery.eq("organization_id", organizationId);
+        const { data: job } = await jobQuery.limit(1).maybeSingle();
+        jobFacts = {
+          sku,
+          family: job?.family ?? null,
+          capacityMl: typeof job?.capacity_ml === "number" ? job.capacity_ml : null,
+          applicator: job?.applicator ?? null,
+          color: job?.canonical_color ?? null,
+          displayName: job?.product_group_display_name ?? null,
+        };
+        const looseCap = referenceShowsLooseCap(mergeFacts(tagFacts));
+        if (looseCap && organizationId) {
+          const { data: assembled } = await client
+            .from("generated_images")
+            .select("image_url, library_tags")
+            .eq("organization_id", organizationId)
+            .contains("library_tags", [`sku:${sku}`, "component-topology:assembled"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (typeof assembled?.image_url === "string" && assembled.image_url.startsWith("https://")) {
+            swappedFrom = ref.url;
+            ref.url = assembled.image_url;
+            tagFacts = { ...tagFacts, ...factsFromLibraryTags(assembled.library_tags) };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[image] product reference facts lookup failed", err);
+    }
+    out.push({ ...mergeFacts(tagFacts, jobFacts), ...(swappedFrom ? { swappedFrom } : {}) });
+  }
+  return out;
+}
+
 function categorizeReferences(
   references: Array<{ url: string; description?: string; label?: string }>
 ): CategorizedReferences {
@@ -1011,6 +1082,7 @@ function buildDirectorModePrompt(
     compositionPrompt?: string;
   },
   lane: GenerationLane = null,
+  productFactsBlock = "",
 ): string {
   let prompt = "";
 
@@ -1042,19 +1114,17 @@ function buildDirectorModePrompt(
       prompt += `${PRODUCT_FIDELITY_RELIGHT_LINE}\n\n`;
       prompt += "COMPOSITING REQUIREMENTS:\n";
       prompt += "- Place the EXACT products from reference images into the scene\n";
-      prompt += "- Arrange them artistically (not in a grid)\n";
+      prompt += "- Arrange them as a considered group, all upright on one surface, no overlap\n";
       prompt += "- One light for all products: the scene's own light, with consistent shadows and reflections\n";
-      prompt += "- Use varying heights, angles, and positions for visual interest\n";
-      prompt += "- Products may overlap slightly or be grouped naturally\n";
-      prompt += "- Maintain accurate proportions between all products\n";
+      prompt += "- Maintain true relative sizes between all products (see PRODUCT FACTS)\n";
       prompt += "- Every product must be clearly visible and identifiable\n\n";
       prompt += "PRODUCT ACCURACY (MANDATORY):\n";
       prompt += "- ⚠️ PRESERVE the EXACT shape from reference images\n";
       prompt += "- ⚠️ PRESERVE the EXACT material colours from reference images (not the reference photo's lighting)\n";
       prompt += "- ⚠️ PRESERVE the EXACT design and branding from reference images\n";
-      prompt += "- ⚠️ PRESERVE all labels, text, and decorative elements\n";
+      prompt += "- ⚠️ PRESERVE all labels, text, and decorative elements (a loose cap standing beside a bottle in a reference is not a decorative element)\n";
       prompt += "- DO NOT modify, redesign, or reimagine the products\n";
-      prompt += "- Re-light every product to the scene; only lighting, shadows and reflections change\n\n";
+      prompt += "- Only the scene light falling on each product changes; silhouette, glass thickness, threads, closure and proportions do not\n\n";
       
       categorizedRefs.product.forEach((ref, idx) => {
         prompt += `📦 Product ${idx + 1}: ${ref.label || "Product"}\n`;
@@ -1074,7 +1144,7 @@ function buildDirectorModePrompt(
       prompt += "- EXACT product material colours (match precisely; lighting comes from the scene)\n";
       prompt += "- EXACT product texture and material finish\n";
       prompt += "- EXACT branding, labels, and decorative elements\n";
-      prompt += "- The product in output MUST be the same product from reference, re-lit to the scene\n";
+      prompt += "- The product in output MUST be the same product from reference; only the scene light falling on it changes\n";
       prompt += "\n";
       
       categorizedRefs.product.forEach((ref, idx) => {
@@ -1120,6 +1190,11 @@ function buildDirectorModePrompt(
         prompt += `Style Ref ${idx + 1} Note: ${ref.description}\n`;
       }
     });
+    prompt += "\n";
+  }
+
+  if (productFactsBlock) {
+    prompt += productFactsBlock;
     prompt += "\n";
   }
 
@@ -1290,7 +1365,8 @@ function buildEssentialModePrompt(
   userPrompt: string,
   productRef: { url: string; description?: string } | null,
   brandContext: any,
-  productData?: any
+  productData?: any,
+  productFactsBlock = "",
 ): string {
   let prompt = "";
 
@@ -1308,6 +1384,7 @@ function buildEssentialModePrompt(
   if (productRef) {
     prompt += "\n\nUse the uploaded product image as the subject and place it in the scene described above. ";
     prompt += PRODUCT_FIDELITY_RELIGHT_LINE;
+    if (productFactsBlock) prompt += `\n\n${productFactsBlock}`;
     prompt += `\n\n${buildSceneIntegrationBlock()}`;
   }
 
@@ -1986,6 +2063,33 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       bestBottlesTagSet.has("brand:best-bottles") &&
       bestBottlesTagSet.has("studio-master") &&
       categorizedRefs.product.length > 0;
+
+    /**
+     * Product facts per product reference (closure, capacity, relative size),
+     * resolved from the library image's tags and the Best Bottles SKU job row.
+     * A rigged reference with the cap standing beside the bottle is swapped
+     * for an assembled master of the same SKU when one exists. Reference-locked
+     * masters keep their exact references.
+     */
+    const isBestBottlesBrandRequest = bestBottlesTagSet.has("brand:best-bottles");
+    let productReferenceFacts: ReferenceProductFacts[] = [];
+    if (!isBestBottlesReferenceLocked && categorizedRefs.product.length > 0) {
+      productReferenceFacts = await resolveProductReferenceFacts(
+        supabase,
+        categorizedRefs.product,
+        resolvedOrgId ?? null,
+      );
+      console.log("[image] Product reference facts", productReferenceFacts.map((f) => ({
+        sku: f.sku,
+        capacityMl: f.capacityMl,
+        applicator: f.applicator,
+        topology: f.topology,
+        swappedToAssembled: Boolean((f as { swappedFrom?: string }).swappedFrom),
+      })));
+    }
+    const productFactsBlock = productReferenceFacts.some(hasUsefulFacts) || isBestBottlesBrandRequest
+      ? buildReferenceProductFactsBlock(productReferenceFacts, { brandBestBottles: isBestBottlesBrandRequest })
+      : "";
     const normalizedProductContext = productContext && typeof productContext === "object"
       ? productContext as Record<string, unknown>
       : null;
@@ -2230,6 +2334,18 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       !precompiledPromptResolution.prompt &&
       !isBestBottlesStudioMasterRequest
     ) {
+      // Cheap structural check first: composites, set/style refs and lane
+      // passes never use the catalog prompt, so do not build it for them.
+      const precheck = bestBottlesCatalogPromptDecision({
+        productReferenceCount: categorizedRefs.product.length,
+        backgroundReferenceCount: categorizedRefs.background.length,
+        styleReferenceCount: categorizedRefs.style.length,
+        lane: generationLane,
+        dropped: [],
+      });
+      if (!precheck.useCatalogPrompt) {
+        console.log("[image] Best Bottles catalog prompt", precheck);
+      } else {
       const visualStandards = brandKnowledge.visualStandards as {
         golden_rule?: string;
         lighting_mandates?: string;
@@ -2246,7 +2362,9 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
             ? `Avoid: ${visualStandards.forbidden_elements.join(", ")}`
             : "",
         ].filter((part) => typeof part === "string" && part.trim().length > 0).join("\n"),
-        product: productData ? formatVisualContext(productData) : "",
+        product: [productData ? formatVisualContext(productData) : "", productFactsBlock]
+          .filter((part) => part.trim().length > 0)
+          .join("\n"),
         suppliedLabelText,
         shotType: typeof prompt === "string" ? prompt : "",
         style: [backgroundPrompt, compositionPrompt, visualMasterContext]
@@ -2277,9 +2395,12 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         lane: generationLane,
         dropped: ordered.dropped,
       });
-      console.log(ordered.log);
       console.log("[image] Best Bottles catalog prompt", decision);
-      if (decision.useCatalogPrompt) bestBottlesCatalogPrompt = ordered.prompt;
+      if (decision.useCatalogPrompt) {
+        console.log(ordered.log);
+        bestBottlesCatalogPrompt = ordered.prompt;
+      }
+      }
     }
 
     if (generationLane === "match") {
@@ -2337,6 +2458,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           compositionPrompt,
         },
         generationLane,
+        productFactsBlock,
       );
 
       // Add product visual DNA if available
@@ -2347,7 +2469,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     } else {
       // ESSENTIAL MODE: Simple, fast workflow
       const productRef = categorizedRefs.product[0] || null;
-      enhancedPrompt = buildEssentialModePrompt(prompt, productRef, brandContext, productData);
+      enhancedPrompt = buildEssentialModePrompt(prompt, productRef, brandContext, productData, productFactsBlock);
 
       // Add basic brand context
       if (brandKnowledge.visualStandards) {
@@ -3076,6 +3198,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           enhancedPrompt,
           request: flux3Request,
           hasProductReference: categorizedRefs.product.length > 0,
+          productFacts: productFactsBlock,
         });
         const references = collectFlux3ReferenceImages({
           product: categorizedRefs.product.map((ref) => ref.url),
