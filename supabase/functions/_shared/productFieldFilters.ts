@@ -5,13 +5,15 @@
  * Visual Fields (for images): Shot types, lighting, composition, technical specs
  */
 
-// 25 semantic fields - used for copywriting to enhance narrative without visual noise
+// Semantic fields used for copywriting. packaging_facts is the curated
+// Best Bottles spec block (capacity, closure, material, dimensions).
 export const SEMANTIC_FIELDS = [
   // Core identity
   'name',
   'collection',
   'category',
   'product_type',
+  'packaging_facts',
   
   // Brand story & positioning
   'brand_story',
@@ -116,7 +118,11 @@ export function formatSemanticContext(productData: any): string {
   
   parts.push('\n╔══════════════════════════════════════════════════════════════════╗');
   parts.push('║              PRODUCT SEMANTIC CONTEXT                            ║');
-  parts.push('║     (Storytelling, Emotion, Audience - No Visual Specs)          ║');
+  parts.push(
+    semantic.packaging_facts
+      ? '║     (Storytelling plus mandatory packaging facts)                ║'
+      : '║     (Storytelling, Emotion, Audience - No Visual Specs)          ║',
+  );
   parts.push('╚══════════════════════════════════════════════════════════════════╝');
   
   // Core identity
@@ -175,8 +181,15 @@ export function formatSemanticContext(productData: any): string {
     parts.push(`\n━━━ COLLECTION THEME ━━━`);
     parts.push(semantic.collection_theme);
   }
-  
-  parts.push('\n⚠️ NOTE: This context provides storytelling depth without visual technical specs.');
+
+  if (semantic.packaging_facts) {
+    parts.push('\n━━━ PACKAGING FACTS (MANDATORY) ━━━');
+    parts.push('USE THESE FACTS EXACTLY. Do NOT invent or substitute capacity, closure, material, or dimensions.');
+    parts.push(semantic.packaging_facts);
+    parts.push('\n⚠️ MANDATORY: The packaging facts above are the only allowed values for capacity, closure, material, and dimensions. If a fact is not listed, omit it. Do not guess.');
+  } else {
+    parts.push('\n⚠️ NOTE: This context provides storytelling depth without visual technical specs.');
+  }
   
   return parts.join('\n');
 }
