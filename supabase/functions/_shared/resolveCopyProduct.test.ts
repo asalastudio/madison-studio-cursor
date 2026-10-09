@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  copyProductOrgColumn,
   fallbackSemanticProductContext,
   normalizeProductRecordForCopy,
   resolveCopyProduct,
@@ -261,4 +262,9 @@ describe("fallbackSemanticProductContext", () => {
     assert.doesNotMatch(context, /soft overhead/);
     assert.doesNotMatch(context, /lighting_mood/);
   });
+});
+
+it("brand_products is scoped by org_id, product_hubs by organization_id", () => {
+  assert.equal(copyProductOrgColumn("brand_products"), "org_id");
+  assert.equal(copyProductOrgColumn("product_hubs"), "organization_id");
 });

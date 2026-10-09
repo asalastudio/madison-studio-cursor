@@ -37,6 +37,18 @@ import {
   completeGenerationAttempt,
   type GenerationAttemptTracker,
 } from "../_shared/generationAttemptLedger.ts";
+import {
+  assertReferenceBudget,
+  base64ToBytes,
+  createReferencePayload,
+  storageTransformUrl,
+  type ReferenceImagePayload,
+} from "../_shared/referenceImagePayload.ts";
+import { resolveOrgSubscriptionTier } from "../_shared/orgSubscriptionTier.ts";
+import {
+  buildSceneIntegrationBlock,
+  PRODUCT_FIDELITY_RELIGHT_LINE,
+} from "../_shared/sceneIntegrationPrompt.ts";
 import { getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
 import { buildBestBottlesFamilyRigPromptAdjustment } from "../_shared/bestBottlesFamilyRigPrompt.ts";
 import { buildInlineRefinementStabilizerBlock } from "../_shared/inlineRefinementPrompt.ts";
@@ -1027,22 +1039,22 @@ function buildDirectorModePrompt(
       prompt += "╚══════════════════════════════════════════════════════════════════╝\n\n";
       prompt += "The reference images provided show the EXACT products you must use.\n";
       prompt += "DO NOT generate new products, bottles, or containers.\n";
-      prompt += "COPY the exact products from the reference images into the scene.\n\n";
+      prompt += `${PRODUCT_FIDELITY_RELIGHT_LINE}\n\n`;
       prompt += "COMPOSITING REQUIREMENTS:\n";
       prompt += "- Place the EXACT products from reference images into the scene\n";
       prompt += "- Arrange them artistically (not in a grid)\n";
-      prompt += "- Create visual harmony (consistent lighting, shadows, reflections)\n";
+      prompt += "- One light for all products: the scene's own light, with consistent shadows and reflections\n";
       prompt += "- Use varying heights, angles, and positions for visual interest\n";
       prompt += "- Products may overlap slightly or be grouped naturally\n";
       prompt += "- Maintain accurate proportions between all products\n";
       prompt += "- Every product must be clearly visible and identifiable\n\n";
       prompt += "PRODUCT ACCURACY (MANDATORY):\n";
       prompt += "- ⚠️ PRESERVE the EXACT shape from reference images\n";
-      prompt += "- ⚠️ PRESERVE the EXACT colors from reference images\n";
+      prompt += "- ⚠️ PRESERVE the EXACT material colours from reference images (not the reference photo's lighting)\n";
       prompt += "- ⚠️ PRESERVE the EXACT design and branding from reference images\n";
       prompt += "- ⚠️ PRESERVE all labels, text, and decorative elements\n";
       prompt += "- DO NOT modify, redesign, or reimagine the products\n";
-      prompt += "- The products in output MUST match the reference images exactly\n\n";
+      prompt += "- Re-light every product to the scene; only lighting, shadows and reflections change\n\n";
       
       categorizedRefs.product.forEach((ref, idx) => {
         prompt += `📦 Product ${idx + 1}: ${ref.label || "Product"}\n`;
@@ -1055,13 +1067,14 @@ function buildDirectorModePrompt(
       // Single product mode (original behavior)
       prompt += `PRODUCT REFERENCE (${categorizedRefs.product.length} image):\n\n`;
       prompt += "⚠️ CRITICAL: Use the EXACT product from the reference image.\n";
-      prompt += "DO NOT create a new product - COPY the exact product shown.\n\n";
+      prompt += "DO NOT create a new product.\n";
+      prompt += `${PRODUCT_FIDELITY_RELIGHT_LINE}\n\n`;
       prompt += "MANDATORY PRESERVATION:\n";
       prompt += "- EXACT product shape, proportions, and design from reference\n";
-      prompt += "- EXACT product colors (match precisely)\n";
+      prompt += "- EXACT product material colours (match precisely; lighting comes from the scene)\n";
       prompt += "- EXACT product texture and material finish\n";
       prompt += "- EXACT branding, labels, and decorative elements\n";
-      prompt += "- The product in output MUST be the same product from reference\n";
+      prompt += "- The product in output MUST be the same product from reference, re-lit to the scene\n";
       prompt += "\n";
       
       categorizedRefs.product.forEach((ref, idx) => {
@@ -1107,6 +1120,11 @@ function buildDirectorModePrompt(
         prompt += `Style Ref ${idx + 1} Note: ${ref.description}\n`;
       }
     });
+    prompt += "\n";
+  }
+
+  if (categorizedRefs.product.length > 0) {
+    prompt += buildSceneIntegrationBlock();
     prompt += "\n";
   }
 
@@ -1288,7 +1306,9 @@ function buildEssentialModePrompt(
   prompt += userPrompt;
 
   if (productRef) {
-    prompt += "\n\nUse the uploaded product image as the exact subject. Place it in the scene described above.";
+    prompt += "\n\nUse the uploaded product image as the subject and place it in the scene described above. ";
+    prompt += PRODUCT_FIDELITY_RELIGHT_LINE;
+    prompt += `\n\n${buildSceneIntegrationBlock()}`;
   }
 
   if (brandContext?.colors?.length > 0) {
@@ -1921,7 +1941,8 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         .from("brand_products")
         .select("*")
         .eq("id", product_id)
-        .eq("organization_id", resolvedOrgId)
+        // brand_products scopes by org_id (there is no organization_id column).
+        .eq("org_id", resolvedOrgId)
         .maybeSingle();
       productData = data || null;
     }
@@ -2355,88 +2376,79 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
      * - Base64 Data URLs (data:image/...) - parsed directly (from frontend file uploads)
      */
     
-    // Helper function to process a reference image URL (handles both URL types)
-    const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
-    const MAX_TOTAL_REFERENCE_IMAGE_BYTES = 12 * 1024 * 1024;
-    let totalReferenceImageBytes = 0;
+    // Helper function to process a reference image URL (handles both URL types).
+    // Bytes stay bytes (no base64 round trip); Supabase Storage refs are shrunk
+    // to REFERENCE_MAX_EDGE_PX by the Storage transformer before download; and a
+    // combined budget is enforced, tighter when several references are sent.
+    const expectedReferenceCount =
+      categorizedRefs.product.length +
+      categorizedRefs.component.length +
+      categorizedRefs.background.length +
+      categorizedRefs.style.length;
+    const acceptedReferenceSizes: number[] = [];
+    const supabaseUrlForTransforms = Deno.env.get("SUPABASE_URL");
 
-    async function processReferenceImage(url: string): Promise<{ data: string; mimeType: string } | null> {
+    async function fetchReferenceBytes(url: string): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string; resized: boolean } | null> {
+      const transformed = storageTransformUrl(url, supabaseUrlForTransforms);
+      if (transformed) {
+        try {
+          const res = await fetch(transformed, { headers: { Accept: "image/webp,image/jpeg,image/png" } });
+          if (res.ok) {
+            const bytes = new Uint8Array(await res.arrayBuffer());
+            return { bytes, mimeType: res.headers.get("content-type") || "image/webp", resized: true };
+          }
+          console.warn(`⚠️ Storage transform unavailable (${res.status}); using original reference`);
+        } catch (err) {
+          console.warn("⚠️ Storage transform failed; using original reference", err);
+        }
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.warn(`⚠️ Failed to fetch reference: ${url.substring(0, 50)}... (${response.status})`);
+        return null;
+      }
+      const contentLength = Number(response.headers.get("content-length") || "0");
+      if (contentLength > 0) assertReferenceBudget(acceptedReferenceSizes, contentLength, expectedReferenceCount);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return { bytes, mimeType: response.headers.get("content-type") || "image/png", resized: false };
+    }
+
+    async function processReferenceImage(url: string): Promise<ReferenceImagePayload | null> {
       if (!url) return null;
-      
-      // Check if it's a base64 data URL (from frontend file upload)
+
+      // Base64 data URL (from frontend file upload)
       if (url.startsWith('data:')) {
-        // Parse data URL: data:image/png;base64,xxxxx
         const matches = url.match(/^data:([^;]+);base64,(.+)$/);
         if (matches && matches[1] && matches[2]) {
           const byteSize = Math.ceil((matches[2].length * 3) / 4);
-          if (byteSize > MAX_REFERENCE_IMAGE_BYTES) {
-            throw new Error(
-              `Reference image is too large for edge generation (${Math.round(byteSize / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
-            );
-          }
-          if (totalReferenceImageBytes + byteSize > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
-            throw new Error(
-              "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
-            );
-          }
-          totalReferenceImageBytes += byteSize;
-          console.log(`✅ Parsed base64 data URL (${matches[1]})`, { byteSize, totalReferenceImageBytes });
-          return {
-            mimeType: matches[1],
-            data: matches[2],
-          };
-        } else {
-          console.warn(`⚠️ Invalid data URL format: ${url.substring(0, 50)}...`);
-          return null;
+          assertReferenceBudget(acceptedReferenceSizes, byteSize, expectedReferenceCount);
+          acceptedReferenceSizes.push(byteSize);
+          console.log(`✅ Parsed base64 data URL (${matches[1]})`, { byteSize, totalReferenceImageBytes: acceptedReferenceSizes.reduce((x, y) => x + y, 0) });
+          return createReferencePayload(base64ToBytes(matches[2]), matches[1], matches[2]);
         }
+        console.warn(`⚠️ Invalid data URL format: ${url.substring(0, 50)}...`);
+        return null;
       }
-      
-      // Otherwise, fetch the URL
+
       try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          console.warn(`⚠️ Failed to fetch reference: ${url.substring(0, 50)}... (${response.status})`);
-          return null;
-        }
-        const contentLength = Number(response.headers.get("content-length") || "0");
-        if (contentLength > MAX_REFERENCE_IMAGE_BYTES) {
-          throw new Error(
-            `Reference image is too large for edge generation (${Math.round(contentLength / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
-          );
-        }
-        if (contentLength > 0 && totalReferenceImageBytes + contentLength > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
-          throw new Error(
-            "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
-          );
-        }
-        const buffer = await response.arrayBuffer();
-        if (buffer.byteLength > MAX_REFERENCE_IMAGE_BYTES) {
-          throw new Error(
-            `Reference image is too large for edge generation (${Math.round(buffer.byteLength / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
-          );
-        }
-        if (totalReferenceImageBytes + buffer.byteLength > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
-          throw new Error(
-            "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
-          );
-        }
-        totalReferenceImageBytes += buffer.byteLength;
-        const base64 = encode(new Uint8Array(buffer));
-        console.log(`✅ Fetched and encoded URL reference`, {
-          byteSize: buffer.byteLength,
-          totalReferenceImageBytes,
+        const fetched = await fetchReferenceBytes(url);
+        if (!fetched) return null;
+        assertReferenceBudget(acceptedReferenceSizes, fetched.bytes.byteLength, expectedReferenceCount);
+        acceptedReferenceSizes.push(fetched.bytes.byteLength);
+        console.log(`✅ Fetched URL reference`, {
+          byteSize: fetched.bytes.byteLength,
+          mimeType: fetched.mimeType,
+          resized: fetched.resized,
+          totalReferenceImageBytes: acceptedReferenceSizes.reduce((x, y) => x + y, 0),
         });
-        return {
-          data: base64,
-          mimeType: response.headers.get("content-type") || "image/png",
-        };
+        return createReferencePayload(fetched.bytes, fetched.mimeType);
       } catch (err) {
         console.error(`❌ Error processing reference ${url.substring(0, 50)}...:`, err);
         throw err;
       }
     }
-    
-    const referenceImagesPayload = [];
+
+    const referenceImagesPayload: ReferenceImagePayload[] = [];
     let processedProductReferenceCount = 0;
 
     // Place lane: the set is Image 1 — the canvas — and the product follows.
@@ -2551,16 +2563,10 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     // If not a super admin, check subscription tier
     if (!isSuperAdmin) {
       try {
-        const { data: orgData } = await supabase
-          .from("organizations")
-          .select("subscription_tier, stripe_subscription_status")
-          .eq("id", resolvedOrgId)
-          .single();
-        
-        if (orgData) {
-          subscriptionTier = (orgData.subscription_tier || "essentials").toLowerCase();
-          const isActive = orgData.stripe_subscription_status === "active" || 
-                          orgData.stripe_subscription_status === "trialing";
+        const orgTier = await resolveOrgSubscriptionTier(supabase, resolvedOrgId);
+        {
+          subscriptionTier = orgTier.tier;
+          const isActive = orgTier.isActive;
           
           // Determine Freepik access based on tier
           // Actual tiers: essentials ($49), studio ($149), signature ($349)
@@ -2765,7 +2771,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       requestSize: isBestBottlesReferenceLocked ? "2080x2288" : null,
       requestResolution: effectiveMadisonResolution ?? null,
       prompt: enhancedPrompt,
-      referenceFingerprintSources: referenceImagesPayload.map((ref) => ref.data),
+      referenceFingerprintSources: referenceImagesPayload.map((ref) => ref.bytes),
       referenceUrls: Array.isArray(actualReferenceImages)
         ? actualReferenceImages.filter((u): u is string => typeof u === "string")
         : undefined,
@@ -3048,6 +3054,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           scenePrompt: typeof prompt === "string" ? prompt : "",
           enhancedPrompt,
           request: flux3Request,
+          hasProductReference: categorizedRefs.product.length > 0,
         });
         const references = collectFlux3ReferenceImages({
           product: categorizedRefs.product.map((ref) => ref.url),

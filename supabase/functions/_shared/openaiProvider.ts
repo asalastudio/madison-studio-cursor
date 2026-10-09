@@ -18,6 +18,7 @@
 
 import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { resolveGptImageSize } from "./openaiImageSize.ts";
+import { base64ToBytes, referenceBytes } from "./referenceImagePayload.ts";
 
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 
@@ -106,6 +107,8 @@ export interface OpenAIReferenceImage {
   data: string;
   /** e.g. "image/png" or "image/jpeg". */
   mimeType: string;
+  /** Raw bytes when the caller already has them; skips base64 decoding. */
+  bytes?: Uint8Array<ArrayBuffer>;
 }
 
 export interface OpenAIEditMask {
@@ -487,14 +490,14 @@ async function generateViaEdits(
   // the edge function hands us product refs first, then background, then
   // style, so passing them through preserves that hierarchy.
   references.forEach((ref, idx) => {
-    const bytes = Uint8Array.from(atob(ref.data), (c) => c.charCodeAt(0));
+    const bytes = referenceBytes(ref);
     const mime = sanitizeMimeType(ref.mimeType);
     const blob = new Blob([bytes], { type: mime });
     const ext = (mime.split("/")[1] || "png").replace("jpeg", "jpg");
     form.append("image[]", blob, `reference-${idx}.${ext}`);
   });
   if (params.editMask) {
-    const bytes = Uint8Array.from(atob(params.editMask.data), (c) => c.charCodeAt(0));
+    const bytes = base64ToBytes(params.editMask.data);
     const blob = new Blob([bytes], { type: "image/png" });
     form.append("mask", blob, "reviewed-cavity-mask.png");
   }

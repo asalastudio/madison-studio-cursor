@@ -133,3 +133,12 @@ describe("FLUX 3 request body", () => {
     );
   });
 });
+
+it("FLUX 3 caption without boxes gets scene integration when a product is referenced", () => {
+  const withRef = composeFlux3Prompt({ scenePrompt: "Bottle on limestone", enhancedPrompt: "", request: null, hasProductReference: true });
+  assert.match(withRef.prompt, /^Bottle on limestone\n\n/);
+  assert.match(withRef.prompt, /re-light it to match the scene/);
+  assert.match(withRef.prompt, /contact shadow/);
+  const noRef = composeFlux3Prompt({ scenePrompt: "Bottle on limestone", enhancedPrompt: "", request: null });
+  assert.equal(noRef.prompt, "Bottle on limestone");
+});

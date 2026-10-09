@@ -5,6 +5,7 @@ import { getSemanticFields } from '../_shared/productFieldFilters.ts';
 import {
   fallbackSemanticProductContext,
   resolveCopyProduct,
+  copyProductOrgColumn,
 } from '../_shared/resolveCopyProduct.ts';
 import { buildAuthorProfilesSection } from '../_shared/authorProfiles.ts';
 import { buildBrandAuthoritiesSection } from '../_shared/brandAuthorities.ts';
@@ -1237,7 +1238,7 @@ serve(async (req) => {
             .from(table)
             .select('*')
             .eq('id', id)
-            .eq('organization_id', orgId)
+            .eq(copyProductOrgColumn(table), orgId)
             .maybeSingle();
           if (error) {
             console.error(`Error fetching ${table} for copy:`, error);
