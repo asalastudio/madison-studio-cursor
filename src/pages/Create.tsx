@@ -101,6 +101,16 @@ export default function Create() {
   const [style, setStyle] = useState("brand-voice");
   const [additionalContext, setAdditionalContext] = useState("");
 
+  // Saved briefs restore product_id without the hub row. Resolve the name
+  // from the loaded Product Hub list so the user prompt says the product
+  // name rather than the id.
+  useEffect(() => {
+    if (!product || product === "none") return;
+    if (productData?.id === product) return;
+    const selected = products.find((item) => item.id === product);
+    if (selected) setProductData(selected);
+  }, [product, productData, products]);
+
   // Load prompt from navigation state if present
   useEffect(() => {
     if (location.state?.prompt) {
