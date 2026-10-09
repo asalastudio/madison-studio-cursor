@@ -20,7 +20,7 @@ import {
 } from "../_shared/darkroomLegacyPrompt.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, isGptImage25Model, type OpenAIImageModel, type OpenAIImageSize, type OpenAIOutputFormat } from "../_shared/openaiProvider.ts";
-import { buildOrderedImagePrompt, OPENAI_IMAGE_MODEL_ID } from "../_shared/orderedImagePrompt.ts";
+import { bestBottlesCatalogPromptDecision, buildOrderedImagePrompt, OPENAI_IMAGE_MODEL_ID } from "../_shared/orderedImagePrompt.ts";
 import {
   composeFlux3Prompt,
   collectFlux3ReferenceImages,
@@ -2216,46 +2216,19 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
      */
     let enhancedPrompt: string;
 
-    if (generationLane === "match") {
-      enhancedPrompt = buildMatchLightPrompt(prompt, productData);
-    } else if (!isRefinement && isBestBottlesStudioMasterRequest && precompiledPromptResolution.prompt) {
-      enhancedPrompt = precompiledPromptResolution.prompt;
-      console.log("[generate-madison-image] Using precompiled Best Bottles prompt", {
-        sku: precompiledPromptResolution.sku,
-        promptVersion: precompiledPromptResolution.promptVersion,
-        shadowOwner: precompiledPromptResolution.shadowOwner,
-        qaCount: precompiledPromptResolution.qaChecklist.length,
-      });
-    } else if (isBestBottlesReferenceLocked) {
-      // Best Bottles PDP masters and their Image Editor refinements are
-      // retouch passes over real references. Inline editor refinements keep
-      // the parent prompt as a bounded stabilizer block while the operator
-      // request remains a short delta, so the model edits instead of recreating.
-      enhancedPrompt = buildReferenceLockedBestBottlesPrompt(
-        categorizedRefs,
-        generationAspectRatio,
-        contractProductContext,
-        isRefinement ? refinementInstruction || prompt : undefined,
-        isRefinement
-          ? buildInlineRefinementStabilizerBlock(parentPrompt || parentImagePrompt || prompt)
-          : null,
-      );
-    } else if (isRefinement && refinementInstruction) {
-      // Refinements use chain logic
-      enhancedPrompt = buildChainPrompt(parentPrompt || prompt, refinementInstruction, 0);
-    } else if (isBestBottlesStudioMasterRequest) {
-      // Best Bottles PDP masters are fidelity-enhancement passes over real
-      // PSD/camera references. Keep the product locked and make the model
-      // polish/stage the reference instead of re-art-directing it.
-      enhancedPrompt = buildReferenceLockedBestBottlesPrompt(
-        categorizedRefs,
-        generationAspectRatio,
-        contractProductContext,
-      );
-    } else if (
+    /**
+     * Best Bottles catalog prompt (one isolated product on pure white) applies
+     * only to catalog-style shots. A scene the user describes, several product
+     * references, or a set/style reference is a composite: the catalog layer
+     * would drop the scene ("no-lifestyle") and collapse it to one bottle on
+     * white, so those requests use the Director/Essential prompts instead.
+     */
+    let bestBottlesCatalogPrompt: string | null = null;
+    if (
       bestBottlesTagSet.has("brand:best-bottles") &&
       !isBestBottlesReferenceLocked &&
-      !precompiledPromptResolution.prompt
+      !precompiledPromptResolution.prompt &&
+      !isBestBottlesStudioMasterRequest
     ) {
       const visualStandards = brandKnowledge.visualStandards as {
         golden_rule?: string;
@@ -2297,8 +2270,56 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           effectiveVariationPrompt ? `VARIATION DETAILS: ${effectiveVariationPrompt}` : "",
         ].filter(Boolean).join("\n"),
       });
-      enhancedPrompt = ordered.prompt;
+      const decision = bestBottlesCatalogPromptDecision({
+        productReferenceCount: categorizedRefs.product.length,
+        backgroundReferenceCount: categorizedRefs.background.length,
+        styleReferenceCount: categorizedRefs.style.length,
+        lane: generationLane,
+        dropped: ordered.dropped,
+      });
       console.log(ordered.log);
+      console.log("[image] Best Bottles catalog prompt", decision);
+      if (decision.useCatalogPrompt) bestBottlesCatalogPrompt = ordered.prompt;
+    }
+
+    if (generationLane === "match") {
+      enhancedPrompt = buildMatchLightPrompt(prompt, productData);
+    } else if (!isRefinement && isBestBottlesStudioMasterRequest && precompiledPromptResolution.prompt) {
+      enhancedPrompt = precompiledPromptResolution.prompt;
+      console.log("[generate-madison-image] Using precompiled Best Bottles prompt", {
+        sku: precompiledPromptResolution.sku,
+        promptVersion: precompiledPromptResolution.promptVersion,
+        shadowOwner: precompiledPromptResolution.shadowOwner,
+        qaCount: precompiledPromptResolution.qaChecklist.length,
+      });
+    } else if (isBestBottlesReferenceLocked) {
+      // Best Bottles PDP masters and their Image Editor refinements are
+      // retouch passes over real references. Inline editor refinements keep
+      // the parent prompt as a bounded stabilizer block while the operator
+      // request remains a short delta, so the model edits instead of recreating.
+      enhancedPrompt = buildReferenceLockedBestBottlesPrompt(
+        categorizedRefs,
+        generationAspectRatio,
+        contractProductContext,
+        isRefinement ? refinementInstruction || prompt : undefined,
+        isRefinement
+          ? buildInlineRefinementStabilizerBlock(parentPrompt || parentImagePrompt || prompt)
+          : null,
+      );
+    } else if (isRefinement && refinementInstruction) {
+      // Refinements use chain logic
+      enhancedPrompt = buildChainPrompt(parentPrompt || prompt, refinementInstruction, 0);
+    } else if (isBestBottlesStudioMasterRequest) {
+      // Best Bottles PDP masters are fidelity-enhancement passes over real
+      // PSD/camera references. Keep the product locked and make the model
+      // polish/stage the reference instead of re-art-directing it.
+      enhancedPrompt = buildReferenceLockedBestBottlesPrompt(
+        categorizedRefs,
+        generationAspectRatio,
+        contractProductContext,
+      );
+    } else if (bestBottlesCatalogPrompt) {
+      enhancedPrompt = bestBottlesCatalogPrompt;
     } else if (isDirectorMode) {
       // DIRECTOR MODE: Full "Virtual Art Director" treatment
       enhancedPrompt = buildDirectorModePrompt(

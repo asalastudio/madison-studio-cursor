@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   BEST_BOTTLES_LIVE_SITE_BRAND_PROMPT,
+  bestBottlesCatalogPromptDecision,
   buildBestBottlesOnBrandPrompt,
   findPromptContradiction,
   OPENAI_IMAGE_MODEL_ID,
@@ -56,5 +57,27 @@ describe("Best Bottles ordered image prompt", () => {
     });
     assert.match(labeled.prompt, /only text allowed anywhere in the image is this supplied label, rendered exactly: Nemat No\. 4/);
     assert.equal(findPromptContradiction(labeled.prompt), null);
+  });
+});
+
+describe("bestBottlesCatalogPromptDecision", () => {
+  const base = { productReferenceCount: 1, backgroundReferenceCount: 0, styleReferenceCount: 0, lane: null, dropped: [] };
+  it("keeps the catalog prompt for a plain single-product catalog shot", () => {
+    assert.equal(bestBottlesCatalogPromptDecision(base).useCatalogPrompt, true);
+  });
+  it("routes the Oct 9 three-bottle travertine scene away from the catalog prompt", () => {
+    const ordered = buildBestBottlesOnBrandPrompt({
+      shotType: "three perfume bottles on a travertine pedestal in warm late-afternoon window light",
+    });
+    assert.ok(ordered.dropped.some((d) => d.layer === "shotType" && d.reason === "no-lifestyle"));
+    const d = bestBottlesCatalogPromptDecision({ ...base, productReferenceCount: 3, dropped: ordered.dropped });
+    assert.deepEqual(d, { useCatalogPrompt: false, reason: "multi-product-composite" });
+    const single = bestBottlesCatalogPromptDecision({ ...base, dropped: ordered.dropped });
+    assert.equal(single.reason, "scene-requested:no-lifestyle");
+  });
+  it("set, style and lighting-lane requests skip the catalog prompt", () => {
+    assert.equal(bestBottlesCatalogPromptDecision({ ...base, backgroundReferenceCount: 1 }).useCatalogPrompt, false);
+    assert.equal(bestBottlesCatalogPromptDecision({ ...base, styleReferenceCount: 1 }).useCatalogPrompt, false);
+    assert.equal(bestBottlesCatalogPromptDecision({ ...base, lane: "place" }).useCatalogPrompt, false);
   });
 });

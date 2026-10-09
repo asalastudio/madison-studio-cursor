@@ -244,3 +244,39 @@ export function findPromptContradiction(prompt: string): string | null {
   }
   return null;
 }
+
+/** Drops that mean the caller asked for a scene the catalog layer cannot honour. */
+const SCENE_CONFLICT_REASONS = new Set(["no-lifestyle", "white-background", "even-light"]);
+
+export interface BestBottlesCatalogPromptDecisionInput {
+  productReferenceCount: number;
+  backgroundReferenceCount: number;
+  styleReferenceCount: number;
+  lane: string | null;
+  dropped: PromptDrop[];
+}
+
+export interface BestBottlesCatalogPromptDecision {
+  useCatalogPrompt: boolean;
+  reason: string;
+}
+
+/**
+ * The Best Bottles catalog prompt describes ONE isolated product on pure
+ * white. Use it only for that shot. Multi-product composites, set/style
+ * references, lighting-lane passes, and prompts whose scene the catalog layer
+ * would delete go to the Director/Essential prompts instead.
+ */
+export function bestBottlesCatalogPromptDecision(
+  input: BestBottlesCatalogPromptDecisionInput,
+): BestBottlesCatalogPromptDecision {
+  if (input.productReferenceCount > 1) return { useCatalogPrompt: false, reason: "multi-product-composite" };
+  if (input.backgroundReferenceCount > 0) return { useCatalogPrompt: false, reason: "set-reference" };
+  if (input.styleReferenceCount > 0) return { useCatalogPrompt: false, reason: "style-reference" };
+  if (input.lane) return { useCatalogPrompt: false, reason: `lighting-lane-${input.lane}` };
+  const sceneDrop = input.dropped.find(
+    (drop) => (drop.layer === "shotType" || drop.layer === "style") && SCENE_CONFLICT_REASONS.has(drop.reason),
+  );
+  if (sceneDrop) return { useCatalogPrompt: false, reason: `scene-requested:${sceneDrop.reason}` };
+  return { useCatalogPrompt: true, reason: "catalog-shot" };
+}
