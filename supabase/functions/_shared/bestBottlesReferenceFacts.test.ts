@@ -64,3 +64,47 @@ test("single non-Best-Bottles product gets the closure line only for a loose-cap
   const loose = buildReferenceProductFactsBlock([mergeFacts({ sku: null, topology: "fitment-attached-cap-right-sidecar" })], { brandBestBottles: false });
   assert.ok(loose.includes(FITTED_CLOSURE_LINE));
 });
+
+test("v243: explicit height targets from capacity keep the 5 ml small", async () => {
+  const { heightTargets, heightTargetsLine } = await import("./bestBottlesReferenceFacts");
+  const all = [mergeFacts({ sku: "a", capacityMl: 5 }), mergeFacts({ sku: "b", capacityMl: 60, family: "Boston Round" })];
+  const t = heightTargets(all)!;
+  assert.equal(t.source, "capacity");
+  assert.equal(t.percents[1], 62);
+  assert.ok(t.percents[0] <= 28, `5 ml target ${t.percents[0]}% should be well under the 60 ml`);
+  assert.match(heightTargetsLine(all)!, /Product 1 ≈ \d+% of the image height; Product 2 ≈ 62% of the image height/);
+});
+
+test("rig heights win over capacity", async () => {
+  const { heightTargets } = await import("./bestBottlesReferenceFacts");
+  const t = heightTargets([mergeFacts({ sku: "a", capacityMl: 5, bodyTargetPx: 595 }), mergeFacts({ sku: "b", capacityMl: 60, bodyTargetPx: 1190 })])!;
+  assert.deepEqual(t, { source: "rig", percents: [31, 62] });
+});
+
+test("v243: Boston Round gets a round-shoulder silhouette line", () => {
+  const block = buildReferenceProductFactsBlock(
+    [mergeFacts({ sku: "a", capacityMl: 5 }), mergeFacts({ sku: "b", capacityMl: 60, family: "boston round" })],
+    { brandBestBottles: true },
+  );
+  assert.match(block, /Product 2 shape: Boston Round: .*rounded, sloping shoulders.*Never square/);
+  assert.ok(!/Product 1 shape:/.test(block));
+});
+
+test("v243: closure images are numbered after the product references", async () => {
+  const { closureReferenceLines } = await import("./bestBottlesReferenceFacts");
+  const lines = closureReferenceLines([
+    mergeFacts({ sku: "A", closureImageUrl: "https://x/a-cap.png" }),
+    mergeFacts({ sku: "B" }),
+    mergeFacts({ sku: "C", closureImageUrl: "https://x/c-cap.png" }),
+  ]);
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /^Image 4: the exact closure for Product 1 \[A\]/);
+  assert.match(lines[1], /^Image 5: the exact closure for Product 3 \[C\]/);
+});
+
+test("closure lines never describe the closure as detached", async () => {
+  const { closureReferenceLines } = await import("./bestBottlesReferenceFacts");
+  const [line] = closureReferenceLines([mergeFacts({ sku: "A", closureImageUrl: "https://x/a.png" }), mergeFacts({ sku: "B" })]);
+  assert.match(line, /Seat it fully on that bottle's neck/);
+  assert.doesNotMatch(line, /detached/i);
+});

@@ -48,6 +48,75 @@ export interface ReferenceProductFacts {
   bodyTargetPx?: number | null;
   /** Embedded preset such as boston-round:60-standard. */
   glassBody?: string | null;
+  /** Closure-only image for this SKU (library tag component-topology:closure-only). */
+  closureImageUrl?: string | null;
+}
+
+/** Library tag for a closure-only image of a SKU (cap/sprayer/roller on white). */
+export const CLOSURE_ONLY_TOPOLOGY_TAG = "component-topology:closure-only";
+
+/** Share of the image height given to the tallest product in a composite. */
+export const TALLEST_FRAME_SHARE = 0.62;
+
+/**
+ * Silhouette guard per glass family. v243 composites squared off the Boston
+ * Round's shoulders; name the shape so the model keeps it.
+ */
+export function silhouetteLine(facts: ReferenceProductFacts): string | null {
+  const key = `${facts.family ?? ""} ${facts.glassBody ?? ""}`.toLowerCase();
+  if (/boston/.test(key)) {
+    return "Boston Round: round cylindrical body with fully rounded, sloping shoulders and a short neck. Never square, rectangular or flat-shouldered.";
+  }
+  if (/cylinder/.test(key)) return "Cylinder: straight vertical walls with a flat shoulder. Never tapered or rounded.";
+  if (/square/.test(key)) return "Square: four flat faces with crisp vertical edges.";
+  return null;
+}
+
+/**
+ * Explicit height targets as a share of the image height. Uses the shared
+ * scale rig (bodyTargetPx) when every product has it; otherwise, for products
+ * that all have a capacity, approximates height by cube-root of volume
+ * (geometrically similar bottles). Returns null when neither is known.
+ */
+export function heightTargets(
+  all: ReferenceProductFacts[],
+  tallestShare = TALLEST_FRAME_SHARE,
+): { source: "rig" | "capacity"; percents: number[] } | null {
+  if (all.length < 2) return null;
+  let raw: number[] | null = null;
+  let source: "rig" | "capacity" = "rig";
+  if (all.every((f) => typeof f.bodyTargetPx === "number" && f.bodyTargetPx > 0)) {
+    raw = all.map((f) => f.bodyTargetPx as number);
+  } else if (all.every((f) => typeof f.capacityMl === "number" && f.capacityMl > 0)) {
+    source = "capacity";
+    raw = all.map((f) => Math.cbrt(f.capacityMl as number));
+  }
+  if (!raw) return null;
+  const tallest = Math.max(...raw);
+  return { source, percents: raw.map((v) => Math.max(1, Math.round((v / tallest) * tallestShare * 100))) };
+}
+
+export function heightTargetsLine(all: ReferenceProductFacts[]): string | null {
+  const t = heightTargets(all);
+  if (!t) return null;
+  const parts = t.percents.map((pct, i) => `Product ${i + 1} ≈ ${pct}% of the image height`);
+  const basis = t.source === "rig" ? "from the shared scale rig" : "approximate, from capacity";
+  return `HEIGHT TARGETS (closure included, ${basis}): ${parts.join("; ")}. Hold these ratios exactly; do not enlarge small bottles to fill space.`;
+}
+
+/**
+ * Lines that map each closure-only image to its product. Closure images are
+ * sent after the N product references, so the first one is Image N+1.
+ */
+export function closureReferenceLines(all: ReferenceProductFacts[]): string[] {
+  const lines: string[] = [];
+  let next = all.length + 1;
+  all.forEach((f, i) => {
+    if (!f.closureImageUrl) return;
+    lines.push(`Image ${next}: the exact closure for Product ${i + 1}${f.sku ? ` [${f.sku}]` : ""}. Seat it fully on that bottle's neck; match its shape, finish and height. It is not a separate object.`);
+    next += 1;
+  });
+  return lines;
 }
 
 function tagValue(tags: readonly string[], prefix: string): string | null {
@@ -138,14 +207,21 @@ export function buildReferenceProductFactsBlock(
   all.forEach((facts, i) => {
     lines.push(`- Product ${i + 1}: ${describe(facts)}${facts.sku ? ` [${facts.sku}]` : ""}.`);
   });
+  all.forEach((facts, i) => {
+    const shape = silhouetteLine(facts);
+    if (shape) lines.push(`- Product ${i + 1} shape: ${shape}`);
+  });
   if (options.brandBestBottles || all.some(referenceShowsLooseCap)) lines.push(`- ${FITTED_CLOSURE_LINE}`);
+  for (const line of closureReferenceLines(all)) lines.push(`- ${line}`);
   const size = relativeSizeLine(all);
   if (size) lines.push(`- ${size}`);
+  const targets = heightTargetsLine(all);
+  if (targets) lines.push(`- ${targets}`);
   if (all.length > 1) lines.push(`- ${UPRIGHT_NO_OVERLAP_LINE}`);
   return `${lines.join("\n")}\n`;
 }
 
 /** True when any fact beyond a bare SKU is known. */
 export function hasUsefulFacts(facts: ReferenceProductFacts): boolean {
-  return Boolean(facts.sku || facts.capacityMl || facts.applicator || facts.closure || facts.topology);
+  return Boolean(facts.sku || facts.capacityMl || facts.applicator || facts.closure || facts.topology || facts.closureImageUrl);
 }
