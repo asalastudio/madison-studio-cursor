@@ -6,6 +6,7 @@ import {
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
+import { BRAND_PRODUCTS_ORG_COLUMN, flattenBrandProduct } from '../_shared/brandProducts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,11 +113,12 @@ serve(async (req) => {
       .order('created_at', { ascending: false });
 
     // Fetch products
-    const { data: products } = await supabase
+    const { data: productRows } = await supabase
       .from('brand_products')
-      .select('name, collection, category, usp, tone')
-      .eq('organization_id', organizationId)
+      .select('name, specs, metadata, images')
+      .eq(BRAND_PRODUCTS_ORG_COLUMN, organizationId)
       .limit(10);
+    const products = (productRows ?? []).map(flattenBrandProduct);
 
     // Build context for AI
     const contextParts = [];

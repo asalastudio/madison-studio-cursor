@@ -9,6 +9,7 @@ import {
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
 import { buildBrandAuthoritiesSection } from "../_shared/brandAuthorities.ts";
 import { getMadisonMasterContext, SQUAD_DEFINITIONS } from "../_shared/madisonMasters.ts";
+import { BRAND_PRODUCTS_ORG_COLUMN, flattenBrandProduct } from '../_shared/brandProducts.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -175,10 +176,12 @@ serve(async (req) => {
     let messages: OpenAIMessage[];
     let userName: string | undefined;
     let mode: 'creative' | 'strategic';
+    let requestedOrgId: string | undefined;
 
     try {
-      const body = await req.json() as { messages?: OpenAIMessage[]; userName?: string; mode?: string };
-      messages = body.messages;
+      const body = await req.json() as { messages?: OpenAIMessage[]; userName?: string; mode?: string; organizationId?: string };
+      requestedOrgId = typeof body.organizationId === 'string' ? body.organizationId : undefined;
+      messages = body.messages as OpenAIMessage[];
       userName = body.userName;
       mode = body.mode === 'strategic' ? 'strategic' : 'creative';
 
@@ -232,15 +235,31 @@ serve(async (req) => {
 
     try {
       // 1. Fetch Brand Products (use supabaseUser for RLS-scoped org data)
-      const { data: products, error: productsError } = await supabaseUser
+      // One org's context only: the requested org if the caller is a member,
+      // else their oldest membership. (RLS alone mixed every org's products.)
+      let membershipQuery = supabaseUser
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (requestedOrgId) membershipQuery = membershipQuery.eq('organization_id', requestedOrgId);
+      const { data: membership } = await membershipQuery.maybeSingle();
+      const contextOrgId: string | null = membership?.organization_id ?? null;
+      if (!contextOrgId) throw new Error('No organization for brand context');
+
+      const { data: productRows, error: productsError } = await supabaseUser
         .from('brand_products')
-        .select('name, collection, scent_family, description')
+        .select('name, specs, metadata, images')
+        .eq(BRAND_PRODUCTS_ORG_COLUMN, contextOrgId)
         .limit(5); // Fetch top 5 products for context
+      const products = (productRows ?? []).map(flattenBrandProduct);
 
       // 2. Fetch Brand Knowledge (Voice, Guidelines)
       const { data: knowledge, error: knowledgeError } = await supabaseUser
         .from('brand_knowledge')
         .select('knowledge_type, content')
+        .eq('organization_id', contextOrgId)
         .eq('is_active', true)
         .limit(3);
 
@@ -248,7 +267,7 @@ serve(async (req) => {
       const { data: orgs, error: orgError } = await supabaseUser
         .from('organizations')
         .select('brand_config')
-        .limit(1)
+        .eq('id', contextOrgId)
         .maybeSingle();
 
       if (!productsError && !knowledgeError && !orgError) {

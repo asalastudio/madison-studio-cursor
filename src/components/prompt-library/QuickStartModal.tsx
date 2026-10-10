@@ -46,12 +46,17 @@ export function QuickStartModal({
       
       const { data, error } = await supabase
         .from('brand_products')
-        .select('category')
-        .eq('organization_id', currentOrganizationId);
+        .select('specs')
+        .eq('org_id', currentOrganizationId);
 
       if (error) throw error;
-      
-      const categories = [...new Set(data?.map(p => p.category).filter(Boolean))];
+
+      // Live schema keeps category inside specs.
+      const categories = [...new Set(
+        (data ?? [])
+          .map((p) => (p.specs as Record<string, unknown> | null)?.category)
+          .filter((c): c is string => typeof c === "string" && c.length > 0),
+      )];
       return categories;
     },
     enabled: !!currentOrganizationId && open,

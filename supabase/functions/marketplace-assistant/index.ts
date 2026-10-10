@@ -10,6 +10,7 @@ import {
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
 import { buildBrandAuthoritiesSection } from "../_shared/brandAuthorities.ts";
 import { getMadisonMasterContext, SQUAD_DEFINITIONS } from "../_shared/madisonMasters.ts";
+import { BRAND_PRODUCTS_ORG_COLUMN, flattenBrandProduct } from '../_shared/brandProducts.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -138,11 +139,11 @@ async function getProductData(productId: string, organizationId: string) {
       .from('brand_products')
       .select('*')
       .eq('id', productId)
-      .eq('organization_id', organizationId)
-      .single();
-    
+      .eq(BRAND_PRODUCTS_ORG_COLUMN, organizationId)
+      .maybeSingle();
+
     if (error || !data) return null;
-    return data;
+    return flattenBrandProduct(data);
   } catch (error) {
     console.error('Error fetching product:', error);
     return null;

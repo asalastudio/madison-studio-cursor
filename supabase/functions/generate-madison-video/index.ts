@@ -25,6 +25,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createVideoTask, getVideoStatus, generateImage, type FreepikVideoModel, VIDEO_MODELS } from "../_shared/freepikProvider.ts";
 import { edgeAuthEnv, guardAuthenticatedOrg, isSuperAdmin as lookupSuperAdmin } from "../_shared/edgeAuth.ts";
+import { resolveOrgSubscriptionTier } from "../_shared/orgSubscriptionTier.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -151,23 +152,12 @@ serve(async (req) => {
     // If not super admin, check organization tier
     if (!isSuperAdmin) {
       try {
-        const { data: orgData } = await supabase
-          .from("organizations")
-          .select("subscription_tier, stripe_subscription_status")
-          .eq("id", resolvedOrgId)
-          .single();
-
-        if (orgData) {
-          subscriptionTier = (orgData.subscription_tier || "essentials").toLowerCase();
-          const isActive = orgData.stripe_subscription_status === "active" ||
-            orgData.stripe_subscription_status === "trialing";
-
-          // Video requires Signature tier (highest tier with apiAccess)
-          if (isActive || subscriptionTier === "free_trial") {
-            if (subscriptionTier === "signature") {
-              videoAllowed = true;
-            }
-          }
+        // organizations has no subscription_tier column; read subscriptions → plans.
+        const orgTier = await resolveOrgSubscriptionTier(supabase, resolvedOrgId);
+        subscriptionTier = orgTier.tier;
+        // Video requires Signature tier (highest tier with apiAccess)
+        if ((orgTier.isActive || subscriptionTier === "free_trial") && subscriptionTier === "signature") {
+          videoAllowed = true;
         }
       } catch (tierError) {
         console.warn("Could not fetch subscription tier:", tierError);
