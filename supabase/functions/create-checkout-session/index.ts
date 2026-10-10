@@ -149,29 +149,53 @@ serve(async (req) => {
     // Get or create Stripe customer
     let stripeCustomerId: string;
 
-    // Check for existing subscription in our database
-    const { data: existingSubscription } = await supabase
+    // Check for existing subscription in our database (one row per org).
+    const { data: existingSubscription, error: existingError } = await supabase
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, status')
       .eq('organization_id', organizationId)
       .maybeSingle();
+    if (existingError) throw existingError;
+
+    // Already paying: never open a second subscription (double billing). Send
+    // them to the billing portal to change plan instead.
+    if (
+      existingSubscription?.stripe_customer_id &&
+      (existingSubscription.status === 'active' || existingSubscription.status === 'trialing')
+    ) {
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: existingSubscription.stripe_customer_id,
+        return_url: `${APP_URL}/settings?tab=billing`,
+      });
+      return new Response(
+        JSON.stringify({ url: portal.url, redirectedToPortal: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (existingSubscription?.stripe_customer_id) {
       stripeCustomerId = existingSubscription.stripe_customer_id;
       console.log('[create-checkout-session] Using existing customer from subscription:', stripeCustomerId);
     } else {
-      // Always create an org-scoped customer. Re-using any Stripe customer that
-      // matches the caller's email could attach this org's subscription to a
-      // customer (and payment methods) owned by a different org.
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: organization?.name || 'Organization',
-        metadata: {
-          organization_id: organizationId,
-          user_id: user.id,
-        },
+      // Re-use this org's own customer from an earlier abandoned checkout
+      // (matched on metadata, never on email), else create one.
+      const found = await stripe.customers.search({
+        query: `metadata['organization_id']:'${organizationId}'`,
+        limit: 1,
       });
-      stripeCustomerId = customer.id;
+      if (found.data.length > 0) {
+        stripeCustomerId = found.data[0].id;
+      } else {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: organization?.name || 'Organization',
+          metadata: {
+            organization_id: organizationId,
+            user_id: user.id,
+          },
+        });
+        stripeCustomerId = customer.id;
+      }
     }
 
     // Determine price ID based on billing interval
