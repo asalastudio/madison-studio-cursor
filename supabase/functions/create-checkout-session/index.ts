@@ -38,9 +38,6 @@ serve(async (req) => {
     // Extract token from header
     const token = authHeader.replace('Bearer ', '').trim();
     
-    console.log('[create-checkout-session] Token received, length:', token?.length);
-    console.log('[create-checkout-session] SUPABASE_URL:', SUPABASE_URL ? 'set' : 'NOT SET');
-    console.log('[create-checkout-session] SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'NOT SET');
     
     // Create Supabase client with service role for database operations
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -48,12 +45,11 @@ serve(async (req) => {
     // Verify the user's JWT token
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
-    console.log('[create-checkout-session] Auth result - user:', user?.id, 'error:', userError?.message);
     
     if (userError || !user) {
       console.error('[create-checkout-session] Auth error:', userError?.message || 'No user found');
       return new Response(
-        JSON.stringify({ error: 'Unauthorized', details: userError?.message }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -61,7 +57,13 @@ serve(async (req) => {
     console.log('[create-checkout-session] User authenticated:', user.id);
 
     // Parse request body
-    const { planId, billingInterval = 'month' } = await req.json();
+    const { planId, billingInterval = 'month', organizationId: requestedOrgId } = await req.json();
+    if (billingInterval !== 'month' && billingInterval !== 'year') {
+      return new Response(
+        JSON.stringify({ error: 'billingInterval must be month or year' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     if (!planId) {
       return new Response(
         JSON.stringify({ error: 'Missing planId' }),
@@ -74,6 +76,12 @@ serve(async (req) => {
       .from('organization_members')
       .select('organization_id, role')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      // maybeSingle() errored for users in more than one org, which made
+      // checkout fail with "No organization found". Honour an explicit org
+      // (membership is still verified), else use the oldest membership.
+      .match(requestedOrgId ? { organization_id: requestedOrgId } : {})
+      .limit(1)
       .maybeSingle();
 
     if (!orgMember) {
@@ -141,43 +149,43 @@ serve(async (req) => {
     // Get or create Stripe customer
     let stripeCustomerId: string;
 
-    // Check for existing subscription in our database
-    const { data: existingSubscription } = await supabase
+    // Check for existing subscription in our database (one row per org).
+    const { data: existingSubscription, error: existingError } = await supabase
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, status')
       .eq('organization_id', organizationId)
       .maybeSingle();
+    if (existingError) throw existingError;
+
+    // Already paying: never open a second subscription (double billing). Send
+    // them to the billing portal to change plan instead.
+    if (
+      existingSubscription?.stripe_customer_id &&
+      (existingSubscription.status === 'active' || existingSubscription.status === 'trialing')
+    ) {
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: existingSubscription.stripe_customer_id,
+        return_url: `${APP_URL}/settings?tab=billing`,
+      });
+      return new Response(
+        JSON.stringify({ url: portal.url, redirectedToPortal: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (existingSubscription?.stripe_customer_id) {
       stripeCustomerId = existingSubscription.stripe_customer_id;
       console.log('[create-checkout-session] Using existing customer from subscription:', stripeCustomerId);
     } else {
-      // No subscription record - check if customer already exists in Stripe by email
-      try {
-        const existingCustomers = await stripe.customers.list({
-          email: user.email,
-          limit: 1,
-        });
-        
-        if (existingCustomers.data.length > 0) {
-          stripeCustomerId = existingCustomers.data[0].id;
-          console.log('[create-checkout-session] Found existing Stripe customer by email:', stripeCustomerId);
-        } else {
-          // Create new Stripe customer
-          const customer = await stripe.customers.create({
-            email: user.email,
-            name: organization?.name || 'Organization',
-            metadata: {
-              organization_id: organizationId,
-              user_id: user.id,
-            },
-          });
-          stripeCustomerId = customer.id;
-          console.log('[create-checkout-session] Created new Stripe customer:', stripeCustomerId);
-        }
-      } catch (stripeError) {
-        console.error('[create-checkout-session] Error checking/creating Stripe customer:', stripeError);
-        // Fallback: create new customer
+      // Re-use this org's own customer from an earlier abandoned checkout
+      // (matched on metadata, never on email), else create one.
+      const found = await stripe.customers.search({
+        query: `metadata['organization_id']:'${organizationId}'`,
+        limit: 1,
+      });
+      if (found.data.length > 0) {
+        stripeCustomerId = found.data[0].id;
+      } else {
         const customer = await stripe.customers.create({
           email: user.email,
           name: organization?.name || 'Organization',
@@ -187,7 +195,6 @@ serve(async (req) => {
           },
         });
         stripeCustomerId = customer.id;
-        console.log('[create-checkout-session] Created new Stripe customer (fallback):', stripeCustomerId);
       }
     }
 
@@ -218,15 +225,17 @@ serve(async (req) => {
       cancel_url: `${APP_URL}/settings?tab=billing&canceled=true`,
       metadata: {
         organization_id: organizationId,
-        plan_id: planId,
+        plan_id: plan.id,
         billing_interval: billingInterval,
       },
       subscription_data: {
         metadata: {
           organization_id: organizationId,
-          plan_id: planId,
+          plan_id: plan.id,
         },
       },
+      client_reference_id: organizationId,
+      allow_promotion_codes: true,
     });
 
     return new Response(
@@ -242,7 +251,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error creating checkout session:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'Could not start checkout' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
