@@ -46,6 +46,12 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ProductDetailModal } from "./ProductDetailModal";
+import {
+  formToBrandProductRow,
+  manualProductId,
+  mergeWithExisting,
+  upsertBrandProducts,
+} from "../../../supabase/functions/_shared/brandProducts.ts";
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
   personal_fragrance: "Personal Fragrance",
@@ -197,11 +203,27 @@ export function ProductsTab() {
         productData.burn_time = formData.burn_time.trim() || null;
       }
 
+      // Live brand_products shape: org_id/product_id/specs/metadata.
+      const { organization_id: _org, ...form } = productData;
       if (editingProduct) {
+        const { data: current, error: loadError } = await supabase
+          .from("brand_products")
+          .select("product_id, name, specs, metadata")
+          .eq("id", editingProduct.id)
+          .eq("org_id", currentOrganizationId)
+          .maybeSingle();
+        if (loadError) throw loadError;
+        if (!current) throw new Error("Product not found in this organization");
+        const merged = mergeWithExisting(
+          formToBrandProductRow(currentOrganizationId, current.product_id, form),
+          current as never,
+          false,
+        );
         const { error } = await supabase
           .from("brand_products")
-          .update(productData)
-          .eq("id", editingProduct.id);
+          .update({ name: merged.name, specs: merged.specs as never, metadata: merged.metadata as never })
+          .eq("id", editingProduct.id)
+          .eq("org_id", currentOrganizationId);
 
         if (error) throw error;
 
@@ -210,11 +232,12 @@ export function ProductsTab() {
           description: `"${formData.name}" has been updated.`,
         });
       } else {
-        const { error } = await supabase
-          .from("brand_products")
-          .insert(productData);
-
-        if (error) throw error;
+        await upsertBrandProducts(
+          supabase,
+          currentOrganizationId,
+          [formToBrandProductRow(currentOrganizationId, manualProductId(formData.name), form)],
+          { preserveManual: false },
+        );
 
         toast({
           title: "Product added",
@@ -243,7 +266,8 @@ export function ProductsTab() {
       const { error } = await supabase
         .from("brand_products")
         .delete()
-        .eq("id", deleteProductId);
+        .eq("id", deleteProductId)
+        .eq("org_id", currentOrganizationId!);
 
       if (error) throw error;
 
@@ -481,70 +505,26 @@ export function ProductsTab() {
         return;
       }
 
-      // Fetch existing products by NAME to preserve Shopify connections
-      const names = products.map(p => p.name).filter(Boolean);
-      const { data: existingProducts } = await supabase
-        .from('brand_products')
-        .select('id, name, shopify_product_id, shopify_variant_id, handle, last_shopify_sync')
-        .eq('organization_id', currentOrganizationId)
-        .in('name', names);
-
-      const existingMap = new Map(existingProducts?.map(p => [p.name.toLowerCase(), p]) || []);
-      
+      // Live brand_products shape; rows match existing products by handle/name.
+      const rows = products.map((p: Record<string, unknown>) => {
+        const { organization_id: _org, ...form } = p;
+        return formToBrandProductRow(
+          currentOrganizationId,
+          manualProductId(String(p.name), typeof p.handle === "string" ? p.handle : null),
+          form,
+          "csv",
+        );
+      });
       let updatedCount = 0;
       let insertedCount = 0;
       let failedCount = 0;
-
-      // Process each product - always update with CSV data while preserving Shopify connections
-      for (const product of products) {
-        const existing = existingMap.get(product.name.toLowerCase());
-        
-        if (existing) {
-          try {
-            // Update existing product with CSV data, preserving Shopify connection
-            const updateData = {
-              ...product,
-              // Preserve Shopify connection fields if they exist
-              shopify_product_id: existing.shopify_product_id || product.shopify_product_id || null,
-              shopify_variant_id: existing.shopify_variant_id || product.shopify_variant_id || null,
-              handle: existing.handle || product.handle || null,
-              last_shopify_sync: existing.last_shopify_sync || null,
-            };
-            
-            const { error } = await supabase
-              .from('brand_products')
-              .update(updateData)
-              .eq('id', existing.id);
-
-            if (error) {
-              console.error(`Failed to update product "${product.name}":`, error);
-              failedCount++;
-            } else {
-              console.log(`Updated product "${product.name}" with CSV data`);
-              updatedCount++;
-            }
-          } catch (err) {
-            console.error(`Error updating product "${product.name}":`, err);
-            failedCount++;
-          }
-        } else {
-          try {
-            // Insert new product
-            const { error } = await supabase
-              .from('brand_products')
-              .insert([product]);
-            
-            if (error) {
-              console.error(`Failed to insert product "${product.name}":`, error);
-              failedCount++;
-            } else {
-              insertedCount++;
-            }
-          } catch (err) {
-            console.error(`Error inserting product "${product.name}":`, err);
-            failedCount++;
-          }
-        }
+      try {
+        const res = await upsertBrandProducts(supabase, currentOrganizationId, rows, { preserveManual: false });
+        updatedCount = res.updated;
+        insertedCount = res.inserted;
+      } catch (err) {
+        console.error("CSV product import failed:", err);
+        failedCount = rows.length;
       }
 
       if (updatedCount === 0 && insertedCount === 0 && failedCount === 0) {
@@ -553,7 +533,7 @@ export function ProductsTab() {
           description: "No products were processed.",
         });
       } else {
-        const parts = [];
+        const parts: string[] = [];
         if (updatedCount > 0) parts.push(`${updatedCount} updated`);
         if (insertedCount > 0) parts.push(`${insertedCount} added`);
         if (failedCount > 0) parts.push(`${failedCount} failed`);
@@ -659,6 +639,7 @@ export function ProductsTab() {
       const { error } = await supabase
         .from("brand_products")
         .delete()
+        .eq("org_id", currentOrganizationId!)
         .in("id", Array.from(selectedProductIds));
 
       if (error) throw error;
@@ -724,12 +705,26 @@ export function ProductsTab() {
     }
 
     try {
-      const { error } = await supabase
+      // Fields live inside specs/metadata now, so merge row by row.
+      const { data: selected, error: loadError } = await supabase
         .from("brand_products")
-        .update(updatePayload)
+        .select("id, product_id, name, specs, metadata")
+        .eq("org_id", currentOrganizationId!)
         .in("id", Array.from(selectedProductIds));
-
-      if (error) throw error;
+      if (loadError) throw loadError;
+      for (const current of selected ?? []) {
+        const merged = mergeWithExisting(
+          formToBrandProductRow(currentOrganizationId!, current.product_id, { name: current.name, ...updatePayload }),
+          current as never,
+          false,
+        );
+        const { error } = await supabase
+          .from("brand_products")
+          .update({ specs: merged.specs as never, metadata: merged.metadata as never })
+          .eq("id", current.id)
+          .eq("org_id", currentOrganizationId!);
+        if (error) throw error;
+      }
 
       toast({
         title: "Products updated",

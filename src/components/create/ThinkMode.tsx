@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
+import { useOnboarding } from "@/hooks/useOnboarding";
 
 interface Message {
     id: string;
@@ -19,6 +20,7 @@ interface ThinkModeProps {
 }
 
 export const ThinkMode: React.FC<ThinkModeProps> = ({ userName, onClose, onReadyToFill }) => {
+    const { currentOrganizationId } = useOnboarding();
     const { toast } = useToast();
     const [thinkModeInput, setThinkModeInput] = useState("");
     const [thinkModeMessages, setThinkModeMessages] = useState<Message[]>([]);
@@ -79,7 +81,8 @@ export const ThinkMode: React.FC<ThinkModeProps> = ({ userName, onClose, onReady
                     body: JSON.stringify({
                         messages: [...thinkModeMessages, userMessage],
                         userName: userName || undefined,
-                        mode: 'creative'
+                        mode: 'creative',
+                        organizationId: currentOrganizationId || undefined,
                     })
                 }
             );

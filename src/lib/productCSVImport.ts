@@ -1,5 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Product } from "@/hooks/useProducts";
+import {
+    formToBrandProductRow,
+    manualProductId,
+    upsertBrandProducts,
+} from "../../supabase/functions/_shared/brandProducts.ts";
 
 interface CSVImportResult {
     updatedCount: number;
@@ -46,66 +50,27 @@ export async function importProductsFromCSV(
         throw new Error("The CSV file appears to be empty or has no valid product names.");
     }
 
-    // Fetch existing products by NAME to preserve Shopify connections
-    const names = products.map(p => p.name).filter(Boolean);
-    const { data: existingProducts } = await supabase
-        .from('brand_products')
-        .select('id, name, shopify_product_id, shopify_variant_id, handle, last_shopify_sync')
-        .eq('organization_id', organizationId)
-        .in('name', names);
-
-    const existingMap = new Map(existingProducts?.map(p => [p.name.toLowerCase(), p]) || []);
-
+    // Live brand_products shape (org_id, product_id, specs, metadata). Rows are
+    // matched to existing products by handle/name, so re-imports update in place.
+    const rows = products.map((p: Record<string, unknown>) => {
+        const { organization_id: _org, ...form } = p;
+        return formToBrandProductRow(
+            organizationId,
+            manualProductId(String(p.name), typeof p.handle === "string" ? p.handle : null),
+            form,
+            "csv",
+        );
+    });
     let updatedCount = 0;
     let insertedCount = 0;
     let failedCount = 0;
-
-    // Process each product
-    for (const product of products) {
-        const existing = existingMap.get(product.name.toLowerCase());
-
-        if (existing) {
-            try {
-                const updateData = {
-                    ...product,
-                    shopify_product_id: existing.shopify_product_id || product.shopify_product_id || null,
-                    shopify_variant_id: existing.shopify_variant_id || product.shopify_variant_id || null,
-                    handle: existing.handle || product.handle || null,
-                    last_shopify_sync: existing.last_shopify_sync || null,
-                };
-
-                const { error } = await supabase
-                    .from('brand_products')
-                    .update(updateData)
-                    .eq('id', existing.id);
-
-                if (error) {
-                    console.error(`Failed to update product "${product.name}":`, error);
-                    failedCount++;
-                } else {
-                    updatedCount++;
-                }
-            } catch (err) {
-                console.error(`Error updating product "${product.name}":`, err);
-                failedCount++;
-            }
-        } else {
-            try {
-                const { error } = await supabase
-                    .from('brand_products')
-                    .insert([product]);
-
-                if (error) {
-                    console.error(`Failed to insert product "${product.name}":`, error);
-                    failedCount++;
-                } else {
-                    insertedCount++;
-                }
-            } catch (err) {
-                console.error(`Error inserting product "${product.name}":`, err);
-                failedCount++;
-            }
-        }
+    try {
+        const res = await upsertBrandProducts(supabase, organizationId, rows, { preserveManual: false });
+        updatedCount = res.updated;
+        insertedCount = res.inserted;
+    } catch (err) {
+        console.error("CSV product import failed:", err);
+        failedCount = rows.length;
     }
 
     return { updatedCount, insertedCount, failedCount };
