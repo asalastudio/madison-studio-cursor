@@ -1,7 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import Stripe from "npm:stripe";
+import Stripe from "npm:stripe@14.21.0";
+import { must, resolvePlanId } from "../_shared/stripeBilling.ts";
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -11,6 +12,10 @@ const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: '2024-06-20',
 });
+
+// Deno has no sync HMAC; constructEvent() throws "SubtleCryptoProvider cannot be
+// used in a synchronous context", so every webhook was rejected as a bad signature.
+const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -39,9 +44,9 @@ serve(async (req) => {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, STRIPE_WEBHOOK_SECRET);
+      event = await stripe.webhooks.constructEventAsync(body, signature, STRIPE_WEBHOOK_SECRET, undefined, cryptoProvider);
     } catch (err) {
-      console.error('Webhook signature verification failed:', err);
+      console.error('Webhook signature verification failed:', err instanceof Error ? err.message : 'unknown');
       return new Response(
         JSON.stringify({ error: 'Webhook signature verification failed' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -92,7 +97,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Webhook error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'Webhook handler failed' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -125,24 +130,6 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
       }
     }
 
-    // If plan_id is still missing, derive it from subscription items
-    if (!planId && subscription.items?.data && subscription.items.data.length > 0) {
-      const priceId = subscription.items.data[0].price.id;
-      
-      // Try to find plan by matching either monthly or yearly price ID
-      const { data: planFromPrice } = await supabase
-        .from('subscription_plans')
-        .select('id')
-        .or(`stripe_price_id_monthly.eq.${priceId},stripe_price_id_yearly.eq.${priceId}`)
-        .maybeSingle();
-
-      if (planFromPrice) {
-        planId = planFromPrice.id;
-        console.log('Derived plan_id from price_id:', priceId, '-> plan_id:', planId);
-      } else {
-        console.warn('Could not find plan for Stripe price_id:', priceId);
-      }
-    }
   }
 
   if (!organizationId) {
@@ -150,22 +137,15 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     return;
   }
 
+  // The live price wins (portal upgrades keep the old metadata). Metadata may
+  // hold a legacy slug ("studio"); resolvePlanId maps that too.
+  const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+  planId = (await resolvePlanId(supabase, null, priceId)) ?? (await resolvePlanId(supabase, planId, null));
   if (!planId) {
-    console.error('Missing plan_id in subscription:', subscription.id);
-    return;
+    // Throw so Stripe retries once the plan/price mapping is fixed.
+    throw new Error(`No subscription_plans row for subscription ${subscription.id}`);
   }
 
-  // Verify plan exists
-  const { data: plan } = await supabase
-    .from('subscription_plans')
-    .select('id')
-    .eq('id', planId)
-    .single();
-
-  if (!plan) {
-    console.error('Plan not found:', planId);
-    return;
-  }
 
   // Upsert subscription
   const { error } = await supabase
@@ -186,10 +166,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
       onConflict: 'stripe_subscription_id',
     });
 
-  if (error) {
-    console.error('Error updating subscription:', error);
-    return;
-  }
+  must({ error }, 'upsert subscription');
 
   // Update organization subscription_id
   const { data: subRecord } = await supabase
@@ -199,10 +176,10 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     .single();
 
   if (subRecord) {
-    await supabase
+    must(await supabase
       .from('organizations')
       .update({ subscription_id: subRecord.id })
-      .eq('id', organizationId);
+      .eq('id', organizationId), 'link organization subscription');
   }
 }
 
