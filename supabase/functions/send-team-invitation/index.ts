@@ -76,7 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
     const invitedByName = escapeHtml(body.invitedByName || "A team member");
     const safeRole = escapeHtml(role);
     const appUrl = resolveInviteAppUrl(body.appUrl);
-    const acceptHref = escapeHtml(`${appUrl}/auth`);
+    const acceptHref = escapeHtml(`${appUrl}/auth?mode=signup`);
 
     console.log(`Sending team invitation to ${email}`);
 
