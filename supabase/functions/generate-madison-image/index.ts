@@ -390,6 +390,15 @@ function textField(record: Record<string, unknown> | null | undefined, key: stri
  */
 function buildComponentIdentityScopeBlock(categorizedRefs: CategorizedReferences): string {
   if (categorizedRefs.component.length === 0) return "";
+  // Closure-only refs (added for multi-product composites) are seated on the
+  // bottle, not shown detached, so they need different wording.
+  if (categorizedRefs.component.every((ref) => ref.label === "closure")) {
+    return [
+      "CLOSURE REFERENCE SCOPE:",
+      "- Each closure image shows the exact cap/fitment for one product. Seat it fully on that bottle's neck, fitted and closed. Never draw it loose, beside the bottle or as a separate object.",
+      "- The closure image controls only the closure's shape, finish, color and height; the product reference still controls the bottle.",
+    ].join("\n");
+  }
   return [
     "DEDICATED CAP IDENTITY REFERENCE SCOPE:",
     "- Image 1 remains the product and placement truth. The dedicated cap image controls only the detached cap's identity, finish, and decoration topology.",

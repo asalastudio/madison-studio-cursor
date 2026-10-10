@@ -101,3 +101,10 @@ test("v243: closure images are numbered after the product references", async () 
   assert.match(lines[0], /^Image 4: the exact closure for Product 1 \[A\]/);
   assert.match(lines[1], /^Image 5: the exact closure for Product 3 \[C\]/);
 });
+
+test("closure lines never describe the closure as detached", async () => {
+  const { closureReferenceLines } = await import("./bestBottlesReferenceFacts");
+  const [line] = closureReferenceLines([mergeFacts({ sku: "A", closureImageUrl: "https://x/a.png" }), mergeFacts({ sku: "B" })]);
+  assert.match(line, /Seat it fully on that bottle's neck/);
+  assert.doesNotMatch(line, /detached/i);
+});
