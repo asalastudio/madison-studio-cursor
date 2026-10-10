@@ -23,7 +23,19 @@ const Auth = () => {
   const [resetMode, setResetMode] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'magic'>('signin');
+  // Madison is invite-only (marketing: "No open signup"). The Create Account
+  // tab is only shown for invite links (/auth?mode=signup or ?invite=...) or
+  // when VITE_OPEN_SIGNUP=true. Server-side, also disable open signups in
+  // Supabase Auth settings; this UI gate alone does not stop direct API calls.
+  const signupAllowed = (() => {
+    if (import.meta.env.VITE_OPEN_SIGNUP === 'true') return true;
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('mode') === 'signup' || params.has('invite');
+  })();
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'magic'>(
+    signupAllowed ? 'signup' : 'signin',
+  );
   const [showPassword, setShowPassword] = useState(false);
   const hasNavigated = useRef(false);
 
@@ -336,6 +348,7 @@ const Auth = () => {
         <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         Sign In
       </button>
+      {signupAllowed && (
       <button
         type="button"
         onClick={() => { setAuthMode('signup'); setSignupSuccess(false); }}
@@ -348,6 +361,7 @@ const Auth = () => {
         <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         Create Account
       </button>
+      )}
     </div>
   );
 
@@ -499,7 +513,7 @@ const Auth = () => {
           )}
 
           {/* Sign Up Form */}
-          {authMode === 'signup' && (
+          {signupAllowed && authMode === 'signup' && (
             <div className="animate-in fade-in-0 slide-in-from-right-2 duration-200">
               {signupSuccess ? (
                 <div className="space-y-5 text-center py-4">
