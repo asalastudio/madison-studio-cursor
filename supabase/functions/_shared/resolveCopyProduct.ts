@@ -1,6 +1,11 @@
 import { formatSemanticContext, getSemanticFields } from "./productFieldFilters.ts";
 
 export type CopyProductTable = "product_hubs" | "brand_products";
+
+/** product_hubs scopes by organization_id; brand_products by org_id. */
+export function copyProductOrgColumn(table: CopyProductTable): "organization_id" | "org_id" {
+  return table === "brand_products" ? "org_id" : "organization_id";
+}
 export type CopyProductSource = CopyProductTable | "client";
 
 export type FetchOrgProduct = (

@@ -8,6 +8,7 @@
  * the documented Flux3ImageInputs keys.
  */
 
+import { sceneIntegrationSentence } from "./sceneIntegrationPrompt.ts";
 import { isPubliclyFetchableUrl } from "./urlSafety.ts";
 
 export const BFL_FLUX3_ENDPOINT = "https://api.bfl.ai/v1/flux-3-image";
@@ -350,13 +351,19 @@ export function composeFlux3Prompt(input: {
   scenePrompt: string;
   enhancedPrompt: string;
   request: Flux3ClientRequest | null;
+  /** A product reference is attached; append scene-integration directives. */
+  hasProductReference?: boolean;
+  /** Product facts block (closure, capacity, relative size). */
+  productFacts?: string;
 }): { prompt: string; singleElementEdit: boolean } {
   const request = input.request;
   const caption = request?.caption?.trim() || input.scenePrompt.trim();
   const elements = request?.elements ?? [];
   if (elements.length === 0) {
-    const prompt = caption || input.enhancedPrompt.trim();
-    if (!prompt) throw new Flux3LayoutError("FLUX 3 Image requires a prompt.");
+    const base = caption || input.enhancedPrompt.trim();
+    if (!base) throw new Flux3LayoutError("FLUX 3 Image requires a prompt.");
+    const facts = input.productFacts?.trim() ? `\n\n${input.productFacts.trim()}` : "";
+    const prompt = input.hasProductReference ? `${base}${facts}\n\n${sceneIntegrationSentence()}` : base;
     return { prompt, singleElementEdit: false };
   }
   const rows = request?.lockExceptId

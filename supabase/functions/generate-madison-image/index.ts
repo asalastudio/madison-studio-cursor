@@ -20,7 +20,7 @@ import {
 } from "../_shared/darkroomLegacyPrompt.ts";
 import { generateImage as generateFreepikImage, type FreepikImageModel, type FreepikResolution, IMAGE_MODELS } from "../_shared/freepikProvider.ts";
 import { generateImage as generateOpenAIImage, isGptImage25Model, type OpenAIImageModel, type OpenAIImageSize, type OpenAIOutputFormat } from "../_shared/openaiProvider.ts";
-import { buildOrderedImagePrompt, OPENAI_IMAGE_MODEL_ID } from "../_shared/orderedImagePrompt.ts";
+import { bestBottlesCatalogPromptDecision, buildOrderedImagePrompt, OPENAI_IMAGE_MODEL_ID } from "../_shared/orderedImagePrompt.ts";
 import {
   composeFlux3Prompt,
   collectFlux3ReferenceImages,
@@ -37,6 +37,27 @@ import {
   completeGenerationAttempt,
   type GenerationAttemptTracker,
 } from "../_shared/generationAttemptLedger.ts";
+import {
+  assertReferenceBudget,
+  base64ToBytes,
+  createReferencePayload,
+  storageTransformUrl,
+  type ReferenceImagePayload,
+} from "../_shared/referenceImagePayload.ts";
+import {
+  buildReferenceProductFactsBlock,
+  factsFromLibraryTags,
+  graceSkuFromText,
+  hasUsefulFacts,
+  mergeFacts,
+  referenceShowsLooseCap,
+  type ReferenceProductFacts,
+} from "../_shared/bestBottlesReferenceFacts.ts";
+import { resolveOrgSubscriptionTier } from "../_shared/orgSubscriptionTier.ts";
+import {
+  buildSceneIntegrationBlock,
+  PRODUCT_FIDELITY_RELIGHT_LINE,
+} from "../_shared/sceneIntegrationPrompt.ts";
 import { getVisualStyleDirective, type VisualSquad } from "../_shared/visualMasters.ts";
 import { buildBestBottlesFamilyRigPromptAdjustment } from "../_shared/bestBottlesFamilyRigPrompt.ts";
 import { buildInlineRefinementStabilizerBlock } from "../_shared/inlineRefinementPrompt.ts";
@@ -794,6 +815,68 @@ interface CategorizedReferences {
   style: Array<{ url: string; description?: string; label?: string }>;
 }
 
+async function resolveProductReferenceFacts(
+  client: { from: (table: string) => any },
+  refs: Array<{ url: string; description?: string; label?: string }>,
+  organizationId: string | null,
+): Promise<Array<ReferenceProductFacts & { swappedFrom?: string }>> {
+  const out: Array<ReferenceProductFacts & { swappedFrom?: string }> = [];
+  for (const ref of refs.slice(0, 10)) {
+    const baseUrl = typeof ref.url === "string" ? ref.url.split("?")[0] : "";
+    let tagFacts: Partial<ReferenceProductFacts> = {};
+    let jobFacts: Partial<ReferenceProductFacts> = {};
+    let swappedFrom: string | undefined;
+    try {
+      if (baseUrl.startsWith("http")) {
+        const { data: img } = await client
+          .from("generated_images")
+          .select("library_tags")
+          .eq("image_url", baseUrl)
+          .limit(1)
+          .maybeSingle();
+        tagFacts = factsFromLibraryTags(img?.library_tags);
+      }
+      const sku = tagFacts.sku || graceSkuFromText(baseUrl) || graceSkuFromText(ref.description);
+      if (sku) {
+        let jobQuery = client
+          .from("best_bottles_pipeline_sku_jobs")
+          .select("family, capacity_ml, applicator, canonical_color, product_group_display_name")
+          .eq("grace_sku", sku);
+        if (organizationId) jobQuery = jobQuery.eq("organization_id", organizationId);
+        const { data: job } = await jobQuery.limit(1).maybeSingle();
+        jobFacts = {
+          sku,
+          family: job?.family ?? null,
+          capacityMl: typeof job?.capacity_ml === "number" ? job.capacity_ml : null,
+          applicator: job?.applicator ?? null,
+          color: job?.canonical_color ?? null,
+          displayName: job?.product_group_display_name ?? null,
+        };
+        const looseCap = referenceShowsLooseCap(mergeFacts(tagFacts));
+        if (looseCap && organizationId) {
+          const { data: assembled } = await client
+            .from("generated_images")
+            .select("image_url, library_tags")
+            .eq("organization_id", organizationId)
+            .contains("library_tags", [`sku:${sku}`, "component-topology:assembled"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (typeof assembled?.image_url === "string" && assembled.image_url.startsWith("https://")) {
+            swappedFrom = ref.url;
+            ref.url = assembled.image_url;
+            tagFacts = { ...tagFacts, ...factsFromLibraryTags(assembled.library_tags) };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[image] product reference facts lookup failed", err);
+    }
+    out.push({ ...mergeFacts(tagFacts, jobFacts), ...(swappedFrom ? { swappedFrom } : {}) });
+  }
+  return out;
+}
+
 function categorizeReferences(
   references: Array<{ url: string; description?: string; label?: string }>
 ): CategorizedReferences {
@@ -999,6 +1082,7 @@ function buildDirectorModePrompt(
     compositionPrompt?: string;
   },
   lane: GenerationLane = null,
+  productFactsBlock = "",
 ): string {
   let prompt = "";
 
@@ -1027,22 +1111,20 @@ function buildDirectorModePrompt(
       prompt += "╚══════════════════════════════════════════════════════════════════╝\n\n";
       prompt += "The reference images provided show the EXACT products you must use.\n";
       prompt += "DO NOT generate new products, bottles, or containers.\n";
-      prompt += "COPY the exact products from the reference images into the scene.\n\n";
+      prompt += `${PRODUCT_FIDELITY_RELIGHT_LINE}\n\n`;
       prompt += "COMPOSITING REQUIREMENTS:\n";
       prompt += "- Place the EXACT products from reference images into the scene\n";
-      prompt += "- Arrange them artistically (not in a grid)\n";
-      prompt += "- Create visual harmony (consistent lighting, shadows, reflections)\n";
-      prompt += "- Use varying heights, angles, and positions for visual interest\n";
-      prompt += "- Products may overlap slightly or be grouped naturally\n";
-      prompt += "- Maintain accurate proportions between all products\n";
+      prompt += "- Arrange them as a considered group, all upright on one surface, no overlap\n";
+      prompt += "- One light for all products: the scene's own light, with consistent shadows and reflections\n";
+      prompt += "- Maintain true relative sizes between all products (see PRODUCT FACTS)\n";
       prompt += "- Every product must be clearly visible and identifiable\n\n";
       prompt += "PRODUCT ACCURACY (MANDATORY):\n";
       prompt += "- ⚠️ PRESERVE the EXACT shape from reference images\n";
-      prompt += "- ⚠️ PRESERVE the EXACT colors from reference images\n";
+      prompt += "- ⚠️ PRESERVE the EXACT material colours from reference images (not the reference photo's lighting)\n";
       prompt += "- ⚠️ PRESERVE the EXACT design and branding from reference images\n";
-      prompt += "- ⚠️ PRESERVE all labels, text, and decorative elements\n";
+      prompt += "- ⚠️ PRESERVE all labels, text, and decorative elements (a loose cap standing beside a bottle in a reference is not a decorative element)\n";
       prompt += "- DO NOT modify, redesign, or reimagine the products\n";
-      prompt += "- The products in output MUST match the reference images exactly\n\n";
+      prompt += "- Only the scene light falling on each product changes; silhouette, glass thickness, threads, closure and proportions do not\n\n";
       
       categorizedRefs.product.forEach((ref, idx) => {
         prompt += `📦 Product ${idx + 1}: ${ref.label || "Product"}\n`;
@@ -1055,13 +1137,14 @@ function buildDirectorModePrompt(
       // Single product mode (original behavior)
       prompt += `PRODUCT REFERENCE (${categorizedRefs.product.length} image):\n\n`;
       prompt += "⚠️ CRITICAL: Use the EXACT product from the reference image.\n";
-      prompt += "DO NOT create a new product - COPY the exact product shown.\n\n";
+      prompt += "DO NOT create a new product.\n";
+      prompt += `${PRODUCT_FIDELITY_RELIGHT_LINE}\n\n`;
       prompt += "MANDATORY PRESERVATION:\n";
       prompt += "- EXACT product shape, proportions, and design from reference\n";
-      prompt += "- EXACT product colors (match precisely)\n";
+      prompt += "- EXACT product material colours (match precisely; lighting comes from the scene)\n";
       prompt += "- EXACT product texture and material finish\n";
       prompt += "- EXACT branding, labels, and decorative elements\n";
-      prompt += "- The product in output MUST be the same product from reference\n";
+      prompt += "- The product in output MUST be the same product from reference; only the scene light falling on it changes\n";
       prompt += "\n";
       
       categorizedRefs.product.forEach((ref, idx) => {
@@ -1107,6 +1190,16 @@ function buildDirectorModePrompt(
         prompt += `Style Ref ${idx + 1} Note: ${ref.description}\n`;
       }
     });
+    prompt += "\n";
+  }
+
+  if (productFactsBlock) {
+    prompt += productFactsBlock;
+    prompt += "\n";
+  }
+
+  if (categorizedRefs.product.length > 0) {
+    prompt += buildSceneIntegrationBlock();
     prompt += "\n";
   }
 
@@ -1272,7 +1365,8 @@ function buildEssentialModePrompt(
   userPrompt: string,
   productRef: { url: string; description?: string } | null,
   brandContext: any,
-  productData?: any
+  productData?: any,
+  productFactsBlock = "",
 ): string {
   let prompt = "";
 
@@ -1288,7 +1382,10 @@ function buildEssentialModePrompt(
   prompt += userPrompt;
 
   if (productRef) {
-    prompt += "\n\nUse the uploaded product image as the exact subject. Place it in the scene described above.";
+    prompt += "\n\nUse the uploaded product image as the subject and place it in the scene described above. ";
+    prompt += PRODUCT_FIDELITY_RELIGHT_LINE;
+    if (productFactsBlock) prompt += `\n\n${productFactsBlock}`;
+    prompt += `\n\n${buildSceneIntegrationBlock()}`;
   }
 
   if (brandContext?.colors?.length > 0) {
@@ -1921,7 +2018,8 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         .from("brand_products")
         .select("*")
         .eq("id", product_id)
-        .eq("organization_id", resolvedOrgId)
+        // brand_products scopes by org_id (there is no organization_id column).
+        .eq("org_id", resolvedOrgId)
         .maybeSingle();
       productData = data || null;
     }
@@ -1965,6 +2063,33 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       bestBottlesTagSet.has("brand:best-bottles") &&
       bestBottlesTagSet.has("studio-master") &&
       categorizedRefs.product.length > 0;
+
+    /**
+     * Product facts per product reference (closure, capacity, relative size),
+     * resolved from the library image's tags and the Best Bottles SKU job row.
+     * A rigged reference with the cap standing beside the bottle is swapped
+     * for an assembled master of the same SKU when one exists. Reference-locked
+     * masters keep their exact references.
+     */
+    const isBestBottlesBrandRequest = bestBottlesTagSet.has("brand:best-bottles");
+    let productReferenceFacts: ReferenceProductFacts[] = [];
+    if (!isBestBottlesReferenceLocked && categorizedRefs.product.length > 0) {
+      productReferenceFacts = await resolveProductReferenceFacts(
+        supabase,
+        categorizedRefs.product,
+        resolvedOrgId ?? null,
+      );
+      console.log("[image] Product reference facts", productReferenceFacts.map((f) => ({
+        sku: f.sku,
+        capacityMl: f.capacityMl,
+        applicator: f.applicator,
+        topology: f.topology,
+        swappedToAssembled: Boolean((f as { swappedFrom?: string }).swappedFrom),
+      })));
+    }
+    const productFactsBlock = productReferenceFacts.some(hasUsefulFacts) || isBestBottlesBrandRequest
+      ? buildReferenceProductFactsBlock(productReferenceFacts, { brandBestBottles: isBestBottlesBrandRequest })
+      : "";
     const normalizedProductContext = productContext && typeof productContext === "object"
       ? productContext as Record<string, unknown>
       : null;
@@ -2195,6 +2320,89 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
      */
     let enhancedPrompt: string;
 
+    /**
+     * Best Bottles catalog prompt (one isolated product on pure white) applies
+     * only to catalog-style shots. A scene the user describes, several product
+     * references, or a set/style reference is a composite: the catalog layer
+     * would drop the scene ("no-lifestyle") and collapse it to one bottle on
+     * white, so those requests use the Director/Essential prompts instead.
+     */
+    let bestBottlesCatalogPrompt: string | null = null;
+    if (
+      bestBottlesTagSet.has("brand:best-bottles") &&
+      !isBestBottlesReferenceLocked &&
+      !precompiledPromptResolution.prompt &&
+      !isBestBottlesStudioMasterRequest
+    ) {
+      // Cheap structural check first: composites, set/style refs and lane
+      // passes never use the catalog prompt, so do not build it for them.
+      const precheck = bestBottlesCatalogPromptDecision({
+        productReferenceCount: categorizedRefs.product.length,
+        backgroundReferenceCount: categorizedRefs.background.length,
+        styleReferenceCount: categorizedRefs.style.length,
+        lane: generationLane,
+        dropped: [],
+      });
+      if (!precheck.useCatalogPrompt) {
+        console.log("[image] Best Bottles catalog prompt", precheck);
+      } else {
+      const visualStandards = brandKnowledge.visualStandards as {
+        golden_rule?: string;
+        lighting_mandates?: string;
+        forbidden_elements?: string[];
+      } | null;
+      const suppliedLabelText = ["label_text", "printed_text", "on_product_text", "labelText"]
+        .map((key) => productData?.[key])
+        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+      const ordered = buildOrderedImagePrompt({
+        brandNotes: [
+          visualStandards?.golden_rule,
+          visualStandards?.lighting_mandates,
+          Array.isArray(visualStandards?.forbidden_elements)
+            ? `Avoid: ${visualStandards.forbidden_elements.join(", ")}`
+            : "",
+        ].filter((part) => typeof part === "string" && part.trim().length > 0).join("\n"),
+        product: [productData ? formatVisualContext(productData) : "", productFactsBlock]
+          .filter((part) => part.trim().length > 0)
+          .join("\n"),
+        suppliedLabelText,
+        shotType: typeof prompt === "string" ? prompt : "",
+        style: [backgroundPrompt, compositionPrompt, visualMasterContext]
+          .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+          .join("\n"),
+        system: proModeControls ? enhancePromptWithOntology("", proModeControls) : "",
+        negative: [
+          "Avoid blur, distorted lettering, watermarks, frames, and borders.",
+          Array.isArray(imageConstraints?.prohibitedTerms)
+            ? `Avoid: ${imageConstraints.prohibitedTerms.filter((term: unknown) => typeof term === "string").join(", ")}`
+            : "",
+        ].filter(Boolean).join("\n"),
+        refine: typeof userRefinements === "string" ? userRefinements : "",
+        suffix: [
+          Array.isArray(brandContext?.colors) && brandContext.colors.length > 0
+            ? `Incorporate ${brandContext.colors.join(" and ")} color tones.`
+            : "",
+          Array.isArray(brandContext?.styleKeywords) && brandContext.styleKeywords.length > 0
+            ? `Apply ${brandContext.styleKeywords.join(", ")} aesthetic.`
+            : "",
+          effectiveVariationPrompt ? `VARIATION DETAILS: ${effectiveVariationPrompt}` : "",
+        ].filter(Boolean).join("\n"),
+      });
+      const decision = bestBottlesCatalogPromptDecision({
+        productReferenceCount: categorizedRefs.product.length,
+        backgroundReferenceCount: categorizedRefs.background.length,
+        styleReferenceCount: categorizedRefs.style.length,
+        lane: generationLane,
+        dropped: ordered.dropped,
+      });
+      console.log("[image] Best Bottles catalog prompt", decision);
+      if (decision.useCatalogPrompt) {
+        console.log(ordered.log);
+        bestBottlesCatalogPrompt = ordered.prompt;
+      }
+      }
+    }
+
     if (generationLane === "match") {
       enhancedPrompt = buildMatchLightPrompt(prompt, productData);
     } else if (!isRefinement && isBestBottlesStudioMasterRequest && precompiledPromptResolution.prompt) {
@@ -2231,53 +2439,8 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         generationAspectRatio,
         contractProductContext,
       );
-    } else if (
-      bestBottlesTagSet.has("brand:best-bottles") &&
-      !isBestBottlesReferenceLocked &&
-      !precompiledPromptResolution.prompt
-    ) {
-      const visualStandards = brandKnowledge.visualStandards as {
-        golden_rule?: string;
-        lighting_mandates?: string;
-        forbidden_elements?: string[];
-      } | null;
-      const suppliedLabelText = ["label_text", "printed_text", "on_product_text", "labelText"]
-        .map((key) => productData?.[key])
-        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
-      const ordered = buildOrderedImagePrompt({
-        brandNotes: [
-          visualStandards?.golden_rule,
-          visualStandards?.lighting_mandates,
-          Array.isArray(visualStandards?.forbidden_elements)
-            ? `Avoid: ${visualStandards.forbidden_elements.join(", ")}`
-            : "",
-        ].filter((part) => typeof part === "string" && part.trim().length > 0).join("\n"),
-        product: productData ? formatVisualContext(productData) : "",
-        suppliedLabelText,
-        shotType: typeof prompt === "string" ? prompt : "",
-        style: [backgroundPrompt, compositionPrompt, visualMasterContext]
-          .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
-          .join("\n"),
-        system: proModeControls ? enhancePromptWithOntology("", proModeControls) : "",
-        negative: [
-          "Avoid blur, distorted lettering, watermarks, frames, and borders.",
-          Array.isArray(imageConstraints?.prohibitedTerms)
-            ? `Avoid: ${imageConstraints.prohibitedTerms.filter((term: unknown) => typeof term === "string").join(", ")}`
-            : "",
-        ].filter(Boolean).join("\n"),
-        refine: typeof userRefinements === "string" ? userRefinements : "",
-        suffix: [
-          Array.isArray(brandContext?.colors) && brandContext.colors.length > 0
-            ? `Incorporate ${brandContext.colors.join(" and ")} color tones.`
-            : "",
-          Array.isArray(brandContext?.styleKeywords) && brandContext.styleKeywords.length > 0
-            ? `Apply ${brandContext.styleKeywords.join(", ")} aesthetic.`
-            : "",
-          effectiveVariationPrompt ? `VARIATION DETAILS: ${effectiveVariationPrompt}` : "",
-        ].filter(Boolean).join("\n"),
-      });
-      enhancedPrompt = ordered.prompt;
-      console.log(ordered.log);
+    } else if (bestBottlesCatalogPrompt) {
+      enhancedPrompt = bestBottlesCatalogPrompt;
     } else if (isDirectorMode) {
       // DIRECTOR MODE: Full "Virtual Art Director" treatment
       enhancedPrompt = buildDirectorModePrompt(
@@ -2295,6 +2458,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           compositionPrompt,
         },
         generationLane,
+        productFactsBlock,
       );
 
       // Add product visual DNA if available
@@ -2305,7 +2469,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     } else {
       // ESSENTIAL MODE: Simple, fast workflow
       const productRef = categorizedRefs.product[0] || null;
-      enhancedPrompt = buildEssentialModePrompt(prompt, productRef, brandContext, productData);
+      enhancedPrompt = buildEssentialModePrompt(prompt, productRef, brandContext, productData, productFactsBlock);
 
       // Add basic brand context
       if (brandKnowledge.visualStandards) {
@@ -2355,88 +2519,79 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
      * - Base64 Data URLs (data:image/...) - parsed directly (from frontend file uploads)
      */
     
-    // Helper function to process a reference image URL (handles both URL types)
-    const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
-    const MAX_TOTAL_REFERENCE_IMAGE_BYTES = 12 * 1024 * 1024;
-    let totalReferenceImageBytes = 0;
+    // Helper function to process a reference image URL (handles both URL types).
+    // Bytes stay bytes (no base64 round trip); Supabase Storage refs are shrunk
+    // to REFERENCE_MAX_EDGE_PX by the Storage transformer before download; and a
+    // combined budget is enforced, tighter when several references are sent.
+    const expectedReferenceCount =
+      categorizedRefs.product.length +
+      categorizedRefs.component.length +
+      categorizedRefs.background.length +
+      categorizedRefs.style.length;
+    const acceptedReferenceSizes: number[] = [];
+    const supabaseUrlForTransforms = Deno.env.get("SUPABASE_URL");
 
-    async function processReferenceImage(url: string): Promise<{ data: string; mimeType: string } | null> {
+    async function fetchReferenceBytes(url: string): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string; resized: boolean } | null> {
+      const transformed = storageTransformUrl(url, supabaseUrlForTransforms);
+      if (transformed) {
+        try {
+          const res = await fetch(transformed, { headers: { Accept: "image/webp,image/jpeg,image/png" } });
+          if (res.ok) {
+            const bytes = new Uint8Array(await res.arrayBuffer());
+            return { bytes, mimeType: res.headers.get("content-type") || "image/webp", resized: true };
+          }
+          console.warn(`⚠️ Storage transform unavailable (${res.status}); using original reference`);
+        } catch (err) {
+          console.warn("⚠️ Storage transform failed; using original reference", err);
+        }
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.warn(`⚠️ Failed to fetch reference: ${url.substring(0, 50)}... (${response.status})`);
+        return null;
+      }
+      const contentLength = Number(response.headers.get("content-length") || "0");
+      if (contentLength > 0) assertReferenceBudget(acceptedReferenceSizes, contentLength, expectedReferenceCount);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return { bytes, mimeType: response.headers.get("content-type") || "image/png", resized: false };
+    }
+
+    async function processReferenceImage(url: string): Promise<ReferenceImagePayload | null> {
       if (!url) return null;
-      
-      // Check if it's a base64 data URL (from frontend file upload)
+
+      // Base64 data URL (from frontend file upload)
       if (url.startsWith('data:')) {
-        // Parse data URL: data:image/png;base64,xxxxx
         const matches = url.match(/^data:([^;]+);base64,(.+)$/);
         if (matches && matches[1] && matches[2]) {
           const byteSize = Math.ceil((matches[2].length * 3) / 4);
-          if (byteSize > MAX_REFERENCE_IMAGE_BYTES) {
-            throw new Error(
-              `Reference image is too large for edge generation (${Math.round(byteSize / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
-            );
-          }
-          if (totalReferenceImageBytes + byteSize > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
-            throw new Error(
-              "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
-            );
-          }
-          totalReferenceImageBytes += byteSize;
-          console.log(`✅ Parsed base64 data URL (${matches[1]})`, { byteSize, totalReferenceImageBytes });
-          return {
-            mimeType: matches[1],
-            data: matches[2],
-          };
-        } else {
-          console.warn(`⚠️ Invalid data URL format: ${url.substring(0, 50)}...`);
-          return null;
+          assertReferenceBudget(acceptedReferenceSizes, byteSize, expectedReferenceCount);
+          acceptedReferenceSizes.push(byteSize);
+          console.log(`✅ Parsed base64 data URL (${matches[1]})`, { byteSize, totalReferenceImageBytes: acceptedReferenceSizes.reduce((x, y) => x + y, 0) });
+          return createReferencePayload(base64ToBytes(matches[2]), matches[1], matches[2]);
         }
+        console.warn(`⚠️ Invalid data URL format: ${url.substring(0, 50)}...`);
+        return null;
       }
-      
-      // Otherwise, fetch the URL
+
       try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          console.warn(`⚠️ Failed to fetch reference: ${url.substring(0, 50)}... (${response.status})`);
-          return null;
-        }
-        const contentLength = Number(response.headers.get("content-length") || "0");
-        if (contentLength > MAX_REFERENCE_IMAGE_BYTES) {
-          throw new Error(
-            `Reference image is too large for edge generation (${Math.round(contentLength / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
-          );
-        }
-        if (contentLength > 0 && totalReferenceImageBytes + contentLength > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
-          throw new Error(
-            "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
-          );
-        }
-        const buffer = await response.arrayBuffer();
-        if (buffer.byteLength > MAX_REFERENCE_IMAGE_BYTES) {
-          throw new Error(
-            `Reference image is too large for edge generation (${Math.round(buffer.byteLength / 1024 / 1024)}MB). Use a smaller PNG/JPG under 5MB.`,
-          );
-        }
-        if (totalReferenceImageBytes + buffer.byteLength > MAX_TOTAL_REFERENCE_IMAGE_BYTES) {
-          throw new Error(
-            "Combined reference images are too large for edge generation. Remove one reference or use smaller source images.",
-          );
-        }
-        totalReferenceImageBytes += buffer.byteLength;
-        const base64 = encode(new Uint8Array(buffer));
-        console.log(`✅ Fetched and encoded URL reference`, {
-          byteSize: buffer.byteLength,
-          totalReferenceImageBytes,
+        const fetched = await fetchReferenceBytes(url);
+        if (!fetched) return null;
+        assertReferenceBudget(acceptedReferenceSizes, fetched.bytes.byteLength, expectedReferenceCount);
+        acceptedReferenceSizes.push(fetched.bytes.byteLength);
+        console.log(`✅ Fetched URL reference`, {
+          byteSize: fetched.bytes.byteLength,
+          mimeType: fetched.mimeType,
+          resized: fetched.resized,
+          totalReferenceImageBytes: acceptedReferenceSizes.reduce((x, y) => x + y, 0),
         });
-        return {
-          data: base64,
-          mimeType: response.headers.get("content-type") || "image/png",
-        };
+        return createReferencePayload(fetched.bytes, fetched.mimeType);
       } catch (err) {
         console.error(`❌ Error processing reference ${url.substring(0, 50)}...:`, err);
         throw err;
       }
     }
-    
-    const referenceImagesPayload = [];
+
+    const referenceImagesPayload: ReferenceImagePayload[] = [];
     let processedProductReferenceCount = 0;
 
     // Place lane: the set is Image 1 — the canvas — and the product follows.
@@ -2551,16 +2706,10 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
     // If not a super admin, check subscription tier
     if (!isSuperAdmin) {
       try {
-        const { data: orgData } = await supabase
-          .from("organizations")
-          .select("subscription_tier, stripe_subscription_status")
-          .eq("id", resolvedOrgId)
-          .single();
-        
-        if (orgData) {
-          subscriptionTier = (orgData.subscription_tier || "essentials").toLowerCase();
-          const isActive = orgData.stripe_subscription_status === "active" || 
-                          orgData.stripe_subscription_status === "trialing";
+        const orgTier = await resolveOrgSubscriptionTier(supabase, resolvedOrgId);
+        {
+          subscriptionTier = orgTier.tier;
+          const isActive = orgTier.isActive;
           
           // Determine Freepik access based on tier
           // Actual tiers: essentials ($49), studio ($149), signature ($349)
@@ -2765,7 +2914,7 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
       requestSize: isBestBottlesReferenceLocked ? "2080x2288" : null,
       requestResolution: effectiveMadisonResolution ?? null,
       prompt: enhancedPrompt,
-      referenceFingerprintSources: referenceImagesPayload.map((ref) => ref.data),
+      referenceFingerprintSources: referenceImagesPayload.map((ref) => ref.bytes),
       referenceUrls: Array.isArray(actualReferenceImages)
         ? actualReferenceImages.filter((u): u is string => typeof u === "string")
         : undefined,
@@ -3048,6 +3197,8 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
           scenePrompt: typeof prompt === "string" ? prompt : "",
           enhancedPrompt,
           request: flux3Request,
+          hasProductReference: categorizedRefs.product.length > 0,
+          productFacts: productFactsBlock,
         });
         const references = collectFlux3ReferenceImages({
           product: categorizedRefs.product.map((ref) => ref.url),

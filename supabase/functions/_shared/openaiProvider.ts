@@ -18,6 +18,7 @@
 
 import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { resolveGptImageSize } from "./openaiImageSize.ts";
+import { base64ToBytes, referenceBytes } from "./referenceImagePayload.ts";
 
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 
@@ -106,6 +107,8 @@ export interface OpenAIReferenceImage {
   data: string;
   /** e.g. "image/png" or "image/jpeg". */
   mimeType: string;
+  /** Raw bytes when the caller already has them; skips base64 decoding. */
+  bytes?: Uint8Array<ArrayBuffer>;
 }
 
 export interface OpenAIEditMask {
@@ -113,6 +116,22 @@ export interface OpenAIEditMask {
   data: string;
   /** The Images edit API requires a PNG mask with alpha. */
   mimeType: "image/png";
+}
+
+/**
+ * input_fidelity: per the OpenAI image docs it is supported on gpt-image-1 and
+ * gpt-image-1.5 (not gpt-image-1-mini). GPT Image 2 and the 2.5 family always
+ * process image inputs at high fidelity and say to omit it.
+ */
+export function inputFidelityForModel(model: string): { send: boolean; reason: string } {
+  if (model === "gpt-image-1" || model === "gpt-image-1.5") return { send: true, reason: "supported" };
+  if (model === "gpt-image-1-mini") return { send: false, reason: "unsupported on gpt-image-1-mini" };
+  if (/^gpt-image-2/.test(model)) return { send: false, reason: "model always uses high input fidelity" };
+  return { send: false, reason: "not a GPT Image edits model" };
+}
+
+export function isInputFidelityRejection(status: number, body: string): boolean {
+  return status === 400 && /input_fidelity/i.test(body);
 }
 
 function numericAspectRatio(aspectRatio: string | undefined): number | null {
@@ -487,14 +506,14 @@ async function generateViaEdits(
   // the edge function hands us product refs first, then background, then
   // style, so passing them through preserves that hierarchy.
   references.forEach((ref, idx) => {
-    const bytes = Uint8Array.from(atob(ref.data), (c) => c.charCodeAt(0));
+    const bytes = referenceBytes(ref);
     const mime = sanitizeMimeType(ref.mimeType);
     const blob = new Blob([bytes], { type: mime });
     const ext = (mime.split("/")[1] || "png").replace("jpeg", "jpg");
     form.append("image[]", blob, `reference-${idx}.${ext}`);
   });
   if (params.editMask) {
-    const bytes = Uint8Array.from(atob(params.editMask.data), (c) => c.charCodeAt(0));
+    const bytes = base64ToBytes(params.editMask.data);
     const blob = new Blob([bytes], { type: "image/png" });
     form.append("mask", blob, "reviewed-cavity-mask.png");
   }
@@ -508,21 +527,37 @@ async function generateViaEdits(
   form.append("background", background);
   form.append("output_format", outputFormat);
   if (params.user) form.append("user", params.user);
+  const inputFidelity = inputFidelityForModel(model);
+  if (inputFidelity.send) form.append("input_fidelity", "high");
 
   console.log(`[OpenAI] ${model} edits request:`, {
     size, quality, refs: references.length, masked: Boolean(params.editMask),
     promptLength: params.prompt.length,
+    inputFidelity: inputFidelity.send ? "high" : `omitted (${inputFidelity.reason})`,
   });
 
-  const res = await fetch(`${OPENAI_API_BASE}/images/edits`, {
+  const send = () => fetch(`${OPENAI_API_BASE}/images/edits`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${getApiKey()}` }, // multipart sets its own Content-Type
     body: form,
   });
+  let res = await send();
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`OpenAI images/edits error ${res.status}: ${errText}`);
+    if (inputFidelity.send && isInputFidelityRejection(res.status, errText)) {
+      console.warn(`[OpenAI] ${model} rejected input_fidelity; retrying without it`, {
+        status: res.status,
+        detail: errText.slice(0, 300),
+      });
+      form.delete("input_fidelity");
+      res = await send();
+      if (!res.ok) {
+        throw new Error(`OpenAI images/edits error ${res.status}: ${await res.text()}`);
+      }
+    } else {
+      throw new Error(`OpenAI images/edits error ${res.status}: ${errText}`);
+    }
   }
 
   const data = await res.json();
