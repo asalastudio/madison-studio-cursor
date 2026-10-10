@@ -9,7 +9,13 @@
 -- Public-bucket object URLs (/storage/v1/object/public/...) are served without
 -- RLS, so existing file_url / thumbnail_url links keep working. What changes:
 -- list() and createSignedUrl() now require membership in the org that owns the
--- path prefix. Service-role edge functions bypass RLS and are unaffected.
+-- path prefix (upload-dam-asset writes `${organizationId}/${file}`).
+-- Service-role edge functions bypass RLS and are unaffected.
+--
+-- Uses public.get_user_organization_ids() (SECURITY DEFINER, from
+-- 20251219211155_dam_foundation.sql), the helper the dam_* table policies use,
+-- so this does not depend on storage.user_has_org_access() existing in prod.
+-- Idempotent.
 --
 -- NOT APPLIED. Needs Jordan's explicit OK before running against production.
 
@@ -22,7 +28,7 @@ ON storage.objects FOR SELECT
 TO authenticated
 USING (
   bucket_id = 'dam-assets'
-  AND storage.user_has_org_access(SPLIT_PART(name, '/', 1))
+  AND SPLIT_PART(name, '/', 1) = ANY (public.get_user_organization_ids()::text[])
 );
 
 DROP POLICY IF EXISTS "dam_thumbnails_org_select" ON storage.objects;
@@ -31,5 +37,5 @@ ON storage.objects FOR SELECT
 TO authenticated
 USING (
   bucket_id = 'dam-thumbnails'
-  AND storage.user_has_org_access(SPLIT_PART(name, '/', 1))
+  AND SPLIT_PART(name, '/', 1) = ANY (public.get_user_organization_ids()::text[])
 );
