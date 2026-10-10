@@ -50,6 +50,7 @@ import {
   graceSkuFromText,
   hasUsefulFacts,
   mergeFacts,
+  CLOSURE_ONLY_TOPOLOGY_TAG,
   referenceShowsLooseCap,
   type ReferenceProductFacts,
 } from "../_shared/bestBottlesReferenceFacts.ts";
@@ -866,6 +867,21 @@ async function resolveProductReferenceFacts(
             swappedFrom = ref.url;
             ref.url = assembled.image_url;
             tagFacts = { ...tagFacts, ...factsFromLibraryTags(assembled.library_tags) };
+          }
+        }
+        if (organizationId) {
+          // Closure-only image for the SKU, so caps are drawn from their own
+          // reference instead of being dropped (v243).
+          const { data: closure } = await client
+            .from("generated_images")
+            .select("image_url")
+            .eq("organization_id", organizationId)
+            .contains("library_tags", [`sku:${sku}`, CLOSURE_ONLY_TOPOLOGY_TAG])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (typeof closure?.image_url === "string" && closure.image_url.startsWith("https://")) {
+            jobFacts.closureImageUrl = closure.image_url;
           }
         }
       }
@@ -2086,6 +2102,23 @@ const handleGenerateMadisonImage = async (req: Request): Promise<Response> => {
         topology: f.topology,
         swappedToAssembled: Boolean((f as { swappedFrom?: string }).swappedFrom),
       })));
+    }
+    // Closure-only images ride as component refs right after the product refs
+    // (see closureReferenceLines for the Image N numbering). Only for
+    // multi-reference composites with no caller-supplied component refs, so the
+    // Cylinder master guard (exactly one cap identity ref) is untouched.
+    if (
+      categorizedRefs.component.length === 0 &&
+      productReferenceFacts.length > 1 &&
+      generationLaneForGoal(goalType) !== "place" // place sends backgrounds first, which would shift Image N
+    ) {
+      for (const f of productReferenceFacts) {
+        if (f.closureImageUrl) {
+          categorizedRefs.component.push({ url: f.closureImageUrl, label: "closure", description: `Closure for ${f.sku ?? "product"}` });
+        }
+      }
+    } else {
+      productReferenceFacts = productReferenceFacts.map((f) => ({ ...f, closureImageUrl: null }));
     }
     const productFactsBlock = productReferenceFacts.some(hasUsefulFacts) || isBestBottlesBrandRequest
       ? buildReferenceProductFactsBlock(productReferenceFacts, { brandBestBottles: isBestBottlesBrandRequest })
