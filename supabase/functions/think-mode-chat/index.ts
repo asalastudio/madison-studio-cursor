@@ -9,6 +9,7 @@ import {
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
 import { buildBrandAuthoritiesSection } from "../_shared/brandAuthorities.ts";
 import { getMadisonMasterContext, SQUAD_DEFINITIONS } from "../_shared/madisonMasters.ts";
+import { flattenBrandProduct } from '../_shared/brandProducts.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -232,10 +233,11 @@ serve(async (req) => {
 
     try {
       // 1. Fetch Brand Products (use supabaseUser for RLS-scoped org data)
-      const { data: products, error: productsError } = await supabaseUser
+      const { data: productRows, error: productsError } = await supabaseUser
         .from('brand_products')
-        .select('name, collection, scent_family, description')
-        .limit(5); // Fetch top 5 products for context
+        .select('name, specs, metadata, images')
+        .limit(5); // Fetch top 5 products for context (RLS scopes to the caller's orgs)
+      const products = (productRows ?? []).map(flattenBrandProduct);
 
       // 2. Fetch Brand Knowledge (Voice, Guidelines)
       const { data: knowledge, error: knowledgeError } = await supabaseUser

@@ -5,6 +5,7 @@ import {
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
 import { guardOrganization } from "../_shared/edgeAuth.ts";
+import { BRAND_PRODUCTS_ORG_COLUMN, flattenBrandProduct } from '../_shared/brandProducts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,7 +53,8 @@ serve(async (req) => {
     // Fetch all brand data
     const [brandKnowledge, products, collections, masterContent, derivatives, previousHealth] = await Promise.all([
       supabase.from('brand_knowledge').select('*').eq('organization_id', organizationId).eq('is_active', true),
-      supabase.from('brand_products').select('*').eq('organization_id', organizationId),
+      supabase.from('brand_products').select('*').eq(BRAND_PRODUCTS_ORG_COLUMN, organizationId)
+        .then((r: any) => ({ ...r, data: (r.data ?? []).map(flattenBrandProduct) })),
       supabase.from('brand_collections').select('*').eq('organization_id', organizationId),
       supabase.from('master_content').select('content_type, collection').eq('organization_id', organizationId).eq('is_archived', false),
       supabase.from('derivative_assets').select('asset_type').eq('organization_id', organizationId).eq('is_archived', false),
@@ -246,7 +248,7 @@ ${context.brandKnowledge.map(k => {
 }).join('\n')}
 
 PRODUCT DETAILS:
-${context.products.map(p => `- ${p.name} (${p.collection || 'No collection'}): ${p.category || 'No category'}`).join('\n')}
+${context.products.map((p: any) => `- ${p.name} (${p.collection || 'No collection'}): ${p.category || 'No category'}`).join('\n')}
 
 COLLECTION DETAILS:
 ${context.collections.map(c => `- ${c.name}: ${c.description ? 'Has description' : 'Missing description'}, ${c.transparency_statement ? 'Has transparency' : 'Missing transparency'}`).join('\n')}

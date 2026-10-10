@@ -9,6 +9,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { guardOrganization } from "../_shared/edgeAuth.ts";
+import { legacyToBrandProductRow, upsertBrandProducts } from "../_shared/brandProducts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -337,64 +338,11 @@ serve(async (req) => {
 
     console.log(`[sync-etsy-products] Processing ${mappedProducts.length} products`);
 
-    // Fetch existing products
-    const etsyIds = mappedProducts.map((p: any) => p.etsy_listing_id);
-    const { data: existingProducts } = await supabase
-      .from("brand_products")
-      .select("id, name, etsy_listing_id, description")
-      .eq("organization_id", organization_id)
-      .in("etsy_listing_id", etsyIds);
-
-    const existingByEtsyId = new Map(existingProducts?.map(p => [p.etsy_listing_id, p]) || []);
-
-    let updatedCount = 0;
-    let insertedCount = 0;
-
-    // Process each product
-    for (const product of mappedProducts) {
-      const existing = existingByEtsyId.get(product.etsy_listing_id);
-
-      if (existing) {
-        // Update existing product
-        const { error } = await supabase
-          .from("brand_products")
-          .update({
-            // Always sync these from Etsy
-            name: product.name,
-            handle: product.handle,
-            sku: product.sku,
-            price: product.price,
-            compare_at_price: product.compare_at_price,
-            inventory_quantity: product.inventory_quantity,
-            variants: product.variants,
-            options: product.options,
-            images: product.images,
-            featured_image_url: product.featured_image_url,
-            tags: product.tags,
-            materials: product.materials,
-            status: product.status,
-            etsy_state: product.etsy_state,
-            etsy_sync_status: product.etsy_sync_status,
-            last_etsy_sync: product.last_etsy_sync,
-            // Only update description if currently empty
-            ...((!existing.description || existing.description.length < 50) && {
-              description: product.description,
-            }),
-          })
-          .eq("id", existing.id);
-
-        if (error) throw error;
-        updatedCount++;
-      } else {
-        // Insert new product
-        const { error } = await supabase
-          .from("brand_products")
-          .insert([product]);
-
-        if (error) throw error;
-        insertedCount++;
-      }
-    }
+    // brand_products is keyed by (org_id, product_id); see _shared/brandProducts.ts.
+    const rows = mappedProducts.map((p: any) =>
+      legacyToBrandProductRow(organization_id, "etsy", p.etsy_listing_id, p),
+    );
+    const { inserted: insertedCount, updated: updatedCount } = await upsertBrandProducts(supabase, organization_id, rows);
 
     console.log(`[sync-etsy-products] Sync complete: ${updatedCount} updated, ${insertedCount} new`);
 

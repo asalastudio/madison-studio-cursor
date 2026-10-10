@@ -5,6 +5,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { guardOrganization } from "../_shared/edgeAuth.ts";
+import { BRAND_PRODUCTS_ORG_COLUMN, flattenBrandProduct } from "../_shared/brandProducts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -180,10 +181,11 @@ serve(async (req) => {
 
     console.log(`[sync-sanity-products] Fetching Shopify pricing/inventory data...`);
 
-    const { data: shopifyProducts, error: shopifyError } = await supabase
+    const { data: shopifyRows, error: shopifyError } = await supabase
       .from("brand_products")
-      .select("id, name, sku, price, compare_at_price, inventory_quantity, variants, featured_image_url")
-      .eq("organization_id", organization_id);
+      .select("id, name, specs, images, metadata")
+      .eq(BRAND_PRODUCTS_ORG_COLUMN, organization_id);
+    const shopifyProducts = (shopifyRows ?? []).map(flattenBrandProduct);
 
     const skuPricingMap: Record<string, { price: number; compare_at_price: number | null; inventory_quantity: number; image_url?: string }> = {};
 

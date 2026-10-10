@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { guardOrganization } from "../_shared/edgeAuth.ts";
+import { legacyToBrandProductRow, upsertBrandProducts } from "../_shared/brandProducts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -320,90 +321,11 @@ serve(async (req) => {
 
     console.log(`Processing ${mappedProducts.length} products for sync`);
 
-    // Fetch existing products by NAME (since CSV products don't have handles)
-    const names = mappedProducts.map((p: any) => p.name);
-
-    const { data: existingProducts } = await supabase
-      .from('brand_products')
-      .select('id, name, handle, shopify_product_id, description, collection, scent_family, tone, sku, price, variants, images')
-      .eq('organization_id', organization_id)
-      .in('name', names);
-
-    const existingByName = new Map(existingProducts?.map(p => [p.name, p]) || []);
-    const existingByShopifyId = new Map(existingProducts?.map(p => [p.shopify_product_id, p]) || []);
-
-    let updatedCount = 0;
-    let insertedCount = 0;
-
-    // Process each product - match by NAME first (for CSV products), fallback to shopify_product_id
-    for (const product of mappedProducts) {
-      const existingByNameMatch = existingByName.get(product.name);
-      const existingByShopifyMatch = existingByShopifyId.get(product.shopify_product_id);
-      const existing = existingByNameMatch || existingByShopifyMatch;
-
-      if (existing) {
-        // Update existing product - Update Shopify-specific fields + e-commerce data
-        // DO NOT overwrite rich 49-field CSV data (visual DNA, archetypes, etc.)
-        const updateData: any = {
-          // Core Shopify sync fields - always update
-          shopify_product_id: product.shopify_product_id,
-          shopify_variant_id: product.shopify_variant_id,
-          shopify_sync_status: product.shopify_sync_status,
-          last_shopify_sync: product.last_shopify_sync,
-          handle: product.handle,
-
-          // E-commerce fields - always sync from Shopify (source of truth for pricing/inventory)
-          sku: product.sku,
-          barcode: product.barcode,
-          price: product.price,
-          compare_at_price: product.compare_at_price,
-          inventory_quantity: product.inventory_quantity,
-          inventory_policy: product.inventory_policy,
-          track_inventory: product.track_inventory,
-          weight: product.weight,
-          weight_unit: product.weight_unit,
-          requires_shipping: product.requires_shipping,
-          variants: product.variants,
-          options: product.options,
-          images: product.images,
-          featured_image_url: product.featured_image_url,
-          vendor: product.vendor,
-          status: product.status,
-          published_at: product.published_at,
-          tags: product.tags,
-        };
-
-        // Only update these fields if they're currently empty (preserve manual edits)
-        if (!existing.description || existing.description.length < 50) {
-          updateData.description = product.description;
-        }
-        if (!existing.collection) {
-          updateData.collection = product.collection;
-        }
-        if (!existing.scent_family) {
-          updateData.scent_family = product.scent_family;
-        }
-        if (!existing.tone) {
-          updateData.tone = product.tone;
-        }
-
-        const { error } = await supabase
-          .from('brand_products')
-          .update(updateData)
-          .eq('id', existing.id);
-
-        if (error) throw error;
-        updatedCount++;
-      } else {
-        // Insert new product from Shopify
-        const { error } = await supabase
-          .from('brand_products')
-          .insert([product]);
-
-        if (error) throw error;
-        insertedCount++;
-      }
-    }
+    // brand_products is keyed by (org_id, product_id); see _shared/brandProducts.ts.
+    const rows = mappedProducts.map((p: any) =>
+      legacyToBrandProductRow(organization_id, 'shopify', p.shopify_product_id, p),
+    );
+    const { inserted: insertedCount, updated: updatedCount } = await upsertBrandProducts(supabase, organization_id, rows);
 
     console.log(`Successfully synced: ${updatedCount} updated, ${insertedCount} new products`);
 
