@@ -16,6 +16,7 @@ import { routerAgent } from './router';
 import { assemblerAgent } from './assembler';
 import { generatorAgent, generateImagePrompt } from './generator';
 import { editorAgent } from './editor';
+import { humanizeGeneratedCopy } from '@/lib/humanizer/humanizeGeneratedCopy';
 import { fetchVisualMaster } from './assembler';
 import { supabase } from '@/integrations/supabase/client';
 import type {
@@ -124,6 +125,8 @@ export async function madisonPipeline(
   // ═══════════════════════════════════════════════════════════════════════════
   // RECORD GENERATION (for analytics)
   // ═══════════════════════════════════════════════════════════════════════════
+  finalContent = await humanizeGeneratedCopy(finalContent);
+
   const duration = Date.now() - startTime;
   log(`Complete in ${duration}ms`);
 

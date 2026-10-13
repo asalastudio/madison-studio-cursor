@@ -6,6 +6,7 @@ import {
   extractTextFromGeminiResponse,
 } from "../_shared/geminiClient.ts";
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
+import { humanizeGeneratedCopy } from "../_shared/humanizer/humanize.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -552,16 +553,24 @@ ${jsonInstruction}`,
       }
       
       suggestions = jsonStr ? JSON.parse(jsonStr) : {};
+      suggestions = JSON.parse(await humanizeGeneratedCopy(JSON.stringify(suggestions)));
     } catch (parseError) {
       console.error('Failed to parse Gemini response:', parseError, rawSuggestions);
-      // Return a helpful fallback instead of error
+      const fallback = rawSuggestions?.trim()
+        ? JSON.parse(await humanizeGeneratedCopy(JSON.stringify({
+            mission: rawSuggestions.substring(0, 500),
+            vision: "",
+            values: "",
+            personality: "",
+          })))
+        : {
+            mission: "Unable to generate suggestion. Please try again.",
+            vision: "",
+            values: "",
+            personality: "",
+          };
       return new Response(JSON.stringify({ 
-        suggestions: {
-          mission: rawSuggestions?.substring(0, 500) || "Unable to generate suggestion. Please try again.",
-          vision: "",
-          values: "",
-          personality: ""
-        }
+        suggestions: fallback
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

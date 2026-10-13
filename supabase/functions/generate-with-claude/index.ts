@@ -21,6 +21,8 @@ import {
   isTruncatedFinishReason,
   shouldFallbackToClaude,
 } from '../_shared/aiRequestUtils.ts';
+import { humanizeGeneratedCopy } from '../_shared/humanizer/humanize.ts';
+import { requiresHumanizer } from '../_shared/humanizer/policy.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -1153,6 +1155,7 @@ serve(async (req) => {
       imageStudioContext,
       productContext: imageProductContext,
       forcePromptOutput = false,
+      artifact,
     } = requestBody;
     const promptText = typeof prompt === 'string' ? prompt : '';
     const normalizedConsultDomain = typeof consultDomain === 'string' ? consultDomain.toLowerCase() : '';
@@ -2672,6 +2675,14 @@ Return plain text only with no Markdown formatting. No asterisks, bold, italics,
         }
         lastError = error as Error;
       }
+    }
+
+    if (requiresHumanizer({
+      artifact: typeof artifact === "string" ? artifact : undefined,
+      forcePromptOutput: forcePromptOutput === true,
+      isImageStudioConsult,
+    })) {
+      generatedContent = await humanizeGeneratedCopy(generatedContent);
     }
 
     console.log('Successfully generated content with Claude');

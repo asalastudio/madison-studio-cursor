@@ -15,6 +15,7 @@ import type {
   CopySquad,
 } from '@/types/madison';
 import { getIndustryById, type IndustryConfig } from '@/config/industries';
+import { humanizeGeneratedCopy } from '@/lib/humanizer/humanizeGeneratedCopy';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MADISON IDENTITY DOCUMENT
@@ -73,7 +74,7 @@ export async function generatorAgent(
     : '';
 
   console.log(`[Generator] Draft created: ${draft.length} characters`);
-  return draft;
+  return humanizeGeneratedCopy(draft);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -10,6 +10,7 @@ import {
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
 import { buildBrandAuthoritiesSection } from "../_shared/brandAuthorities.ts";
 import { getMadisonMasterContext, SQUAD_DEFINITIONS } from "../_shared/madisonMasters.ts";
+import { humanizeGeneratedCopy } from "../_shared/humanizer/humanize.ts";
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -347,8 +348,10 @@ Always maintain brand voice while optimizing for the platform's audience and alg
         maxOutputTokens: 8192,
       });
 
-      const content = extractTextFromGeminiResponse(completion) ||
-        "I couldn’t generate marketplace copy right now. Please try again.";
+      const drafted = extractTextFromGeminiResponse(completion);
+      const content = drafted?.trim()
+        ? await humanizeGeneratedCopy(drafted)
+        : "I couldn’t generate marketplace copy right now. Please try again.";
 
       const stream = createOpenAISSEStream(content, 300);
 

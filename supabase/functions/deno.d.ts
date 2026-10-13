@@ -32,6 +32,11 @@ declare module "https://deno.land/*" {
   export function serve(handler: (req: Request) => Response | Promise<Response>): void;
 }
 
+declare module "*.md" {
+  const content: string;
+  export default content;
+}
+
 declare module "https://esm.sh/*" {
   const content: any;
   export default content;
