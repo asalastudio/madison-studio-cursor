@@ -111,6 +111,7 @@ async function callClaudeAPI(prompt: string, organizationId?: string): Promise<s
       organizationId,
       mode: 'generate',
       styleOverlay: 'brand-voice',
+      artifact: 'visual-prompt',
     },
   });
 

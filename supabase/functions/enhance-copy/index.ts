@@ -8,6 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.2.1";
 import { guardAuthenticatedOrg } from "../_shared/edgeAuth.ts";
+import { humanizeGeneratedCopy } from "../_shared/humanizer/humanize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,14 +37,9 @@ serve(async (req) => {
     const apiKey = Deno.env.get("GOOGLE_AI_API_KEY") || Deno.env.get("GEMINI_API_KEY");
     
     if (!apiKey) {
-      console.warn("No Gemini API key found, using fallback enhancement");
-      // Fallback: Simple text improvements
       return new Response(
-        JSON.stringify({
-          headline: headline ? headline.toUpperCase() : null,
-          subtext: subtext || null,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "AI service is not configured" }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -93,10 +89,17 @@ If only headline was provided, only enhance headline. If only subtext was provid
       };
     }
 
+    const humanized = JSON.parse(
+      await humanizeGeneratedCopy(JSON.stringify({
+        headline: enhanced.headline || headline || null,
+        subtext: enhanced.subtext || subtext || null,
+      })),
+    ) as { headline: string | null; subtext: string | null };
+
     return new Response(
       JSON.stringify({
-        headline: enhanced.headline || headline,
-        subtext: enhanced.subtext || subtext,
+        headline: humanized.headline,
+        subtext: humanized.subtext,
       }),
       {
         headers: {

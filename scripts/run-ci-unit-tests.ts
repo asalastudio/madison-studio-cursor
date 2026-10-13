@@ -35,6 +35,7 @@ export const CI_UNIT_TEST_FILES = [
   "supabase/functions/_shared/generateModePromptParts.test.ts",
   "supabase/functions/_shared/aiRequestUtils.test.ts",
   "supabase/functions/_shared/generateWithClaudeWiring.test.ts",
+  "supabase/functions/_shared/humanizer/humanizer.test.ts",
   "supabase/functions/_shared/resolveCopyProduct.test.ts",
   "src/lib/darkroomBackgroundVariation.test.ts",
   "src/lib/darkroomPromptDedup.test.ts",

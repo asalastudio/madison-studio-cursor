@@ -13,6 +13,7 @@ import type {
   StrategyJSON,
   ContextPackage,
 } from '@/types/madison';
+import { humanizeGeneratedCopy } from '@/lib/humanizer/humanizeGeneratedCopy';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN EDITOR FUNCTION
@@ -56,7 +57,7 @@ export async function editorAgent(
   finalContent = cleanEditorResponse(finalContent);
 
   console.log('[Editor] Content validated and approved');
-  return finalContent;
+  return humanizeGeneratedCopy(finalContent);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

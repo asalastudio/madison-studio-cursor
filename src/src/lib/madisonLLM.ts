@@ -2,6 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildMadisonPrompt } from "./madisonPrompt";
+import { humanizeGeneratedCopy } from "@/lib/humanizer/humanizeGeneratedCopy";
 
 // --- ENVIRONMENT KEYS ---
 const CLAUDE_KEY = process.env.ANTHROPIC_API_KEY!;
@@ -39,7 +40,7 @@ export async function madisonText(
       completion?.content?.[0] ??
       "";
 
-    if (output.trim().length > 0) return output.trim();
+    if (output.trim().length > 0) return humanizeGeneratedCopy(output.trim());
   } catch (err) {
     console.log("❌ Claude failed — falling back to Gemini");
   }
@@ -48,7 +49,7 @@ export async function madisonText(
   try {
     const model = gemini.getGenerativeModel({ model: GEMINI_TEXT_MODEL });
     const result = await model.generateContent(userMessage);
-    return result.response.text().trim();
+    return humanizeGeneratedCopy(result.response.text().trim());
   } catch (err) {
     console.error("❌ Gemini fallback also failed", err);
     return "Madison: I’m having trouble responding right now.";

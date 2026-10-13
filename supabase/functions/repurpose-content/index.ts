@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import { generateGeminiContent, extractTextFromGeminiResponse } from "../_shared/geminiClient.ts";
+import { humanizeGeneratedCopy } from "../_shared/humanizer/humanize.ts";
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
 import { buildBrandAuthoritiesSection } from "../_shared/brandAuthorities.ts";
 import { getMadisonMasterContext, SQUAD_DEFINITIONS, CONTENT_TYPE_TO_SQUAD } from "../_shared/madisonMasters.ts";
@@ -758,6 +759,30 @@ const stripMarkdown = (text: string): string => {
     .trim();
 };
 
+const STRUCTURAL_MARKERS = [
+  /SUBJECT LINE \d+:/i,
+  /PREVIEW TEXT:/i,
+  /^EMAIL \d+/m,
+  /SLIDE \d+:/i,
+  /CAPTION:/i,
+  /TWEET \d+:/i,
+];
+
+function assertHumanizerPreservedStructure(before: string, after: string): void {
+  for (const marker of STRUCTURAL_MARKERS) {
+    if (marker.test(before) && !marker.test(after)) {
+      throw new Error(`Humanizer removed required structure (${marker})`);
+    }
+  }
+  if (/^EMAIL \d+/m.test(before)) {
+    const beforeCount = parseSequenceEmails(before).length;
+    const afterCount = parseSequenceEmails(after).length;
+    if (afterCount < beforeCount) {
+      throw new Error(`Humanizer dropped email sections (${beforeCount} -> ${afterCount})`);
+    }
+  }
+}
+
 const countWords = (text: string): number => {
   return text
     .trim()
@@ -1377,6 +1402,10 @@ FAILURE TO FOLLOW CODEX V2 PRINCIPLES OR BRAND GUIDELINES IS UNACCEPTABLE.`;
       if (!adequacyResult.isValid) {
         throw new Error(`Generated ${derivativeType} content was incomplete: ${adequacyResult.reason}. Please try again.`);
       }
+
+      const draftedContent = cleanedContent;
+      cleanedContent = await humanizeGeneratedCopy(cleanedContent);
+      assertHumanizerPreservedStructure(draftedContent, cleanedContent);
 
       // Parse platform-specific specs (from cleaned text to avoid markdown tokens)
       let platformSpecs: any = {};

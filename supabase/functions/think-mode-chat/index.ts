@@ -9,6 +9,7 @@ import {
 import { buildAuthorProfilesSection } from "../_shared/authorProfiles.ts";
 import { buildBrandAuthoritiesSection } from "../_shared/brandAuthorities.ts";
 import { getMadisonMasterContext, SQUAD_DEFINITIONS } from "../_shared/madisonMasters.ts";
+import { humanizeGeneratedCopy } from "../_shared/humanizer/humanize.ts";
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -415,8 +416,10 @@ CRITICAL OUTPUT FORMATTING:
         maxOutputTokens: 8192,
       });
 
-      const content = extractTextFromGeminiResponse(completion) ||
-        "I'm sorry—I couldn't generate a response right now.";
+      const drafted = extractTextFromGeminiResponse(completion);
+      const content = drafted?.trim()
+        ? await humanizeGeneratedCopy(drafted)
+        : "I'm sorry—I couldn't generate a response right now.";
 
       const stream = createOpenAISSEStream(content, 300);
 
